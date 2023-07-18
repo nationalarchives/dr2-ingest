@@ -76,6 +76,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       updatedSinceAttributeValue = updatedSinceAttributes(datetimeField)
       updatedSinceAsDate = OffsetDateTime.parse(updatedSinceAttributeValue.s()).toZonedDateTime
       recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, secretName, startFrom)
+      //TODO convert println method to a logging one, once the assembly logging plugin is working
       _ <- IO.println(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
 
       entityLastEventActionDate <-
