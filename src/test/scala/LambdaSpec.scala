@@ -5,7 +5,6 @@ import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import org.joda.time.DateTime
 import org.mockito.MockitoSugar
-import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers._
 import software.amazon.awssdk.services.dynamodb.model._
 import testUtils.ExternalServicesTestUtils
@@ -14,7 +13,7 @@ import uk.gov.nationalarchives.dp.client.DataProcessor.EventAction
 import java.time.ZonedDateTime
 import java.util.UUID
 
-class LambdaSpec extends ExternalServicesTestUtils with MockitoSugar with EitherValues {
+class LambdaSpec extends ExternalServicesTestUtils with MockitoSugar {
   private val mockScheduleEvent = mock[ScheduledEvent]
   when(mockScheduleEvent.getTime).thenReturn(DateTime.parse("2023-06-07T00:00:00.000000+01:00"))
 

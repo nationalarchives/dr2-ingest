@@ -48,7 +48,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       numOfEntitiesUpdated <- publishUpdatedEntitiesAndUpdateDateTime(entitiesClient, 0, eventTriggeredDatetime)
     } yield numOfEntitiesUpdated
 
-    val _ = entities.unsafeRunSync()
+    entities.unsafeRunSync()
   }
 
   private def publishUpdatedEntitiesAndUpdateDateTime(
