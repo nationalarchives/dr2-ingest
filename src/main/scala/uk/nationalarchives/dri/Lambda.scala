@@ -29,11 +29,11 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
     Map("id" -> AttributeValue.builder().s("LastPolled").build())
   private val datetimeField = "datetime"
 
-  def entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = Fs2Client.entityClient(apiUrl)
+  lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = Fs2Client.entityClient(apiUrl)
 
-  def dADynamoDBClient: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
+  val dADynamoDBClient: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
 
-  def dASnsDBClient: DASNSClient[IO] = DASNSClient[IO]()
+  val dASnsDBClient: DASNSClient[IO] = DASNSClient[IO]()
 
   implicit val enc: Encoder[CompactEntity] =
     Encoder.forProduct2("id", "deleted")(entity => (entity.id, entity.deleted))

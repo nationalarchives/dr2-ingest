@@ -128,7 +128,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     val mockDynamoDBClient: DADynamoDBClient[IO] = mock[DADynamoDBClient[IO]]
     val mockSnsClient: DASNSClient[IO] = mock[DASNSClient[IO]]
 
-    override def entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = {
+    override lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = {
       when(mockEntityClient.entitiesUpdatedSince(any[ZonedDateTime], any[String], any[Int], any[Int]))
         .thenReturn(
           entitiesUpdatedSinceReturnValue.headOption.getOrElse(IO(Nil)),
@@ -140,13 +140,13 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       IO(mockEntityClient)
     }
 
-    override def dADynamoDBClient: DADynamoDBClient[IO] = {
+    override val dADynamoDBClient: DADynamoDBClient[IO] = {
       when(mockDynamoDBClient.getAttributeValues(any[DynamoDbRequest])).thenReturn(getAttributeValuesReturnValue)
       when(mockDynamoDBClient.updateAttributeValues(any[DynamoDbRequest])).thenReturn(updateAttributeValuesReturnValue)
       mockDynamoDBClient
     }
 
-    override def dASnsDBClient: DASNSClient[IO] = {
+    override val dASnsDBClient: DASNSClient[IO] = {
       when(mockSnsClient.publish(any[String])(any[List[CompactEntity]])(any[Encoder[CompactEntity]]))
         .thenReturn(snsPublishReturnValue)
       mockSnsClient
