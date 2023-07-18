@@ -12,7 +12,7 @@ object Dependencies {
   lazy val awsLambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.2.2"
   lazy val awsSns = "com.amazonaws" % "aws-java-sdk-sns" % awsLibraryVersion
   lazy val awsSnsClient = "uk.gov.nationalarchives" %% "da-sns-client" % "0.1.13"
-  lazy val awsSsm = "com.amazonaws" % "aws-java-sdk-secretsmanager" % awsLibraryVersion
+  lazy val awsSecretsManager = "com.amazonaws" % "aws-java-sdk-secretsmanager" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.1"
   lazy val mockitoScala = "org.mockito" %% "mockito-scala" % mockitoScalaVersion
   lazy val mockitoScalaTest = "org.mockito" %% "mockito-scala-scalatest" % mockitoScalaVersion
