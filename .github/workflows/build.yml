@@ -11,6 +11,7 @@ jobs:
     uses: nationalarchives/dr2-github-actions/.github/workflows/lambda_build.yml@main
     with:
       repo-name: dr2-entity-event-generator
+      artifact-name: entityEventGenerator
       build-command: sbt assembly
     secrets:
       MANAGEMENT_ACCOUNT: ${{ secrets.MANAGEMENT_ACCOUNT }}
