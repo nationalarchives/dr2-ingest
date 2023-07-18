@@ -23,7 +23,7 @@ jobs:
     uses: nationalarchives/dr2-github-actions/.github/workflows/lambda_deploy.yml@main
     with:
       lambda-name: ${{ github.event.inputs.environment }}-dr2-entity-event-generator
-      deployment-package: entityEventGenerator.zip
+      deployment-package: entityEventGenerator.jar
       environment: ${{ github.event.inputs.environment }}
       to-deploy: ${{ github.event.inputs.to-deploy }}
     secrets:
