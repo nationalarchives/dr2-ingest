@@ -9,12 +9,10 @@ lazy val root = (project in file("."))
   .settings(
     name := "dr2-entity-event-generator",
     libraryDependencies ++= Seq(
-      awsDynamoDb,
       awsDynamoDbClient,
       awsJavaEvents,
       awsLambdaCore,
       awsLambda,
-      awsSns,
       awsSnsClient,
       awsSecretsManager,
       catsEffect,
