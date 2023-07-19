@@ -18,6 +18,8 @@ lazy val root = (project in file("."))
       awsSnsClient,
       awsSecretsManager,
       catsEffect,
+      pureConfig,
+      pureConfigCats,
       sttpClient,
       mockitoScala,
       preservicaClient,

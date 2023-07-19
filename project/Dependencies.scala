@@ -17,6 +17,8 @@ object Dependencies {
   lazy val mockitoScala = "org.mockito" %% "mockito-scala" % mockitoScalaVersion
   lazy val mockitoScalaTest = "org.mockito" %% "mockito-scala-scalatest" % mockitoScalaVersion
   lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.10"
+  lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.4"
+  lazy val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.17.4"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.16"
   lazy val sttpClient = "com.softwaremill.sttp.client3" %% "core" % "3.8.13"
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.2"
