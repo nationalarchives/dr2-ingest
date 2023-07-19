@@ -27,8 +27,8 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
   private val datetimeField = "datetime"
 
   private val configIo: IO[Config] = ConfigSource.default.loadF[IO, Config]()
-  lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = configIo.flatMap {
-    config => Fs2Client.entityClient(config.apiUrl)
+  lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = configIo.flatMap { config =>
+    Fs2Client.entityClient(config.apiUrl)
   }
 
   val dADynamoDBClient: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
@@ -59,10 +59,20 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       eventTriggeredDatetime: OffsetDateTime
   ): IO[Int] =
     for {
-      numOfRecentlyUpdatedEntities <- getEntitiesUpdatedAndUpdateDB(config, entityClient, startFrom, eventTriggeredDatetime)
+      numOfRecentlyUpdatedEntities <- getEntitiesUpdatedAndUpdateDB(
+        config,
+        entityClient,
+        startFrom,
+        eventTriggeredDatetime
+      )
       _ <-
         if (numOfRecentlyUpdatedEntities > 0)
-          publishUpdatedEntitiesAndUpdateDateTime(config, entityClient, startFrom + maxEntitiesPerPage, eventTriggeredDatetime)
+          publishUpdatedEntitiesAndUpdateDateTime(
+            config,
+            entityClient,
+            startFrom + maxEntitiesPerPage,
+            eventTriggeredDatetime
+          )
         else IO(numOfRecentlyUpdatedEntities)
     } yield numOfRecentlyUpdatedEntities
 
@@ -79,7 +89,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       updatedSinceAttributeValue = updatedSinceAttributes(datetimeField)
       updatedSinceAsDate = OffsetDateTime.parse(updatedSinceAttributeValue.s()).toZonedDateTime
       recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, config.secretName, startFrom)
-      //TODO convert println method to a logging one, once the assembly logging plugin is working
+      // TODO convert println method to a logging one, once the assembly logging plugin is working
       _ <- IO.println(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
 
       entityLastEventActionDate <-
