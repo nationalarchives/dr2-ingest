@@ -16,9 +16,8 @@ import uk.gov.nationalarchives.DADynamoDBClient.DynamoDbRequest
 import uk.gov.nationalarchives.dp.client.DataProcessor.EventAction
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
-import uk.gov.nationalarchives.dr2.Lambda
-import uk.gov.nationalarchives.dr2.Lambda.CompactEntity
+import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, Lambda}
+import Lambda.CompactEntity
 
 import java.time.ZonedDateTime
 import java.util.UUID

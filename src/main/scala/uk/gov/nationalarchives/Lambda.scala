@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.dr2
+package uk.gov.nationalarchives
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
@@ -15,7 +15,7 @@ import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
-import uk.gov.nationalarchives.dr2.Lambda.{CompactEntity, Config}
+import Lambda.{CompactEntity, Config}
 
 import java.time.OffsetDateTime
 import java.util.{Date, TimeZone}
