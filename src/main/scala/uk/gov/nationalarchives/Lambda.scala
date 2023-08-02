@@ -118,7 +118,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
 
   private def convertToCompactEntities(entitiesToTransform: List[Entity]): List[CompactEntity] =
     entitiesToTransform.map { entity =>
-      val id = s"${entity.entityType.toLowerCase()}:${entity.ref}"
+      val id = s"${entity.entityType.getOrElse("").toLowerCase()}:${entity.ref}"
       CompactEntity(id, entity.deleted)
     }
 }
