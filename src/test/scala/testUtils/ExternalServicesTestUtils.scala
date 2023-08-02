@@ -44,50 +44,50 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         IO(
           Seq(
             Entity(
-              "CO",
+              Option("CO"),
               UUID.fromString("4148ffe3-fffc-4252-9676-595c22b4fcd2"),
               Some("test file1"),
               deleted = false,
-              "path/1"
+              Option("path/1")
             ),
             Entity(
-              "IO",
+              Option("IO"),
               UUID.fromString("7f094550-7af2-4dc3-a954-9cd7f5c25d7f"),
               Some("test file2"),
               deleted = false,
-              "path/2"
+              Option("path/2")
             ),
             Entity(
-              "SO",
+              Option("SO"),
               UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50"),
               Some("test file3"),
               deleted = false,
-              "path/3"
+              Option("path/3")
             )
           )
         ),
         IO(
           Seq(
             Entity(
-              "SO",
+              Option("SO"),
               UUID.fromString("b10d021d-c013-48b1-90f9-e4ccc6149602"),
               Some("test file4"),
               deleted = false,
-              "path/4"
+              Option("path/4")
             ),
             Entity(
-              "IO",
+              Option("IO"),
               UUID.fromString("e9f6182f-f1b4-4683-89be-9505f5c943ec"),
               Some("test file5"),
               deleted = false,
-              "path/5"
+              Option("path/5")
             ),
             Entity(
-              "CO",
+              Option("CO"),
               UUID.fromString("97f49c11-3be4-4ffa-980d-e698d4faa52a"),
               Some("test file6"),
               deleted = false,
-              "path/6"
+              Option("path/6")
             )
           )
         )
@@ -197,18 +197,18 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       entityCaptor.getAllValues.toArray.toList should be(
         List(
           Entity(
-            "SO",
+            Option("SO"),
             UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50"),
             Some("test file3"),
             deleted = false,
-            "path/3"
+            Option("path/3")
           ),
           Entity(
-            "CO",
+            Option("CO"),
             UUID.fromString("97f49c11-3be4-4ffa-980d-e698d4faa52a"),
             Some("test file6"),
             deleted = false,
-            "path/6"
+            Option("path/6")
           )
         ).take(numOfEntityEventActionsInvocations)
       )

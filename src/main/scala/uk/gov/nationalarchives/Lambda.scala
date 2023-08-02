@@ -11,14 +11,12 @@ import pureconfig.module.catseffect.syntax._
 import software.amazon.awssdk.services.dynamodb.model._
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient.DynamoDbRequest
+import uk.gov.nationalarchives.Lambda.{CompactEntity, Config}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
-import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
-import Lambda.{CompactEntity, Config}
 
-import java.time.OffsetDateTime
-import java.util.{Date, TimeZone}
+import java.time.{Instant, OffsetDateTime}
 
 class Lambda extends RequestHandler[ScheduledEvent, Unit] {
   private val maxEntitiesPerPage: Int = 1000
@@ -39,9 +37,8 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
     Encoder.forProduct2("id", "deleted")(entity => (entity.id, entity.deleted))
 
   override def handleRequest(event: ScheduledEvent, context: Context): Unit = {
-    val offset = if (TimeZone.getTimeZone("Europe/London").inDaylightTime(new Date())) "+0100" else "+0000"
-    val datetimeOfEventString: String = event.getTime.toString().replace("Z", offset)
-    val eventTriggeredDatetime: OffsetDateTime = OffsetDateTime.parse(datetimeOfEventString)
+    val eventTriggeredDatetime: OffsetDateTime =
+      OffsetDateTime.ofInstant(Instant.ofEpochMilli(event.getTime.getMillis), event.getTime.getZone.toTimeZone.toZoneId)
 
     val entities = for {
       config <- configIo
@@ -121,7 +118,9 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
 
   private def convertToCompactEntities(entitiesToTransform: List[Entity]): List[CompactEntity] =
     entitiesToTransform.map { entity =>
-      val id = s"${entity.entityType.toLowerCase()}:${entity.ref}"
+      val id = entity.entityType
+        .map(t => s"${t.toLowerCase()}:${entity.ref}")
+        .getOrElse(entity.ref.toString)
       CompactEntity(id, entity.deleted)
     }
 }
