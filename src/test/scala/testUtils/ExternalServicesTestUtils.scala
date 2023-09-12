@@ -12,12 +12,13 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import software.amazon.awssdk.services.dynamodb.model._
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DADynamoDBClient.DynamoDbRequest
+import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
 import uk.gov.nationalarchives.dp.client.DataProcessor.EventAction
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, Lambda}
-import Lambda.CompactEntity
+import Lambda.{CompactEntity, GetItemsResponse, PartitionKey}
+import org.scanamo.DynamoFormat
 
 import java.time.ZonedDateTime
 import java.util.UUID
@@ -47,6 +48,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
               Option("CO"),
               UUID.fromString("4148ffe3-fffc-4252-9676-595c22b4fcd2"),
               Some("test file1"),
+              Some("test file1 description"),
               deleted = false,
               Option("path/1")
             ),
@@ -54,6 +56,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
               Option("IO"),
               UUID.fromString("7f094550-7af2-4dc3-a954-9cd7f5c25d7f"),
               Some("test file2"),
+              Some("test file2 description"),
               deleted = false,
               Option("path/2")
             ),
@@ -61,6 +64,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
               Option("SO"),
               UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50"),
               Some("test file3"),
+              Some("test file3 description"),
               deleted = false,
               Option("path/3")
             )
@@ -72,6 +76,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
               Option("SO"),
               UUID.fromString("b10d021d-c013-48b1-90f9-e4ccc6149602"),
               Some("test file4"),
+              Some("test file4 description"),
               deleted = false,
               Option("path/4")
             ),
@@ -79,6 +84,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
               Option("IO"),
               UUID.fromString("e9f6182f-f1b4-4683-89be-9505f5c943ec"),
               Some("test file5"),
+              Some("test file5 description"),
               deleted = false,
               Option("path/5")
             ),
@@ -86,6 +92,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
               Option("CO"),
               UUID.fromString("97f49c11-3be4-4ffa-980d-e698d4faa52a"),
               Some("test file6"),
+              Some("test file6 description"),
               deleted = false,
               Option("path/6")
             )
@@ -101,8 +108,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
           )
         )
       ),
-      getAttributeValuesReturnValue: IO[Map[String, AttributeValue]] = IO(
-        Map("datetime" -> AttributeValue.builder().s("2023-06-06T20:39:53.377170+01:00").build())
+      getAttributeValuesReturnValue: IO[List[GetItemsResponse]] = IO(
+        List(GetItemsResponse("2023-06-06T20:39:53.377170+01:00"))
       ),
       snsPublishReturnValue: IO[List[PublishBatchResponse]] = IO(List(PublishBatchResponse.builder().build())),
       updateAttributeValuesReturnValue: IO[Int] = IO(200)
@@ -116,8 +123,10 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
     val entityCaptor: ArgumentCaptor[Entity] = ArgumentCaptor.forClass(classOf[Entity])
 
-    val getAttributeValuesCaptor: ArgumentCaptor[DynamoDbRequest] = ArgumentCaptor.forClass(classOf[DynamoDbRequest])
-    val updateAttributeValuesCaptor: ArgumentCaptor[DynamoDbRequest] = ArgumentCaptor.forClass(classOf[DynamoDbRequest])
+    val getItemsCaptor: ArgumentCaptor[List[PartitionKey]] = ArgumentCaptor.forClass(classOf[List[PartitionKey]])
+    val tableNameCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
+    val updateAttributeValuesCaptor: ArgumentCaptor[DADynamoDbRequest] =
+      ArgumentCaptor.forClass(classOf[DADynamoDbRequest])
 
     val snsArnCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
     val publishEntitiesCaptor: ArgumentCaptor[List[CompactEntity]] =
@@ -140,8 +149,14 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     }
 
     override val dADynamoDBClient: DADynamoDBClient[IO] = {
-      when(mockDynamoDBClient.getAttributeValues(any[DynamoDbRequest])).thenReturn(getAttributeValuesReturnValue)
-      when(mockDynamoDBClient.updateAttributeValues(any[DynamoDbRequest])).thenReturn(updateAttributeValuesReturnValue)
+      when(
+        mockDynamoDBClient.getItems[GetItemsResponse, PartitionKey](any[List[PartitionKey]], any[String])(
+          any[DynamoFormat[GetItemsResponse]],
+          any[DynamoFormat[PartitionKey]]
+        )
+      ).thenReturn(getAttributeValuesReturnValue)
+      when(mockDynamoDBClient.updateAttributeValues(any[DADynamoDbRequest]))
+        .thenReturn(updateAttributeValuesReturnValue)
       mockDynamoDBClient
     }
 
@@ -159,17 +174,18 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         numOfUpdateAttributeValuesInvocations: Int
     ): Unit = {
 
-      verify(mockDynamoDBClient, times(numOfGetAttributeValuesInvocations)).getAttributeValues(
-        getAttributeValuesCaptor.capture()
-      )
-      getAttributeValuesCaptor.getAllValues.toArray.toList should be(
+      verify(mockDynamoDBClient, times(numOfGetAttributeValuesInvocations)).getItems[GetItemsResponse, PartitionKey](
+        getItemsCaptor.capture(),
+        tableNameCaptor.capture()
+      )(any[DynamoFormat[GetItemsResponse]], any[DynamoFormat[PartitionKey]])
+      getItemsCaptor.getAllValues.toArray.toList should be(
         List.fill(numOfGetAttributeValuesInvocations)(
-          DynamoDbRequest(
-            "table-name",
-            Map("id" -> AttributeValue.builder().s("LastPolled").build()),
-            Map("datetime" -> None)
-          )
+          List(PartitionKey("LastPolled"))
         )
+      )
+
+      tableNameCaptor.getAllValues.toArray.toList should be(
+        List.fill(numOfGetAttributeValuesInvocations)("table-name")
       )
 
       verify(mockEntityClient, times(numOfEntitiesUpdatedSinceInvocations)).entitiesUpdatedSince(
@@ -200,6 +216,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
             Option("SO"),
             UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50"),
             Some("test file3"),
+            Some("test file3 description"),
             deleted = false,
             Option("path/3")
           ),
@@ -207,6 +224,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
             Option("CO"),
             UUID.fromString("97f49c11-3be4-4ffa-980d-e698d4faa52a"),
             Some("test file6"),
+            Some("test file6 description"),
             deleted = false,
             Option("path/6")
           )
@@ -245,7 +263,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       )
       updateAttributeValuesCaptor.getAllValues.toArray.toList should be(
         List.fill(numOfUpdateAttributeValuesInvocations)(
-          DynamoDbRequest(
+          DADynamoDbRequest(
             "table-name",
             Map("id" -> AttributeValue.builder().s("LastPolled").build()),
             Map("datetime" -> Some(AttributeValue.builder().s("2023-06-06T20:39:53.377170+01:00").build()))
