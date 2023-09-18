@@ -1,7 +1,7 @@
 import sbt.*
 
 object Dependencies {
-  private val mockitoScalaVersion = "1.17.14"
+  private val mockitoScalaVersion = "1.17.22"
   private val awsLibraryVersion = "1.12.472"
 
   lazy val authUtils = "uk.gov.nationalarchives" %% "tdr-auth-utils" % "0.0.141"
