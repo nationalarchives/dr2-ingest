@@ -1,7 +1,7 @@
 import Dependencies._
 ThisBuild / version := "0.1.0-SNAPSHOT"
 
-ThisBuild / scalaVersion := "2.13.11"
+ThisBuild / scalaVersion := "2.13.12"
 ThisBuild / organization := "uk.gov.nationalarchives"
 ThisBuild / organizationName := "The National Archives"
 
@@ -32,5 +32,5 @@ scalacOptions ++= Seq("-Wunused:imports", "-Werror", "-unchecked", "-deprecation
 
 (assembly / assemblyMergeStrategy) := {
   case PathList("META-INF", _*) => MergeStrategy.discard
-  case _ => MergeStrategy.first
+  case _                        => MergeStrategy.first
 }
