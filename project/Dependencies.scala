@@ -20,5 +20,5 @@ object Dependencies {
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.16"
   lazy val sttpClient = "com.softwaremill.sttp.client3" %% "core" % "3.8.16"
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.2"
-  lazy val wiremock = "com.github.tomakehurst" % "wiremock-jre8" % "2.35.0"
+  lazy val wiremock = "com.github.tomakehurst" % "wiremock-jre8" % "2.35.1"
 }
