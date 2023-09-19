@@ -5,13 +5,14 @@ import cats.effect.unsafe.implicits.global
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import com.amazonaws.services.lambda.runtime.{Context, RequestHandler}
 import io.circe.Encoder
+import org.scanamo.generic.auto.genericDerivedFormat
 import pureconfig._
 import pureconfig.generic.auto._
 import pureconfig.module.catseffect.syntax._
 import software.amazon.awssdk.services.dynamodb.model._
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DADynamoDBClient.DynamoDbRequest
-import uk.gov.nationalarchives.Lambda.{CompactEntity, Config}
+import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
+import uk.gov.nationalarchives.Lambda.{CompactEntity, Config, GetItemsResponse, PartitionKey}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
@@ -80,11 +81,12 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       eventTriggeredDatetime: OffsetDateTime
   ): IO[Int] =
     for {
-      updatedSinceAttributes <- dADynamoDBClient.getAttributeValues(
-        DynamoDbRequest(config.lastEventActionTableName, dateItemPrimaryKeyAndValue, Map(datetimeField -> None))
+      updatedSinceResponses <- dADynamoDBClient.getItems[GetItemsResponse, PartitionKey](
+        List(PartitionKey("LastPolled")),
+        config.lastEventActionTableName
       )
-      updatedSinceAttributeValue = updatedSinceAttributes(datetimeField)
-      updatedSinceAsDate = OffsetDateTime.parse(updatedSinceAttributeValue.s()).toZonedDateTime
+      updatedSinceResponse = updatedSinceResponses.head
+      updatedSinceAsDate = OffsetDateTime.parse(updatedSinceResponse.datetime).toZonedDateTime
       recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, config.secretName, startFrom)
       // TODO convert println method to a logging one, once the assembly logging plugin is working
       _ <- IO.println(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
@@ -106,7 +108,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
           for {
             _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(compactEntities)
             updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
-            updateDateRequest = DynamoDbRequest(
+            updateDateRequest = DADynamoDbRequest(
               config.lastEventActionTableName,
               dateItemPrimaryKeyAndValue,
               Map(datetimeField -> Some(updateDateAttributeValue))
@@ -128,4 +130,6 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
 object Lambda {
   case class Config(apiUrl: String, secretName: String, snsArn: String, lastEventActionTableName: String)
   case class CompactEntity(id: String, deleted: Boolean)
+  case class PartitionKey(id: String)
+  case class GetItemsResponse(datetime: String)
 }
