@@ -5,11 +5,11 @@ object Dependencies {
   private val awsLibraryVersion = "1.12.552"
 
   lazy val authUtils = "uk.gov.nationalarchives" %% "tdr-auth-utils" % "0.0.141"
-  lazy val awsDynamoDbClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % "0.1.20"
+  lazy val awsDynamoDbClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % "0.1.22"
   lazy val awsJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.11.3"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val awsLambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.2.3"
-  lazy val awsSnsClient = "uk.gov.nationalarchives" %% "da-sns-client" % "0.1.20"
+  lazy val awsSnsClient = "uk.gov.nationalarchives" %% "da-sns-client" % "0.1.22"
   lazy val awsSecretsManager = "com.amazonaws" % "aws-java-sdk-secretsmanager" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.1"
   lazy val mockitoScala = "org.mockito" %% "mockito-scala" % mockitoScalaVersion
