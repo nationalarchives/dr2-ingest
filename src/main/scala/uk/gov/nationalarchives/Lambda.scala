@@ -6,6 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import com.amazonaws.services.lambda.runtime.{Context, RequestHandler}
 import io.circe.Encoder
 import org.scanamo.generic.auto.genericDerivedFormat
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 import pureconfig._
 import pureconfig.generic.auto._
 import pureconfig.module.catseffect.syntax._
@@ -24,12 +25,10 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
   private val dateItemPrimaryKeyAndValue =
     Map("id" -> AttributeValue.builder().s("LastPolled").build())
   private val datetimeField = "datetime"
-
   private val configIo: IO[Config] = ConfigSource.default.loadF[IO, Config]()
   lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = configIo.flatMap { config =>
     Fs2Client.entityClient(config.apiUrl)
   }
-
   val dADynamoDBClient: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
 
   val dASnsDBClient: DASNSClient[IO] = DASNSClient[IO]()
@@ -81,6 +80,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       eventTriggeredDatetime: OffsetDateTime
   ): IO[Int] =
     for {
+      logger <- Slf4jLogger.create[IO]
       updatedSinceResponses <- dADynamoDBClient.getItems[GetItemsResponse, PartitionKey](
         List(PartitionKey("LastPolled")),
         config.lastEventActionTableName
@@ -88,8 +88,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       updatedSinceResponse = updatedSinceResponses.head
       updatedSinceAsDate = OffsetDateTime.parse(updatedSinceResponse.datetime).toZonedDateTime
       recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, config.secretName, startFrom)
-      // TODO convert println method to a logging one, once the assembly logging plugin is working
-      _ <- IO.println(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
+      _ <- logger.info(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
 
       entityLastEventActionDate <-
         if (recentlyUpdatedEntities.nonEmpty) {
