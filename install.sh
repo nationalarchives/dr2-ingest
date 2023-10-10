@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 err="error attempting to download from the github repository"
 check_cmd() {
-	command -v "$1" >/dev/null 2>&1
+  command -v "$1" >/dev/null 2>&1
 }
 
 download() {
-	if check_cmd curl; then
-		if ! (curl -fsSL "$1"); then
-			echo err
-			exit 1
-		fi
-	else
-		if ! (wget -qO- "$1"); then
-			echo err
-			exit 1
-		fi
-	fi
+  if check_cmd curl; then
+    if ! (curl -fsSL "$1"); then
+      echo err
+      exit 1
+    fi
+  else
+    if ! (wget -qO- "$1"); then
+      echo err
+      exit 1
+    fi
+  fi
 }
 
 mkdir -p $HOME/.anonymiser/bin

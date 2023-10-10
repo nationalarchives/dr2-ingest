@@ -12,6 +12,8 @@ jobs:
     uses: nationalarchives/dr2-github-actions/.github/workflows/dr2_test.yml@main
     with:
       repo-name: dr2-court-document-package-anonymiser
-      test-command: cargo test
+      test-command: |
+        cargo fmt --check
+        cargo test
     secrets:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

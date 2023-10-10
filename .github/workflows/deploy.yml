@@ -1,4 +1,4 @@
-name: DR2 Release Binary
+name: DR2 Release Anonymiser Binary
 on:
   push:
     branches:
