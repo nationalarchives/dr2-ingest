@@ -95,11 +95,11 @@ fn process_package(dir_output: &PathBuf, file: &PathBuf) -> Result<(), Error> {
         .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
 
     let judgment_name: String = metadata_json_value["parameters"]["PARSER"]["name"].to_string();
-    let docx_path_string: PathBuf = extracted_output_path.join(PathBuf::from(docx_file_name));
+    let docx_path: PathBuf = extracted_output_path.join(PathBuf::from(docx_file_name));
 
-    create_judgment_docx(&docx_path_string, judgment_name)?;
+    create_judgment_docx(&docx_path, judgment_name)?;
 
-    let docx_checksum: String = checksum(&docx_path_string);
+    let docx_checksum: String = checksum(&docx_path);
 
     update_json_file(
         &metadata_output_file_path,
