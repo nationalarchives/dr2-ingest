@@ -21,4 +21,9 @@ You will need to add `$HOME/.anonymiser/bin` to your $PATH.
 anonymiser --input /path/to/input --output /path/to/output
 ```
 
+## Running with docker
+```bash
+docker run -v /path/to/input:/input -v /path/to/output:/output public.ecr.aws/u4s1g5v1/anonymiser
+```
+
 The input path must only contain the tar.gz files you're converting.
