@@ -12,7 +12,7 @@ object Dependencies {
   lazy val awsLambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.2.3"
   lazy val awsSnsClient = "uk.gov.nationalarchives" %% "da-sns-client" % "0.1.22"
   lazy val awsSecretsManager = "com.amazonaws" % "aws-java-sdk-secretsmanager" % awsLibraryVersion
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.1"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.2"
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4jVersion
   lazy val log4jCore = "org.apache.logging.log4j" % "log4j-core" % log4jVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % log4jVersion
