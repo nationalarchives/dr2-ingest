@@ -35,6 +35,6 @@ lazy val root = (project in file("."))
 scalacOptions ++= Seq("-Wunused:imports", "-Werror", "-unchecked", "-deprecation")
 
 (assembly / assemblyMergeStrategy) := {
-  case PathList(ps@_*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
-  case _ => MergeStrategy.first
+  case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
+  case _                                                   => MergeStrategy.first
 }

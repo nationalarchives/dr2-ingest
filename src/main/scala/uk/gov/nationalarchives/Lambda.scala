@@ -27,7 +27,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
   private val datetimeField = "datetime"
   private val configIo: IO[Config] = ConfigSource.default.loadF[IO, Config]()
   lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = configIo.flatMap { config =>
-    Fs2Client.entityClient(config.apiUrl)
+    Fs2Client.entityClient(config.apiUrl, config.secretName)
   }
   val dADynamoDBClient: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
 
@@ -87,13 +87,13 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       )
       updatedSinceResponse = updatedSinceResponses.head
       updatedSinceAsDate = OffsetDateTime.parse(updatedSinceResponse.datetime).toZonedDateTime
-      recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, config.secretName, startFrom)
+      recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, startFrom)
       _ <- logger.info(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
 
       entityLastEventActionDate <-
         if (recentlyUpdatedEntities.nonEmpty) {
           val lastUpdatedEntity: Entity = recentlyUpdatedEntities.last
-          entitiesClient.entityEventActions(lastUpdatedEntity, config.secretName).map { entityEventActions =>
+          entitiesClient.entityEventActions(lastUpdatedEntity).map { entityEventActions =>
             Some(entityEventActions.head.dateOfEvent.toOffsetDateTime)
           }
         } else IO(None)
@@ -120,7 +120,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
   private def convertToCompactEntities(entitiesToTransform: List[Entity]): List[CompactEntity] =
     entitiesToTransform.map { entity =>
       val id = entity.entityType
-        .map(t => s"${t.toLowerCase()}:${entity.ref}")
+        .map(t => s"${t.entityTypeShort.toLowerCase}:${entity.ref}")
         .getOrElse(entity.ref.toString)
       CompactEntity(id, entity.deleted)
     }
