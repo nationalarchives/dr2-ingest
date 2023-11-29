@@ -1,7 +1,7 @@
 import sbt.*
 
 object Dependencies {
-  private val mockitoScalaVersion = "1.17.29"
+  private val mockitoScalaVersion = "1.17.30"
   private val awsLibraryVersion = "1.12.595"
   lazy val log4jVersion = "2.22.0"
 
