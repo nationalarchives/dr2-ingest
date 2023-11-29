@@ -57,9 +57,9 @@ fn process_package(dir_output: &PathBuf, file: &PathBuf) -> Result<(), Error> {
     let output_tar_gz_path: PathBuf =
         Path::new(&dir_output).join(Path::new(&tar_gz_file_name.replace("TDR", "TST")));
     let uncompressed_folder_input_path: &PathBuf = &file.with_extension("").with_extension("");
-    let input_batch_reference: &str = uncompressed_folder_input_path
+    let input_batch_reference: String = uncompressed_folder_input_path
         .file_name()
-        .and_then(|name| name.to_str())
+        .and_then(|name| name.to_str().map(|name| name.replace("TRE-", "")))
         .ok_or(Error::new(
             ErrorKind::InvalidInput,
             "Cannot get a batch reference from the file name",
