@@ -19,6 +19,7 @@ import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, Lambda}
 import Lambda.{CompactEntity, GetItemsResponse, PartitionKey}
 import org.scanamo.DynamoFormat
+import uk.gov.nationalarchives.dp.client.EntityClient._
 
 import java.time.ZonedDateTime
 import java.util.UUID
@@ -45,7 +46,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         IO(
           Seq(
             Entity(
-              Option("CO"),
+              Option(ContentObject),
               UUID.fromString("4148ffe3-fffc-4252-9676-595c22b4fcd2"),
               Some("test file1"),
               Some("test file1 description"),
@@ -53,7 +54,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
               Option("path/1")
             ),
             Entity(
-              Option("IO"),
+              Option(InformationObject),
               UUID.fromString("7f094550-7af2-4dc3-a954-9cd7f5c25d7f"),
               Some("test file2"),
               Some("test file2 description"),
@@ -61,7 +62,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
               Option("path/2")
             ),
             Entity(
-              Option("SO"),
+              Option(StructuralObject),
               UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50"),
               Some("test file3"),
               Some("test file3 description"),
@@ -73,7 +74,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         IO(
           Seq(
             Entity(
-              Option("SO"),
+              Option(StructuralObject),
               UUID.fromString("b10d021d-c013-48b1-90f9-e4ccc6149602"),
               Some("test file4"),
               Some("test file4 description"),
@@ -81,7 +82,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
               Option("path/4")
             ),
             Entity(
-              Option("IO"),
+              Option(InformationObject),
               UUID.fromString("e9f6182f-f1b4-4683-89be-9505f5c943ec"),
               Some("test file5"),
               Some("test file5 description"),
@@ -89,7 +90,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
               Option("path/5")
             ),
             Entity(
-              Option("CO"),
+              Option(ContentObject),
               UUID.fromString("97f49c11-3be4-4ffa-980d-e698d4faa52a"),
               Some("test file6"),
               Some("test file6 description"),
@@ -116,8 +117,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
   ) extends Lambda() {
     val apiUrlCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
     val updatedSinceCaptor: ArgumentCaptor[ZonedDateTime] = ArgumentCaptor.forClass(classOf[ZonedDateTime])
-    val entitiesSecretNameCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-    val eventActionsSecretNameCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
     val entitiesStartFromCaptor: ArgumentCaptor[Int] = ArgumentCaptor.forClass(classOf[Int])
     val eventActionsStartFromCaptor: ArgumentCaptor[Int] = ArgumentCaptor.forClass(classOf[Int])
 
@@ -137,13 +136,13 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     val mockSnsClient: DASNSClient[IO] = mock[DASNSClient[IO]]
 
     override lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = {
-      when(mockEntityClient.entitiesUpdatedSince(any[ZonedDateTime], any[String], any[Int], any[Int]))
+      when(mockEntityClient.entitiesUpdatedSince(any[ZonedDateTime], any[Int], any[Int]))
         .thenReturn(
           entitiesUpdatedSinceReturnValue.headOption.getOrElse(IO(Nil)),
           if (entitiesUpdatedSinceReturnValue.length > 1) entitiesUpdatedSinceReturnValue(1) else IO(Nil),
           IO(Nil)
         )
-      when(mockEntityClient.entityEventActions(any[Entity], any[String], any[Int], any[Int]))
+      when(mockEntityClient.entityEventActions(any[Entity], any[Int], any[Int]))
         .thenReturn(entityEventActionsReturnValue)
       IO(mockEntityClient)
     }
@@ -190,15 +189,11 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
       verify(mockEntityClient, times(numOfEntitiesUpdatedSinceInvocations)).entitiesUpdatedSince(
         updatedSinceCaptor.capture(),
-        entitiesSecretNameCaptor.capture(),
         entitiesStartFromCaptor.capture(),
         any[Int]
       )
       updatedSinceCaptor.getAllValues.toArray.toList should be(
         List.fill(numOfEntitiesUpdatedSinceInvocations)(ZonedDateTime.parse("2023-06-06T20:39:53.377170+01:00"))
-      )
-      entitiesSecretNameCaptor.getAllValues.toArray.toList should be(
-        List.fill(numOfEntitiesUpdatedSinceInvocations)("mockSecretName")
       )
       entitiesStartFromCaptor.getAllValues.toArray.toList should be(
         List(0, 1000, 2000).take(numOfEntitiesUpdatedSinceInvocations)
@@ -206,14 +201,13 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
       verify(mockEntityClient, times(numOfEntityEventActionsInvocations)).entityEventActions(
         entityCaptor.capture(),
-        eventActionsSecretNameCaptor.capture(),
         eventActionsStartFromCaptor.capture(),
         any[Int]
       )
       entityCaptor.getAllValues.toArray.toList should be(
         List(
           Entity(
-            Option("SO"),
+            Option(StructuralObject),
             UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50"),
             Some("test file3"),
             Some("test file3 description"),
@@ -221,7 +215,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
             Option("path/3")
           ),
           Entity(
-            Option("CO"),
+            Option(ContentObject),
             UUID.fromString("97f49c11-3be4-4ffa-980d-e698d4faa52a"),
             Some("test file6"),
             Some("test file6 description"),
@@ -229,9 +223,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
             Option("path/6")
           )
         ).take(numOfEntityEventActionsInvocations)
-      )
-      eventActionsSecretNameCaptor.getAllValues.toArray.toList should be(
-        List.fill(numOfEntityEventActionsInvocations)("mockSecretName")
       )
       eventActionsStartFromCaptor.getAllValues.toArray.toList should be(
         List.fill(numOfEntityEventActionsInvocations)(0)
