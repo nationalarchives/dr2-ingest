@@ -83,7 +83,7 @@ pub async fn process_record(
     upload(&s3_client, &output_tar_path, &output_bucket, file_name).await?;
 
     let output_queue = std::env::var("OUTPUT_QUEUE")?;
-    let reference = parameters.reference;
+    let reference = parameters.reference.replace("TDR", "TST");
     let status = parameters.status;
     let output_message_body = MessageBody {
         parameters: S3Details {
