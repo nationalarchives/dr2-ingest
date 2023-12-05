@@ -1,0 +1,17 @@
+[package]
+name = "anonymiser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anonymiser_lib = {path = "../anonymiser_lib" }
+clap = { version = "4.4.6", features = ["derive"] }
+log = "0.4.20"
+simple_logger = "4.2.0"
+shellexpand = "3.1.0"
+testlib = {path = "../testlib"}
+
+[dev-dependencies]
+assert_cmd = "2.0.12"
+assert_fs = "1.0.13"
+predicates = "3.0.4"

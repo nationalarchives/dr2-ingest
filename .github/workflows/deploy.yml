@@ -16,7 +16,7 @@ jobs:
         with:
           repo-name: dr2-court-document-package-anonymiser
       - run: |
-          cargo build --release
+          cargo build --release -p anonymiser_local_script
           git tag ${{ steps.next-tag.outputs.next-version }}
           git push origin ${{ steps.next-tag.outputs.next-version }}
           gh release create ${{ steps.next-tag.outputs.next-version }} target/release/anonymiser
@@ -40,4 +40,19 @@ jobs:
           cargo build --release --target x86_64-unknown-linux-musl
           docker build -t public.ecr.aws/u4s1g5v1/anonymiser .
           docker push public.ecr.aws/u4s1g5v1/anonymiser
-            
+  documentation-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: 'gh-pages'
+      - run:  |
+          cargo doc --no-deps --workspace --document-private-items
+          git config --global user.email digitalpreservation@nationalarchives.gov.uk
+          git config --global user.name tna-digital-archiving-jenkins
+          git checkout gh-pages
+          rm -rf docs
+          mv target/doc/ docs
+          git add docs
+          git commit -m "Update site documentation"
+          git push -u origin gh-pages
