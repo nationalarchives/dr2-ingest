@@ -25,16 +25,15 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
         .unwrap();
     let test_upload_key = test_download_key.replace("TDR", "TST");
     let test_string = format!(
-        "{{\"parameters\": {{\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Bucket\": \"{}\", \"s3Key\": \"{}\"}}}}",
-        test_input_bucket, test_download_key
+        "{{\"parameters\": {{\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Bucket\": \"{test_input_bucket}\", \"s3Key\": \"{test_download_key}\"}}}}",
     );
     let message = SqsMessage {
         body: Some(test_string),
         ..Default::default()
     };
 
-    let get_object_path = format!("/{}/{}", test_input_bucket, test_download_key);
-    let put_object_path = format!("/{}/{}", test_output_bucket, test_upload_key);
+    let get_object_path = format!("/{test_input_bucket}/{test_download_key}");
+    let put_object_path = format!("/{test_output_bucket}/{test_upload_key}");
     let mock_s3_server = MockServer::start().await;
     let mock_sqs_server = MockServer::start().await;
     let bytes = read(tar_path).unwrap();
@@ -100,7 +99,7 @@ async fn error_if_key_is_missing_from_bucket() {
     set_var("OUTPUT_QUEUE", "https://example.com");
 
     let test_download_key = "missing-key.tar.gz";
-    let get_object_path = format!("/{}/{}", test_input_bucket, test_download_key);
+    let get_object_path = format!("/{test_input_bucket}/{test_download_key}");
     let mock_s3_server = MockServer::start().await;
     let mock_sqs_server = MockServer::start().await;
 
@@ -110,8 +109,7 @@ async fn error_if_key_is_missing_from_bucket() {
         .mount(&mock_s3_server)
         .await;
     let test_string = format!(
-        "{{\"parameters\": {{\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Bucket\": \"{}\", \"s3Key\": \"{}\"}}}}",
-        test_input_bucket, test_download_key
+        "{{\"parameters\": {{\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Bucket\": \"{test_input_bucket}\", \"s3Key\": \"{test_download_key}\"}}}}"
     );
     let message = SqsMessage {
         body: Some(test_string),
@@ -136,7 +134,7 @@ async fn error_if_key_is_not_a_tar_file() {
     set_var("OUTPUT_QUEUE", "https://example.com");
 
     let test_download_key = "test.tar.gz";
-    let get_object_path = format!("/{}/{}", test_input_bucket, test_download_key);
+    let get_object_path = format!("/{test_input_bucket}/{test_download_key}");
     let mock_s3_server = MockServer::start().await;
     let mock_sqs_server = MockServer::start().await;
     Mock::given(method("GET"))
@@ -145,8 +143,7 @@ async fn error_if_key_is_not_a_tar_file() {
         .mount(&mock_s3_server)
         .await;
     let test_string = format!(
-        "{{\"parameters\": {{\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Bucket\": \"{}\", \"s3Key\": \"{}\"}}}}",
-        test_input_bucket, test_download_key
+        "{{\"parameters\": {{\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Bucket\": \"{test_input_bucket}\", \"s3Key\": \"{test_download_key}\"}}}}"
     );
     let message = SqsMessage {
         body: Some(test_string),
@@ -178,16 +175,15 @@ async fn error_if_upload_fails() {
         .unwrap();
     let test_upload_key = test_download_key.replace("TDR", "TST");
     let test_string = format!(
-        "{{\"parameters\": {{\"status\": \"ok\", \"reference\":\"test-reference\",\"s3Bucket\": \"{}\", \"s3Key\": \"{}\"}}}}",
-        test_input_bucket, test_download_key
+        "{{\"parameters\": {{\"status\": \"ok\", \"reference\":\"test-reference\",\"s3Bucket\": \"{test_input_bucket}\", \"s3Key\": \"{test_download_key}\"}}}}"
     );
     let message = SqsMessage {
         body: Some(test_string),
         ..Default::default()
     };
 
-    let get_object_path = format!("/{}/{}", test_input_bucket, test_download_key);
-    let put_object_path = format!("/{}/{}", test_input_bucket, test_upload_key);
+    let get_object_path = format!("/{test_input_bucket}/{test_download_key}");
+    let put_object_path = format!("/{test_input_bucket}/{test_upload_key}");
     let mock_s3_server = MockServer::start().await;
     let mock_sqs_server = MockServer::start().await;
     let bytes = read(tar_path).unwrap();

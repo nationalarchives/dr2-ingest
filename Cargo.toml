@@ -1,24 +1,12 @@
-[package]
+[workspace]
+members = ["lambda", "anonymiser_lib", "anonymiser_local_script"]
+
+[workspace.package]
 name = "anonymiser"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
-members = ["lambda", "anonymise"]
-
-[dependencies]
-anonymise = {path = "anonymise"}
-clap = { version = "4.4.6", features = ["derive"] }
-log = "0.4.20"
-simple_logger = "4.2.0"
-shellexpand = "3.1.0"
-testlib = {path = "testlib"}
 
 [profile.release]
 lto = "fat"
 strip = true
-
-[dev-dependencies]
-assert_cmd = "2.0.12"
-assert_fs = "1.0.13"
-predicates = "3.0.4"

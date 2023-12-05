@@ -42,7 +42,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "anonymise"
+name = "anonymiser"
+version = "0.1.0"
+dependencies = [
+ "anonymiser_lib",
+ "assert_cmd",
+ "assert_fs",
+ "clap",
+ "log",
+ "predicates",
+ "shellexpand",
+ "simple_logger",
+ "testlib",
+]
+
+[[package]]
+name = "anonymiser_lib"
 version = "0.1.0"
 dependencies = [
  "assert_fs",
@@ -56,21 +71,6 @@ dependencies = [
  "tar",
  "testlib",
  "tokio",
-]
-
-[[package]]
-name = "anonymiser"
-version = "0.1.0"
-dependencies = [
- "anonymise",
- "assert_cmd",
- "assert_fs",
- "clap",
- "log",
- "predicates",
- "shellexpand",
- "simple_logger",
- "testlib",
 ]
 
 [[package]]
@@ -1748,7 +1748,7 @@ dependencies = [
 name = "lambda"
 version = "0.1.0"
 dependencies = [
- "anonymise",
+ "anonymiser_lib",
  "anyhow",
  "assert_fs",
  "aws-config",

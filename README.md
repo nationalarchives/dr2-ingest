@@ -5,14 +5,14 @@ A library to anonymise court document packages. There is a script to run this on
 This repo is a [workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) with four members
 
 ## Anonymiser library
-[documentation](https://nationalarchives.github.io/dr2-court-document-package-anonymiser/anonymise)
+[documentation](https://nationalarchives.github.io/dr2-court-document-package-anonymiser/anonymiser_lib)
 
-[source](https://github.com/nationalarchives/dr2-court-document-package-anonymiser/tree/main/anonymise/src/lib.rs)
+[source](https://github.com/nationalarchives/dr2-court-document-package-anonymiser/tree/main/anonymiser_lib/src/lib.rs)
 
-## Anonymiser script
+## Anonymiser local script
 [documentation](https://nationalarchives.github.io/dr2-court-document-package-anonymiser/anonymiser)
 
-[source](https://github.com/nationalarchives/dr2-court-document-package-anonymiser/tree/main/src/main.rs)
+[source](https://github.com/nationalarchives/dr2-court-document-package-anonymiser/tree/main/anonymiser_local_script/src/main.rs)
 
 ## Anonymiser lambda
 [documentation](https://nationalarchives.github.io/dr2-court-document-package-anonymiser/lambda)

@@ -21,7 +21,7 @@
 //!
 //! The input path must only contain the tar.gz files you're converting.
 //!
-use anonymise::*;
+use anonymiser_lib::*;
 use clap::Parser;
 use log::{self, LevelFilter};
 use simple_logger::SimpleLogger;
@@ -69,7 +69,7 @@ fn main() {
 #[cfg(test)]
 mod test {
     use crate::files_from_input_arguments;
-    use anonymise::Opt;
+    use anonymiser_lib::Opt;
     use assert_fs::TempDir;
     use std::fs::write;
     use std::path::{Path, PathBuf};

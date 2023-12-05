@@ -86,7 +86,7 @@ pub fn process_package(dir_output: &PathBuf, file: &PathBuf) -> Result<PathBuf, 
     )?;
 
     if_present_delete(extracted_output_path.join(PathBuf::from(
-        format!("{}.xml", input_batch_reference).as_str(),
+        format!("{input_batch_reference}.xml").as_str(),
     )))?;
     if_present_delete(extracted_output_path.join(PathBuf::from("parser.log")))?;
 

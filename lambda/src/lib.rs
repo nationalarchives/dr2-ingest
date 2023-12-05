@@ -17,7 +17,7 @@
 //! * Upload it to S3 using the `OUTPUT_BUCKET` environment variable
 //! * Send the SQS message to the queue specified in the `OUTPUT_QUEUE` environment variable
 
-use anonymise::process_package;
+use anonymiser_lib::process_package;
 use aws_config::meta::region::RegionProviderChain;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_lambda_events::sqs::SqsMessage;
@@ -156,7 +156,7 @@ async fn create_sqs_client(potential_endpoint_url: Option<&str>) -> SQSClient {
 
 /// # Creates an AWS SDK config object
 async fn aws_config(service: &str, potential_endpoint_url: Option<&str>) -> SdkConfig {
-    let default_endpoint = format!("https://{}.eu-west-2.amazonaws.com", service);
+    let default_endpoint = format!("https://{service}.eu-west-2.amazonaws.com");
     let endpoint_url = potential_endpoint_url.unwrap_or(default_endpoint.as_str());
     let region_provider = RegionProviderChain::default_provider().or_else("eu-west-2");
 

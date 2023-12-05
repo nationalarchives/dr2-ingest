@@ -16,7 +16,7 @@ jobs:
         with:
           repo-name: dr2-court-document-package-anonymiser
       - run: |
-          cargo build --release
+          cargo build --release -p anonymiser_local_script
           git tag ${{ steps.next-tag.outputs.next-version }}
           git push origin ${{ steps.next-tag.outputs.next-version }}
           gh release create ${{ steps.next-tag.outputs.next-version }} target/release/anonymiser
