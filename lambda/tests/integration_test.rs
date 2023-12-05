@@ -25,7 +25,7 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
         .unwrap();
     let test_upload_key = test_download_key.replace("TDR", "TST");
     let test_string = format!(
-        "{{\"parameters\": {{\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Bucket\": \"{test_input_bucket}\", \"s3Key\": \"{test_download_key}\"}}}}",
+        r#"{{"parameters": {{"status":"ok","reference":"test-reference", "s3Bucket": "{test_input_bucket}", "s3Key": "{test_download_key}"}}}}"#,
     );
     let message = SqsMessage {
         body: Some(test_string),
@@ -75,7 +75,7 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
     let send_message_request = sqs_requests.last().unwrap();
     let body = &send_message_request.body;
     let sqs_message_string = String::from_utf8(body.to_vec()).unwrap();
-    let expected_string = "{\"QueueUrl\":\"https://example.com\",\"MessageBody\":\"{\\\"parameters\\\":{\\\"status\\\":\\\"ok\\\",\\\"reference\\\":\\\"test-reference\\\",\\\"s3Bucket\\\":\\\"test-output-bucket\\\",\\\"s3Key\\\":\\\"TST-2023.tar.gz\\\"}}\"}";
+    let expected_string = r#"{"QueueUrl":"https://example.com","MessageBody":"{\"parameters\":{\"status\":\"ok\",\"reference\":\"test-reference\",\"s3Bucket\":\"test-output-bucket\",\"s3Key\":\"TST-2023.tar.gz\"}}"}"#;
     assert_eq!(sqs_message_string, expected_string);
 
     let path_to_output_file = input_dir.to_owned().join("output.tar.gz");
@@ -109,7 +109,7 @@ async fn error_if_key_is_missing_from_bucket() {
         .mount(&mock_s3_server)
         .await;
     let test_string = format!(
-        "{{\"parameters\": {{\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Bucket\": \"{test_input_bucket}\", \"s3Key\": \"{test_download_key}\"}}}}"
+        r#"{{"parameters": {{"status":"ok","reference":"test-reference", "s3Bucket": "{test_input_bucket}", "s3Key": "{test_download_key}"}}}}"#
     );
     let message = SqsMessage {
         body: Some(test_string),
@@ -143,7 +143,7 @@ async fn error_if_key_is_not_a_tar_file() {
         .mount(&mock_s3_server)
         .await;
     let test_string = format!(
-        "{{\"parameters\": {{\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Bucket\": \"{test_input_bucket}\", \"s3Key\": \"{test_download_key}\"}}}}"
+        r#"{{"parameters": {{"status":"ok","reference":"test-reference", "s3Bucket": "{test_input_bucket}", "s3Key": "{test_download_key}"}}}}"#
     );
     let message = SqsMessage {
         body: Some(test_string),
@@ -175,7 +175,7 @@ async fn error_if_upload_fails() {
         .unwrap();
     let test_upload_key = test_download_key.replace("TDR", "TST");
     let test_string = format!(
-        "{{\"parameters\": {{\"status\": \"ok\", \"reference\":\"test-reference\",\"s3Bucket\": \"{test_input_bucket}\", \"s3Key\": \"{test_download_key}\"}}}}"
+        r#"{{"parameters": {{"status":"ok","reference":"test-reference", "s3Bucket": "{test_input_bucket}", "s3Key": "{test_download_key}"}}}}"#
     );
     let message = SqsMessage {
         body: Some(test_string),
@@ -211,8 +211,10 @@ async fn error_if_upload_fails() {
 
 #[tokio::test]
 async fn error_for_invalid_input() {
-    let test_string_missing_bucket = "{\"parameters\": {\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Key\": \"key\"}}";
-    let test_string_missing_key = "{\"parameters\": {\"status\":\"ok\",\"reference\":\"test-reference\", \"s3Bucket\": \"bucket\"}}";
+    let test_string_missing_bucket =
+        r#"{"parameters": {"status":"ok","reference":"test-reference", "s3Key": "key"}}"#;
+    let test_string_missing_key =
+        r#"{"parameters": {"status":"ok","reference":"test-reference", "s3Bucket": "bucket"}}"#;
     let missing_body_message = SqsMessage::default();
     let missing_bucket_message = SqsMessage {
         body: Some(test_string_missing_bucket.to_string()),

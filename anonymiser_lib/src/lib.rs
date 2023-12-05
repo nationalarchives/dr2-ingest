@@ -28,7 +28,7 @@ pub struct Opt {
 /// # Package processor
 /// This takes an output directory path and a path to a tar.gz file as input and anonymises them with the following steps:
 ///
-/// * It replaces Contact-Email and Contact-Name with XXXXXXX
+/// * It replaces the values of Contact-Email and Contact-Name with XXXXXXX
 /// * It generates a new docx file which only contains the name of the judgment.
 /// * It updates the checksum field with the calculated checksum of the new docx file.
 /// * It renames the folder and metadata file from TDR-xxx to TST-xxx.
@@ -57,38 +57,41 @@ pub fn process_package(dir_output: &PathBuf, file: &PathBuf) -> Result<PathBuf, 
         dir_output.join(PathBuf::from(&input_batch_reference));
     let extracted_output_path: PathBuf = dir_output.join(PathBuf::from(output_batch_reference));
 
+    let output_path_with_file = |file_name: &str| -> PathBuf {
+        let output_path = extracted_output_path.clone();
+        output_path.join(PathBuf::from(file_name))
+    };
+
     fs::create_dir_all(extracted_output_path.clone())?;
 
     decompress_file(file, dir_output)?;
 
-    let metadata_input_file_path: &PathBuf = &extracted_output_path.join(PathBuf::from(format!(
-        "TRE-{input_batch_reference}-metadata.json"
-    )));
-    let metadata_output_file_path: &PathBuf = &extracted_output_path.join(PathBuf::from(format!(
-        "TRE-{output_batch_reference}-metadata.json"
-    )));
+    let metadata_input_file_path: PathBuf =
+        output_path_with_file(format!("TRE-{input_batch_reference}-metadata.json").as_str());
+    let metadata_output_file_path: PathBuf =
+        output_path_with_file(format!("TRE-{output_batch_reference}-metadata.json").as_str());
 
     if extracted_output_path.exists() {
         fs::remove_dir_all(&extracted_output_path)?;
     }
     fs::rename(extracted_output_original_name, &extracted_output_path)?;
-    fs::rename(metadata_input_file_path, metadata_output_file_path)?;
+    fs::rename(metadata_input_file_path, &metadata_output_file_path)?;
 
-    let mut metadata_json_value: Value = parse_metadata_json(metadata_output_file_path)?;
+    let mut metadata_json_value: Value = parse_metadata_json(&metadata_output_file_path)?;
 
     let docx_checksum =
         create_docx_with_checksum(&extracted_output_path, &mut metadata_json_value)?;
 
     update_json_file(
-        metadata_output_file_path,
+        &metadata_output_file_path,
         docx_checksum,
         &mut metadata_json_value,
     )?;
 
-    if_present_delete(extracted_output_path.join(PathBuf::from(
+    if_present_delete(output_path_with_file(
         format!("{input_batch_reference}.xml").as_str(),
-    )))?;
-    if_present_delete(extracted_output_path.join(PathBuf::from("parser.log")))?;
+    ))?;
+    if_present_delete(output_path_with_file("parser.log"))?;
 
     tar_folder(
         &output_tar_gz_path,
@@ -96,7 +99,7 @@ pub fn process_package(dir_output: &PathBuf, file: &PathBuf) -> Result<PathBuf, 
         output_batch_reference,
     )?;
 
-    let _ = fs::remove_dir_all(&extracted_output_path);
+    fs::remove_dir_all(&extracted_output_path)?;
     Ok(output_tar_gz_path)
 }
 
@@ -114,7 +117,7 @@ fn create_docx_with_checksum(
 ) -> Result<String, Error> {
     let docx_file_name: &str = metadata_json_value["parameters"]["TRE"]["payload"]["filename"]
         .as_str()
-        .ok_or("Filename is missing from the metadata json")
+        .ok_or("'filename' is missing from the metadata json")
         .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
 
     let judgment_name: &str = metadata_json_value["parameters"]["PARSER"]["name"]
@@ -269,15 +272,15 @@ mod tests {
         let err = create_docx_with_checksum(&output_path.to_owned(), &mut json_value).unwrap_err();
         assert_eq!(
             err.to_string(),
-            "Filename is missing from the metadata json"
+            "'filename' is missing from the metadata json"
         )
     }
 
     #[test]
-    fn test_parse_metadata_json() {
+    fn test_parse_metadata_json_parses_data_into_value() {
         let output_dir = TempDir::new().unwrap();
         let metadata_path = &output_dir.join(PathBuf::from("metadata.json"));
-        fs::write(&metadata_path, "{\"a\": \"b\"}".as_bytes()).unwrap();
+        fs::write(&metadata_path, r#"{"a": "b"}"#.as_bytes()).unwrap();
         let json = parse_metadata_json(&metadata_path).unwrap();
         assert_eq!(&json["a"], "b")
     }
@@ -304,6 +307,8 @@ mod tests {
             "parameters": {
                 "TDR": {
                     "Contact-Email" : "test-email",
+                    "Contact-Email2": "test-email-2",
+                    "TDR-Contact-Name": "tdr-contact-name",
                     "Contact-Name" : "test-name",
                     "Document-Checksum-sha256": "test-checksum"
                 }
@@ -311,12 +316,12 @@ mod tests {
         });
         update_json_file(&metadata_path, "abcde".to_owned(), &mut json_value).unwrap();
         let metadata_json_string = read_to_string(&metadata_path).unwrap();
-        let expected_json = "{\"parameters\":{\"TDR\":{\"Contact-Email\":\"XXXXXXXXX\",\"Contact-Name\":\"XXXXXXXXX\",\"Document-Checksum-sha256\":\"abcde\"}}}";
+        let expected_json = r#"{"parameters":{"TDR":{"Contact-Email":"XXXXXXXXX","Contact-Email2":"test-email-2","Contact-Name":"XXXXXXXXX","Document-Checksum-sha256":"abcde","TDR-Contact-Name":"tdr-contact-name"}}}"#;
         assert_eq!(metadata_json_string, expected_json);
     }
 
     #[test]
-    fn test_tar_folder() {
+    fn test_tar_folder_creates_a_new_tar() {
         let tar_dir = TempDir::new().unwrap();
         let output_dir = TempDir::new().unwrap();
         let folder_name: String = String::from("test_name");

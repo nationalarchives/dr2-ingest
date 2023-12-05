@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// The bucket and key for the file we are processing
 #[derive(Deserialize, Serialize)]
@@ -62,7 +62,7 @@ pub async fn process_record(
     let s3_client = create_s3_client(s3_endpoint_url).await;
     let sqs_client = create_sqs_client(sqs_endpoint_url).await;
 
-    let message_body: MessageBody = serde_json::from_str(&body)?;
+    let message_body: MessageBody = serde_json::from_str(body)?;
     let parameters = message_body.parameters;
     let input_file_path = download(
         &s3_client,
@@ -76,16 +76,16 @@ pub async fn process_record(
     let output_tar_path = process_package(output_path, &input_file_path)?;
     let file_name = output_tar_path
         .file_name()
-        .and_then(|oss| oss.to_str())
+        .and_then(|file_name_as_os_string| file_name_as_os_string.to_str())
         .expect("Cannot parse file name from output path");
 
     let output_bucket = std::env::var("OUTPUT_BUCKET")?;
-    upload(&s3_client, &output_tar_path, &output_bucket, &file_name).await?;
+    upload(&s3_client, &output_tar_path, &output_bucket, file_name).await?;
 
     let output_queue = std::env::var("OUTPUT_QUEUE")?;
     let reference = parameters.reference;
     let status = parameters.status;
-    let message = MessageBody {
+    let output_message_body = MessageBody {
         parameters: S3Details {
             s3_bucket: output_bucket,
             s3_key: file_name.to_string(),
@@ -93,14 +93,14 @@ pub async fn process_record(
             reference,
         },
     };
-    let message_string = serde_json::to_string(&message)?;
+    let message_string = serde_json::to_string(&output_message_body)?;
     let _ = sqs_client
         .send_message()
         .queue_url(&output_queue)
         .message_body(message_string)
         .send()
         .await?;
-    return Ok(output_path.clone());
+    Ok(output_path.clone())
 }
 
 /// # Uploads the specified file
@@ -130,7 +130,7 @@ async fn download(
     client: &S3Client,
     bucket: String,
     key: String,
-    working_directory: &PathBuf,
+    working_directory: &Path,
 ) -> Result<PathBuf, Error> {
     let destination = working_directory.join(PathBuf::from(&key));
     let mut destination_path = destination.clone();

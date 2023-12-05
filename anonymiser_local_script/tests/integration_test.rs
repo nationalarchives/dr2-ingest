@@ -66,7 +66,7 @@ fn error_if_filename_missing() -> Result<(), Box<dyn std::error::Error>> {
         .arg(output_dir.path().to_str().unwrap());
 
     cmd.assert().failure().stdout(predicate::str::contains(
-        "Filename is missing from the metadata json",
+        "'filename' is missing from the metadata json",
     ));
     Ok(())
 }

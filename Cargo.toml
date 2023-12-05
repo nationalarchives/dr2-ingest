@@ -1,8 +1,8 @@
 [workspace]
 members = ["lambda", "anonymiser_lib", "anonymiser_local_script"]
+resolver = "2"
 
 [workspace.package]
-name = "anonymiser"
 version = "0.1.0"
 edition = "2021"
 

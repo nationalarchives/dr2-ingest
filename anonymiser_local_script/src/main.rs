@@ -75,7 +75,7 @@ mod test {
     use std::path::{Path, PathBuf};
 
     #[test]
-    fn test_files_from_input_arguments() {
+    fn test_files_can_be_retrieved_from_input_arguments() {
         let input_dir = TempDir::new().unwrap();
         let test_file_names = ["file1", "file2", "file3"];
         let _ = test_file_names.map(|file_name| {
