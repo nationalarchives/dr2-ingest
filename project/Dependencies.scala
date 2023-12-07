@@ -7,7 +7,7 @@ object Dependencies {
 
   lazy val authUtils = "uk.gov.nationalarchives" %% "tdr-auth-utils" % "0.0.141"
   lazy val awsDynamoDbClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % "0.1.28"
-  lazy val awsJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.11.3"
+  lazy val awsJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.11.4"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val awsLambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.2.3"
   lazy val awsSnsClient = "uk.gov.nationalarchives" %% "da-sns-client" % "0.1.28"
