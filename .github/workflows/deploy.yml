@@ -10,7 +10,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - id: next-tag
         uses: nationalarchives/dr2-github-actions/.github/actions/get-next-version@main
         with:
@@ -25,9 +25,9 @@ jobs:
   docker-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Configure AWS credentials for ECR
-        uses: aws-actions/configure-aws-credentials@v1-node16
+        uses: aws-actions/configure-aws-credentials@v4.0.1
         with:
           role-to-assume: arn:aws:iam::${{ secrets.MANAGEMENT_ACCOUNT_NUMBER }}:role/MgmtDPGithubImageDeploy
           aws-region: us-east-1
@@ -44,7 +44,7 @@ jobs:
   documentation-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: '0'
       - run:  |
@@ -60,7 +60,7 @@ jobs:
   deploy-lambda:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: gh workflow run deploy_lambda.yml
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
