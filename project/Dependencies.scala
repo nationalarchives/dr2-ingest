@@ -6,11 +6,11 @@ object Dependencies {
   lazy val log4jVersion = "2.22.0"
 
   lazy val authUtils = "uk.gov.nationalarchives" %% "tdr-auth-utils" % "0.0.141"
-  lazy val awsDynamoDbClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % "0.1.30"
+  lazy val awsDynamoDbClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % "0.1.32"
   lazy val awsJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.11.4"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val awsLambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.2.3"
-  lazy val awsSnsClient = "uk.gov.nationalarchives" %% "da-sns-client" % "0.1.30"
+  lazy val awsSnsClient = "uk.gov.nationalarchives" %% "da-sns-client" % "0.1.32"
   lazy val awsSecretsManager = "com.amazonaws" % "aws-java-sdk-secretsmanager" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.2"
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4jVersion
