@@ -2,9 +2,9 @@ import sbt.*
 
 object Dependencies {
   private val mockitoScalaVersion = "1.17.30"
-  private val awsLibraryVersion = "1.12.621"
+  private val awsLibraryVersion = "1.12.629"
   private val daAwsClientsVersion = "0.1.35"
-  lazy val log4jVersion = "2.22.0"
+  lazy val log4jVersion = "2.22.1"
 
   lazy val authUtils = "uk.gov.nationalarchives" %% "tdr-auth-utils" % "0.0.141"
   lazy val awsDynamoDbClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
