@@ -2,7 +2,7 @@ import sbt.*
 
 object Dependencies {
   private val mockitoScalaVersion = "1.17.30"
-  private val awsLibraryVersion = "1.12.637"
+  private val awsLibraryVersion = "1.12.641"
   private val daAwsClientsVersion = "0.1.35"
   lazy val log4jVersion = "2.22.1"
 
@@ -20,10 +20,10 @@ object Dependencies {
   lazy val mockitoScala = "org.mockito" %% "mockito-scala" % mockitoScalaVersion
   lazy val mockitoScalaTest = "org.mockito" %% "mockito-scala-scalatest" % mockitoScalaVersion
   lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.38"
-  lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.5"
+  lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.5"40
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.17.5"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.17"
-  lazy val sttpClient = "com.softwaremill.sttp.client3" %% "core" % "3.9.1"
+  lazy val sttpClient = "com.softwaremill.sttp.client3" %% "core" % "3.9.2"
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock-jre8" % "3.0.1"
 }
