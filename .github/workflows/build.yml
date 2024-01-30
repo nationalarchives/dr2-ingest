@@ -10,8 +10,8 @@ jobs:
   pre-deploy:
     uses: nationalarchives/dr2-github-actions/.github/workflows/lambda_build.yml@main
     with:
-      repo-name: dr2-get-ingest-monitor
-      artifact-name: dr2-get-ingest-monitor
+      repo-name: dr2-ingest-workflow-monitor
+      artifact-name: dr2-ingest-workflow-monitor
       build-command: sbt assembly
     secrets:
       MANAGEMENT_ACCOUNT: ${{ secrets.MANAGEMENT_ACCOUNT }}

@@ -6,7 +6,7 @@ ThisBuild / scalaVersion := "2.13.12"
 
 lazy val root = (project in file(".")).
   settings(
-    name := "dr2-get-ingest-monitor",
+    name := "dr2-ingest-workflow-monitor",
     libraryDependencies ++= Seq(
       log4jSlf4j,
       log4jCore,
@@ -20,7 +20,7 @@ lazy val root = (project in file(".")).
     ),
     scalacOptions += "-deprecation"
   )
-(assembly / assemblyJarName) := "dr2-get-ingest-monitor.jar"
+(assembly / assemblyJarName) := "dr2-ingest-workflow-monitor.jar"
 
 scalacOptions ++= Seq("-Wunused:imports", "-Werror")
 
