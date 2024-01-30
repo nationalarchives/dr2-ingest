@@ -1,97 +1,136 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
-import org.mockito.ArgumentMatchers.any
-import org.mockito.{ArgumentCaptor, MockitoSugar}
-import org.scalatest.Assertion
-import org.scalatest.flatspec.AnyFlatSpec
+import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers._
+import org.scalatest.prop.TableDrivenPropertyChecks
 import uk.gov.nationalarchives.Lambda.StateOutput
-import uk.gov.nationalarchives.dp.client.ProcessMonitorClient
-import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.{
-  GetMonitorsRequest,
-  Ingest,
-  MonitorCategory,
-  Monitors,
-  MonitorsStatus
-}
+import uk.gov.nationalarchives.dp.client.ProcessMonitorClient._
+import uk.gov.nationalarchives.testUtils.ExternalServicesTestUtils
 import upickle.default._
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
+import java.io.ByteArrayOutputStream
+import java.util.UUID
 
-class LambdaTest extends AnyFlatSpec with MockitoSugar {
+class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableDrivenPropertyChecks {
   implicit val stateDataReader: Reader[StateOutput] = macroR[StateOutput]
-  private val executionId = "5619e6b0-e959-4e61-9f6e-17170f7c06e2-3a3443ae-92c4-4fc8-9cbd-10c2a58b6045"
-  private val monitorName = s"opex/$executionId"
 
-  private def defaultInputStream: ByteArrayInputStream = {
-    val inJson = s"""{"executionId": "$executionId"}""".stripMargin
-    new ByteArrayInputStream(inJson.getBytes())
+  forAll(runningStatuses) { (apiStatus, normalisedStatus) =>
+    "handleRequest" should s"pass a '$normalisedStatus' 'state', 'mappedId', 0 succeededAssetId, 0 failedAssetIds, 0 duplicatedAssetIds" +
+      s"to the OutputStream if the status returned from the API is $apiStatus" in {
+        val os = new ByteArrayOutputStream()
+        val mockProcessMonitorLambda = ProcessMonitorTest(
+          IO(Seq(defaultMonitor.copy(status = apiStatus))),
+          IO.pure(Nil)
+        )
+        mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
+        val stateData = read[StateOutput](os.toByteArray.map(_.toChar).mkString)
+
+        mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+          Nil,
+          Some(monitorName),
+          List(Ingest),
+          Nil,
+          Nil
+        )
+        stateData.status should be(normalisedStatus)
+        stateData.mappedId should be("a69099e5236501684d415d70b9e8ec7d")
+        stateData.succeededAssets should be(Nil)
+        stateData.duplicatedAssets should be(Nil)
+        stateData.failedAssets should be(Nil)
+      }
   }
 
-  case class ProcessMonitorTest(monitors: IO[Seq[Monitors]]) extends Lambda {
-    override lazy val processMonitorClientIO: IO[ProcessMonitorClient[IO]] = {
-      when(mockProcessMonitorClient.getMonitors(any[GetMonitorsRequest])).thenReturn(monitors)
-      IO(mockProcessMonitorClient)
-    }
-    private val mockProcessMonitorClient: ProcessMonitorClient[IO] = mock[ProcessMonitorClient[IO]]
+  forAll(succeededStatuses) { (apiStatus, normalisedStatus) =>
+    "handleRequest" should s"pass a '$normalisedStatus' 'state', 'mappedId', 1 succeededAssetId, 2 failedAssetIds, 0 duplicatedAssetIds" +
+      s"to the OutputStream if the status returned from the API is $apiStatus" in {
+        val os = new ByteArrayOutputStream()
+        val mockProcessMonitorLambda = ProcessMonitorTest(
+          IO(Seq(defaultMonitor.copy(status = apiStatus))),
+          IO(Seq(defaultMessage))
+        )
+        mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
+        val stateData = read[StateOutput](os.toByteArray.map(_.toChar).mkString)
 
-    def verifyInvocationsAndArgumentsPassed(
-        expectedStatus: List[MonitorsStatus],
-        expectedName: Option[String],
-        expectedCategories: List[MonitorCategory]
-    ): Assertion = {
-      val processMonitorRequestCaptor: ArgumentCaptor[GetMonitorsRequest] =
-        ArgumentCaptor.forClass(classOf[GetMonitorsRequest])
-      verify(mockProcessMonitorClient, times(1)).getMonitors(processMonitorRequestCaptor.capture())
-
-      println(processMonitorRequestCaptor.getValue)
-
-      processMonitorRequestCaptor.getValue.status should be(expectedStatus)
-      processMonitorRequestCaptor.getValue.name should be(expectedName)
-      processMonitorRequestCaptor.getValue.category should be(expectedCategories)
-    }
-  }
-
-  "handleRequest" should "pass the 'state' and 'mappedId', returned from the API, to the OutputStream" in {
-    val os = new ByteArrayOutputStream()
-    val mockProcessMonitorLambda = ProcessMonitorTest(
-      IO(
-        Seq(
-          Monitors(
-            "a69099e5236501684d415d70b9e8ec7d",
-            monitorName,
-            "Succeeded",
-            "2023-11-07T12:02:04.000Z",
-            "2023-11-07T12:02:48.000Z",
-            "Ingest",
-            "OPEX",
-            3,
-            6083,
-            1,
-            0,
-            0,
-            true
+        mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+          Nil,
+          Some(monitorName),
+          List(Ingest),
+          List("a69099e5236501684d415d70b9e8ec7d"),
+          List(Info, Warning, Error)
+        )
+        stateData.status should be(normalisedStatus)
+        stateData.mappedId should be("a69099e5236501684d415d70b9e8ec7d")
+        stateData.succeededAssets should be(List(UUID.fromString("5594c3d7-4b39-408f-a0b0-f79279966205")))
+        stateData.duplicatedAssets should be(Nil)
+        stateData.failedAssets should be(
+          List(
+            UUID.fromString("ae0dac57-d80a-43d1-a436-e912a91eca60"),
+            UUID.fromString("765ba5b9-6d39-462f-a62a-cec5d4a87043")
           )
         )
-      )
-    )
-    mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
-    val stateData = read[StateOutput](os.toByteArray.map(_.toChar).mkString)
+      }
+  }
 
-    mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
-      Nil,
-      Some(monitorName),
-      List(Ingest)
-    )
-    stateData.status should be("Succeeded")
-    stateData.mappedId should be("a69099e5236501684d415d70b9e8ec7d")
+  forAll(failedStatuses) { (apiStatus, normalisedStatus) =>
+    "handleRequest" should s"pass a '$normalisedStatus' 'state', 'mappedId', 0 succeededAssetId, 3 failedAssetIds, 0 duplicatedAssetIds" +
+      s"to the OutputStream if the status returned from the API is $apiStatus" in {
+        val os = new ByteArrayOutputStream()
+        val mockProcessMonitorLambda = ProcessMonitorTest(
+          IO(Seq(defaultMonitor.copy(status = apiStatus))),
+          IO(Seq(defaultMessage.copy(message = "monitor.error.folder.not.ingested")))
+        )
+        mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
+        val stateData = read[StateOutput](os.toByteArray.map(_.toChar).mkString)
+
+        mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+          Nil,
+          Some(monitorName),
+          List(Ingest),
+          List("a69099e5236501684d415d70b9e8ec7d"),
+          List(Info, Warning, Error)
+        )
+        stateData.status should be(normalisedStatus)
+        stateData.mappedId should be("a69099e5236501684d415d70b9e8ec7d")
+        stateData.succeededAssets should be(Nil)
+        stateData.duplicatedAssets should be(Nil)
+        stateData.failedAssets should be(
+          List(
+            UUID.fromString("5594c3d7-4b39-408f-a0b0-f79279966205"),
+            UUID.fromString("ae0dac57-d80a-43d1-a436-e912a91eca60"),
+            UUID.fromString("765ba5b9-6d39-462f-a62a-cec5d4a87043")
+          )
+        )
+      }
+  }
+
+  forAll(pathsWithNoPaxFileAtTheEnd) { (pathWithNoPaxFileAtTheEnd, exceptionMessage) =>
+    "handleRequest" should s"return an exception if an UUID could not be parsed from the end of path '$pathWithNoPaxFileAtTheEnd'" in {
+      val os = new ByteArrayOutputStream()
+      val mockProcessMonitorLambda = ProcessMonitorTest(
+        IO(Seq(defaultMonitor)),
+        IO(Seq(defaultMessage.copy(path = pathWithNoPaxFileAtTheEnd)))
+      )
+
+      val ex = intercept[Exception] {
+        mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
+      }
+
+      mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+        Nil,
+        Some(monitorName),
+        List(Ingest),
+        List("a69099e5236501684d415d70b9e8ec7d"),
+        List(Info, Warning, Error)
+      )
+      ex.getMessage should equal(exceptionMessage)
+    }
   }
 
   "handleRequest" should "return an exception if the API returns one" in {
     val os = new ByteArrayOutputStream()
     val exception = IO.raiseError(new Exception("API has encountered an issue when calling 'getMonitors'"))
-    val mockProcessMonitorLambda = ProcessMonitorTest(exception)
+    val mockProcessMonitorLambda = ProcessMonitorTest(exception, IO.pure(Nil))
 
     val ex = intercept[Exception] {
       mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
@@ -100,8 +139,32 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar {
     mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
       Nil,
       Some(monitorName),
-      List(Ingest)
+      List(Ingest),
+      Nil,
+      Nil
     )
     ex.getMessage should equal("API has encountered an issue when calling 'getMonitors'")
+  }
+
+  "handleRequest" should s"return an exception if the API returns a status that's unexpected" in {
+    val os = new ByteArrayOutputStream()
+    val mockProcessMonitorLambda = ProcessMonitorTest(
+      IO(Seq(defaultMonitor.copy(status = "InvalidStatus"))),
+      IO.pure(Nil)
+    )
+
+    val ex = intercept[Exception] {
+      mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
+    }
+
+    mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+      Nil,
+      Some(monitorName),
+      List(Ingest),
+      Nil,
+      Nil
+    )
+
+    ex.getMessage should equal("'InvalidStatus' is an unexpected status!")
   }
 }
