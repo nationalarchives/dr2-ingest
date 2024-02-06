@@ -74,8 +74,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChec
     ("", "There is no pax file at the end of this path!")
   )
 
-  private val contentAssets = """""".stripMargin
-
   def defaultInputStream: ByteArrayInputStream = {
     val inJson = s"""{
                     |"executionId": "$executionId",
