@@ -41,6 +41,7 @@ class Lambda extends RequestStreamHandler {
     "Failed" -> "Failed"
   )
   private val configIo: IO[Config] = ConfigSource.default.loadF[IO, Config]()
+  private val monitorCategoryType = Ingest
 
   implicit val inputReader: Reader[Input] = macroR[Input]
 
@@ -51,9 +52,9 @@ class Lambda extends RequestStreamHandler {
     for {
       processMonitorClient <- processMonitorClientIO
       monitors <- processMonitorClient.getMonitors(
-        GetMonitorsRequest(name = Some(s"opex/${input.executionId}"), category = List(Ingest))
+        GetMonitorsRequest(name = Some(s"opex/${input.executionId}"), category = List(monitorCategoryType))
       )
-      monitor = monitors.head
+      monitor <- IO.fromOption(monitors.headOption)(new Exception(s"'$monitorCategoryType' Monitor was not found!"))
       monitorStatus <- IO.fromOption(mappedStatuses.get(monitor.status))(
         new Exception(s"'${monitor.status}' is an unexpected status!")
       )

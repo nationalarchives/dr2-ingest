@@ -167,4 +167,26 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
 
     ex.getMessage should equal("'InvalidStatus' is an unexpected status!")
   }
+
+  "handleRequest" should s"return an exception if the API returns 0 Monitors" in {
+    val os = new ByteArrayOutputStream()
+    val mockProcessMonitorLambda = ProcessMonitorTest(
+      IO(Nil),
+      IO.pure(Nil)
+    )
+
+    val ex = intercept[Exception] {
+      mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
+    }
+
+    mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+      Nil,
+      Some(monitorName),
+      List(Ingest),
+      Nil,
+      Nil
+    )
+
+    ex.getMessage should equal("'Ingest' Monitor was not found!")
+  }
 }
