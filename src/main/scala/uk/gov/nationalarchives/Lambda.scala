@@ -46,10 +46,11 @@ class Lambda extends RequestStreamHandler {
   implicit val inputReader: Reader[Input] = macroR[Input]
 
   override def handleRequest(inputStream: InputStream, output: OutputStream, context: Context): Unit = {
-    val inputString = inputStream.readAllBytes().map(_.toChar).mkString
-    val input = read[Input](inputString)
-
     for {
+      input <- IO {
+        val inputString = inputStream.readAllBytes().map(_.toChar).mkString
+        read[Input](inputString)
+      }
       processMonitorClient <- processMonitorClientIO
       monitors <- processMonitorClient.getMonitors(
         GetMonitorsRequest(name = Some(s"opex/${input.executionId}"), category = List(monitorCategoryType))
