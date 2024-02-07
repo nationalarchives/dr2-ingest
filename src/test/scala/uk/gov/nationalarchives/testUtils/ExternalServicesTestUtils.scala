@@ -27,6 +27,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChec
     "2023-11-07T12:02:48.000Z",
     "Ingest",
     "OPEX",
+    "",
+    "100",
     3,
     6083,
     1,
