@@ -3,7 +3,7 @@ import sbt.*
 object Dependencies {
   private val mockitoScalaVersion = "1.17.30"
   private val awsLibraryVersion = "1.12.661"
-  private val daAwsClientsVersion = "0.1.35"
+  private val daAwsClientsVersion = "0.1.36"
   lazy val log4jVersion = "2.23.0"
 
   lazy val authUtils = "uk.gov.nationalarchives" %% "tdr-auth-utils" % "0.0.141"
@@ -19,7 +19,7 @@ object Dependencies {
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % log4jVersion
   lazy val mockitoScala = "org.mockito" %% "mockito-scala" % mockitoScalaVersion
   lazy val mockitoScalaTest = "org.mockito" %% "mockito-scala-scalatest" % mockitoScalaVersion
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.48"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.51"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.5"
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.17.5"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.18"
