@@ -90,7 +90,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
           tableNameCaptor.capture()
         )(any[DynamoFormat[GetDr2PreservicaVersionResponse]], any[DynamoFormat[PartitionKey]])
       (0 until numOfCurrentPreservicaVersionInvocations).foreach { _ =>
-        getItemsCaptor.getValue should be(List(PartitionKey("version")))
+        getItemsCaptor.getValue should be(List(PartitionKey("DR2PreservicaVersion")))
         tableNameCaptor.getValue should be("table-name")
       }
 

@@ -44,7 +44,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       log = logger.info(logCtx)(_)
 
       versionWeAreUsingResponses <- dADynamoDBClient.getItems[GetDr2PreservicaVersionResponse, PartitionKey](
-        List(PartitionKey("version")),
+        List(PartitionKey("DR2PreservicaVersion")),
         config.currentPreservicaVersionTableName
       )
       _ <- log("Retrieved the version of Preservica that we are using")
@@ -82,7 +82,7 @@ object Lambda {
       currentPreservicaVersionTableName: String
   )
 
-  case class PartitionKey(version: String)
+  case class PartitionKey(id: String)
 
   sealed trait PreservicaVersion {
     val version: Float
