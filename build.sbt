@@ -2,7 +2,7 @@ import Dependencies.*
 import uk.gov.nationalarchives.sbt.Log4j2MergePlugin.log4j2MergeStrategy
 ThisBuild / version := "0.1.0-SNAPSHOT"
 
-ThisBuild / scalaVersion := "2.13.12"
+ThisBuild / scalaVersion := "2.13.13"
 ThisBuild / organization := "uk.gov.nationalarchives"
 ThisBuild / organizationName := "The National Archives"
 
