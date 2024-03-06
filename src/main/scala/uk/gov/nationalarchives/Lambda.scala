@@ -5,7 +5,6 @@ import cats.effect.unsafe.implicits.global
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import com.amazonaws.services.lambda.runtime.{Context, RequestHandler}
 import io.circe.Encoder
-//import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
 import org.scanamo.generic.auto.genericDerivedFormat
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import org.typelevel.log4cats.{LoggerName, SelfAwareStructuredLogger}
