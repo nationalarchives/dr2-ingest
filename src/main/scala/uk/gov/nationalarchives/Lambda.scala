@@ -34,12 +34,12 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
   lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = configIo.flatMap { config =>
     Fs2Client.entityClient(config.apiUrl, config.secretName)
   }
-  private val endpoint = "retention-policies"
+  private val lowImpactEndpoint = "by-identifier?type=tnaTest&value=getLatestPreservicaVersion"
   private val configIo: IO[Config] = ConfigSource.default.loadF[IO, Config]()
   override def handleRequest(event: ScheduledEvent, context: Context): Unit = {
     for {
       config <- configIo
-      logCtx: Map[String, String] = Map("endpointToCheck" -> endpoint)
+      logCtx: Map[String, String] = Map("endpointToCheck" -> lowImpactEndpoint)
       log = logger.info(logCtx)(_)
 
       versionWeAreUsingResponses <- dADynamoDBClient.getItems[GetDr2PreservicaVersionResponse, PartitionKey](
@@ -49,7 +49,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       _ <- log("Retrieved the version of Preservica that we are using")
 
       entitiesClient <- entitiesClientIO
-      latestPreservicaVersion <- entitiesClient.getPreservicaNamespaceVersion(endpoint)
+      latestPreservicaVersion <- entitiesClient.getPreservicaNamespaceVersion(lowImpactEndpoint)
       _ <- log("Retrieved version of Preservica that Preservica are using")
 
       versionWeAreUsing = versionWeAreUsingResponses.head.version

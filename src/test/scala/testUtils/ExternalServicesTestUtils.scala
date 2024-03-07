@@ -98,7 +98,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         endpointSinceCaptor.capture()
       )
       (0 until numOfLatestPreservicaVersionInvocations).foreach { _ =>
-        endpointSinceCaptor.getValue should be("retention-policies")
+        endpointSinceCaptor.getValue should be("by-identifier?type=tnaTest&value=getLatestPreservicaVersion")
       }
 
       verify(mockSnsClient, times(numOfPublishInvocations)).publish(
