@@ -32,7 +32,7 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
   private val logger: SelfAwareStructuredLogger[IO] = Slf4jFactory.create[IO].getLogger
 
   lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = configIo.flatMap { config =>
-    Fs2Client.entityClient(config.apiUrl, config.secretName)
+    Fs2Client.entityClient(config.demoApiUrl, config.secretName)
   }
   private val lowImpactEndpoint = "by-identifier?type=tnaTest&value=getLatestPreservicaVersion"
   private val configIo: IO[Config] = ConfigSource.default.loadF[IO, Config]()
@@ -75,7 +75,7 @@ object Lambda {
   case class Input(executionId: String, batchId: String, assetId: UUID)
 
   private case class Config(
-      apiUrl: String,
+      demoApiUrl: String,
       secretName: String,
       snsArn: String,
       currentPreservicaVersionTableName: String

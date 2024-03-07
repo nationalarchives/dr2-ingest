@@ -14,7 +14,7 @@ The lambda is triggered from an AWS EventBridge schedule so the input is [a stan
 
 | Name                                  | Description                                                               |
 |---------------------------------------|---------------------------------------------------------------------------|
-| PRESERVICA_API_URL                    | The Preservica demo API  url                                              |
+| PRESERVICA_DEMO_API_URL               | The Preservica demo API url                                               |
 | PRESERVICA_SECRET_NAME                | The secret used to call the Preservica API                                |
 | PRESERVICA_VERSION_EVENT_TOPIC_ARN    | The Preservica SNS topic to post Preservica version update to             |
 | CURRENT_PRESERVICA_VERSION_TABLE_NAME | The table that stores the current version of Preservica that we are using |
