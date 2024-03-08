@@ -1,9 +1,9 @@
 import sbt._
 object Dependencies {
-  private val mockitoScalaVersion = "1.17.30"
-  lazy val pureConfigVersion = "0.17.5"
-  lazy val logbackVersion = "2.22.1"
-  private val daAwsClientsVersion = "0.1.36"
+  private lazy val mockitoScalaVersion = "1.17.30"
+  private lazy val pureConfigVersion = "0.17.5"
+  private lazy val logbackVersion = "2.22.1"
+  private lazy val daAwsClientsVersion = "0.1.36"
 
   lazy val awsDynamoDbClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val awsSnsClient = "uk.gov.nationalarchives" %% "da-sns-client" % "0.1.32"
