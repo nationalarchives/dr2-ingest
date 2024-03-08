@@ -15,13 +15,8 @@ import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.Lambda._
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
-import upickle.default._
-
-import java.util.UUID
 
 class Lambda extends RequestHandler[ScheduledEvent, Unit] {
-
-  implicit val inputReader: Reader[Input] = macroR[Input]
   val dADynamoDBClient: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
   val dASnsDBClient: DASNSClient[IO] = DASNSClient[IO]()
 
@@ -72,8 +67,6 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
 }
 
 object Lambda {
-  case class Input(executionId: String, batchId: String, assetId: UUID)
-
   private case class Config(
       demoApiUrl: String,
       secretName: String,
@@ -83,9 +76,6 @@ object Lambda {
 
   case class PartitionKey(id: String)
 
-  sealed trait PreservicaVersion {
-    val version: Float
-  }
-  case class GetDr2PreservicaVersionResponse(version: Float) extends PreservicaVersion
-  case class LatestPreservicaVersionMessage(message: String, version: Float) extends PreservicaVersion
+  case class GetDr2PreservicaVersionResponse(version: Float)
+  case class LatestPreservicaVersionMessage(message: String, version: Float)
 }
