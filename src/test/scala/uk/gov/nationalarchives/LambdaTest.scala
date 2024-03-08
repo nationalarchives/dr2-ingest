@@ -41,6 +41,18 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
     mockLambda.verifyInvocationsAndArgumentsPassed(1, 0, 0)
   }
 
+  "handleRequest" should "only call 'getItems' but return a runtimeException if the list of items returned was empty" in {
+    val mockLambda = MockLambda(getCurrentPreservicaVersionReturnValue = IO.pure(Nil))
+
+    val thrownException = intercept[RuntimeException] {
+      mockLambda.handleRequest(mockScheduleEvent, mockContext)
+    }
+
+    thrownException.getMessage should be("The version of Preservica we are using was not found")
+
+    mockLambda.verifyInvocationsAndArgumentsPassed(1, 0, 0)
+  }
+
   "handleRequest" should "call the 'getItems' but after calling 'getPreservicaNamespaceVersion', return an exception " +
     "if one was thrown when it tried to get the latest version of Preservica" in {
       val mockLambda = MockLambda(

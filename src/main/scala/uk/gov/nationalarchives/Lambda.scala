@@ -41,13 +41,14 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
         List(PartitionKey("DR2PreservicaVersion")),
         config.currentPreservicaVersionTableName
       )
-      _ <- log("Retrieved the version of Preservica that we are using")
+      versionWeAreUsing <- IO.fromOption(versionWeAreUsingResponses.headOption.map(_.version))(
+        new RuntimeException("The version of Preservica we are using was not found")
+      )
+      _ <- log(s"Retrieved the version of Preservica that we are using: v$versionWeAreUsing")
 
       entitiesClient <- entitiesClientIO
       latestPreservicaVersion <- entitiesClient.getPreservicaNamespaceVersion(lowImpactEndpoint)
-      _ <- log("Retrieved version of Preservica that Preservica are using")
-
-      versionWeAreUsing = versionWeAreUsingResponses.head.version
+      _ <- log(s"Retrieved the latest version of Preservica: v$latestPreservicaVersion")
       _ <-
         if (latestPreservicaVersion != versionWeAreUsing) {
           val newVersion = List(
