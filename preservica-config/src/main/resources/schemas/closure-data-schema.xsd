@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xs:schema elementFormDefault="qualified" version="1.0" targetNamespace="https://nationalarchives.gov.uk/ClosureData"
+           xmlns:tns="https://nationalarchives.gov.uk/ClosureData"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+    <xs:element name="ClosureData" type="tns:ClosureData"/>
+
+    <xs:complexType name="ClosureData">
+        <xs:all>
+            <xs:element name="ClosurePeriods" type="xs:string" minOccurs="0"/>
+            <xs:element name="StartDate" type="xs:dateTime" minOccurs="0"/>
+            <xs:element name="ExemptionCodes" type="xs:string" minOccurs="0"/>
+        </xs:all>
+    </xs:complexType>
+</xs:schema>

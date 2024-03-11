@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<index xmlns="http://www.preservica.com/customindex/v1">
+    <schemaName>Custom Closure Result</schemaName>
+    <schemaUri>https://nationalarchives.gov.uk/ClosureResult</schemaUri>
+    <shortName>tns</shortName>
+    <term indexName="closure_result_review_date" displayName="Review Date" xpath="//tns:ReviewDate" indexType="DATE" sortable="true"/>
+    <term indexName="closure_result_document_status" displayName="Document Status" xpath="//tns:DocumentStatus" indexType="STRING_DEFAULT"/>
+</index>
