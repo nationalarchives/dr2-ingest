@@ -1,4 +1,4 @@
-name: DR2 Tag and pre deploy
+name: DR2 Build Project
 on:
   push:
     branches:
@@ -8,19 +8,32 @@ permissions:
   contents: write
 jobs:
   pre-deploy:
-    uses: nationalarchives/dr2-github-actions/.github/workflows/lambda_build.yml@main
-    with:
-      repo-name: dr2-ingest-parsed-court-document-event-handler
-      artifact-name: dr2-ingest-parsed-court-document-event-handler
-      build-command: sbt assembly
-    secrets:
-      MANAGEMENT_ACCOUNT: ${{ secrets.MANAGEMENT_ACCOUNT }}
-      WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+    runs-on: ubuntu-latest
+    outputs:
+      next-version: ${{ steps.next-tag.outputs.next-version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials from management account
+        uses: aws-actions/configure-aws-credentials@v4.0.2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.MANAGEMENT_ACCOUNT }}:role/MgmtDPGithubCodeDeploy
+          aws-region: eu-west-2
+          role-session-name: GitHubActionsRole
+      - id: next-tag
+        uses: nationalarchives/dr2-github-actions/.github/actions/get-next-version@main
+        with:
+          repo-name: dr2-ingest
+      - run: |
+          rm -rf target/outputs
+          mkdir -p target/outputs
+          sbt assembly
+          cd target/outputs
+          aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
   deploy:
     needs: pre-deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=${{ needs.pre-deploy.outputs.next-version }}
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
