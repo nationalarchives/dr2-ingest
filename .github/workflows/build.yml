@@ -10,6 +10,7 @@ jobs:
   pre-deploy:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - id: next-tag
         uses: nationalarchives/dr2-github-actions/.github/actions/get-next-version@main
         with:
