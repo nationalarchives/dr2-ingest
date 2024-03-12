@@ -21,13 +21,17 @@ def send_slack_message(key, icon, status):
 
 def update_functions():
     objects = s3.list_objects(Bucket=deploy_bucket, Prefix=version)
+    print(f"Found {len(objects)} objects")
     keys = [obj["Key"].replace(f"{version}/", "") for obj in objects["Contents"]]
     for key in keys:
-        try:
-            aws_lambda.update_function_code(FunctionName=key, S3Bucket=deploy_bucket, S3Key=key)
-            send_slack_message(key, ":green-tick:", "successful")
-        except:
-            send_slack_message(key, ":alert-noflash-slow:", "failure")
+        print(f"Processing key {key}")
+        aws_lambda.update_function_code(FunctionName=key, S3Bucket=deploy_bucket, S3Key=key)
+        send_slack_message(key, ":green-tick:", "successful")
+        # try:
+        #     aws_lambda.update_function_code(FunctionName=key, S3Bucket=deploy_bucket, S3Key=key)
+        #     send_slack_message(key, ":green-tick:", "successful")
+        # except:
+        #     send_slack_message(key, ":alert-noflash-slow:", "failure")
 
 
 update_functions()
