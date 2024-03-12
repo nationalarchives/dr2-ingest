@@ -182,9 +182,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     stubAWSRequests(inputBucket)
     IngestParserTest().handleRequest(event(), null)
     val serveEvents = s3Server.getAllServeEvents.asScala
-    serveEvents.count(e =>
-      e.getRequest.getUrl == s"/$inputBucket/test.tar.gz" && e.getRequest.getMethod == RequestMethod.GET
-    ) should equal(1)
+    serveEvents.count(e => e.getRequest.getUrl == s"/$inputBucket/test.tar.gz" && e.getRequest.getMethod == RequestMethod.GET) should equal(1)
   }
 
   "the lambda" should "write the bagit package to the output bucket" in {
@@ -192,9 +190,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     IngestParserTest().handleRequest(event(), null)
     val serveEvents = s3Server.getAllServeEvents.asScala
 
-    def countPutEvents(name: String) = serveEvents.count(e =>
-      e.getRequest.getUrl == s"/$testOutputBucket/$reference/$name" && e.getRequest.getMethod == RequestMethod.PUT
-    )
+    def countPutEvents(name: String) = serveEvents.count(e => e.getRequest.getUrl == s"/$testOutputBucket/$reference/$name" && e.getRequest.getMethod == RequestMethod.PUT)
 
     metadataFilesAndChecksums.map(_._1).foreach(file => countPutEvents(file) should equal(1))
     countPutEvents(s"data/${uuidsAndChecksum.head._1}") should equal(1)

@@ -96,13 +96,12 @@ class Lambda extends RequestStreamHandler {
               children.filter { assetChild =>
                 val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
                   assetChild.checksumSha256 == bitstreamInfoForCo.fixity.value &&
-                  bitstreamInfoForCo.potentialCoTitle.exists {
-                    titleOfCo => // DDB titles don't have file extensions, CO titles do
-                      val titleOfCoWithoutExtension = titleOfCo.split('.').dropRight(1).mkString(".")
-                      lazy val fileNameWithoutExtension = assetChild.name.split('.').dropRight(1).mkString(".")
-                      val titleOrFileName = assetChild.title.getOrElse(fileNameWithoutExtension)
-                      val assetChildTitle = if (titleOrFileName.isEmpty) fileNameWithoutExtension else titleOrFileName
-                      titleOfCoWithoutExtension == assetChildTitle
+                  bitstreamInfoForCo.potentialCoTitle.exists { titleOfCo => // DDB titles don't have file extensions, CO titles do
+                    val titleOfCoWithoutExtension = titleOfCo.split('.').dropRight(1).mkString(".")
+                    lazy val fileNameWithoutExtension = assetChild.name.split('.').dropRight(1).mkString(".")
+                    val titleOrFileName = assetChild.title.getOrElse(fileNameWithoutExtension)
+                    val assetChildTitle = if (titleOrFileName.isEmpty) fileNameWithoutExtension else titleOrFileName
+                    titleOfCoWithoutExtension == assetChildTitle
                   }
                 }
 

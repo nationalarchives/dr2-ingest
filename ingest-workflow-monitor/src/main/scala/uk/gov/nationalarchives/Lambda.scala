@@ -73,9 +73,7 @@ class Lambda extends RequestStreamHandler {
             }
 
             _ <- pathsOfAssetsIngestedWithOpex
-              .map(path =>
-                IO.raiseWhen(!path.endsWith(".pax"))(new Exception("There is no pax file at the end of this path!"))
-              )
+              .map(path => IO.raiseWhen(!path.endsWith(".pax"))(new Exception("There is no pax file at the end of this path!")))
               .sequence
 
             idsOfIngestedAssets = pathsOfAssetsIngestedWithOpex.map { path =>

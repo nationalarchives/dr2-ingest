@@ -214,8 +214,8 @@ class Lambda extends RequestStreamHandler {
       }
 
     val slashesInParentPathsIncreaseByOne: Boolean =
-      numberOfSlashesInParentPathPerFolder.zip(numberOfSlashesInParentPathPerFolder.drop(1)).forall {
-        case (slashesInParentOfParent, slashesInParent) => (slashesInParent - slashesInParentOfParent) == 1
+      numberOfSlashesInParentPathPerFolder.zip(numberOfSlashesInParentPathPerFolder.drop(1)).forall { case (slashesInParentOfParent, slashesInParent) =>
+        (slashesInParent - slashesInParentOfParent) == 1
       }
 
     if (!slashesInParentPathsIncreaseByOne)

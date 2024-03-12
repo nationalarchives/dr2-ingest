@@ -308,8 +308,7 @@ object FileProcessor {
           description,
           assetMetadataIdFields
         ) =>
-      val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) =>
-        fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
+      val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) => fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
 
       jsonFromMetadataObject(id, parentId, Option(title), Asset, name)
         .deepMerge {
@@ -333,18 +332,17 @@ object FileProcessor {
         )
         .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), File, name))
   }
-  implicit val bagitInfoEncoder: Encoder[BagInfo] = {
-    case BagInfo(transferringBody, transferCompleteDatetime, upstreamSystem, digitalAssetSource, digitalAssetSubtype, idFields) =>
-      Json
-        .obj(
-          ("transferringBody", Json.fromString(transferringBody)),
-          ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
-          ("upstreamSystem", Json.fromString(upstreamSystem)),
-          ("digitalAssetSource", Json.fromString(digitalAssetSource)),
-          ("digitalAssetSubtype", Json.fromString(digitalAssetSubtype))
-        )
-        .deepDropNullValues
-        .deepMerge(Json.fromFields(convertIdFieldsToJson(idFields)))
+  implicit val bagitInfoEncoder: Encoder[BagInfo] = { case BagInfo(transferringBody, transferCompleteDatetime, upstreamSystem, digitalAssetSource, digitalAssetSubtype, idFields) =>
+    Json
+      .obj(
+        ("transferringBody", Json.fromString(transferringBody)),
+        ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
+        ("upstreamSystem", Json.fromString(upstreamSystem)),
+        ("digitalAssetSource", Json.fromString(digitalAssetSource)),
+        ("digitalAssetSubtype", Json.fromString(digitalAssetSubtype))
+      )
+      .deepDropNullValues
+      .deepMerge(Json.fromFields(convertIdFieldsToJson(idFields)))
   }
 
   private def jsonFromMetadataObject(

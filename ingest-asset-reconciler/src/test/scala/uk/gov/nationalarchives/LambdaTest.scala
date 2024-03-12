@@ -236,35 +236,34 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     testLambda.verifyInvocationsAndArgumentsPassed(numOfGetBitstreamInfoRequests = 0)
   }
 
-  forAll(contentObjectApiVsDdbStates) {
-    (docxChecksum, jsonChecksum, docxTitle, jsonName, idsThatFailed, reasonForFailure) =>
-      "handleRequest" should s"return a 'wasReconciled' value of 'false' and a 'reason' message that contains " +
-        s"these ids: $idsThatFailed if $reasonForFailure " in {
-          val outStream = outputStream
-          val updatedDynamoPostResponse = dynamoPostResponse
-            .replace(s""""S": "$defaultDocxChecksum"""", s""""S": "$docxChecksum"""")
-            .replace(s""""S": "$defaultJsonChecksum"""", s""""S": "$jsonChecksum"""")
-            .replace(s""""S": "$defaultDocxTitle"""", s""""S": "$docxTitle"""")
-            .replace(s""""S": "$defaultDocxTitle.docx"""", s""""S": "$docxTitle.docx"""")
-            .replace(s""""S": "$defaultJsonName.json"""", s""""S": "$jsonName"""")
+  forAll(contentObjectApiVsDdbStates) { (docxChecksum, jsonChecksum, docxTitle, jsonName, idsThatFailed, reasonForFailure) =>
+    "handleRequest" should s"return a 'wasReconciled' value of 'false' and a 'reason' message that contains " +
+      s"these ids: $idsThatFailed if $reasonForFailure " in {
+        val outStream = outputStream
+        val updatedDynamoPostResponse = dynamoPostResponse
+          .replace(s""""S": "$defaultDocxChecksum"""", s""""S": "$docxChecksum"""")
+          .replace(s""""S": "$defaultJsonChecksum"""", s""""S": "$jsonChecksum"""")
+          .replace(s""""S": "$defaultDocxTitle"""", s""""S": "$docxTitle"""")
+          .replace(s""""S": "$defaultDocxTitle.docx"""", s""""S": "$docxTitle.docx"""")
+          .replace(s""""S": "$defaultJsonName.json"""", s""""S": "$jsonName"""")
 
-          stubGetRequest(dynamoGetResponse)
-          stubPostRequest(updatedDynamoPostResponse)
+        stubGetRequest(dynamoGetResponse)
+        stubPostRequest(updatedDynamoPostResponse)
 
-          val testLambda = TestLambda()
+        val testLambda = TestLambda()
 
-          testLambda.handleRequest(standardInput, outStream, null)
+        testLambda.handleRequest(standardInput, outStream, null)
 
-          val stateOutput = read[StateOutput](outStream.toByteArray.map(_.toChar).mkString)
+        val stateOutput = read[StateOutput](outStream.toByteArray.map(_.toChar).mkString)
 
-          stateOutput.wasReconciled should equal(false)
-          stateOutput.reason should equal(
-            s"Out of the 2 files expected to be ingested for assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e', " +
-              s"a checksum could not be found for: ${idsThatFailed.mkString(", ")}"
-          )
+        stateOutput.wasReconciled should equal(false)
+        stateOutput.reason should equal(
+          s"Out of the 2 files expected to be ingested for assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e', " +
+            s"a checksum could not be found for: ${idsThatFailed.mkString(", ")}"
+        )
 
-          testLambda.verifyInvocationsAndArgumentsPassed()
-        }
+        testLambda.verifyInvocationsAndArgumentsPassed()
+      }
   }
 
   "handleRequest" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled" in {

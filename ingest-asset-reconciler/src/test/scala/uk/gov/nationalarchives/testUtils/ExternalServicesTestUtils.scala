@@ -16,12 +16,7 @@ import uk.gov.nationalarchives.DynamoFormatters.Identifier
 import uk.gov.nationalarchives.dp.client.Client.{BitStreamInfo, Fixity}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.{
-  ContentObject,
-  InformationObject,
-  Preservation,
-  RepresentationType
-}
+import uk.gov.nationalarchives.dp.client.EntityClient.{ContentObject, InformationObject, Preservation, RepresentationType}
 import uk.gov.nationalarchives.{DADynamoDBClient, Lambda}
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}

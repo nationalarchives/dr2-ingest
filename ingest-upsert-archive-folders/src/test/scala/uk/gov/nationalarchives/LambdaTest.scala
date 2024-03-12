@@ -223,38 +223,37 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
     }
   }
 
-  forAll(identifierScenarios) {
-    (identifierFromDynamo, identifierFromPreservica, addIdentifierRequest, updateIdentifierRequest, addDescription, updateDescription) =>
-      {
-        "handleRequest" should s"$addDescription and $updateDescription" in {
-          val rowsWithIdentifiers = folderIdsAndRows.take(1).map { case (id, dynamoResponse) =>
-            id -> dynamoResponse.copy(identifiers = identifierFromDynamo)
-          }
-          val mockLambda =
-            MockLambda(
-              convertFolderIdsAndRowsToListOfIoRows(rowsWithIdentifiers),
-              getIdentifiersForEntityReturnValues = IO(identifierFromPreservica.map(idp => IdentifierResponse("id", idp.identifierName, idp.value)))
-            )
-          mockLambda.handleRequest(mockInputStream, mockOutputStream, mockContext)
-
-          val addIdentifierCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
-          val updateIdentifierCaptor: ArgumentCaptor[Seq[IdentifierResponse]] =
-            ArgumentCaptor.forClass(classOf[Seq[IdentifierResponse]])
-
-          verify(mockLambda.mockEntityClient, times(addIdentifierRequest.size))
-            .addIdentifierForEntity(any[UUID], any[EntityType], addIdentifierCaptor.capture())
-          verify(mockLambda.mockEntityClient, times(updateIdentifierRequest.length))
-            .updateEntityIdentifiers(any[Entity], updateIdentifierCaptor.capture())
-
-          val addIdentifierValues: List[Identifier] = addIdentifierCaptor.getAllValues.asScala.toList
-          addIdentifierValues should equal(addIdentifierRequest)
-
-          val updateIdentifierValues: Seq[Identifier] = updateIdentifierCaptor.getAllValues.asScala.headOption
-            .getOrElse(Nil)
-            .map(id => Identifier(id.identifierName, id.value))
-          updateIdentifierValues should equal(updateIdentifierRequest)
+  forAll(identifierScenarios) { (identifierFromDynamo, identifierFromPreservica, addIdentifierRequest, updateIdentifierRequest, addDescription, updateDescription) =>
+    {
+      "handleRequest" should s"$addDescription and $updateDescription" in {
+        val rowsWithIdentifiers = folderIdsAndRows.take(1).map { case (id, dynamoResponse) =>
+          id -> dynamoResponse.copy(identifiers = identifierFromDynamo)
         }
+        val mockLambda =
+          MockLambda(
+            convertFolderIdsAndRowsToListOfIoRows(rowsWithIdentifiers),
+            getIdentifiersForEntityReturnValues = IO(identifierFromPreservica.map(idp => IdentifierResponse("id", idp.identifierName, idp.value)))
+          )
+        mockLambda.handleRequest(mockInputStream, mockOutputStream, mockContext)
+
+        val addIdentifierCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
+        val updateIdentifierCaptor: ArgumentCaptor[Seq[IdentifierResponse]] =
+          ArgumentCaptor.forClass(classOf[Seq[IdentifierResponse]])
+
+        verify(mockLambda.mockEntityClient, times(addIdentifierRequest.size))
+          .addIdentifierForEntity(any[UUID], any[EntityType], addIdentifierCaptor.capture())
+        verify(mockLambda.mockEntityClient, times(updateIdentifierRequest.length))
+          .updateEntityIdentifiers(any[Entity], updateIdentifierCaptor.capture())
+
+        val addIdentifierValues: List[Identifier] = addIdentifierCaptor.getAllValues.asScala.toList
+        addIdentifierValues should equal(addIdentifierRequest)
+
+        val updateIdentifierValues: Seq[Identifier] = updateIdentifierCaptor.getAllValues.asScala.headOption
+          .getOrElse(Nil)
+          .map(id => Identifier(id.identifierName, id.value))
+        updateIdentifierValues should equal(updateIdentifierRequest)
       }
+    }
   }
 
   "handleRequest" should "call the DDB client's 'getAttributeValues' and entities client's 'entitiesByIdentifier' 3x, " +

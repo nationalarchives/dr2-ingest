@@ -35,8 +35,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
   case class MockLambda(
       getPreservicaNamespaceVersionReturnValue: IO[Float] = IO.pure(7.0f),
-      getCurrentPreservicaVersionReturnValue: IO[List[GetDr2PreservicaVersionResponse]] =
-        IO.pure(List(GetDr2PreservicaVersionResponse(6.9f))),
+      getCurrentPreservicaVersionReturnValue: IO[List[GetDr2PreservicaVersionResponse]] = IO.pure(List(GetDr2PreservicaVersionResponse(6.9f))),
       snsPublishReturnValue: IO[List[PublishBatchResponse]] = IO.pure(List(PublishBatchResponse.builder().build()))
   ) extends Lambda() {
     val endpointSinceCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
