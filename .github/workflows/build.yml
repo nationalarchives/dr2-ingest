@@ -27,7 +27,7 @@ jobs:
     needs: setup-tests
     strategy:
       matrix:
-        projects: ${{ fromJSON(needs.setup-tests.outputs.files) }}
+        projects: ${{ fromJSON(needs.setup-tests.outputs.projects) }}
     runs-on: ubuntu-latest
     steps:
       - run: | 
