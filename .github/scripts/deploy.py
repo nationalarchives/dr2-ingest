@@ -25,7 +25,7 @@ def update_functions():
     keys = [obj["Key"].replace(f"{version}/", "") for obj in objects["Contents"]]
     for key in keys:
         print(f"Processing key {key}")
-        aws_lambda.update_function_code(FunctionName=f"{environment}-{key}", S3Bucket=deploy_bucket, S3Key=key)
+        aws_lambda.update_function_code(FunctionName=f"{environment}-{key}", S3Bucket=deploy_bucket, S3Key=f"{version}/{key}")
         send_slack_message(key, ":green-tick:", "successful")
         try:
             aws_lambda.update_function_code(FunctionName=key, S3Bucket=deploy_bucket, S3Key=key)
@@ -33,6 +33,7 @@ def update_functions():
         except Exception as err:
             print(err)
             send_slack_message(key, ":alert-noflash-slow:", "failure")
+            exit(1)
 
 
 try:
@@ -40,3 +41,4 @@ try:
 except Exception as err:
     print(err)
     send_slack_message("unkown-lambda", ":alert-noflash-slow:", "failure")
+    exit(1)
