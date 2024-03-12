@@ -1,4 +1,4 @@
-name: DR2 Tag and pre deploy
+name: DR2 Build Project
 on:
   push:
     branches:
