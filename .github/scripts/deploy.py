@@ -28,3 +28,9 @@ def update_functions():
             send_slack_message(key, ":green-tick:", "successful")
         except:
             send_slack_message(key, ":alert-noflash-slow:", "failure")
+
+
+try:
+    update_functions()
+except:
+    send_slack_message("unkown-lambda", ":alert-noflash-slow:", "failure")
