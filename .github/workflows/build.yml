@@ -7,31 +7,24 @@ permissions:
   id-token: write
   contents: write
 jobs:
-  setup-tests:
+  pre-deploy:
     runs-on: ubuntu-latest
-    outputs:
-      next-version: ${{ steps.next-tag.outputs.next-version }}
-      projects: ${{ steps.generate-files.outputs.projects }}
     steps:
-      - uses: actions/checkout@v3
-      - id: generate-files
-        run: |
-          echo $(sbt -warn printProjectsTask)
-          PROJECTS=$(sbt -warn printProjectsTask | jq)
-          echo ${PROJECTS}
-          echo projects=${PROJECTS} >> $GITHUB_OUTPUT
-      - run: pip install requests
       - id: next-tag
         uses: nationalarchives/dr2-github-actions/.github/actions/get-next-version@main
         with:
           repo-name: dr2-ingest
-  pre-deploy:
-    needs: setup-tests
-    strategy:
-      matrix:
-        projects: ${{ fromJSON(needs.setup-tests.outputs.projects) }}
+      - run: |
+          rm -rf target/outputs
+          mkdir -p target/outputs
+          sbt assembly
+          cd target/outputs
+          aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
+  deploy:
+    needs: pre-deploy
     runs-on: ubuntu-latest
     steps:
-      - run: | 
-          sbt ${{ matrix.projects.project }}/assembly
-          aws s3 cp ${{ matrix.projects.path }}/target/scala-2.13/${{ matrix.projects.path }}.jar s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/${{ matrix.projects.path }}.jar
+      - uses: actions/checkout@v3
+      - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=${{ steps.next-tag.outputs.next-version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}

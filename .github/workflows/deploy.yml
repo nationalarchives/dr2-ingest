@@ -1,4 +1,4 @@
-name: Deploy DR2 Ingest Parsed Court Document Event Handler Lambda
+name: Deploy DR2 Ingest Lambdas
 on:
   workflow_dispatch:
     inputs:
@@ -20,14 +20,6 @@ permissions:
   contents: write
 jobs:
   deploy:
-    uses: nationalarchives/dr2-github-actions/.github/workflows/lambda_deploy.yml@main
-    with:
-      lambda-name: ${{ github.event.inputs.environment }}-ingest-parsed-court-document-event-handler
-      deployment-package: dr2-ingest-parsed-court-document-event-handler.jar
-      environment: ${{ github.event.inputs.environment }}
-      to-deploy: ${{ github.event.inputs.to-deploy }}
-    secrets:
-      ACCOUNT_NUMBER: ${{ secrets.ACCOUNT_NUMBER }}
-      MANAGEMENT_ACCOUNT: ${{ secrets.MANAGEMENT_ACCOUNT }}
-      WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: python .github/scripts/deploy.py ${{ github.event.inputs.environment }} ${{ github.event.inputs.to-deploy }}

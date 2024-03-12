@@ -4,18 +4,6 @@ import uk.gov.nationalarchives.sbt.Log4j2MergePlugin.log4j2MergeStrategy
 ThisBuild / organization := "uk.gov.nationalarchives"
 ThisBuild / scalaVersion := "2.13.13"
 
-lazy val environment = taskKey[Unit]("The environment")
-lazy val printProjectsTask = taskKey[Unit]("Prints a list of projects")
-
-ThisBuild / printProjectsTask := {
-  val objectArr = loadedBuild.value.allProjectRefs.map(p => {
-    s"""{"project": "${p._1.project}", "path": "${p._2.base.getName}"}"""
-  }).mkString(",")
-  print(s"[$objectArr]")
-}
-
-val lambdaName = taskKey[String]("A sample string task.")
-
 lazy val root = (project in file("."))
   .aggregate(
     entityEventGenerator,
@@ -49,7 +37,7 @@ lazy val commonSettings = Seq(
     scalaTest % Test,
     wiremock % Test
   ),
-  (assembly / assemblyJarName) := s"${name.value}.jar",
+  assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
     case _                                                   => MergeStrategy.first
@@ -66,7 +54,6 @@ lazy val commonSettings = Seq(
 lazy val ingestMapper = (project in file("ingest-mapper"))
   .settings(commonSettings)
   .settings(
-    lambdaName := s"-ingest-mapper",
     libraryDependencies ++= Seq(
       awsCrt,
       fs2Reactive,
@@ -138,13 +125,13 @@ lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"
     )
   )
 
-lazy val startWorkflow = (project in file("start-workflow"))
+lazy val startWorkflow = (project in file("ingest-start-workflow"))
   .settings(commonSettings)
   .settings(
     libraryDependencies += preservicaClient
   )
 
-lazy val entityEventGenerator = (project in file("entity-event-generator"))
+lazy val entityEventGenerator = (project in file("entity-event-generator-lambda"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
@@ -158,7 +145,7 @@ lazy val entityEventGenerator = (project in file("entity-event-generator"))
     ),
   )
 
-lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-version"))
+lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-version-lambda"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
