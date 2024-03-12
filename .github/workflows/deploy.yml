@@ -23,4 +23,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - id: role-name
+        run: |
+          import os
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh: 
+            print(f"role-name={'${{ github.event.inputs.environment }}'.title()}DPGithubActionsDeployLambdaRole", file=fh)
+        shell: python
+      - name: Configure AWS credentials for Lambda
+        uses: aws-actions/configure-aws-credentials@v4.0.2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
+          aws-region: eu-west-2
+          role-session-name: ECRLogin
       - run: python .github/scripts/deploy.py ${{ github.event.inputs.environment }} ${{ github.event.inputs.to-deploy }}
