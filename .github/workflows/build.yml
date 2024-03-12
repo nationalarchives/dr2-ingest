@@ -22,7 +22,7 @@ jobs:
       - id: next-tag
         uses: nationalarchives/dr2-github-actions/.github/actions/get-next-version@main
         with:
-          repo-name: ${{ dr2-ingest }}
+          repo-name: dr2-ingest
   pre-deploy:
     needs: setup-tests
     strategy:
