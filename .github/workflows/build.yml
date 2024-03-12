@@ -7,20 +7,29 @@ permissions:
   id-token: write
   contents: write
 jobs:
+  setup-tests:
+    runs-on: ubuntu-latest
+    outputs:
+      next-version: ${{ steps.next-tag.outputs.next-version }}
+      projects: ${{ steps.generate-files.outputs.projects }}
+    steps:
+      - uses: actions/checkout@v3
+      - id: generate-files
+        run: |
+          PROJECTS=$(sbt -warn printProjectsTask)
+          echo projects=${PROJECTS} >> $GITHUB_OUTPUT
+      - run: pip install requests
+      - id: next-tag
+        uses: nationalarchives/dr2-github-actions/.github/actions/get-next-version@main
+        with:
+          repo-name: ${{ dr2-ingest }}
   pre-deploy:
-    uses: nationalarchives/dr2-github-actions/.github/workflows/lambda_build.yml@main
-    with:
-      repo-name: dr2-ingest-parsed-court-document-event-handler
-      artifact-name: dr2-ingest-parsed-court-document-event-handler
-      build-command: sbt assembly
-    secrets:
-      MANAGEMENT_ACCOUNT: ${{ secrets.MANAGEMENT_ACCOUNT }}
-      WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-  deploy:
-    needs: pre-deploy
+    needs: setup-tests
+    strategy:
+      matrix:
+        projects: ${{ fromJSON(needs.setup-tests.outputs.files) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=${{ needs.pre-deploy.outputs.next-version }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+      - run: | 
+          sbt ${{ matrix.projects.project }}/assembly
+          aws s3 cp ${{ matrix.projects.path }}/target/scala-2.13/${{ matrix.projects.path }}.jar s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/${{ matrix.projects.path }}.jar

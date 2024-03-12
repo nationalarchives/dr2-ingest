@@ -4,17 +4,37 @@ import uk.gov.nationalarchives.sbt.Log4j2MergePlugin.log4j2MergeStrategy
 ThisBuild / organization := "uk.gov.nationalarchives"
 ThisBuild / scalaVersion := "2.13.13"
 
-lazy val root = (project in file(".")).settings(
-  name := "dr2-ingest-parsed-court-document-event-handler",
-  resolvers += "s01-oss-sonatype-org-snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots",
+lazy val environment = taskKey[Unit]("The environment")
+lazy val printProjectsTask = taskKey[Unit]("Prints a list of projects")
+
+ThisBuild / printProjectsTask := {
+  val objectArr = loadedBuild.value.allProjectRefs.map(p => {
+    s"""{"project": "${p._1.project}", "path": "${p._2.base.getName}"}"""
+  }).mkString(",")
+  print(s"[$objectArr]")
+}
+
+val lambdaName = taskKey[String]("A sample string task.")
+
+lazy val root = (project in file("."))
+  .aggregate(
+    entityEventGenerator,
+    getLatestPreservicaVersion,
+    ingestAssetOpexCreator,
+    ingestAssetReconciler,
+    ingestFolderOpexCreator,
+    ingestMapper,
+    ingestParentFolderOpexCreator,
+    ingestParsedCourtDocumentEventHandler,
+    ingestUpsertArchiveFolders,
+    ingestWorkflowMonitor,
+    preservicaConfig,
+    startWorkflow
+  )
+
+lazy val commonSettings = Seq(
+  name := baseDirectory.value.getName,
   libraryDependencies ++= Seq(
-    awsCrt,
-    commonsCompress,
-    fs2IO,
-    circeCore,
-    circeParser,
-    circeGeneric,
-    circeGenericExtras,
     log4jSlf4j,
     log4jCore,
     log4jTemplateJson,
@@ -24,22 +44,173 @@ lazy val root = (project in file(".")).settings(
     lambdaJavaEvents,
     pureConfig,
     pureConfigCats,
-    s3Client,
-    sfnClient,
     mockito % Test,
-    reactorTest % Test,
+    mockitoScalaTest % Test,
     scalaTest % Test,
     wiremock % Test
+  ),
+  (assembly / assemblyJarName) := s"${name.value}.jar",
+  (assembly / assemblyMergeStrategy) := {
+    case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
+    case _                                                   => MergeStrategy.first
+  },
+  scalacOptions ++= Seq("-Wunused:imports", "-Werror", "-deprecation"),
+  (Test / fork) := true,
+  (Test / envVars) := Map(
+    "AWS_ACCESS_KEY_ID" -> "accesskey",
+    "AWS_SECRET_ACCESS_KEY" -> "secret",
+    "AWS_LAMBDA_FUNCTION_NAME" -> "test"
   )
 )
-(assembly / assemblyJarName) := "dr2-ingest-parsed-court-document-event-handler.jar"
 
-scalacOptions ++= Seq("-Wunused:imports", "-Werror", "-deprecation")
+lazy val ingestMapper = (project in file("ingest-mapper"))
+  .settings(commonSettings)
+  .settings(
+    lambdaName := s"-ingest-mapper",
+    libraryDependencies ++= Seq(
+      awsCrt,
+      fs2Reactive,
+      s3Client,
+      dynamoClient,
+      scalaXml,
+      sttpClientFs2,
+      sttpUpickle,
+      reactorTest % Test
+    )
+  )
 
-(Test / fork) := true
-(Test / envVars) := Map("AWS_ACCESS_KEY_ID" -> "accesskey", "AWS_SECRET_ACCESS_KEY" -> "secret")
+lazy val ingestParentFolderOpexCreator = (project in file("ingest-parent-folder-opex-creator"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      s3Client,
+      fs2Core,
+      reactorTest % Test,
+      scalaXml,
+      upickle
 
-(assembly / assemblyMergeStrategy) := {
-  case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
-  case _                                                   => MergeStrategy.first
-}
+    )
+  )
+
+lazy val ingestUpsertArchiveFolders = (project in file("ingest-upsert-archive-folders"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      eventBridgeClient,
+      preservicaClient,
+      pureConfig,
+      dynamoFormatters
+
+    )
+  )
+
+lazy val ingestWorkflowMonitor = (project in file("ingest-workflow-monitor"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies += preservicaClient
+  )
+
+lazy val preservicaConfig = (project in file("preservica-config"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      preservicaClient,
+      s3Client,
+      circeParser,
+      scalaXml,
+      scalaParserCombinators,
+      jaxb
+    )
+  )
+
+lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      awsCrt,
+      fs2Core,
+      scalaXml,
+      upickle,
+      dynamoClient,
+      dynamoFormatters,
+      s3Client
+    )
+  )
+
+lazy val startWorkflow = (project in file("start-workflow"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies += preservicaClient
+  )
+
+lazy val entityEventGenerator = (project in file("entity-event-generator"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      awsSecretsManager,
+      catsEffect,
+      dynamoClient,
+      preservicaClient,
+      snsClient,
+      sttpClient,
+      typeSafeConfig
+    ),
+  )
+
+lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-version"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      dynamoFormatters,
+      snsClient,
+      preservicaClient
+    )
+  )
+
+lazy val ingestAssetReconciler = (project in file("ingest-asset-reconciler"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      dynamoFormatters,
+      preservicaClient
+    )
+  )
+lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      awsCrt,
+      fs2Core,
+      dynamoClient,
+      dynamoFormatters,
+      scalaXml,
+      s3Client,
+      upickle
+    )
+  )
+
+lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed-court-document-event-handler"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      awsCrt,
+      commonsCompress,
+      fs2IO,
+      circeCore,
+      circeParser,
+      circeGeneric,
+      circeGenericExtras,
+      s3Client,
+      sfnClient,
+      reactorTest % Test
+    )
+  )
+
+
+
+
+
+
