@@ -9,6 +9,8 @@ permissions:
 jobs:
   pre-deploy:
     runs-on: ubuntu-latest
+    outputs:
+      next-version: ${{ steps.next-tag.outputs.next-version }}
     steps:
       - uses: actions/checkout@v4
       - name: Configure AWS credentials from management account
@@ -32,6 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=${{ steps.next-tag.outputs.next-version }}
+      - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=${{ needs.pre-deploy.outputs.next-version }}
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
