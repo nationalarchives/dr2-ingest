@@ -25,10 +25,9 @@ def update_functions():
     keys = [obj["Key"].replace(f"{version}/", "") for obj in objects["Contents"]]
     for key in keys:
         print(f"Processing key {key}")
-        aws_lambda.update_function_code(FunctionName=f"{environment}-{key}", S3Bucket=deploy_bucket, S3Key=f"{version}/{key}")
-        send_slack_message(key, ":green-tick:", "successful")
         try:
-            aws_lambda.update_function_code(FunctionName=key, S3Bucket=deploy_bucket, S3Key=key)
+            aws_lambda.update_function_code(FunctionName=f"{environment}-{key}", S3Bucket=deploy_bucket,
+                                            S3Key=f"{version}/{key}")
             send_slack_message(key, ":green-tick:", "successful")
         except Exception as err:
             print(err)
