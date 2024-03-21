@@ -1,32 +1,31 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import uk.gov.nationalarchives.Lambda.StateOutput
+import uk.gov.nationalarchives.Lambda.{Config, StateOutput}
 import uk.gov.nationalarchives.dp.client.ProcessMonitorClient._
 import uk.gov.nationalarchives.testUtils.ExternalServicesTestUtils
 import upickle.default._
 
-import java.io.ByteArrayOutputStream
 import java.util.UUID
 
 class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableDrivenPropertyChecks {
   implicit val stateDataReader: Reader[StateOutput] = macroR[StateOutput]
+  val config: Config = Config("", "")
 
   forAll(runningStatuses) { (apiStatus, normalisedStatus) =>
-    "handleRequest" should s"pass a '$normalisedStatus' 'state', 'mappedId', 0 succeededAssetId, 0 failedAssetIds, 0 duplicatedAssetIds" +
+    "handler" should s"pass a '$normalisedStatus' 'state', 'mappedId', 0 succeededAssetId, 0 failedAssetIds, 0 duplicatedAssetIds" +
       s"to the OutputStream if the status returned from the API is $apiStatus" in {
-        val os = new ByteArrayOutputStream()
-        val mockProcessMonitorLambda = ProcessMonitorTest(
+        val argumentVerifier = ArgumentVerifier(
           IO(Seq(defaultMonitor.copy(status = apiStatus))),
           IO.pure(Nil)
         )
-        mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
-        val stateData = read[StateOutput](os.toByteArray.map(_.toChar).mkString)
+        val stateData = new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
 
-        mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+        argumentVerifier.verifyInvocationsAndArgumentsPassed(
           Nil,
           Some(monitorName),
           List(Ingest),
@@ -42,17 +41,15 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
   }
 
   forAll(succeededStatuses) { (apiStatus, normalisedStatus) =>
-    "handleRequest" should s"pass a '$normalisedStatus' 'state', 'mappedId', 1 succeededAssetId, 2 failedAssetIds, 0 duplicatedAssetIds" +
+    "handler" should s"pass a '$normalisedStatus' 'state', 'mappedId', 1 succeededAssetId, 2 failedAssetIds, 0 duplicatedAssetIds" +
       s"to the OutputStream if the status returned from the API is $apiStatus" in {
-        val os = new ByteArrayOutputStream()
-        val mockProcessMonitorLambda = ProcessMonitorTest(
+        val argumentVerifier = ArgumentVerifier(
           IO(Seq(defaultMonitor.copy(status = apiStatus))),
           IO(Seq(defaultMessage))
         )
-        mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
-        val stateData = read[StateOutput](os.toByteArray.map(_.toChar).mkString)
+        val stateData = new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
 
-        mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+        argumentVerifier.verifyInvocationsAndArgumentsPassed(
           Nil,
           Some(monitorName),
           List(Ingest),
@@ -73,17 +70,15 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
   }
 
   forAll(failedStatuses) { (apiStatus, normalisedStatus) =>
-    "handleRequest" should s"pass a '$normalisedStatus' 'state', 'mappedId', 0 succeededAssetId, 3 failedAssetIds, 0 duplicatedAssetIds" +
+    "handler" should s"pass a '$normalisedStatus' 'state', 'mappedId', 0 succeededAssetId, 3 failedAssetIds, 0 duplicatedAssetIds" +
       s"to the OutputStream if the status returned from the API is $apiStatus" in {
-        val os = new ByteArrayOutputStream()
-        val mockProcessMonitorLambda = ProcessMonitorTest(
+        val argumentVerifier = ArgumentVerifier(
           IO(Seq(defaultMonitor.copy(status = apiStatus))),
           IO(Seq(defaultMessage.copy(message = "monitor.error.folder.not.ingested")))
         )
-        mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
-        val stateData = read[StateOutput](os.toByteArray.map(_.toChar).mkString)
+        val stateData = new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
 
-        mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+        argumentVerifier.verifyInvocationsAndArgumentsPassed(
           Nil,
           Some(monitorName),
           List(Ingest),
@@ -105,18 +100,17 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
   }
 
   forAll(pathsWithNoPaxFileAtTheEnd) { (pathWithNoPaxFileAtTheEnd, exceptionMessage) =>
-    "handleRequest" should s"return an exception if an UUID could not be parsed from the end of path '$pathWithNoPaxFileAtTheEnd'" in {
-      val os = new ByteArrayOutputStream()
-      val mockProcessMonitorLambda = ProcessMonitorTest(
+    "handler" should s"return an exception if an UUID could not be parsed from the end of path '$pathWithNoPaxFileAtTheEnd'" in {
+      val argumentVerifier = ArgumentVerifier(
         IO(Seq(defaultMonitor)),
         IO(Seq(defaultMessage.copy(path = pathWithNoPaxFileAtTheEnd)))
       )
 
       val ex = intercept[Exception] {
-        mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
+        new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
       }
 
-      mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+      argumentVerifier.verifyInvocationsAndArgumentsPassed(
         Nil,
         Some(monitorName),
         List(Ingest),
@@ -127,16 +121,15 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
     }
   }
 
-  "handleRequest" should "return an exception if the API returns one" in {
-    val os = new ByteArrayOutputStream()
+  "handler" should "return an exception if the API returns one" in {
     val exception = IO.raiseError(new Exception("API has encountered an issue when calling 'getMonitors'"))
-    val mockProcessMonitorLambda = ProcessMonitorTest(exception, IO.pure(Nil))
+    val argumentVerifier = ArgumentVerifier(exception, IO.pure(Nil))
 
     val ex = intercept[Exception] {
-      mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
+      new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
     }
 
-    mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(
       Nil,
       Some(monitorName),
       List(Ingest),
@@ -146,18 +139,17 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
     ex.getMessage should equal("API has encountered an issue when calling 'getMonitors'")
   }
 
-  "handleRequest" should s"return an exception if the API returns a status that's unexpected" in {
-    val os = new ByteArrayOutputStream()
-    val mockProcessMonitorLambda = ProcessMonitorTest(
+  "handler" should s"return an exception if the API returns a status that's unexpected" in {
+    val argumentVerifier = ArgumentVerifier(
       IO(Seq(defaultMonitor.copy(status = "InvalidStatus"))),
       IO.pure(Nil)
     )
 
     val ex = intercept[Exception] {
-      mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
+      new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
     }
 
-    mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(
       Nil,
       Some(monitorName),
       List(Ingest),
@@ -168,18 +160,17 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
     ex.getMessage should equal("'InvalidStatus' is an unexpected status!")
   }
 
-  "handleRequest" should s"return an exception if the API returns 0 Monitors" in {
-    val os = new ByteArrayOutputStream()
-    val mockProcessMonitorLambda = ProcessMonitorTest(
+  "handler" should s"return an exception if the API returns 0 Monitors" in {
+    val argumentVerifier = ArgumentVerifier(
       IO(Nil),
       IO.pure(Nil)
     )
 
     val ex = intercept[Exception] {
-      mockProcessMonitorLambda.handleRequest(defaultInputStream, os, null)
+      new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
     }
 
-    mockProcessMonitorLambda.verifyInvocationsAndArgumentsPassed(
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(
       Nil,
       Some(monitorName),
       List(Ingest),

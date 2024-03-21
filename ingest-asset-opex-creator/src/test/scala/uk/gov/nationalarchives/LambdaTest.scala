@@ -1,9 +1,11 @@
 package uk.gov.nationalarchives
 
+import cats.effect.unsafe.implicits.global
 import com.github.tomakehurst.wiremock.WireMockServer
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
+import uk.gov.nationalarchives.Lambda.Config
 import uk.gov.nationalarchives.testUtils.ExternalServicesTestUtils
 
 import scala.jdk.CollectionConverters._
@@ -13,6 +15,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val dynamoServer = new WireMockServer(9005)
   val s3Server = new WireMockServer(9006)
   private val testUtils = new ExternalServicesTestUtils(dynamoServer, s3Server)
+  private val config: Config = Config("test-table", "test-gsi", "test-destination-bucket")
   import testUtils._
 
   override def beforeEach(): Unit = {
@@ -27,49 +30,49 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     s3Server.stop()
   }
 
-  "handleRequest" should "return an error if the asset is not found in dynamo" in {
+  "handler" should "return an error if the asset is not found in dynamo" in {
     stubGetRequest(emptyDynamoGetResponse)
     val ex = intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"No asset found for $assetId and $batchId")
   }
 
-  "handleRequest" should "return an error if no children are found for the asset" in {
+  "handler" should "return an error if no children are found for the asset" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(emptyDynamoPostResponse)
 
     val ex = intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"No children found for $assetId and $batchId")
   }
 
-  "handleRequest" should "return an error if the dynamo entry does not have a type of 'Asset'" in {
+  "handler" should "return an error if the dynamo entry does not have a type of 'Asset'" in {
     stubGetRequest(dynamoGetResponse.replace(""""S": "Asset"""", """"S": "ArchiveFolder""""))
     stubPostRequest(emptyDynamoPostResponse)
 
     val ex = intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"Object $assetId is of type ArchiveFolder and not 'Asset'")
   }
 
-  "handleRequest" should "pass the correct id to dynamo getItem" in {
+  "handler" should "pass the correct id to dynamo getItem" in {
     stubGetRequest(emptyDynamoGetResponse)
     intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     val serveEvents = dynamoServer.getAllServeEvents.asScala
     serveEvents.size should equal(1)
     serveEvents.head.getRequest.getBodyAsString should equal(s"""{"RequestItems":{"test-table":{"Keys":[{"id":{"S":"$assetId"}}]}}}""")
   }
 
-  "handleRequest" should "pass the correct parameters to dynamo for the query request" in {
+  "handler" should "pass the correct parameters to dynamo for the query request" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(emptyDynamoPostResponse)
     intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     val serveEvents = dynamoServer.getAllServeEvents.asScala
     val queryEvent = serveEvents.head
@@ -80,14 +83,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     requestBody should equal(expectedRequestBody)
   }
 
-  "handleRequest" should "copy the correct child assets from source to destination" in {
+  "handler" should "copy the correct child assets from source to destination" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
     val (sourceJson, destinationJson) = stubJsonCopyRequest()
     val (sourceDocx, destinationDocx) = stubDocxCopyRequest()
     stubPutRequest()
 
-    TestLambda().handleRequest(standardInput, outputStream, null)
+    new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     def checkCopyRequest(source: String, destination: String) = {
       val s3CopyRequest = s3Server.getAllServeEvents.asScala.filter(_.getRequest.getUrl == destination).head.getRequest
@@ -99,28 +102,28 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     checkCopyRequest(sourceDocx, destinationDocx)
   }
 
-  "handleRequest" should "upload the xip and opex files" in {
+  "handler" should "upload the xip and opex files" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
     val (xipPath, opexPath) = stubPutRequest()
     stubJsonCopyRequest()
     stubDocxCopyRequest()
 
-    TestLambda().handleRequest(standardInput, outputStream, null)
+    new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3CopyRequests = s3Server.getAllServeEvents.asScala
     s3CopyRequests.count(_.getRequest.getUrl == xipPath) should equal(1)
     s3CopyRequests.count(_.getRequest.getUrl == opexPath) should equal(1)
   }
 
-  "handleRequest" should "write the xip content objects in the correct order" in {
+  "handler" should "write the xip content objects in the correct order" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
     val (xipPath, _) = stubPutRequest()
     stubJsonCopyRequest()
     stubDocxCopyRequest()
 
-    TestLambda().handleRequest(standardInput, outputStream, null)
+    new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3CopyRequests = s3Server.getAllServeEvents.asScala
     val xipString = s3CopyRequests.filter(_.getRequest.getUrl == xipPath).head.getRequest.getBodyAsString.split("\n").tail.dropRight(4).mkString("\n")
@@ -129,7 +132,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     contentObjects.last.text should equal(childIdJson.toString)
   }
 
-  "handleRequest" should "upload the correct opex file to s3" in {
+  "handler" should "upload the correct opex file to s3" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
 
@@ -137,7 +140,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     stubJsonCopyRequest()
     stubDocxCopyRequest()
 
-    TestLambda().handleRequest(standardInput, outputStream, null)
+    new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3UploadRequests = s3Server.getAllServeEvents.asScala
     val opexString = s3UploadRequests.filter(_.getRequest.getUrl == opexPath).head.getRequest.getBodyAsString.split("\n").tail.dropRight(3).mkString("\n")
@@ -145,20 +148,20 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     opexXml should equal(expectedOpex)
   }
 
-  "handleRequest" should "return an error if the Dynamo API is unavailable" in {
+  "handler" should "return an error if the Dynamo API is unavailable" in {
     dynamoServer.stop()
     val ex = intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal("Unable to execute HTTP request: Connection refused: localhost/127.0.0.1:9005")
   }
 
-  "handleRequest" should "return an error if the S3 API is unavailable" in {
+  "handler" should "return an error if the S3 API is unavailable" in {
     s3Server.stop()
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
     val ex = intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal("Failed to send the request: socket connection refused.")
   }

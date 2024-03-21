@@ -9,9 +9,9 @@ import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCrede
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
-import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, Lambda, XMLCreator}
+import uk.gov.nationalarchives.Lambda.{Dependencies, Input}
+import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, XMLCreator}
 
-import java.io.ByteArrayInputStream
 import java.net.URI
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -130,9 +130,8 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
   val childIdDocx: UUID = UUID.fromString("a25d33f3-7726-4fb3-8e6f-f66358451c4e")
   val batchId: String = "TEST-ID"
   val executionName = "test-execution"
-  val inputJson: String = s"""{"batchId": "$batchId", "id": "$assetId", "executionName": "$executionName", "sourceBucket": "test-source-bucket"}"""
 
-  def standardInput: ByteArrayInputStream = new ByteArrayInputStream(inputJson.getBytes)
+  val input: Input = Input(assetId, batchId, executionName, "test-source-bucket")
 
   def outputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
 
@@ -310,25 +309,22 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |}
        |""".stripMargin
 
-  case class TestLambda() extends Lambda {
-    val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
-    private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
-      .builder()
-      .endpointOverride(URI.create("http://localhost:9005"))
-      .region(Region.EU_WEST_2)
-      .credentialsProvider(creds)
-      .build()
+  val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
+  private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
+    .builder()
+    .endpointOverride(URI.create("http://localhost:9005"))
+    .region(Region.EU_WEST_2)
+    .credentialsProvider(creds)
+    .build()
 
-    private val asyncS3Client: S3AsyncClient = S3AsyncClient
-      .crtBuilder()
-      .endpointOverride(URI.create("http://localhost:9006"))
-      .region(Region.EU_WEST_2)
-      .credentialsProvider(creds)
-      .targetThroughputInGbps(20.0)
-      .minimumPartSizeInBytes(10 * 1024 * 1024)
-      .build()
-    override val dynamoClient: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
-    override val s3Client: DAS3Client[IO] = DAS3Client[IO](asyncS3Client)
-    override def getXmlCreator: XMLCreator = XMLCreator(OffsetDateTime.parse("2023-09-01T00:00Z"))
-  }
+  private val asyncS3Client: S3AsyncClient = S3AsyncClient
+    .crtBuilder()
+    .endpointOverride(URI.create("http://localhost:9006"))
+    .region(Region.EU_WEST_2)
+    .credentialsProvider(creds)
+    .targetThroughputInGbps(20.0)
+    .minimumPartSizeInBytes(10 * 1024 * 1024)
+    .build()
+
+  val dependencies: Dependencies = Dependencies(new DADynamoDBClient[IO](asyncDynamoClient), DAS3Client[IO](asyncS3Client), XMLCreator(OffsetDateTime.parse("2023-09-01T00:00Z")))
 }

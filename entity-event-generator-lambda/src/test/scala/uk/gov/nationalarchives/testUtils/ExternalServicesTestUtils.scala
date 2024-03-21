@@ -1,9 +1,9 @@
-package testUtils
+package uk.gov.nationalarchives.testUtils
 
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
 import io.circe.Encoder
-import org.mockito.ArgumentCaptor
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.MockitoSugar.{mock, times, verify, when}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -17,7 +17,7 @@ import uk.gov.nationalarchives.dp.client.DataProcessor.EventAction
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, Lambda}
-import Lambda.{CompactEntity, GetItemsResponse, PartitionKey}
+import Lambda.{CompactEntity, Dependencies, GetItemsResponse, PartitionKey}
 import org.scanamo.DynamoFormat
 import uk.gov.nationalarchives.dp.client.EntityClient._
 
@@ -41,7 +41,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     wiremockGraphqlServer.resetAll()
   }
 
-  case class MockLambda(
+  case class ArgumentVerifier(
       entitiesUpdatedSinceReturnValue: List[IO[Seq[Entity]]] = List(
         IO(
           Seq(
@@ -114,7 +114,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       ),
       snsPublishReturnValue: IO[List[PublishBatchResponse]] = IO(List(PublishBatchResponse.builder().build())),
       updateAttributeValuesReturnValue: IO[Int] = IO(200)
-  ) extends Lambda() {
+  ) {
     val apiUrlCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
     val updatedSinceCaptor: ArgumentCaptor[ZonedDateTime] = ArgumentCaptor.forClass(classOf[ZonedDateTime])
     val entitiesStartFromCaptor: ArgumentCaptor[Int] = ArgumentCaptor.forClass(classOf[Int])
@@ -135,35 +135,30 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     val mockDynamoDBClient: DADynamoDBClient[IO] = mock[DADynamoDBClient[IO]]
     val mockSnsClient: DASNSClient[IO] = mock[DASNSClient[IO]]
 
-    override lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = {
-      when(mockEntityClient.entitiesUpdatedSince(any[ZonedDateTime], any[Int], any[Int]))
-        .thenReturn(
-          entitiesUpdatedSinceReturnValue.headOption.getOrElse(IO(Nil)),
-          if (entitiesUpdatedSinceReturnValue.length > 1) entitiesUpdatedSinceReturnValue(1) else IO(Nil),
-          IO(Nil)
-        )
-      when(mockEntityClient.entityEventActions(any[Entity], any[Int], any[Int]))
-        .thenReturn(entityEventActionsReturnValue)
-      IO(mockEntityClient)
-    }
+    Mockito.reset(mockEntityClient, mockSnsClient, mockDynamoDBClient)
 
-    override val dADynamoDBClient: DADynamoDBClient[IO] = {
-      when(
-        mockDynamoDBClient.getItems[GetItemsResponse, PartitionKey](any[List[PartitionKey]], any[String])(
-          any[DynamoFormat[GetItemsResponse]],
-          any[DynamoFormat[PartitionKey]]
-        )
-      ).thenReturn(getAttributeValuesReturnValue)
-      when(mockDynamoDBClient.updateAttributeValues(any[DADynamoDbRequest]))
-        .thenReturn(updateAttributeValuesReturnValue)
-      mockDynamoDBClient
-    }
+    val dependencies: Dependencies = Dependencies(mockEntityClient, mockSnsClient, mockDynamoDBClient)
 
-    override val dASnsDBClient: DASNSClient[IO] = {
-      when(mockSnsClient.publish(any[String])(any[List[CompactEntity]])(any[Encoder[CompactEntity]]))
-        .thenReturn(snsPublishReturnValue)
-      mockSnsClient
-    }
+    when(mockEntityClient.entitiesUpdatedSince(any[ZonedDateTime], any[Int], any[Int]))
+      .thenReturn(
+        entitiesUpdatedSinceReturnValue.headOption.getOrElse(IO(Nil)),
+        if (entitiesUpdatedSinceReturnValue.length > 1) entitiesUpdatedSinceReturnValue(1) else IO(Nil),
+        IO(Nil)
+      )
+    when(mockEntityClient.entityEventActions(any[Entity], any[Int], any[Int]))
+      .thenReturn(entityEventActionsReturnValue)
+
+    when(
+      mockDynamoDBClient.getItems[GetItemsResponse, PartitionKey](any[List[PartitionKey]], any[String])(
+        any[DynamoFormat[GetItemsResponse]],
+        any[DynamoFormat[PartitionKey]]
+      )
+    ).thenReturn(getAttributeValuesReturnValue)
+    when(mockDynamoDBClient.updateAttributeValues(any[DADynamoDbRequest]))
+      .thenReturn(updateAttributeValuesReturnValue)
+
+    when(mockSnsClient.publish(any[String])(any[List[CompactEntity]])(any[Encoder[CompactEntity]]))
+      .thenReturn(snsPublishReturnValue)
 
     def verifyInvocationsAndArgumentsPassed(
         numOfGetAttributeValuesInvocations: Int,

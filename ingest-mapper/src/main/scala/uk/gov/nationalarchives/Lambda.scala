@@ -1,43 +1,17 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
-import cats.effect.unsafe.implicits.global
-import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
-import org.scanamo.generic.semiauto._
+import io.circe.generic.auto._
 import org.scanamo._
-import org.typelevel.log4cats.{LoggerName, SelfAwareStructuredLogger}
-import org.typelevel.log4cats.slf4j.Slf4jFactory
-import pureconfig._
+import org.scanamo.generic.semiauto._
 import pureconfig.generic.auto._
-import pureconfig.module.catseffect.syntax._
-import ujson.{Arr, Null, Num, Obj, Str, Value}
-import uk.gov.nationalarchives.Lambda.{Config, Input, StateOutput}
+import ujson._
+import uk.gov.nationalarchives.Lambda.{Config, Dependencies, Input, StateOutput}
 import uk.gov.nationalarchives.MetadataService._
-import upickle.default
-import upickle.default._
-
-import java.io.{InputStream, OutputStream}
 import java.util.UUID
 import scala.collection.mutable
 
-class Lambda extends RequestStreamHandler {
-  val metadataService: MetadataService = MetadataService()
-  val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
-  val randomUuidGenerator: () => UUID = () => UUID.randomUUID()
-
-  implicit val loggerName: LoggerName = LoggerName("Ingest Mapper")
-  private val logger: SelfAwareStructuredLogger[IO] = Slf4jFactory.create[IO].getLogger
-  implicit val inputReader: Reader[Input] = macroR[Input]
-
-  implicit def OptionReader[T: Reader]: Reader[Option[T]] = reader[Value].map[Option[T]] {
-    case Null    => None
-    case jsValue => Some(read[T](jsValue))
-  }
-
-  implicit def OptionWriter[T: Writer]: Writer[Option[T]] = writer[Value].comap {
-    case Some(value) => write(value)
-    case None        => Null
-  }
+class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   implicit val dynamoTableFormat: Typeclass[Obj] = new Typeclass[Obj] {
     override def read(dynamoValue: DynamoValue): Either[DynamoReadError, Obj] = {
@@ -69,27 +43,24 @@ class Lambda extends RequestStreamHandler {
     }
   }
 
-  private def parseInput(inputStream: InputStream): IO[Input] = IO {
-    val inputString = inputStream.readAllBytes().map(_.toChar).mkString
-    read[Input](inputString)
-  }
-
-  override def handleRequest(inputStream: InputStream, outputStream: OutputStream, context: Context): Unit = {
+  override def handler: (
+      Input,
+      Config,
+      Dependencies
+  ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
-      input <- parseInput(inputStream)
-      config <- ConfigSource.default.loadF[IO, Config]()
-      logCtx = Map("batchRef" -> input.batchId)
-      log = logger.info(logCtx)(_)
+
+      log <- IO(log(Map("batchRef" -> input.batchId)))
       _ <- log(s"Processing batchRef ${input.batchId}")
 
-      discoveryService <- DiscoveryService(config.discoveryApiUrl, randomUuidGenerator)
+      discoveryService <- DiscoveryService(config.discoveryApiUrl, dependencies.uuidGenerator)
       departmentAndSeries <- discoveryService.getDepartmentAndSeriesRows(input)
       _ <- log(s"Retrieved department and series ${departmentAndSeries.show}")
 
-      bagManifests <- metadataService.parseBagManifest(input)
-      bagInfoJson <- metadataService.parseBagInfoJson(input)
-      metadataJson <- metadataService.parseMetadataJson(input, departmentAndSeries, bagManifests, bagInfoJson.headOption.getOrElse(Obj()))
-      _ <- dynamo.writeItems(config.dynamoTableName, metadataJson)
+      bagManifests <- dependencies.metadataService.parseBagManifest(input)
+      bagInfoJson <- dependencies.metadataService.parseBagInfoJson(input)
+      metadataJson <- dependencies.metadataService.parseMetadataJson(input, departmentAndSeries, bagManifests, bagInfoJson.headOption.getOrElse(Obj()))
+      _ <- dependencies.dynamo.writeItems(config.dynamoTableName, metadataJson)
       _ <- log("Metadata written to dynamo db")
     } yield {
 
@@ -99,7 +70,7 @@ class Lambda extends RequestStreamHandler {
         .mapValues(_.map(jsonObj => UUID.fromString(jsonObj("id").str)))
         .toMap
 
-      val stateData = StateOutput(
+      StateOutput(
         input.batchId,
         input.s3Bucket,
         input.s3Prefix,
@@ -107,16 +78,18 @@ class Lambda extends RequestStreamHandler {
         typeToId.getOrElse(ContentFolder, Nil),
         typeToId.getOrElse(Asset, Nil)
       )
-      outputStream.write(write(stateData).getBytes())
     }
-  }.onError(logLambdaError).unsafeRunSync()
 
-  private def logLambdaError(error: Throwable): IO[Unit] = logger.error(error)("Error running ingest mapper")
-
+  override def dependencies(config: Config): IO[Dependencies] = {
+    val metadataService: MetadataService = MetadataService()
+    val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
+    val randomUuidGenerator: () => UUID = () => UUID.randomUUID()
+    IO(Dependencies(metadataService, dynamo, randomUuidGenerator))
+  }
 }
 object Lambda {
-  implicit val stateDataWriter: default.Writer[StateOutput] = macroW[StateOutput]
   case class StateOutput(batchId: String, s3Bucket: String, s3Prefix: String, archiveHierarchyFolders: List[UUID], contentFolders: List[UUID], contentAssets: List[UUID])
   case class Input(batchId: String, s3Bucket: String, s3Prefix: String, department: Option[String], series: Option[String])
   case class Config(dynamoTableName: String, discoveryApiUrl: String)
+  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], uuidGenerator: () => UUID)
 }
