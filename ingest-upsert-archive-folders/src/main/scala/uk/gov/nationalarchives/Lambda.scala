@@ -141,18 +141,18 @@ class Lambda extends RequestStreamHandler {
         val updatedIdentifierMessage = updatedIdentifier
           .map { ui =>
             s"""
-                     |*Old value* ${ui.oldIdentifier.identifierName}: ${ui.oldIdentifier.value}
-                     |*New value* ${ui.newIdentifier.identifierName}: ${ui.newIdentifier.value}
-                     |
-                     |""".stripMargin
+               |*Old value* ${ui.oldIdentifier.identifierName}: ${ui.oldIdentifier.value}
+               |*New value* ${ui.newIdentifier.identifierName}: ${ui.newIdentifier.value}
+               |
+               |""".stripMargin
           }
           .mkString("")
         val potentialAddIdentifiersHeader = addedIdentifiers.headOption.map(_ => "The following identifiers have been added\n").getOrElse("")
         val addedIdentifiersMessage = addedIdentifiers
           .map { ai =>
             s"""
-                    |${ai.identifierName}: ${ai.value}
-                    |""".stripMargin
+               |${ai.identifierName}: ${ai.value}
+               |""".stripMargin
           }
           .mkString("")
         firstLine + potentialUpdatedHeader + updatedIdentifierMessage + potentialAddIdentifiersHeader + addedIdentifiersMessage
@@ -165,30 +165,28 @@ class Lambda extends RequestStreamHandler {
       folderUpdateRequest: EntityWithUpdateEntityRequest
   ): String = {
     val entity: Entity = folderUpdateRequest.entity
-    val firstLine: String = generateSlackMessageFirstLine(preservicaUrl, entity)
+    val firstLineOfMsg: String = generateSlackMessageFirstLine(preservicaUrl, entity, messageWithNewLine = false)
     val updateEntityRequest = folderUpdateRequest.updateEntityRequest
 
-    def generateMessage(name: String, oldString: String, newString: String) =
-      s"""*Old $name*: $oldString
-         |*New $name*: $newString""".stripMargin
-
     val titleUpdates = Option.when(entity.title.getOrElse("") != updateEntityRequest.title)(
-      generateMessage("title", entity.title.getOrElse(""), updateEntityRequest.title)
+      "Title has changed"
     )
     val descriptionUpdates = Option.when(updateEntityRequest.descriptionToChange.isDefined)(
-      generateMessage("description", entity.description.getOrElse(""), updateEntityRequest.descriptionToChange.get)
+      "Description has changed"
     )
 
-    firstLine ++ List(titleUpdates, descriptionUpdates).flatten.mkString("\n")
+    firstLineOfMsg ++ s"*${List(titleUpdates, descriptionUpdates).flatten.mkString(" and ")}*"
   }
 
-  private def generateSlackMessageFirstLine(preservicaUrl: String, entity: Entity) = {
+  private def generateSlackMessageFirstLine(preservicaUrl: String, entity: Entity, messageWithNewLine: Boolean = true) = {
     val entityTypeShort = entity.entityType
       .map(_.entityTypeShort)
       .getOrElse("IO") // We need a default and Preservica don't validate the entity type in the url
     val entityUrl = s"$preservicaUrl/explorer/explorer.html#properties:$entityTypeShort&${entity.ref}"
-    s""":preservica: Entity <$entityUrl|${entity.ref}> has been updated
-                                  |""".stripMargin
+    val firstLineOfMsg = s":preservica: Entity <$entityUrl|${entity.ref}> has been updated: "
+    val firstLineOfMsgWithNewLine = s"""$firstLineOfMsg
+                                       |""".stripMargin
+    if (messageWithNewLine) firstLineOfMsgWithNewLine else firstLineOfMsg
   }
 
   private def getFolderRowsSortedByParentPath(
