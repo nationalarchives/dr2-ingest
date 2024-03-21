@@ -31,3 +31,4 @@ There is no output from this Lambda.
 | PRESERVICA_API_URL        | The Preservica API  url                        |
 | PRESERVICA_SECRET_NAME    | The secret used to call the Preservica API     |
 | ARCHIVE_FOLDER_TABLE_NAME | The name of the table to get folders from      |
+
