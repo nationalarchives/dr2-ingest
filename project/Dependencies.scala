@@ -4,7 +4,7 @@ object Dependencies {
   lazy val pureConfigVersion = "0.17.6"
   lazy val daAwsClientsVersion = "0.1.39"
   private val fs2Version = "3.9.4"
-  private val sttpVersion = "3.9.4"
+  private val sttpVersion = "3.9.5"
   private val circeVersion = "0.14.6"
   private val log4CatsVersion = "2.6.0"
   private val awsLibraryVersion = "1.12.676"
@@ -50,6 +50,5 @@ object Dependencies {
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
   lazy val upickle = "com.lihaoyi" %% "upickle" % "3.2.0"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock" % "3.0.1"
-
 
 }
