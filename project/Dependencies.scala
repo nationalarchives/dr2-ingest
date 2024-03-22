@@ -17,7 +17,7 @@ object Dependencies {
   lazy val circeGenericExtras = "io.circe" %% "circe-generic-extras" % "0.14.3"
   lazy val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
-  lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.26.0"
+  lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.26.1"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val dynamoFormatters = "uk.gov.nationalarchives" %% "dynamo-formatters" % "0.0.9"
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
@@ -50,6 +50,5 @@ object Dependencies {
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
   lazy val upickle = "com.lihaoyi" %% "upickle" % "3.2.0"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock" % "3.0.1"
-
 
 }
