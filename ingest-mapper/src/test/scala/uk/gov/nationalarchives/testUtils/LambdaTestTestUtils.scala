@@ -10,11 +10,11 @@ import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCrede
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
-import TestUtils.{DynamoLRequestField, DynamoNRequestField, DynamoSRequestField, DynamoTable, DynamoTableItem}
-import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, Lambda, MetadataService}
+import uk.gov.nationalarchives.Lambda.{Dependencies, Input}
+import uk.gov.nationalarchives.testUtils.TestUtils.{DynamoLRequestField, DynamoNRequestField, DynamoSRequestField, DynamoTable, DynamoTableItem}
+import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, MetadataService}
 import upickle.default.write
 
-import java.io.ByteArrayInputStream
 import java.net.URI
 import java.util.UUID
 
@@ -24,17 +24,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     "c7e6b27f-5778-4da8-9b83-1b64bbccbd03",
     "61ac0166-ccdf-48c4-800f-29e5fba2efda"
   )
-  def defaultInputStream: ByteArrayInputStream = {
-    val inJson =
-      s"""{
-         |  "batchId": "TEST",
-         |  "s3Bucket": "$inputBucket",
-         |  "s3Prefix" : "TEST/",
-         |  "department": "A",
-         |  "series": "A 1"
-         |}""".stripMargin
-    new ByteArrayInputStream(inJson.getBytes())
-  }
+  val input: Input = Input("TEST", inputBucket, "TEST/", Option("A"), Option("A 1"))
 
   def stubValidNetworkRequests(dynamoTable: String = "test"): (UUID, UUID, UUID, UUID, List[String], List[String]) = {
     val folderIdentifier = UUID.randomUUID()
@@ -156,23 +146,24 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     list("originalMetadataFiles") should equal(expectedTable.originalMetadataFiles)
   }
 
-  case class IngestMapperTest() extends Lambda {
+  def dependencies: Dependencies = {
     val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
-    private val asyncS3Client: S3AsyncClient = S3AsyncClient
+    val asyncS3Client: S3AsyncClient = S3AsyncClient
       .crtBuilder()
       .endpointOverride(URI.create("http://localhost:9003"))
       .credentialsProvider(creds)
       .region(Region.EU_WEST_2)
       .build()
-    private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
+    val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
       .builder()
       .endpointOverride(URI.create("http://localhost:9005"))
       .region(Region.EU_WEST_2)
       .credentialsProvider(creds)
       .build()
     val uuidsIterator: Iterator[String] = uuids.iterator
-    override val metadataService: MetadataService = new MetadataService(DAS3Client[IO](asyncS3Client))
-    override val dynamo: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
-    override val randomUuidGenerator: () => UUID = () => UUID.fromString(uuidsIterator.next())
+    val metadataService: MetadataService = new MetadataService(DAS3Client[IO](asyncS3Client))
+    val dynamo: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
+    val randomUuidGenerator: () => UUID = () => UUID.fromString(uuidsIterator.next())
+    Dependencies(metadataService, dynamo, randomUuidGenerator)
   }
 }

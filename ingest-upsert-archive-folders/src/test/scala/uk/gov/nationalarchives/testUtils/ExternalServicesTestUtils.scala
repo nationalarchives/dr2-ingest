@@ -13,12 +13,12 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scanamo.DynamoFormat
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.Lambda.EntityWithUpdateEntityRequest
+import uk.gov.nationalarchives.Lambda.{Dependencies, Detail, EntityWithUpdateEntityRequest}
 import uk.gov.nationalarchives.DynamoFormatters._
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, Open, StructuralObject, UpdateEntityRequest}
-import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient, Lambda}
+import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
 
 import scala.jdk.CollectionConverters._
 import java.util.UUID
@@ -228,7 +228,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       s"add $identifiersString"
     }
 
-  case class MockLambda(
+  case class ArgumentVerifier(
       getAttributeValuesReturnValue: IO[List[ArchiveFolderDynamoTable]],
       entitiesWithSourceIdReturnValue: List[IO[Seq[Entity]]] = defaultEntitiesWithSourceIdReturnValues,
       addEntityReturnValues: List[IO[UUID]] = List(
@@ -239,7 +239,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       addIdentifierReturnValue: IO[String] = IO("The Identifier was added"),
       updateEntityReturnValues: IO[String] = IO("Entity was updated"),
       getIdentifiersForEntityReturnValues: IO[Seq[IdentifierResponse]] = defaultIdentifiersReturnValue
-  ) extends Lambda() {
+  ) {
     val testEventBridgeClient: DAEventBridgeClient[IO] = mock[DAEventBridgeClient[IO]]
     val eventBridgeMessageCaptors: ArgumentCaptor[Detail] = ArgumentCaptor.forClass(classOf[Detail])
     when(
@@ -249,7 +249,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         eventBridgeMessageCaptors.capture()
       )(any[Encoder[Detail]])
     ).thenReturn(IO(PutEventsResponse.builder.build))
-    override lazy val eventBridgeClient: DAEventBridgeClient[IO] = testEventBridgeClient
     val apiUrlCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
     def getIdentifierToGetCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
     def getAddFolderRequestCaptor: ArgumentCaptor[AddEntityRequest] = ArgumentCaptor.forClass(classOf[AddEntityRequest])
@@ -269,47 +268,42 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
     val mockDynamoDBClient: DADynamoDBClient[IO] = mock[DADynamoDBClient[IO]]
 
-    override val dADynamoDBClient: DADynamoDBClient[IO] = {
-      when(
-        mockDynamoDBClient.getItems[ArchiveFolderDynamoTable, PartitionKey](any[List[PartitionKey]], any[String])(
-          any[DynamoFormat[ArchiveFolderDynamoTable]],
-          any[DynamoFormat[PartitionKey]]
-        )
-      ).thenReturn(
-        getAttributeValuesReturnValue
+    when(
+      mockDynamoDBClient.getItems[ArchiveFolderDynamoTable, PartitionKey](any[List[PartitionKey]], any[String])(
+        any[DynamoFormat[ArchiveFolderDynamoTable]],
+        any[DynamoFormat[PartitionKey]]
       )
+    ).thenReturn(
+      getAttributeValuesReturnValue
+    )
 
-      mockDynamoDBClient
-    }
+    when(mockEntityClient.entitiesByIdentifier(any[Identifier]))
+      .thenReturn(
+        entitiesWithSourceIdReturnValue.head,
+        entitiesWithSourceIdReturnValue(1),
+        entitiesWithSourceIdReturnValue(2)
+      )
+    when(mockEntityClient.addEntity(any[AddEntityRequest])).thenReturn(
+      addEntityReturnValues.head,
+      addEntityReturnValues.lift(1).getOrElse(IO(UUID.randomUUID())),
+      addEntityReturnValues.lift(2).getOrElse(IO(UUID.randomUUID()))
+    )
+    when(
+      mockEntityClient.addIdentifierForEntity(
+        any[UUID],
+        any[StructuralObject.type],
+        any[Identifier]
+      )
+    )
+      .thenReturn(addIdentifierReturnValue)
+    when(mockEntityClient.updateEntity(any[UpdateEntityRequest]))
+      .thenReturn(updateEntityReturnValues)
+    when(mockEntityClient.getEntityIdentifiers(any[Entity]))
+      .thenReturn(getIdentifiersForEntityReturnValues)
+    when(mockEntityClient.updateEntityIdentifiers(any[Entity], any[Seq[IdentifierResponse]]))
+      .thenReturn(getIdentifiersForEntityReturnValues)
 
-    override lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = {
-      when(mockEntityClient.entitiesByIdentifier(any[Identifier]))
-        .thenReturn(
-          entitiesWithSourceIdReturnValue.head,
-          entitiesWithSourceIdReturnValue(1),
-          entitiesWithSourceIdReturnValue(2)
-        )
-      when(mockEntityClient.addEntity(any[AddEntityRequest])).thenReturn(
-        addEntityReturnValues.head,
-        addEntityReturnValues.lift(1).getOrElse(IO(UUID.randomUUID())),
-        addEntityReturnValues.lift(2).getOrElse(IO(UUID.randomUUID()))
-      )
-      when(
-        mockEntityClient.addIdentifierForEntity(
-          any[UUID],
-          any[StructuralObject.type],
-          any[Identifier]
-        )
-      )
-        .thenReturn(addIdentifierReturnValue)
-      when(mockEntityClient.updateEntity(any[UpdateEntityRequest]))
-        .thenReturn(updateEntityReturnValues)
-      when(mockEntityClient.getEntityIdentifiers(any[Entity]))
-        .thenReturn(getIdentifiersForEntityReturnValues)
-      when(mockEntityClient.updateEntityIdentifiers(any[Entity], any[Seq[IdentifierResponse]]))
-        .thenReturn(getIdentifiersForEntityReturnValues)
-      IO(mockEntityClient)
-    }
+    val dependencies: Dependencies = Dependencies(mockEntityClient, mockDynamoDBClient, testEventBridgeClient)
 
     def verifyInvocationsAndArgumentsPassed(
         folderIdsAndRows: Map[UUID, ArchiveFolderDynamoTable],

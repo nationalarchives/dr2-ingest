@@ -12,7 +12,8 @@ import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.services.s3.model.{CommonPrefix, ListObjectsV2Request, ListObjectsV2Response}
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
-import uk.gov.nationalarchives.{DAS3Client, Lambda}
+import uk.gov.nationalarchives.DAS3Client
+import uk.gov.nationalarchives.Lambda.Dependencies
 
 import java.nio.ByteBuffer
 import java.util.concurrent.CompletableFuture
@@ -38,9 +39,9 @@ class ExternalServicesTestUtils extends AnyFlatSpec {
     IO(listObjectsV2Publisher.commonPrefixes().map(_.prefix()))
   }
 
-  case class MockLambda(sdkPublisher: IO[SdkPublisher[String]], s3UploadResult: IO[CompletedUpload]) extends Lambda() {
+  case class ArgumentVerifier(sdkPublisher: IO[SdkPublisher[String]], s3UploadResult: IO[CompletedUpload]) {
     private val mockS3Client: DAS3Client[IO] = mock[DAS3Client[IO]]
-    override val dAS3Client: DAS3Client[IO] = {
+    val dAS3Client: DAS3Client[IO] = {
       when(
         mockS3Client.listCommonPrefixes(
           any[String],
@@ -57,6 +58,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec {
       ).thenReturn(s3UploadResult)
       mockS3Client
     }
+
+    val dependencies: Dependencies = Dependencies(mockS3Client)
 
     def verifyInvocationsAndArgumentsPassed(
         numberOfUploads: Int

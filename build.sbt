@@ -23,6 +23,9 @@ lazy val root = (project in file("."))
 lazy val commonSettings = Seq(
   name := baseDirectory.value.getName,
   libraryDependencies ++= Seq(
+    circeCore,
+    circeParser,
+    circeGeneric,
     log4jSlf4j,
     log4jCore,
     log4jTemplateJson,
@@ -53,6 +56,7 @@ lazy val commonSettings = Seq(
 
 lazy val ingestMapper = (project in file("ingest-mapper"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
       awsCrt,
@@ -68,6 +72,7 @@ lazy val ingestMapper = (project in file("ingest-mapper"))
 
 lazy val ingestParentFolderOpexCreator = (project in file("ingest-parent-folder-opex-creator"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
       s3Client,
@@ -81,6 +86,7 @@ lazy val ingestParentFolderOpexCreator = (project in file("ingest-parent-folder-
 
 lazy val ingestUpsertArchiveFolders = (project in file("ingest-upsert-archive-folders"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
@@ -94,17 +100,18 @@ lazy val ingestUpsertArchiveFolders = (project in file("ingest-upsert-archive-fo
 
 lazy val ingestWorkflowMonitor = (project in file("ingest-workflow-monitor"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies += preservicaClient
   )
 
 lazy val preservicaConfig = (project in file("preservica-config"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
       preservicaClient,
       s3Client,
-      circeParser,
       scalaXml,
       scalaParserCombinators,
       jaxb
@@ -113,6 +120,7 @@ lazy val preservicaConfig = (project in file("preservica-config"))
 
 lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
       awsCrt,
@@ -127,12 +135,14 @@ lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"
 
 lazy val startWorkflow = (project in file("ingest-start-workflow"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies += preservicaClient
   )
 
 lazy val entityEventGenerator = (project in file("entity-event-generator-lambda"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
       awsSecretsManager,
@@ -147,6 +157,7 @@ lazy val entityEventGenerator = (project in file("entity-event-generator-lambda"
 
 lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-version-lambda"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
@@ -158,6 +169,7 @@ lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-ve
 
 lazy val ingestAssetReconciler = (project in file("ingest-asset-reconciler"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
@@ -167,6 +179,7 @@ lazy val ingestAssetReconciler = (project in file("ingest-asset-reconciler"))
   )
 lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
       awsCrt,
@@ -181,20 +194,21 @@ lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
 
 lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed-court-document-event-handler"))
   .settings(commonSettings)
+  .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
       awsCrt,
       commonsCompress,
       fs2IO,
-      circeCore,
-      circeParser,
-      circeGeneric,
       circeGenericExtras,
       s3Client,
       sfnClient,
       reactorTest % Test
     )
   )
+
+  lazy val utils = (project in file("utils"))
+    .settings(commonSettings)
 
 
 

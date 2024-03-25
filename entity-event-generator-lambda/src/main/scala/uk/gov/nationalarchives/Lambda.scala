@@ -1,57 +1,35 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
-import cats.effect.unsafe.implicits.global
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
-import com.amazonaws.services.lambda.runtime.{Context, RequestHandler}
 import io.circe.Encoder
-import org.scanamo.generic.auto.genericDerivedFormat
-import org.typelevel.log4cats.slf4j.Slf4jLogger
-import pureconfig._
+import org.scanamo.generic.auto._
 import pureconfig.generic.auto._
-import pureconfig.module.catseffect.syntax._
 import software.amazon.awssdk.services.dynamodb.model._
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
-import uk.gov.nationalarchives.Lambda.{CompactEntity, Config, GetItemsResponse, PartitionKey}
+import uk.gov.nationalarchives.EventDecoders._
+import uk.gov.nationalarchives.Lambda._
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 
 import java.time.{Instant, OffsetDateTime}
 
-class Lambda extends RequestHandler[ScheduledEvent, Unit] {
+class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
   private val maxEntitiesPerPage: Int = 1000
   private val dateItemPrimaryKeyAndValue =
     Map("id" -> AttributeValue.builder().s("LastPolled").build())
   private val datetimeField = "datetime"
-  private val configIo: IO[Config] = ConfigSource.default.loadF[IO, Config]()
-  lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = configIo.flatMap { config =>
-    Fs2Client.entityClient(config.apiUrl, config.secretName)
-  }
-  val dADynamoDBClient: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
-
-  val dASnsDBClient: DASNSClient[IO] = DASNSClient[IO]()
 
   implicit val enc: Encoder[CompactEntity] =
     Encoder.forProduct2("id", "deleted")(entity => (entity.id, entity.deleted))
 
-  override def handleRequest(event: ScheduledEvent, context: Context): Unit = {
-    val eventTriggeredDatetime: OffsetDateTime =
-      OffsetDateTime.ofInstant(Instant.ofEpochMilli(event.getTime.getMillis), event.getTime.getZone.toTimeZone.toZoneId)
-
-    val entities = for {
-      config <- configIo
-      entitiesClient <- entitiesClientIO
-      numOfEntitiesUpdated <- publishUpdatedEntitiesAndUpdateDateTime(config, entitiesClient, 0, eventTriggeredDatetime)
-    } yield numOfEntitiesUpdated
-
-    entities.unsafeRunSync()
-  }
-
   private def publishUpdatedEntitiesAndUpdateDateTime(
       config: Config,
       entityClient: EntityClient[IO, Fs2Streams[IO]],
+      dADynamoDBClient: DADynamoDBClient[IO],
+      dASnsDBClient: DASNSClient[IO],
       startFrom: Int,
       eventTriggeredDatetime: OffsetDateTime
   ): IO[Int] =
@@ -59,6 +37,8 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
       numOfRecentlyUpdatedEntities <- getEntitiesUpdatedAndUpdateDB(
         config,
         entityClient,
+        dADynamoDBClient,
+        dASnsDBClient,
         startFrom,
         eventTriggeredDatetime
       )
@@ -67,6 +47,8 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
           publishUpdatedEntitiesAndUpdateDateTime(
             config,
             entityClient,
+            dADynamoDBClient,
+            dASnsDBClient,
             startFrom + maxEntitiesPerPage,
             eventTriggeredDatetime
           )
@@ -76,11 +58,12 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
   private def getEntitiesUpdatedAndUpdateDB(
       config: Config,
       entitiesClient: EntityClient[IO, Fs2Streams[IO]],
+      dADynamoDBClient: DADynamoDBClient[IO],
+      dASnsDBClient: DASNSClient[IO],
       startFrom: Int,
       eventTriggeredDatetime: OffsetDateTime
   ): IO[Int] =
     for {
-      logger <- Slf4jLogger.create[IO]
       updatedSinceResponses <- dADynamoDBClient.getItems[GetItemsResponse, PartitionKey](
         List(PartitionKey("LastPolled")),
         config.lastEventActionTableName
@@ -98,24 +81,23 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
           }
         } else IO(None)
 
-      lastEventActionBeforeEventTriggered = entityLastEventActionDate.map(_.isBefore(eventTriggeredDatetime))
-
-      _ <-
-        if (lastEventActionBeforeEventTriggered.getOrElse(false)) {
-          val compactEntities: List[CompactEntity] = convertToCompactEntities(recentlyUpdatedEntities.toList)
-
-          for {
-            _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(compactEntities)
-            updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
-            updateDateRequest = DADynamoDbRequest(
-              config.lastEventActionTableName,
-              dateItemPrimaryKeyAndValue,
-              Map(datetimeField -> Some(updateDateAttributeValue))
-            )
-            statusCode <- dADynamoDBClient.updateAttributeValues(updateDateRequest)
-          } yield statusCode
-        } else IO(0)
+      _ <- IO.whenA(entityLastEventActionDate.exists(_.isBefore(eventTriggeredDatetime))) {
+        for {
+          _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
+          updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
+          updateDateRequest = DADynamoDbRequest(
+            config.lastEventActionTableName,
+            dateItemPrimaryKeyAndValue,
+            Map(datetimeField -> Some(updateDateAttributeValue))
+          )
+          _ <- dADynamoDBClient.updateAttributeValues(updateDateRequest)
+        } yield ()
+      }
     } yield recentlyUpdatedEntities.length
+
+  override def dependencies(config: Config): IO[Dependencies] = for {
+    client <- Fs2Client.entityClient(config.apiUrl, config.secretName)
+  } yield Dependencies(client, DASNSClient[IO](), DADynamoDBClient[IO]())
 
   private def convertToCompactEntities(entitiesToTransform: List[Entity]): List[CompactEntity] =
     entitiesToTransform.map { entity =>
@@ -124,6 +106,22 @@ class Lambda extends RequestHandler[ScheduledEvent, Unit] {
         .getOrElse(entity.ref.toString)
       CompactEntity(id, entity.deleted)
     }
+
+  override def handler: (ScheduledEvent, Config, Dependencies) => IO[Int] = { (event, config, dependencies) =>
+    val eventTriggeredDatetime: OffsetDateTime =
+      OffsetDateTime.ofInstant(Instant.ofEpochMilli(event.getTime.getMillis), event.getTime.getZone.toTimeZone.toZoneId)
+    for {
+      numOfEntitiesUpdated <- publishUpdatedEntitiesAndUpdateDateTime(
+        config,
+        dependencies.entityClient,
+        dependencies.daDynamoDBClient,
+        dependencies.daSNSClient,
+        0,
+        eventTriggeredDatetime
+      )
+    } yield numOfEntitiesUpdated
+  }
+
 }
 
 object Lambda {
@@ -131,4 +129,6 @@ object Lambda {
   case class CompactEntity(id: String, deleted: Boolean)
   case class PartitionKey(id: String)
   case class GetItemsResponse(datetime: String)
+
+  case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], daSNSClient: DASNSClient[IO], daDynamoDBClient: DADynamoDBClient[IO])
 }

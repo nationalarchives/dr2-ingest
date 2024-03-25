@@ -7,11 +7,9 @@ import org.mockito.MockitoSugar.{mock, times, verify, when}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
-import uk.gov.nationalarchives.Lambda
+import uk.gov.nationalarchives.Lambda.{Dependencies, Input}
 import uk.gov.nationalarchives.dp.client.ProcessMonitorClient
 import uk.gov.nationalarchives.dp.client.ProcessMonitorClient._
-
-import java.io.ByteArrayInputStream
 
 class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChecks {
   private val path =
@@ -76,29 +74,14 @@ class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChec
     ("", "There is no pax file at the end of this path!")
   )
 
-  def defaultInputStream: ByteArrayInputStream = {
-    val inJson = s"""{
-                    |"executionId": "$executionId",
-                    |"contentAssets": [
-                    |  "5594c3d7-4b39-408f-a0b0-f79279966205",
-                    |  "ae0dac57-d80a-43d1-a436-e912a91eca60",
-                    |  "765ba5b9-6d39-462f-a62a-cec5d4a87043"
-                    | ],
-                    |"workflowContextName": "workflow-name",
-                    |"stagingBucket": "test-bucket",
-                    |"stagingPrefix": "opex/$executionId",
-                    |"allFolders": ["1eb1b335-9348-4ca0-bdfe-c9536157387c"]
-                    |}""".stripMargin
-    new ByteArrayInputStream(inJson.getBytes())
-  }
+  val input: Input = Input(executionId, List("5594c3d7-4b39-408f-a0b0-f79279966205", "ae0dac57-d80a-43d1-a436-e912a91eca60", "765ba5b9-6d39-462f-a62a-cec5d4a87043"))
 
-  case class ProcessMonitorTest(monitors: IO[Seq[Monitors]], messages: IO[Seq[Message]]) extends Lambda {
-    override lazy val processMonitorClientIO: IO[ProcessMonitorClient[IO]] = {
-      when(mockProcessMonitorClient.getMonitors(any[GetMonitorsRequest])).thenReturn(monitors)
-      when(mockProcessMonitorClient.getMessages(any[GetMessagesRequest], any[Int], any[Int])).thenReturn(messages)
-      IO(mockProcessMonitorClient)
-    }
+  case class ArgumentVerifier(monitors: IO[Seq[Monitors]], messages: IO[Seq[Message]]) {
     private val mockProcessMonitorClient: ProcessMonitorClient[IO] = mock[ProcessMonitorClient[IO]]
+    when(mockProcessMonitorClient.getMonitors(any[GetMonitorsRequest])).thenReturn(monitors)
+    when(mockProcessMonitorClient.getMessages(any[GetMessagesRequest], any[Int], any[Int])).thenReturn(messages)
+
+    val dependencies: Dependencies = Dependencies(mockProcessMonitorClient)
 
     def verifyInvocationsAndArgumentsPassed(
         expectedMonitorStatus: List[MonitorsStatus],

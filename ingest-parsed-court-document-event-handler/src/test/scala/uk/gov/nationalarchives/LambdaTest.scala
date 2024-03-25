@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import com.github.tomakehurst.wiremock.WireMockServer
@@ -19,6 +20,8 @@ import io.circe.parser.decode
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2, TableFor4}
+import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
+import uk.gov.nationalarchives.Lambda.Dependencies
 
 import java.net.URI
 import java.util.{Base64, HexFormat, UUID}
@@ -27,6 +30,8 @@ import scala.jdk.CollectionConverters._
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPropertyChecks {
   case class SFNRequest(stateMachineArn: String, name: String, input: String)
+
+  val config: Config = Config("", "")
 
   val reference = "TEST-REFERENCE"
   val uuidsAndChecksum: List[(String, String)] = List(
@@ -73,31 +78,33 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
   private def runLambdaAndReturnStepFunctionRequest(metadataJsonOpt: Option[String] = None) = {
     stubAWSRequests(inputBucket, metadataJsonOpt = metadataJsonOpt)
-    IngestParserTest().handleRequest(event(), null)
+    new Lambda().handler(event(), config, dependencies).unsafeRunSync()
 
     val sfnEvent = sfnServer.getAllServeEvents.asScala.head
     read[SFNRequest](sfnEvent.getRequest.getBodyAsString)
   }
 
-  case class IngestParserTest() extends Lambda {
-    private val s3AsyncClient: S3AsyncClient = S3AsyncClient
+  def dependencies: Dependencies = {
+    val credentials: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
+    val s3AsyncClient: S3AsyncClient = S3AsyncClient
       .crtBuilder()
       .endpointOverride(URI.create("http://localhost:9003"))
       .region(Region.EU_WEST_2)
+      .credentialsProvider(credentials)
       .build()
 
-    private val sfnAsyncClient: SfnAsyncClient = SfnAsyncClient
+    val sfnAsyncClient: SfnAsyncClient = SfnAsyncClient
       .builder()
       .endpointOverride(URI.create("http://localhost:9004"))
       .region(Region.EU_WEST_2)
+      .credentialsProvider(credentials)
       .build()
 
-    override val s3: DAS3Client[IO] = DAS3Client[IO](s3AsyncClient)
-    override val sfn: DASFNClient[IO] = new DASFNClient(sfnAsyncClient)
-    override val seriesMapper: SeriesMapper = new SeriesMapper(Set(Court("COURT", "TEST", "TEST SERIES")))
+    val s3: DAS3Client[IO] = DAS3Client[IO](s3AsyncClient)
+    val sfn: DASFNClient[IO] = new DASFNClient(sfnAsyncClient)
+    val seriesMapper: SeriesMapper = new SeriesMapper(Set(Court("COURT", "TEST", "TEST SERIES")))
     val uuidsIterator: Iterator[String] = uuidsAndChecksum.map(_._1).iterator
-
-    override val randomUuidGenerator: () => UUID = () => UUID.fromString(uuidsIterator.next())
+    Dependencies(s3, sfn, () => UUID.fromString(uuidsIterator.next()), seriesMapper)
   }
 
   def createEvent(body: String): SQSEvent = {
@@ -180,14 +187,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
   "the lambda" should "download the .tar.gz file from the input bucket" in {
     stubAWSRequests(inputBucket)
-    IngestParserTest().handleRequest(event(), null)
+    new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     val serveEvents = s3Server.getAllServeEvents.asScala
     serveEvents.count(e => e.getRequest.getUrl == s"/$inputBucket/test.tar.gz" && e.getRequest.getMethod == RequestMethod.GET) should equal(1)
   }
 
   "the lambda" should "write the bagit package to the output bucket" in {
     stubAWSRequests(inputBucket)
-    IngestParserTest().handleRequest(event(), null)
+    new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     val serveEvents = s3Server.getAllServeEvents.asScala
 
     def countPutEvents(name: String) = serveEvents.count(e => e.getRequest.getUrl == s"/$testOutputBucket/$reference/$name" && e.getRequest.getMethod == RequestMethod.PUT)
@@ -211,7 +218,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
            |"TRE":{"reference":"$reference","payload":{"filename":"Test.docx"}},
            |"PARSER":{"cite":${potentialCite.orNull},"uri":"https://example.com/id/court/2023/","court":"test","date":"2023-07-26","name":"test"}}}""".stripMargin
       stubAWSRequests(inputBucket, metadataJsonOpt = Option(metadataJson))
-      IngestParserTest().handleRequest(event(), null)
+      new Lambda().handler(event(), config, dependencies).unsafeRunSync()
       val serveEvents = s3Server.getAllServeEvents.asScala
 
       def getContentOfAllMetadataFilePutEvents: List[String] = serveEvents
@@ -341,7 +348,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
   "the lambda" should "send a request to delete the extracted files from the bucket root" in {
     stubAWSRequests(inputBucket)
-    IngestParserTest().handleRequest(event(), null)
+    new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     val serveEvents = s3Server.getAllServeEvents.asScala
     val deleteObjectsEvents =
       serveEvents.filter(e => e.getRequest.getUrl == s"/$testOutputBucket?delete" && e.getRequest.getMethod == RequestMethod.POST)
@@ -358,7 +365,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
     stubAWSRequests(inputBucket, metadataJsonOpt = Option(metadataJson))
     val ex = intercept[Exception] {
-      IngestParserTest().handleRequest(event(), null)
+      new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal("URI contains '/press-summary' but file does not start with 'Press Summary of '")
   }
@@ -366,7 +373,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   "the lambda" should "error if the input json is invalid" in {
     val eventWithInvalidJson = createEvent("{}")
     val ex = intercept[Exception] {
-      IngestParserTest().handleRequest(eventWithInvalidJson, null)
+      new Lambda().handler(eventWithInvalidJson, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal("DecodingFailure at .parameters: Missing required field")
   }
@@ -374,7 +381,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   "the lambda" should "error if the json in the metadata file is invalid" in {
     stubAWSRequests(inputBucket, metadataJsonOpt = Option("invalidJson"))
     val ex = intercept[Exception] {
-      IngestParserTest().handleRequest(event(), null)
+      new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal("""expected json value got 'invali...' (line 1, column 1)""".stripMargin)
   }
@@ -382,7 +389,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   "the lambda" should "error if the json in the metadata file is missing required fields" in {
     stubAWSRequests(inputBucket, metadataJsonOpt = Option("{}"))
     val ex = intercept[DecodingFailure] {
-      IngestParserTest().handleRequest(event(), null)
+      new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal("""DecodingFailure at .parameters: Missing required field""".stripMargin)
   }
@@ -398,7 +405,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       )
     )
     val ex = intercept[Exception] {
-      IngestParserTest().handleRequest(event(), null)
+      new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(
       """DecodingFailure at .parameters.TDR.Document-Checksum-sha256: Got value 'null' with wrong type, expecting string""".stripMargin
@@ -409,7 +416,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val zeroBytesTarFileName = "zero-byte-test.tar.gz"
     stubAWSRequests(inputBucket, tarFileName = zeroBytesTarFileName)
     val ex = intercept[Exception] {
-      IngestParserTest().handleRequest(event(zeroBytesTarFileName), null)
+      new Lambda().handler(event(zeroBytesTarFileName), config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal("File id 'c7e6b27f-5778-4da8-9b83-1b64bbccbd03' size is 0")
   }
@@ -417,7 +424,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   "the lambda" should "error if S3 is unavailable" in {
     s3Server.stop()
     val ex = intercept[Exception] {
-      IngestParserTest().handleRequest(event(), null)
+      new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal("Failed to send the request: socket connection refused.")
   }
@@ -428,7 +435,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val event = createEvent(eventWithoutSkipParameter)
     stubAWSRequests(inputBucket)
 
-    IngestParserTest().handleRequest(event, null)
+    new Lambda().handler(event, config, dependencies)
     // All good, no "DecodingFailure at .skipSeriesLookup: Missing required field" thrown
   }
 }

@@ -1,19 +1,18 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import com.github.tomakehurst.wiremock.WireMockServer
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor6}
-import uk.gov.nationalarchives.Lambda.StateOutput
+import uk.gov.nationalarchives.Lambda.Config
 import uk.gov.nationalarchives.testUtils.ExternalServicesTestUtils
-import upickle.default
-import upickle.default.{macroR, read}
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPropertyChecks {
-  implicit val stateDataReader: default.Reader[StateOutput] = macroR[StateOutput]
   val dynamoServer = new WireMockServer(9005)
+  val config: Config = Config("", "", "", "test-table")
 
   override def beforeEach(): Unit = {
     dynamoServer.start()
@@ -170,76 +169,71 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     )
   )
 
-  "handleRequest" should "return an error if the asset is not found in Dynamo" in {
+  "handler" should "return an error if the asset is not found in Dynamo" in {
     stubGetRequest(emptyDynamoGetResponse)
-    val testLambda = TestLambda()
+    val argumentVerifier = ArgumentVerifier()
     val ex = intercept[Exception] {
-      testLambda.handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"No asset found for $assetId from $batchId")
 
-    testLambda.verifyInvocationsAndArgumentsPassed(0, 0, 0, 0)
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(0, 0, 0, 0)
   }
 
-  "handleRequest" should "return an error if the Dynamo entry does not have a type of 'Asset'" in {
+  "handler" should "return an error if the Dynamo entry does not have a type of 'Asset'" in {
     stubGetRequest(dynamoGetResponse.replace(""""S": "Asset"""", """"S": "ArchiveFolder""""))
     stubPostRequest(emptyDynamoPostResponse)
-    val testLambda = TestLambda()
+    val argumentVerifier = ArgumentVerifier()
     val ex = intercept[Exception] {
-      testLambda.handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"Object $assetId is of type ArchiveFolder and not 'Asset'")
 
-    testLambda.verifyInvocationsAndArgumentsPassed(0, 0, 0, 0)
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(0, 0, 0, 0)
   }
 
-  "handleRequest" should "return an error if there were no entities that had the asset name as the SourceId" in {
+  "handler" should "return an error if there were no entities that had the asset name as the SourceId" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
-    val testLambda = TestLambda(entitiesWithIdentifier = IO.pure(Nil))
+    val argumentVerifier = ArgumentVerifier(entitiesWithIdentifier = IO.pure(Nil))
     val ex = intercept[Exception] {
-      testLambda.handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"No entity found using SourceId 'Test Name'")
 
-    testLambda.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0)
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0)
   }
 
-  "handleRequest" should "return an error if no children are found for the asset" in {
+  "handler" should "return an error if no children are found for the asset" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(emptyDynamoPostResponse)
-    val testLambda = TestLambda()
+    val argumentVerifier = ArgumentVerifier()
     val ex = intercept[Exception] {
-      testLambda.handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"No children were found for $assetId from $batchId")
 
-    testLambda.verifyInvocationsAndArgumentsPassed(numOfGetBitstreamInfoRequests = 0)
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfGetBitstreamInfoRequests = 0)
   }
 
-  "handleRequest" should "return a 'wasReconciled' value of 'false' and a 'No entity found' 'reason' if there were no Content Objects belonging to the asset" in {
+  "handler" should "return a 'wasReconciled' value of 'false' and a 'No entity found' 'reason' if there were no Content Objects belonging to the asset" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
 
-    val outStream = outputStream
-
-    val testLambda = TestLambda(contentObjectsFromReps = IO.pure(Nil))
-    testLambda.handleRequest(standardInput, outStream, null)
-
-    val stateOutput = read[StateOutput](outStream.toByteArray.map(_.toChar).mkString)
+    val argumentVerifier = ArgumentVerifier(contentObjectsFromReps = IO.pure(Nil))
+    val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     stateOutput.wasReconciled should equal(false)
     stateOutput.reason should equal(
       "There were no Content Objects returned for entity ref '354f47cf-3ca2-4a4e-8181-81b714334f00'"
     )
 
-    testLambda.verifyInvocationsAndArgumentsPassed(numOfGetBitstreamInfoRequests = 0)
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfGetBitstreamInfoRequests = 0)
   }
 
   forAll(contentObjectApiVsDdbStates) { (docxChecksum, jsonChecksum, docxTitle, jsonName, idsThatFailed, reasonForFailure) =>
-    "handleRequest" should s"return a 'wasReconciled' value of 'false' and a 'reason' message that contains " +
+    "handler" should s"return a 'wasReconciled' value of 'false' and a 'reason' message that contains " +
       s"these ids: $idsThatFailed if $reasonForFailure " in {
-        val outStream = outputStream
         val updatedDynamoPostResponse = dynamoPostResponse
           .replace(s""""S": "$defaultDocxChecksum"""", s""""S": "$docxChecksum"""")
           .replace(s""""S": "$defaultJsonChecksum"""", s""""S": "$jsonChecksum"""")
@@ -250,11 +244,9 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         stubGetRequest(dynamoGetResponse)
         stubPostRequest(updatedDynamoPostResponse)
 
-        val testLambda = TestLambda()
+        val argumentVerifier = ArgumentVerifier()
 
-        testLambda.handleRequest(standardInput, outStream, null)
-
-        val stateOutput = read[StateOutput](outStream.toByteArray.map(_.toChar).mkString)
+        val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
         stateOutput.wasReconciled should equal(false)
         stateOutput.reason should equal(
@@ -262,28 +254,25 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
             s"a checksum could not be found for: ${idsThatFailed.mkString(", ")}"
         )
 
-        testLambda.verifyInvocationsAndArgumentsPassed()
+        argumentVerifier.verifyInvocationsAndArgumentsPassed()
       }
   }
 
-  "handleRequest" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled" in {
+  "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
-    val outStream = outputStream
 
-    val testLambda = TestLambda()
+    val argumentVerifier = ArgumentVerifier()
 
-    testLambda.handleRequest(standardInput, outStream, null)
-
-    val stateOutput = read[StateOutput](outStream.toByteArray.map(_.toChar).mkString)
+    val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     stateOutput.wasReconciled should equal(true)
     stateOutput.reason should equal("")
 
-    testLambda.verifyInvocationsAndArgumentsPassed()
+    argumentVerifier.verifyInvocationsAndArgumentsPassed()
   }
 
-  "handleRequest" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled, " +
+  "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled, " +
     "even if one of the Asset's child's title, was not present in the table" in {
       stubGetRequest(dynamoGetResponse)
 
@@ -296,17 +285,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       )
       println(updatedDynamoPostResponse)
       stubPostRequest(updatedDynamoPostResponse)
-      val outStream = outputStream
 
-      val testLambda = TestLambda()
+      val argumentVerifier = ArgumentVerifier()
 
-      testLambda.handleRequest(standardInput, outStream, null)
-
-      val stateOutput = read[StateOutput](outStream.toByteArray.map(_.toChar).mkString)
+      val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
       stateOutput.wasReconciled should equal(true)
       stateOutput.reason should equal("")
 
-      testLambda.verifyInvocationsAndArgumentsPassed()
+      argumentVerifier.verifyInvocationsAndArgumentsPassed()
     }
 }
