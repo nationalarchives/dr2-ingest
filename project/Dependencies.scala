@@ -1,13 +1,13 @@
 import sbt._
 object Dependencies {
-  lazy val logbackVersion = "2.23.0"
+  lazy val logbackVersion = "2.23.1"
   lazy val pureConfigVersion = "0.17.6"
-  lazy val daAwsClientsVersion = "0.1.39"
-  private val fs2Version = "3.9.4"
-  private val sttpVersion = "3.9.4"
+  lazy val daAwsClientsVersion = "0.1.43"
+  private val fs2Version = "3.10.1"
+  private val sttpVersion = "3.9.5"
   private val circeVersion = "0.14.6"
   private val log4CatsVersion = "2.6.0"
-  private val awsLibraryVersion = "1.12.676"
+  private val awsLibraryVersion = "1.12.686"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.29.11"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
@@ -17,7 +17,7 @@ object Dependencies {
   lazy val circeGenericExtras = "io.circe" %% "circe-generic-extras" % "0.14.3"
   lazy val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
-  lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.26.0"
+  lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.26.1"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val dynamoFormatters = "uk.gov.nationalarchives" %% "dynamo-formatters" % "0.0.9"
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
@@ -34,10 +34,10 @@ object Dependencies {
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.mockito" %% "mockito-scala" % "1.17.30"
   lazy val mockitoScalaTest = "org.mockito" %% "mockito-scala-scalatest" % "1.17.30"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.55"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.58"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig" % pureConfigVersion
-  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.2"
+  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.4"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.3.0"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.18"
@@ -50,6 +50,5 @@ object Dependencies {
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
   lazy val upickle = "com.lihaoyi" %% "upickle" % "3.2.0"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock" % "3.0.1"
-
 
 }
