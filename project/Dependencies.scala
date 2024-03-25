@@ -34,7 +34,7 @@ object Dependencies {
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.mockito" %% "mockito-scala" % "1.17.30"
   lazy val mockitoScalaTest = "org.mockito" %% "mockito-scala-scalatest" % "1.17.30"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.55"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.58"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.2"
@@ -50,6 +50,5 @@ object Dependencies {
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
   lazy val upickle = "com.lihaoyi" %% "upickle" % "3.2.0"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock" % "3.0.1"
-
 
 }
