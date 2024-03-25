@@ -7,7 +7,7 @@ object Dependencies {
   private val sttpVersion = "3.9.4"
   private val circeVersion = "0.14.6"
   private val log4CatsVersion = "2.6.0"
-  private val awsLibraryVersion = "1.12.676"
+  private val awsLibraryVersion = "1.12.686"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.29.11"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
@@ -50,6 +50,5 @@ object Dependencies {
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
   lazy val upickle = "com.lihaoyi" %% "upickle" % "3.2.0"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock" % "3.0.1"
-
 
 }
