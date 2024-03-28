@@ -3,7 +3,7 @@ package uk.gov.nationalarchives.testUtils
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
-import org.mockito.{ArgumentCaptor, Mockito}
+import org.mockito.{ArgumentCaptor, ArgumentMatchers, Mockito}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.MockitoSugar.{mock, times, verify, when}
 import org.scalatest.matchers.should.Matchers.{be, convertToAnyShouldWrapper}
@@ -17,11 +17,12 @@ import uk.gov.nationalarchives.Lambda.{Dependencies, Input}
 import uk.gov.nationalarchives.dp.client.Client.{BitStreamInfo, Fixity}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.{ContentObject, InformationObject, Preservation, RepresentationType}
+import uk.gov.nationalarchives.dp.client.EntityClient.{Access, ContentObject, InformationObject, Preservation, RepresentationType}
 import uk.gov.nationalarchives.DADynamoDBClient
 
 import java.net.URI
 import java.util.UUID
+import scala.jdk.CollectionConverters._
 
 class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrivenPropertyChecks {
   val assetId: UUID = UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e")
@@ -84,6 +85,12 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
        |      "digitalAssetSubtype": {
        |        "S": "Test Digital Asset Subtype"
        |      },
+       |      "representationType": {
+       |        "S": "Access"
+       |      },
+       |      "representationSuffix": {
+       |        "N": "2"
+       |      },
        |      "originalFiles": {
        |        "L": [ { "S" : "b6102810-53e3-43a2-9f69-fafe71d4aa40" } ]
        |      },
@@ -142,6 +149,12 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
        |      },
        |      "digitalAssetSubtype": {
        |        "S": "Test Digital Asset Subtype"
+       |      },
+       |      "representationType": {
+       |        "S": "Preservation"
+       |      },
+       |      "representationSuffix": {
+       |        "N": "1"
        |      },
        |      "originalFiles": {
        |        "L": [ { "S" : "b6102810-53e3-43a2-9f69-fafe71d4aa40" } ]
@@ -331,17 +344,25 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
     ).thenReturn(urlsToIoRepresentations)
 
     when(
-      mockEntityClient.getContentObjectsFromRepresentation(any[UUID], any[RepresentationType], any[Int])
-    ).thenReturn(contentObjectsFromReps)
+      mockEntityClient.getContentObjectsFromRepresentation(any[UUID], ArgumentMatchers.eq(Preservation), any[Int])
+    ).thenReturn(contentObjectsFromReps.map(_.lastOption.toList))
 
     when(
-      mockEntityClient.getBitstreamInfo(any[UUID])
-    ).thenReturn(bitstreamInfo.head, bitstreamInfo(1))
+      mockEntityClient.getContentObjectsFromRepresentation(any[UUID], ArgumentMatchers.eq(Access), any[Int])
+    ).thenReturn(contentObjectsFromReps.map(_.headOption.toList))
+
+    when(
+      mockEntityClient.getBitstreamInfo(ArgumentMatchers.eq(UUID.fromString("fc0a687d-f7fa-454e-941a-683bbf5594b1")))
+    ).thenReturn(bitstreamInfo.head)
+
+    when(
+      mockEntityClient.getBitstreamInfo(ArgumentMatchers.eq(UUID.fromString("4dee285b-64e4-49f8-942e-84ab460b5af6")))
+    ).thenReturn(bitstreamInfo.last)
 
     def verifyInvocationsAndArgumentsPassed(
         numOfEntitiesByIdentifierInvocations: Int = 1,
-        numOfGetUrlsToIoRepresentationsRequests: Int = 1,
-        numOfGetContentObjectsFromRepresentationRequests: Int = 1,
+        numOfGetUrlsToIoRepresentationsRequests: Int = 2,
+        numOfGetContentObjectsFromRepresentationRequests: Int = 2,
         numOfGetBitstreamInfoRequests: Int = 2
     ): Unit = {
       val entitiesByIdentifierIdentifierToGetCaptor = getIdentifierToGetCaptor
@@ -362,8 +383,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
       )
 
       if (numOfGetUrlsToIoRepresentationsRequests > 0) {
-        ioEntityRefForUrlsRequestCaptor.getValue should be(UUID.fromString("354f47cf-3ca2-4a4e-8181-81b714334f00"))
-        optionalRepresentationTypeCaptorRequestCaptor.getValue should be(Some(Preservation))
+        val uuid = UUID.fromString("354f47cf-3ca2-4a4e-8181-81b714334f00")
+        ioEntityRefForUrlsRequestCaptor.getAllValues.asScala should be(List(uuid, uuid))
+        optionalRepresentationTypeCaptorRequestCaptor.getAllValues.asScala.sortBy(_.map(_.toString())).toList should be(List(Some(Access), Some(Preservation)))
       }
 
       val ioEntityRefForContentObjectsRequestCaptor = getIoEntityRefCaptor
@@ -378,19 +400,21 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
         )
 
       if (numOfGetContentObjectsFromRepresentationRequests > 0) {
-        ioEntityRefForContentObjectsRequestCaptor.getValue should be(
-          UUID.fromString("354f47cf-3ca2-4a4e-8181-81b714334f00")
-        )
-        representationTypeCaptorRequestCaptor.getValue should be(Preservation)
-        versionCaptor.getValue should be(1)
+        val uuid = UUID.fromString("354f47cf-3ca2-4a4e-8181-81b714334f00")
+        ioEntityRefForContentObjectsRequestCaptor.getAllValues.asScala should be(List(uuid, uuid))
+        representationTypeCaptorRequestCaptor.getAllValues.asScala.sortBy(_.toString()).toList should be(List(Access, Preservation))
+        versionCaptor.getAllValues.asScala.sorted.toList should be(List(1, 1))
       }
 
       val contentRefRequestCaptor = getContentRef
 
       verify(mockEntityClient, times(numOfGetBitstreamInfoRequests)).getBitstreamInfo(contentRefRequestCaptor.capture())
 
-      if (numOfGetBitstreamInfoRequests > 0)
-        contentRefRequestCaptor.getValue should be(UUID.fromString("4dee285b-64e4-49f8-942e-84ab460b5af6"))
+      if (numOfGetBitstreamInfoRequests > 0) {
+        contentRefRequestCaptor.getAllValues.asScala.sorted.toList should be(
+          List(UUID.fromString("fc0a687d-f7fa-454e-941a-683bbf5594b1"), UUID.fromString("4dee285b-64e4-49f8-942e-84ab460b5af6"))
+        )
+      }
 
       ()
     }

@@ -257,14 +257,16 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           """"transferringBody":"test-organisation","transferCompleteDatetime":"2023-10-31T13:40:54Z",""" +
           """"upstreamSystem":"TRE: FCL Parser workflow","digitalAssetSource":"Born Digital","digitalAssetSubtype":"FCL"}"""
       val expectedFileMetadata = List(
-        BagitFileMetadataObject(fileId, Option(assetId), "Test", 1, "Test.docx", 15684),
+        BagitFileMetadataObject(fileId, Option(assetId), "Test", 1, "Test.docx", 15684, Preservation, "1"),
         BagitFileMetadataObject(
           metadataFileId,
           Option(assetId),
           "",
           2,
           "TRE-TEST-REFERENCE-metadata.json",
-          215
+          215,
+          Preservation,
+          "1"
         )
       )
 
