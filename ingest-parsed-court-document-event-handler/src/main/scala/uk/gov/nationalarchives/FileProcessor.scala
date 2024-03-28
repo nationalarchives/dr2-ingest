@@ -124,7 +124,9 @@ class FileProcessor(
         fileTitle,
         1,
         fileInfo.fileName,
-        fileInfo.fileSize
+        fileInfo.fileSize,
+        Preservation,
+        "1"
       )
     val fileMetadataObject = BagitFileMetadataObject(
       metadataFileInfo.id,
@@ -132,7 +134,9 @@ class FileProcessor(
       "",
       2,
       metadataFileInfo.fileName,
-      metadataFileInfo.fileSize
+      metadataFileInfo.fileSize,
+      Preservation,
+      "1"
     )
     List(folderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
   }
@@ -324,11 +328,13 @@ object FileProcessor {
             .deepDropNullValues
         }
 
-    case BagitFileMetadataObject(id, parentId, title, sortOrder, name, fileSize) =>
+    case BagitFileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix) =>
       Json
         .obj(
           ("sortOrder", Json.fromInt(sortOrder)),
-          ("fileSize", Json.fromLong(fileSize))
+          ("fileSize", Json.fromLong(fileSize)),
+          ("representationType", Json.fromString(representationType.toString)),
+          ("representationSuffix", Json.fromString(representationSuffix))
         )
         .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), File, name))
   }
@@ -368,6 +374,10 @@ object FileProcessor {
     case Asset         => Json.fromString("Asset")
     case File          => Json.fromString("File")
   }
+
+  sealed trait RepresentationType
+
+  case object Preservation extends RepresentationType
 
   sealed trait Type
 
@@ -410,7 +420,9 @@ object FileProcessor {
       title: String,
       sortOrder: Int,
       name: String,
-      fileSize: Long
+      fileSize: Long,
+      representationType: RepresentationType,
+      representationSuffix: String
   ) extends BagitMetadataObject
 
   case class BagInfo(
