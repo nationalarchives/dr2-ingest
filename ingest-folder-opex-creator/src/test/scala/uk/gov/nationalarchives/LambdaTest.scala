@@ -178,7 +178,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
        |}
        |""".stripMargin
 
-  val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
+  private val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
   private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
     .builder()
     .endpointOverride(URI.create("http://localhost:9005"))
@@ -194,8 +194,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     .targetThroughputInGbps(20.0)
     .minimumPartSizeInBytes(10 * 1024 * 1024)
     .build()
-  val dynamoClient: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
-  val s3Client: DAS3Client[IO] = DAS3Client[IO](asyncS3Client)
+  private val dynamoClient: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
+  private val s3Client: DAS3Client[IO] = DAS3Client[IO](asyncS3Client)
 
   val dependencies: Dependencies = Dependencies(dynamoClient, s3Client, XMLCreator())
 

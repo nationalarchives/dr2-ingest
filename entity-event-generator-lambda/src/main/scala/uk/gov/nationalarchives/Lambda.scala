@@ -90,7 +90,8 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
             dateItemPrimaryKeyAndValue,
             Map(datetimeField -> Some(updateDateAttributeValue))
           )
-          _ <- dADynamoDBClient.updateAttributeValues(updateDateRequest)
+          dynamoStatusCode <- dADynamoDBClient.updateAttributeValues(updateDateRequest)
+          _ <- logger.info(s"Dynamo updateAttributeValues returned status code $dynamoStatusCode")
         } yield ()
       }
     } yield recentlyUpdatedEntities.length

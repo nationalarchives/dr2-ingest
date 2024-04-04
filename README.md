@@ -9,13 +9,13 @@ This means that all lambdas are on the same version number.
 
 ## Creating a new Lambda.
 
-There is a `LambdaRunner` trait in the utils package. 
+There is a `LambdaRunner` abstract class in the utils package. 
 You will need to extend this and implement the required methods.
 
 You will also need three or four case classes.
 
 ### Input
-This is the object representing the lambda input json. The `LambdaRunner` trait needs an implicit circe decoder for this class.
+This is the object representing the lambda input json. The `LambdaRunner` abstract class needs an implicit circe decoder for this class.
 
 For a case class, you can import `io.circe.generic.auto._` which will provide the required decoder. 
 
