@@ -155,6 +155,8 @@ class XMLCreatorTest extends AnyFlatSpec {
       1,
       s"checksum$suffix",
       s"ext$suffix",
+      PreservationRepresentationType,
+      1,
       List(Identifier("Test2", "testIdentifier4"), Identifier("Test", "testIdentifier3"), Identifier("UpstreamSystemReference", "testSystemRef2"))
     )
   }
