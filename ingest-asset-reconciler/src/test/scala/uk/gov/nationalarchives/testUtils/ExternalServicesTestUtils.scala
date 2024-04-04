@@ -300,7 +300,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
         .willReturn(ok().withBody(postResponse))
     )
 
-  val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
+  private val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
 
   private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
     .builder()

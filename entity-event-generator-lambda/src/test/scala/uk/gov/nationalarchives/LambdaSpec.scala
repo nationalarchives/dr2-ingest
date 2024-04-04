@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.testUtils
+package uk.gov.nationalarchives
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
@@ -7,9 +7,9 @@ import org.joda.time.DateTime
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers._
 import software.amazon.awssdk.services.dynamodb.model._
-import uk.gov.nationalarchives.Lambda
 import uk.gov.nationalarchives.Lambda.Config
 import uk.gov.nationalarchives.dp.client.DataProcessor.EventAction
+import uk.gov.nationalarchives.testUtils.ExternalServicesTestUtils
 
 import java.time.ZonedDateTime
 import java.util.UUID
