@@ -89,7 +89,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
        |        "S": "Access"
        |      },
        |      "representationSuffix": {
-       |        "N": "2"
+       |        "N": "1"
        |      },
        |      "originalFiles": {
        |        "L": [ { "S" : "b6102810-53e3-43a2-9f69-fafe71d4aa40" } ]

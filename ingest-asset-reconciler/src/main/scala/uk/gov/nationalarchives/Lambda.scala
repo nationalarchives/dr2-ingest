@@ -65,12 +65,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         new Exception(s"No children were found for ${input.assetId} from ${input.batchId}")
       )
       _ <- log(s"${children.length} children found for asset ${asset.id}")
-      groupedChildren = children.groupBy(_.representationType match {
+      childrenGroupedByRepType = children.groupBy(_.representationType match {
         case DynamoFormatters.PreservationRepresentationType => Preservation
         case DynamoFormatters.AccessRepresentationType       => Access
       })
 
-      stateOutputs <- groupedChildren
+      stateOutputs <- childrenGroupedByRepType
         .map { case (representationType, childrenForRepresentationType) =>
           for {
             urlsToIoRepresentations <- dependencies.entityClient.getUrlsToIoRepresentations(entity.ref, Some(representationType))

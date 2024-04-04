@@ -113,11 +113,11 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
         <Title>Preservation</Title>
       </InformationObject>
       {
-        children.groupBy(child => (child.representationType, child.representationSuffix)) map { case ((representationType, representationSuffix), files) =>
+        children.groupBy(child => (child.representationType.toString, child.representationSuffix)) map { case ((representationType, representationSuffix), files) =>
           <Representation>
             <InformationObject>{asset.id}</InformationObject>
-            <Type>{representationType.toString}</Type>
-            <Name>{s"${representationType.toString}_$representationSuffix"}</Name>
+            <Type>{representationType}</Type>
+            <Name>{s"${representationType}_$representationSuffix"}</Name>
             <ContentObjects>
               {
             files.zipWithIndex
