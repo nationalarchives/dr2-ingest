@@ -29,6 +29,8 @@ jobs:
           sbt assembly
           cd target/outputs
           aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
+          git tag ${{ steps.next-tag.outputs.next-version }}
+          git push origin ${{ steps.next-tag.outputs.next-version }}
   deploy:
     needs: pre-deploy
     runs-on: ubuntu-latest
