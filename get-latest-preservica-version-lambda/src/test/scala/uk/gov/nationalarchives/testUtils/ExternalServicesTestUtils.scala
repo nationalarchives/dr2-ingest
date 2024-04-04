@@ -1,4 +1,4 @@
-package testUtils
+package uk.gov.nationalarchives.testUtils
 
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
@@ -12,9 +12,9 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scanamo.DynamoFormat
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.Lambda.{GetDr2PreservicaVersionResponse, LatestPreservicaVersionMessage, PartitionKey}
+import uk.gov.nationalarchives.Lambda.{Dependencies, GetDr2PreservicaVersionResponse, LatestPreservicaVersionMessage, PartitionKey}
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, Lambda}
+import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 
 class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll {
   val graphQlServerPort = 9001
@@ -33,11 +33,11 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     wiremockGraphqlServer.resetAll()
   }
 
-  case class MockLambda(
+  case class ArgumentVerifier(
       getPreservicaNamespaceVersionReturnValue: IO[Float] = IO.pure(7.0f),
       getCurrentPreservicaVersionReturnValue: IO[List[GetDr2PreservicaVersionResponse]] = IO.pure(List(GetDr2PreservicaVersionResponse(6.9f))),
       snsPublishReturnValue: IO[List[PublishBatchResponse]] = IO.pure(List(PublishBatchResponse.builder().build()))
-  ) extends Lambda() {
+  ) {
     val endpointSinceCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
     val getItemsCaptor: ArgumentCaptor[List[PartitionKey]] = ArgumentCaptor.forClass(classOf[List[PartitionKey]])
     val tableNameCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
@@ -49,34 +49,25 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
     val mockDynamoDBClient: DADynamoDBClient[IO] = mock[DADynamoDBClient[IO]]
     val mockSnsClient: DASNSClient[IO] = mock[DASNSClient[IO]]
+    when(mockEntityClient.getPreservicaNamespaceVersion(any[String]))
+      .thenReturn(getPreservicaNamespaceVersionReturnValue)
 
-    override lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = {
-      when(mockEntityClient.getPreservicaNamespaceVersion(any[String]))
-        .thenReturn(getPreservicaNamespaceVersionReturnValue)
-      IO.pure(mockEntityClient)
-    }
-
-    override val dADynamoDBClient: DADynamoDBClient[IO] = {
-      when(
-        mockDynamoDBClient
-          .getItems[GetDr2PreservicaVersionResponse, PartitionKey](any[List[PartitionKey]], any[String])(
-            any[DynamoFormat[GetDr2PreservicaVersionResponse]],
-            any[DynamoFormat[PartitionKey]]
-          )
-      ).thenReturn(getCurrentPreservicaVersionReturnValue)
-
+    when(
       mockDynamoDBClient
-    }
-
-    override val dASnsDBClient: DASNSClient[IO] = {
-      when(
-        mockSnsClient.publish(any[String])(any[List[LatestPreservicaVersionMessage]])(
-          any[Encoder[LatestPreservicaVersionMessage]]
+        .getItems[GetDr2PreservicaVersionResponse, PartitionKey](any[List[PartitionKey]], any[String])(
+          any[DynamoFormat[GetDr2PreservicaVersionResponse]],
+          any[DynamoFormat[PartitionKey]]
         )
+    ).thenReturn(getCurrentPreservicaVersionReturnValue)
+
+    when(
+      mockSnsClient.publish(any[String])(any[List[LatestPreservicaVersionMessage]])(
+        any[Encoder[LatestPreservicaVersionMessage]]
       )
-        .thenReturn(snsPublishReturnValue)
-      mockSnsClient
-    }
+    )
+      .thenReturn(snsPublishReturnValue)
+
+    val dependencies: Dependencies = Dependencies(mockEntityClient, mockSnsClient, mockDynamoDBClient)
 
     def verifyInvocationsAndArgumentsPassed(
         numOfCurrentPreservicaVersionInvocations: Int = 1,

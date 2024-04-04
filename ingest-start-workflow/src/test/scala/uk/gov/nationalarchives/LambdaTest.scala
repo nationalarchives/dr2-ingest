@@ -1,40 +1,27 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import org.mockito.ArgumentMatchers.any
 import org.mockito.{ArgumentCaptor, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
-import uk.gov.nationalarchives.Lambda.StateOutput
+import uk.gov.nationalarchives.Lambda.{Config, Dependencies, Input}
 import uk.gov.nationalarchives.dp.client.WorkflowClient
 import uk.gov.nationalarchives.dp.client.WorkflowClient.{Parameter, StartWorkflowRequest}
-import upickle.default
-import upickle.default._
-
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
 class LambdaTest extends AnyFlatSpec with MockitoSugar {
-  implicit val stateDataReader: default.Reader[StateOutput] = macroR[StateOutput]
+  val config: Config = Config("", "")
+  private def input: Input = Input("testContextName", "TST-1234-345")
 
-  private def defaultInputStream: ByteArrayInputStream = {
-    val inJson =
-      s"""{
-         |  "workflowContextName": "testContextName",
-         |  "executionId": "TST-1234-345"
-         |}""".stripMargin
-    new ByteArrayInputStream(inJson.getBytes())
-  }
-
-  case class StartWorkflowTest(startWorkflowReturnId: IO[Int] = IO(123)) extends Lambda {
-    override lazy val workflowClientIO: IO[WorkflowClient[IO]] = {
-      when(
-        mockWorkflowClient.startWorkflow(any[StartWorkflowRequest])
-      ).thenReturn(startWorkflowReturnId)
-
-      IO(mockWorkflowClient)
-    }
+  case class ArgumentVerifier(startWorkflowReturnId: IO[Int] = IO(123)) {
     private val mockWorkflowClient: WorkflowClient[IO] = mock[WorkflowClient[IO]]
+    when(
+      mockWorkflowClient.startWorkflow(any[StartWorkflowRequest])
+    ).thenReturn(startWorkflowReturnId)
+
+    val dependencies: Dependencies = Dependencies(mockWorkflowClient)
 
     def verifyInvocationsAndArgumentsPassed(
         expectedWorkflowContextName: Option[String],
@@ -48,29 +35,26 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar {
     }
   }
 
-  "handleRequest" should "pass the 'Id', returned from the API, to the OutputStream" in {
-    val os = new ByteArrayOutputStream()
-    val mockStartWorkflowLambda = StartWorkflowTest()
-    mockStartWorkflowLambda.handleRequest(defaultInputStream, os, null)
-    val stateData = read[StateOutput](os.toByteArray.map(_.toChar).mkString)
+  "handler" should "pass the 'Id', returned from the API, to the OutputStream" in {
+    val argumentVerifier = ArgumentVerifier()
+    val stateData = new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
 
-    mockStartWorkflowLambda.verifyInvocationsAndArgumentsPassed(
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(
       Some("testContextName"),
       List(Parameter("OpexContainerDirectory", s"opex/TST-1234-345"))
     )
     stateData.id should be(123)
   }
 
-  "handleRequest" should "return an exception if the API returns one" in {
-    val os = new ByteArrayOutputStream()
+  "handler" should "return an exception if the API returns one" in {
     val exception = IO.raiseError(new Exception("API has encountered an issue when calling startWorkflow"))
-    val mockStartWorkflowLambda = StartWorkflowTest(exception)
+    val argumentVerifier = ArgumentVerifier(exception)
 
     val ex = intercept[Exception] {
-      mockStartWorkflowLambda.handleRequest(defaultInputStream, os, null)
+      new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
     }
 
-    mockStartWorkflowLambda.verifyInvocationsAndArgumentsPassed(
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(
       Some("testContextName"),
       List(Parameter("OpexContainerDirectory", s"opex/TST-1234-345"))
     )

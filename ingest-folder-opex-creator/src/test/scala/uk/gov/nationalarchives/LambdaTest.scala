@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.http.RequestMethod
@@ -11,8 +12,8 @@ import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCrede
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
+import uk.gov.nationalarchives.Lambda.{Config, Dependencies, Input}
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.net.URI
 import java.util.UUID
 import scala.jdk.CollectionConverters._
@@ -21,6 +22,7 @@ import scala.xml.PrettyPrinter
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val dynamoServer = new WireMockServer(9005)
   val s3Server = new WireMockServer(9006)
+  val tableName = "test-table"
 
   override def beforeEach(): Unit = {
     dynamoServer.start()
@@ -55,14 +57,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   def stubBatchGetRequest(batchGetResponse: String): Unit =
     dynamoServer.stubFor(
       post(urlEqualTo("/"))
-        .withRequestBody(matchingJsonPath("$.RequestItems", containing("test-table")))
+        .withRequestBody(matchingJsonPath("$.RequestItems", containing(tableName)))
         .willReturn(ok().withBody(batchGetResponse))
     )
 
   def stubDynamoQueryRequest(queryResponse: String): Unit =
     dynamoServer.stubFor(
       post(urlEqualTo("/"))
-        .withRequestBody(matchingJsonPath("$.TableName", equalTo("test-table")))
+        .withRequestBody(matchingJsonPath("$.TableName", equalTo(tableName)))
         .willReturn(ok().withBody(queryResponse))
     )
 
@@ -72,13 +74,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val childId: UUID = UUID.fromString("feedd76d-e368-45c8-96e3-c37671476793")
   val batchId: String = "TEST-ID"
   val executionName = "test-execution"
-  val inputJson: String = s"""{"batchId": "$batchId", "id": "$folderId", "executionName": "$executionName", "sourceBucket": "test-source-bucket"}"""
+  private val config: Config = Config(tableName, "test-destination-bucket", "test-gsi")
+  private val input: Input = Input(folderId, batchId, executionName)
 
-  def standardInput: ByteArrayInputStream = new ByteArrayInputStream(inputJson.getBytes)
-
-  def outputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
-
-  val emptyDynamoGetResponse: String = """{"Responses": {"test-table": []}}"""
+  val emptyDynamoGetResponse: String = s"""{"Responses": {"$tableName": []}}"""
   val emptyDynamoQueryResponse: String = """{"Count": 0, "Items": []}"""
   val dynamoQueryResponse: String =
     s"""{
@@ -153,7 +152,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val dynamoGetResponse: String =
     s"""{
        |  "Responses": {
-       |    "test-table": [
+       |    "$tableName": [
        |      {
        |        "id": {
        |          "S": "$folderId"
@@ -179,106 +178,106 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
        |}
        |""".stripMargin
 
-  case class TestLambda() extends Lambda {
-    val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
-    private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
-      .builder()
-      .endpointOverride(URI.create("http://localhost:9005"))
-      .region(Region.EU_WEST_2)
-      .credentialsProvider(creds)
-      .build()
+  private val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
+  private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
+    .builder()
+    .endpointOverride(URI.create("http://localhost:9005"))
+    .region(Region.EU_WEST_2)
+    .credentialsProvider(creds)
+    .build()
 
-    private val asyncS3Client: S3AsyncClient = S3AsyncClient
-      .crtBuilder()
-      .endpointOverride(URI.create("http://localhost:9006"))
-      .region(Region.EU_WEST_2)
-      .credentialsProvider(creds)
-      .targetThroughputInGbps(20.0)
-      .minimumPartSizeInBytes(10 * 1024 * 1024)
-      .build()
-    override val dynamoClient: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
-    override val s3Client: DAS3Client[IO] = DAS3Client[IO](asyncS3Client)
-  }
+  private val asyncS3Client: S3AsyncClient = S3AsyncClient
+    .crtBuilder()
+    .endpointOverride(URI.create("http://localhost:9006"))
+    .region(Region.EU_WEST_2)
+    .credentialsProvider(creds)
+    .targetThroughputInGbps(20.0)
+    .minimumPartSizeInBytes(10 * 1024 * 1024)
+    .build()
+  private val dynamoClient: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
+  private val s3Client: DAS3Client[IO] = DAS3Client[IO](asyncS3Client)
 
-  "handleRequest" should "return an error if the folder is not found in dynamo" in {
+  val dependencies: Dependencies = Dependencies(dynamoClient, s3Client, XMLCreator())
+
+  "handler" should "return an error if the folder is not found in dynamo" in {
     stubBatchGetRequest(emptyDynamoGetResponse)
     val ex = intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"No folder found for $folderId and $batchId")
   }
 
-  "handleRequest" should "return an error if no children are found for the folder" in {
+  "handler" should "return an error if no children are found for the folder" in {
     stubBatchGetRequest(dynamoGetResponse)
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     val ex = intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"No children found for $folderId and $batchId")
   }
 
-  "handleRequest" should "return an error if the dynamo entry does not have a type of 'folder'" in {
+  "handler" should "return an error if the dynamo entry does not have a type of 'folder'" in {
     stubBatchGetRequest(dynamoGetResponse.replace("ArchiveFolder", "Asset"))
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     val ex = intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"Object $folderId is of type Asset and not 'ContentFolder' or 'ArchiveFolder'")
   }
 
-  "handleRequest" should "pass the correct id to dynamo getItem" in {
+  "handler" should "pass the correct id to dynamo getItem" in {
     stubBatchGetRequest(emptyDynamoGetResponse)
     intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     val serveEvents = dynamoServer.getAllServeEvents.asScala
     serveEvents.size should equal(1)
-    serveEvents.head.getRequest.getBodyAsString should equal(s"""{"RequestItems":{"test-table":{"Keys":[{"id":{"S":"$folderId"}}]}}}""")
+    serveEvents.head.getRequest.getBodyAsString should equal(s"""{"RequestItems":{"$tableName":{"Keys":[{"id":{"S":"$folderId"}}]}}}""")
   }
 
-  "handleRequest" should "pass the parent path with no prefixed slash to dynamo if the parent path is empty" in {
+  "handler" should "pass the parent path with no prefixed slash to dynamo if the parent path is empty" in {
     stubBatchGetRequest(dynamoGetResponse.replace("a/parent/path", ""))
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     val serveEvents = dynamoServer.getAllServeEvents.asScala
     val queryEvent = serveEvents.head
     val requestBody = queryEvent.getRequest.getBodyAsString
     val expectedRequestBody =
-      """{"TableName":"test-table","IndexName":"test-gsi","KeyConditionExpression":"#A = :batchId AND #B = :parentPath",""" +
+      s"""{"TableName":"$tableName","IndexName":"test-gsi","KeyConditionExpression":"#A = :batchId AND #B = :parentPath",""" +
         s""""ExpressionAttributeNames":{"#A":"batchId","#B":"parentPath"},"ExpressionAttributeValues":{":batchId":{"S":"TEST-ID"},":parentPath":{"S":"$folderId"}}}"""
     expectedRequestBody should equal(requestBody)
   }
 
-  "handleRequest" should "pass the correct parameters to dynamo for the query request" in {
+  "handler" should "pass the correct parameters to dynamo for the query request" in {
     stubBatchGetRequest(dynamoGetResponse)
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     val serveEvents = dynamoServer.getAllServeEvents.asScala
     val queryEvent = serveEvents.head
     val requestBody = queryEvent.getRequest.getBodyAsString
     val expectedRequestBody =
-      """{"TableName":"test-table","IndexName":"test-gsi","KeyConditionExpression":"#A = :batchId AND #B = :parentPath",""" +
+      s"""{"TableName":"$tableName","IndexName":"test-gsi","KeyConditionExpression":"#A = :batchId AND #B = :parentPath",""" +
         s""""ExpressionAttributeNames":{"#A":"batchId","#B":"parentPath"},"ExpressionAttributeValues":{":batchId":{"S":"TEST-ID"},":parentPath":{"S":"$folderParentPath/$folderId"}}}"""
     expectedRequestBody should equal(requestBody)
   }
 
-  "handleRequest" should "upload the opex file to the correct path" in {
+  "handler" should "upload the opex file to the correct path" in {
     stubBatchGetRequest(dynamoGetResponse)
     stubDynamoQueryRequest(dynamoQueryResponse)
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
     stubPutRequest(opexPath)
 
-    TestLambda().handleRequest(standardInput, outputStream, null)
+    new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3CopyRequests = s3Server.getAllServeEvents.asScala
     s3CopyRequests.count(_.getRequest.getUrl == opexPath) should equal(1)
   }
 
-  "handleRequest" should "upload the correct body to S3" in {
+  "handler" should "upload the correct body to S3" in {
     val prettyPrinter = new PrettyPrinter(180, 2)
     val expectedResponseXML =
       <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
@@ -308,7 +307,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
     stubPutRequest(opexPath)
 
-    TestLambda().handleRequest(standardInput, outputStream, null)
+    new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3Events = s3Server.getAllServeEvents.asScala
     val s3PutEvent = s3Events.filter(_.getRequest.getMethod == RequestMethod.PUT).head
@@ -317,20 +316,20 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     body should equal(prettyPrinter.format(expectedResponseXML))
   }
 
-  "handleRequest" should "return an error if the Dynamo API is unavailable" in {
+  "handler" should "return an error if the Dynamo API is unavailable" in {
     dynamoServer.stop()
     val ex = intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal("Unable to execute HTTP request: Connection refused: localhost/127.0.0.1:9005")
   }
 
-  "handleRequest" should "return an error if the S3 API is unavailable" in {
+  "handler" should "return an error if the S3 API is unavailable" in {
     s3Server.stop()
     stubBatchGetRequest(dynamoGetResponse)
     stubDynamoQueryRequest(dynamoQueryResponse)
     val ex = intercept[Exception] {
-      TestLambda().handleRequest(standardInput, outputStream, null)
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal("Failed to send the request: socket connection refused.")
   }

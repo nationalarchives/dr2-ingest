@@ -3,7 +3,7 @@ package uk.gov.nationalarchives.testUtils
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
-import org.mockito.ArgumentCaptor
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.MockitoSugar.{mock, times, verify, when}
 import org.scalatest.matchers.should.Matchers.{be, convertToAnyShouldWrapper}
@@ -13,13 +13,13 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DynamoFormatters.Identifier
+import uk.gov.nationalarchives.Lambda.{Dependencies, Input}
 import uk.gov.nationalarchives.dp.client.Client.{BitStreamInfo, Fixity}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.EntityClient.{ContentObject, InformationObject, Preservation, RepresentationType}
-import uk.gov.nationalarchives.{DADynamoDBClient, Lambda}
+import uk.gov.nationalarchives.DADynamoDBClient
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.net.URI
 import java.util.UUID
 
@@ -31,8 +31,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
   val docxTitle: String = "TestTitle"
   val batchId: String = "TEST-ID"
   val executionId = "5619e6b0-e959-4e61-9f6e-17170f7c06e2-3a3443ae-92c4-4fc8-9cbd-10c2a58b6045"
-  val inputJson: String =
-    s"""{"assetId": "$assetId", "batchId": "$batchId", "executionId": "$executionId"}"""
+  val input: Input = Input(executionId, batchId, assetId)
   val emptyDynamoGetResponse: String = """{"Responses": {"test-table": []}}"""
   val emptyDynamoPostResponse: String = """{"Count": 0, "Items": []}"""
   val dynamoPostResponse: String =
@@ -301,47 +300,43 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
         .willReturn(ok().withBody(postResponse))
     )
 
-  def standardInput: ByteArrayInputStream = new ByteArrayInputStream(inputJson.getBytes)
+  private val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
 
-  def outputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
+  private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
+    .builder()
+    .endpointOverride(URI.create("http://localhost:9005"))
+    .region(Region.EU_WEST_2)
+    .credentialsProvider(creds)
+    .build()
 
-  case class TestLambda(
+  private val dADynamoDBClient: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
+
+  private val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
+
+  val dependencies: Dependencies = Dependencies(mockEntityClient, dADynamoDBClient)
+
+  case class ArgumentVerifier(
       entitiesWithIdentifier: IO[Seq[Entity]] = defaultIoWithIdentifier,
       urlsToIoRepresentations: IO[Seq[String]] = defaultUrlToIoRep,
       contentObjectsFromReps: IO[Seq[Entity]] = defaultContentObjectsFromRep,
       bitstreamInfo: Seq[IO[Seq[BitStreamInfo]]] = defaultBitStreamInfo
-  ) extends Lambda {
-    override lazy val entitiesClientIO: IO[EntityClient[IO, Fs2Streams[IO]]] = {
-      when(
-        mockEntityClient.entitiesByIdentifier(any[Identifier])
-      ).thenReturn(entitiesWithIdentifier)
+  ) {
+    Mockito.reset(mockEntityClient)
+    when(
+      mockEntityClient.entitiesByIdentifier(any[Identifier])
+    ).thenReturn(entitiesWithIdentifier)
 
-      when(
-        mockEntityClient.getUrlsToIoRepresentations(any[UUID], any[Option[RepresentationType]])
-      ).thenReturn(urlsToIoRepresentations)
+    when(
+      mockEntityClient.getUrlsToIoRepresentations(any[UUID], any[Option[RepresentationType]])
+    ).thenReturn(urlsToIoRepresentations)
 
-      when(
-        mockEntityClient.getContentObjectsFromRepresentation(any[UUID], any[RepresentationType], any[Int])
-      ).thenReturn(contentObjectsFromReps)
+    when(
+      mockEntityClient.getContentObjectsFromRepresentation(any[UUID], any[RepresentationType], any[Int])
+    ).thenReturn(contentObjectsFromReps)
 
-      when(
-        mockEntityClient.getBitstreamInfo(any[UUID])
-      ).thenReturn(bitstreamInfo.head, bitstreamInfo(1))
-
-      IO(mockEntityClient)
-    }
-
-    val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
-
-    private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
-      .builder()
-      .endpointOverride(URI.create("http://localhost:9005"))
-      .region(Region.EU_WEST_2)
-      .credentialsProvider(creds)
-      .build()
-    override val dADynamoDBClient: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
-
-    private val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
+    when(
+      mockEntityClient.getBitstreamInfo(any[UUID])
+    ).thenReturn(bitstreamInfo.head, bitstreamInfo(1))
 
     def verifyInvocationsAndArgumentsPassed(
         numOfEntitiesByIdentifierInvocations: Int = 1,
