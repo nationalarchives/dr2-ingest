@@ -91,7 +91,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec {
 
         uploadBucketCaptor.getValue should be("stagingCacheBucketName")
         keysToUpload should equal("opex/9e32383f-52a7-4591-83dc-e3e598a6f1a7/9e32383f-52a7-4591-83dc-e3e598a6f1a7.opex")
-        opexFileContentLengthCaptor.getValue should be(346)
+        opexFileContentLengthCaptor.getValue should be(358)
 
       }
     }

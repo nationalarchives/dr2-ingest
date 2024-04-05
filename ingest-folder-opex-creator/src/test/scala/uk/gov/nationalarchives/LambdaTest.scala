@@ -17,7 +17,6 @@ import uk.gov.nationalarchives.Lambda.{Config, Dependencies, Input}
 import java.net.URI
 import java.util.UUID
 import scala.jdk.CollectionConverters._
-import scala.xml.PrettyPrinter
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val dynamoServer = new WireMockServer(9005)
@@ -278,30 +277,29 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "upload the correct body to S3" in {
-    val prettyPrinter = new PrettyPrinter(180, 2)
     val expectedResponseXML =
       <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
-        <opex:Properties>
-          <opex:Title>Test Name</opex:Title>
-          <opex:Description></opex:Description>
-          <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
-          <opex:Identifiers>
-            <opex:Identifier type="Code">Code</opex:Identifier>
-          </opex:Identifiers>
-        </opex:Properties>
-        <opex:Transfer>
-          <opex:SourceID>Test Name</opex:SourceID>
-          <opex:Manifest>
-            <opex:Folders>
-              <opex:Folder>{assetId}.pax</opex:Folder>
-              <opex:Folder>{childId}</opex:Folder>
-            </opex:Folders>
-            <opex:Files>
-              <opex:File type="metadata" size="100">{assetId}.pax.opex</opex:File>
-            </opex:Files>
-          </opex:Manifest>
-        </opex:Transfer>
-      </opex:OPEXMetadata>
+      <opex:Properties>
+        <opex:Title>Test Name</opex:Title>
+        <opex:Description></opex:Description>
+        <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+        <opex:Identifiers>
+          <opex:Identifier type="Code">Code</opex:Identifier>
+        </opex:Identifiers>
+      </opex:Properties>
+      <opex:Transfer>
+        <opex:SourceID>Test Name</opex:SourceID>
+        <opex:Manifest>
+          <opex:Folders>
+            <opex:Folder>{assetId}.pax</opex:Folder>
+            <opex:Folder>{childId}</opex:Folder>
+          </opex:Folders>
+          <opex:Files>
+            <opex:File type="metadata" size="100">{assetId}.pax.opex</opex:File>
+          </opex:Files>
+        </opex:Manifest>
+      </opex:Transfer>
+    </opex:OPEXMetadata>
     stubBatchGetRequest(dynamoGetResponse)
     stubDynamoQueryRequest(dynamoQueryResponse)
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
@@ -313,7 +311,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     val s3PutEvent = s3Events.filter(_.getRequest.getMethod == RequestMethod.PUT).head
     val body = s3PutEvent.getRequest.getBodyAsString.split("\r\n")(1)
 
-    body should equal(prettyPrinter.format(expectedResponseXML))
+    body should equal(expectedResponseXML.toString)
   }
 
   "handler" should "return an error if the Dynamo API is unavailable" in {
