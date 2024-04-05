@@ -126,7 +126,7 @@ class FileProcessor(
         fileInfo.fileName,
         fileInfo.fileSize,
         Preservation,
-        "1"
+        1
       )
     val fileMetadataObject = BagitFileMetadataObject(
       metadataFileInfo.id,
@@ -136,7 +136,7 @@ class FileProcessor(
       metadataFileInfo.fileName,
       metadataFileInfo.fileSize,
       Preservation,
-      "1"
+      1
     )
     List(folderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
   }
@@ -334,7 +334,7 @@ object FileProcessor {
           ("sortOrder", Json.fromInt(sortOrder)),
           ("fileSize", Json.fromLong(fileSize)),
           ("representationType", Json.fromString(representationType.toString)),
-          ("representationSuffix", Json.fromString(representationSuffix))
+          ("representationSuffix", Json.fromInt(representationSuffix))
         )
         .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), File, name))
   }
@@ -422,7 +422,7 @@ object FileProcessor {
       name: String,
       fileSize: Long,
       representationType: RepresentationType,
-      representationSuffix: String
+      representationSuffix: Int
   ) extends BagitMetadataObject
 
   case class BagInfo(

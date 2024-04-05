@@ -365,8 +365,8 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                   ).flatten
                 )
               val files = List(
-                BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, Preservation, "1"),
-                BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, Preservation, "1")
+                BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, Preservation, 1),
+                BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, Preservation, 1)
               )
               val expectedBagitMetadataObjects: List[BagitMetadataObject] = List(folder, asset) ++ files
 
@@ -431,8 +431,8 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                 ).flatten
               )
             val files = List(
-              BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, Preservation, "1"),
-              BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, Preservation, "1")
+              BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, Preservation, 1),
+              BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, Preservation, 1)
             )
             val metadataJsonList: List[BagitMetadataObject] = List(folder, asset) ++ files
             val metadataJsonString = metadataJsonList.asJson.printWith(Printer.noSpaces)
@@ -523,7 +523,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               "metadataFileName.txt",
               2,
               Preservation,
-              "1"
+              1
             )
           ),
           fileInfo,
