@@ -92,8 +92,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChec
         expectedMessageStatus: List[MessageStatus]
     ): Boolean = {
       val timesMonitorRequestWasSent =
-        if (expectedMonitorStatus.nonEmpty || expectedName.nonEmpty || expectedCategories.nonEmpty) 1 else 0
-      val timesMsgRequestWasSent = if (expectedMonitor.nonEmpty || expectedMessageStatus.nonEmpty) 1 else 0
+        if expectedMonitorStatus.nonEmpty || expectedName.nonEmpty || expectedCategories.nonEmpty then 1 else 0
+      val timesMsgRequestWasSent = if expectedMonitor.nonEmpty || expectedMessageStatus.nonEmpty then 1 else 0
       val msgRequestWasSent = timesMsgRequestWasSent > 0
       val getMonitorRequestCaptor: ArgumentCaptor[GetMonitorsRequest] =
         ArgumentCaptor.forClass(classOf[GetMonitorsRequest])

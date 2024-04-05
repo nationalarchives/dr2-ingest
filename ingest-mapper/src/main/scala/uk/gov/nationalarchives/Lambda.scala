@@ -10,12 +10,13 @@ import ujson._
 import upickle.core._
 import uk.gov.nationalarchives.Lambda.{Config, Dependencies, Input, StateOutput}
 import uk.gov.nationalarchives.MetadataService._
+import uk.gov.nationalarchives.MetadataService.Type._
 import java.util.UUID
 import io.circe.*
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
-  implicit val dynamoTableFormat: Typeclass[Obj] = new Typeclass[Obj] {
+  given Typeclass[Obj] = new Typeclass[Obj] {
     override def read(dynamoValue: DynamoValue): Either[DynamoReadError, Obj] = {
       dynamoValue.asObject
         .map(_.toMap[String].map { valuesMap =>

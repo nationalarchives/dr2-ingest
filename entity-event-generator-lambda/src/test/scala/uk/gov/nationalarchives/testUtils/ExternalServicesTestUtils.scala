@@ -144,7 +144,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     when(mockEntityClient.entitiesUpdatedSince(any[ZonedDateTime], any[Int], any[Int]))
       .thenReturn(
         entitiesUpdatedSinceReturnValue.headOption.getOrElse(IO(Nil)),
-        if (entitiesUpdatedSinceReturnValue.length > 1) entitiesUpdatedSinceReturnValue(1) else IO(Nil),
+        if entitiesUpdatedSinceReturnValue.length > 1 then entitiesUpdatedSinceReturnValue(1) else IO(Nil),
         IO(Nil)
       )
     when(mockEntityClient.entityEventActions(any[Entity], any[Int], any[Int]))

@@ -77,11 +77,10 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
 object Lambda extends App {
 
-  implicit class PublisherToStream(publisher: Publisher[String]) {
+  extension (publisher: Publisher[String])
     def publisherToStream: Stream[IO, String] = Stream.eval(IO.delay(publisher)).flatMap { publisher =>
       fs2.interop.flow.fromPublisher[IO](FlowAdapters.toFlowPublisher(publisher), chunkSize = 16)
     }
-  }
 
   case class Input(executionId: String)
   case class Config(stagingCacheBucket: String) derives ConfigReader

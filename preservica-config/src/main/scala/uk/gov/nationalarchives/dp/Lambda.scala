@@ -5,7 +5,7 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import pureconfig.generic.derivation.default._
 import pureconfig.ConfigReader
-import uk.gov.nationalarchives.EventDecoders._
+import uk.gov.nationalarchives.EventDecoders.given
 import uk.gov.nationalarchives.dp.FileProcessors._
 import uk.gov.nationalarchives.dp.Lambda.{Config, Dependencies}
 import uk.gov.nationalarchives.dp.client.AdminClient
@@ -14,7 +14,7 @@ import uk.gov.nationalarchives.{DAS3Client, LambdaRunner}
 
 class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 
-  implicit val configLogger: SelfAwareStructuredLogger[IO] = logger
+  given SelfAwareStructuredLogger[IO] = logger
   override def handler: (
       SQSEvent,
       Config,

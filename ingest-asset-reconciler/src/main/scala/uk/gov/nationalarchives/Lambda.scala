@@ -103,7 +103,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                           val titleOfCoWithoutExtension = titleOfCo.split('.').dropRight(1).mkString(".")
                           lazy val fileNameWithoutExtension = assetChild.name.split('.').dropRight(1).mkString(".")
                           val titleOrFileName = assetChild.title.getOrElse(fileNameWithoutExtension)
-                          val assetChildTitle = if (titleOrFileName.isEmpty) fileNameWithoutExtension else titleOrFileName
+                          val assetChildTitle = if titleOrFileName.isEmpty then fileNameWithoutExtension else titleOrFileName
                           titleOfCoWithoutExtension == assetChildTitle
                         }
                       }

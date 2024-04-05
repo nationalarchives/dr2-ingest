@@ -32,7 +32,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       )
       fileReference = asset.identifiers.find(_.identifierName == "BornDigitalRef").map(_.value).orNull
       log = logger.info(Map("batchRef" -> input.batchId, "fileReference" -> fileReference, "assetId" -> asset.id.toString))(_)
-      _ <- if (asset.`type` != Asset) IO.raiseError(new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")) else IO.unit
+      _ <- IO.whenA(asset.`type` != Asset)(IO.raiseError(new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")))
       _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
 
       children <- childrenOfAsset(dynamoClient, asset, config.dynamoTableName, config.dynamoGsiName)

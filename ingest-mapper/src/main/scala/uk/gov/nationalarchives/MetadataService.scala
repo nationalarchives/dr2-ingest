@@ -106,30 +106,20 @@ class MetadataService(s3: DAS3Client[IO]) {
 }
 object MetadataService {
   def typeFromString(typeString: String): Type = typeString match {
-    case "ArchiveFolder" => ArchiveFolder
-    case "ContentFolder" => ContentFolder
-    case "Asset"         => Asset
-    case "File"          => File
+    case "ArchiveFolder" => Type.ArchiveFolder
+    case "ContentFolder" => Type.ContentFolder
+    case "Asset"         => Type.Asset
+    case "File"          => Type.File
   }
 
-  sealed trait Type {
+  enum Type:
     override def toString: String = this match {
       case ArchiveFolder => "ArchiveFolder"
       case ContentFolder => "ContentFolder"
       case Asset         => "Asset"
       case File          => "File"
     }
-  }
-  case object ArchiveFolder extends Type
-  case object ContentFolder extends Type
-  case object Asset extends Type
-  case object File extends Type
-
-  sealed trait Metadata {
-    def id: UUID
-    def parentPath: String
-    def title: String
-  }
+    case ArchiveFolder, ContentFolder, Asset, File
 
   case class BagitManifestRow(checksum: String, filePath: String)
 

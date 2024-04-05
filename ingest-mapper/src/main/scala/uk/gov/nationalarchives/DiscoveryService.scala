@@ -10,6 +10,7 @@ import sttp.client3.*
 import uk.gov.nationalarchives.DiscoveryService._
 import uk.gov.nationalarchives.Lambda.Input
 import uk.gov.nationalarchives.MetadataService._
+import uk.gov.nationalarchives.MetadataService.Type._
 import io.circe.generic.auto._
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.util.UUID

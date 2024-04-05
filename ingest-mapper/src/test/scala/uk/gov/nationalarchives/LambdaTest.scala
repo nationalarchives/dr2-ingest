@@ -8,6 +8,7 @@ import org.scalatest.matchers.should.Matchers.*
 import org.scalatestplus.mockito.MockitoSugar
 import uk.gov.nationalarchives.Lambda.*
 import uk.gov.nationalarchives.MetadataService.*
+import uk.gov.nationalarchives.MetadataService.Type.*
 import uk.gov.nationalarchives.testUtils.LambdaTestTestUtils
 import uk.gov.nationalarchives.testUtils.TestUtils.{DynamoRequestBody, DynamoTable}
 import upickle.default.*

@@ -20,7 +20,7 @@ import scala.jdk.CollectionConverters.MapHasAsScala
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
-  private def toFolderOrAssetTable[T <: DynamoTable](dynamoValue: DynamoValue)(implicit dynamoFormat: DynamoFormat[T]): Either[DynamoReadError, FolderOrAssetTable] =
+  private def toFolderOrAssetTable[T <: DynamoTable](dynamoValue: DynamoValue)(using dynamoFormat: DynamoFormat[T]): Either[DynamoReadError, FolderOrAssetTable] =
     dynamoFormat.read(dynamoValue).map { table =>
       FolderOrAssetTable(table.batchId, table.id, table.parentPath, table.name, table.`type`, table.title, table.description, table.identifiers)
     }
@@ -81,7 +81,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       idCode = folder.identifiers.find(_.identifierName == "Code").map(_.value).orNull
       log = logger.info(Map("batchRef" -> input.batchId, "folderId" -> folder.id.toString, "idCode" -> idCode))(_)
 
-      _ <- if (!isFolder(folder.`type`)) IO.raiseError(new Exception(s"Object ${folder.id} is of type ${folder.`type`} and not 'ContentFolder' or 'ArchiveFolder'")) else IO.unit
+      _ <- IO.whenA(!isFolder(folder.`type`))(IO.raiseError(new Exception(s"Object ${folder.id} is of type ${folder.`type`} and not 'ContentFolder' or 'ArchiveFolder'")))
       _ <- log(s"Fetched ${folderItems.length} folder items from Dynamo")
 
       children <- childrenOfFolder(dependencies.dynamoClient, folder, config.dynamoTableName, config.dynamoGsiName)

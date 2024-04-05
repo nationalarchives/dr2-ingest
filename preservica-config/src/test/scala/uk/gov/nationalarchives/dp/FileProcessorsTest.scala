@@ -25,7 +25,7 @@ import scala.xml.Elem
 
 class FileProcessorsTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
 
-  implicit val logger: SelfAwareStructuredLogger[IO] = Slf4jFactory.create[IO].getLogger
+  given SelfAwareStructuredLogger[IO] = Slf4jFactory.create[IO].getLogger
   val secretName = "testSecret"
   val bucket = "testBucket"
 

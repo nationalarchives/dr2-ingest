@@ -58,8 +58,8 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   }.toMap
 
   private def checkDynamoTable(table: Obj, collection: String, expectedId: String, parentPath: Option[String], citableRefFound: Boolean = true): Assertion = {
-    val expectedTitle = if (citableRefFound) s"Test Title $collection" else collection
-    val expectedDescription = if (citableRefFound) s"TestDescription $collection 1          \nTestDescription $collection 2" else ""
+    val expectedTitle = if citableRefFound then s"Test Title $collection" else collection
+    val expectedDescription = if citableRefFound then s"TestDescription $collection 1          \nTestDescription $collection 2" else ""
 
     table("id").str should equal(expectedId)
     table("name").str should equal(collection)

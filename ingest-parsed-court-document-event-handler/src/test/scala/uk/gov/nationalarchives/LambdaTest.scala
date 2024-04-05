@@ -73,7 +73,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       |<Object><Key>c7e6b27f-5778-4da8-9b83-1b64bbccbd03</Key></Object>
       |<Object><Key>61ac0166-ccdf-48c4-800f-29e5fba2efda</Key></Object></Delete>""".stripMargin.replaceAll("\\n", "")
 
-  private def read[T](jsonString: String)(implicit enc: Decoder[T]): T =
+  private def read[T](jsonString: String)(using enc: Decoder[T]): T =
     decode[T](jsonString).toOption.get
 
   private def runLambdaAndReturnStepFunctionRequest(metadataJsonOpt: Option[String] = None) = {
@@ -257,7 +257,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           """"transferringBody":"test-organisation","transferCompleteDatetime":"2023-10-31T13:40:54Z",""" +
           """"upstreamSystem":"TRE: FCL Parser workflow","digitalAssetSource":"Born Digital","digitalAssetSubtype":"FCL"}"""
       val expectedFileMetadata = List(
-        BagitFileMetadataObject(fileId, Option(assetId), "Test", 1, "Test.docx", 15684, Preservation, "1"),
+        BagitFileMetadataObject(fileId, Option(assetId), "Test", 1, "Test.docx", 15684, RepresentationType.Preservation, "1"),
         BagitFileMetadataObject(
           metadataFileId,
           Option(assetId),
@@ -265,7 +265,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           2,
           "TRE-TEST-REFERENCE-metadata.json",
           215,
-          Preservation,
+          RepresentationType.Preservation,
           "1"
         )
       )
@@ -276,7 +276,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           None,
           Option("test"),
           "https://example.com/id/court/2023/",
-          if (potentialCite.isDefined) idFields :+ IdField("URI", "https://example.com/id/court/2023/") else idFields
+          if potentialCite.isDefined then idFields :+ IdField("URI", "https://example.com/id/court/2023/") else idFields
         )
       val metadataList: List[BagitMetadataObject] =
         List(expectedFolderMetadata, expectedAssetMetadata) ++ expectedFileMetadata

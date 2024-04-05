@@ -9,7 +9,7 @@ import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.services.dynamodb.model.*
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
-import uk.gov.nationalarchives.EventDecoders.*
+import uk.gov.nationalarchives.EventDecoders.given
 import uk.gov.nationalarchives.Lambda.*
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
@@ -23,7 +23,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
     Map("id" -> AttributeValue.builder().s("LastPolled").build())
   private val datetimeField = "datetime"
 
-  implicit val enc: Encoder[CompactEntity] =
+  given Encoder[CompactEntity] =
     Encoder.forProduct2("id", "deleted")(entity => (entity.id, entity.deleted))
 
   private def publishUpdatedEntitiesAndUpdateDateTime(
@@ -44,7 +44,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         eventTriggeredDatetime
       )
       _ <-
-        if (numOfRecentlyUpdatedEntities > 0)
+        if numOfRecentlyUpdatedEntities > 0 then
           publishUpdatedEntitiesAndUpdateDateTime(
             config,
             entityClient,

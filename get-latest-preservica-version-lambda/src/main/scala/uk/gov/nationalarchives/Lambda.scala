@@ -9,7 +9,7 @@ import pureconfig.generic.derivation.default.*
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.Lambda.*
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.EventDecoders.*
+import uk.gov.nationalarchives.EventDecoders.given
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 
 class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
