@@ -26,7 +26,7 @@ object EventDecoders {
   }
 
   implicit val sqsEventDecoder: Decoder[SQSEvent] = (c: HCursor) => for {
-    records <- c.downField("records").as[List[SQSMessage]]
+    records <- c.downField("Records").as[List[SQSMessage]]
   } yield {
     val event = new SQSEvent()
     event.setRecords(records.asJava)
