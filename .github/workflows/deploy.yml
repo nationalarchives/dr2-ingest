@@ -38,4 +38,6 @@ jobs:
           role-session-name: ECRLogin
       - run: | 
           pip install boto3
+          git branch -f release-${{ github.event.inputs.environment }} HEAD
+          git push -f origin release-${{ github.event.inputs.environment }}
           python .github/scripts/deploy.py ${{ github.event.inputs.environment }} ${{ github.event.inputs.to-deploy }}

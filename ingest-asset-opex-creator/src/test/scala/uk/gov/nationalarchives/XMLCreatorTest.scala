@@ -4,7 +4,7 @@ import cats.effect.unsafe.implicits.global
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 import uk.gov.nationalarchives.DynamoFormatters._
-
+import scala.xml.{XML, Utility}
 import java.time.OffsetDateTime
 import java.util.UUID
 import scala.xml.Elem
@@ -12,6 +12,11 @@ import scala.xml.Elem
 class XMLCreatorTest extends AnyFlatSpec {
   private val opexNamespace = "http://www.openpreservationexchange.org/opex/v1.2"
   private val ingestDateTime = OffsetDateTime.parse("2023-12-04T10:55:44.848622Z")
+
+  private def verifyXmlEqual(xmlStringOne: String, xmlElem: Elem) =
+    Utility.trim(XML.loadString(xmlStringOne)) should equal(Utility.trim(xmlElem))
+  private def verifyXmlEqual(xmlStringOne: String, xmlStringTwo: String) =
+    Utility.trim(XML.loadString(xmlStringOne)) should equal(Utility.trim(XML.loadString(xmlStringTwo)))
 
   val expectedOpexXml: Elem = <opex:OPEXMetadata xmlns:opex={opexNamespace}>
           <opex:DescriptiveMetadata>
@@ -70,9 +75,16 @@ class XMLCreatorTest extends AnyFlatSpec {
       <Representation>
         <InformationObject>90730c77-8faa-4dbf-b20d-bba1046dac87</InformationObject>
         <Type>Preservation</Type>
-        <Name>Preservation</Name>
+        <Name>Preservation_1</Name>
         <ContentObjects>
           <ContentObject>a814ee41-89f4-4975-8f92-303553fe9a02</ContentObject>
+        </ContentObjects>
+      </Representation>
+      <Representation>
+        <InformationObject>90730c77-8faa-4dbf-b20d-bba1046dac87</InformationObject>
+        <Type>Access</Type>
+        <Name>Access_1</Name>
+        <ContentObjects>
           <ContentObject>9ecbba86-437f-42c6-aeba-e28b678bbf4c</ContentObject>
         </ContentObjects>
       </Representation>
@@ -142,6 +154,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     List(Identifier("Test2", "testIdentifier2"), Identifier("Test", "testIdentifier"), Identifier("UpstreamSystemReference", "testSystemRef"))
   )
   val uuids: List[UUID] = List(UUID.fromString("a814ee41-89f4-4975-8f92-303553fe9a02"), UUID.fromString("9ecbba86-437f-42c6-aeba-e28b678bbf4c"))
+  val representationTypes: List[(FileRepresentationType, Int)] = List((PreservationRepresentationType, 1), (AccessRepresentationType, 1))
   val children: List[FileDynamoTable] = uuids.zipWithIndex.map { case (uuid, suffix) =>
     FileDynamoTable(
       "TEST-ID",
@@ -155,6 +168,8 @@ class XMLCreatorTest extends AnyFlatSpec {
       1,
       s"checksum$suffix",
       s"ext$suffix",
+      representationTypes(suffix)._1,
+      representationTypes(suffix)._2,
       List(Identifier("Test2", "testIdentifier4"), Identifier("Test", "testIdentifier3"), Identifier("UpstreamSystemReference", "testSystemRef2"))
     )
   }
@@ -211,7 +226,7 @@ class XMLCreatorTest extends AnyFlatSpec {
 
   "createXip" should "create the correct xip xml" in {
     val xml = XMLCreator(ingestDateTime).createXip(asset, children).unsafeRunSync()
-    xml should equal(expectedXipXml.toString() + "\n")
+    verifyXmlEqual(xml, expectedXipXml)
   }
 
   "createXip" should "create the correct xip xml with children that have the exact title that was in the table " +
@@ -230,7 +245,8 @@ class XMLCreatorTest extends AnyFlatSpec {
           "<Title>name1</Title>",
           """<Title>Title_with_ASCII_Chars_!&quot;#$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~</Title>"""
         )
-      xml should equal(expectedXipXmlWithNewTitle)
+
+      verifyXmlEqual(xml, expectedXipXmlWithNewTitle)
     }
 
   "createXip" should "create the correct xip xml with children that have the exact title that was in the table " +
@@ -241,6 +257,6 @@ class XMLCreatorTest extends AnyFlatSpec {
       val expectedXipXmlWithNewTitle = s"${expectedXipXml.toString()}\n"
         .replace("<Title>name0</Title>", "<Title>A title     with   spaces  in            it</Title>")
         .replace("<Title>name1</Title>", "<Title>A title     with   spaces  in            it</Title>")
-      xml should equal(expectedXipXmlWithNewTitle)
+      verifyXmlEqual(xml, expectedXipXmlWithNewTitle)
     }
 }

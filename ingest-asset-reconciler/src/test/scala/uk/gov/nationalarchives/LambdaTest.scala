@@ -213,7 +213,11 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     }
     ex.getMessage should equal(s"No children were found for $assetId from $batchId")
 
-    argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfGetBitstreamInfoRequests = 0)
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(
+      numOfGetBitstreamInfoRequests = 0,
+      numOfGetUrlsToIoRepresentationsRequests = 0,
+      numOfGetContentObjectsFromRepresentationRequests = 0
+    )
   }
 
   "handler" should "return a 'wasReconciled' value of 'false' and a 'No entity found' 'reason' if there were no Content Objects belonging to the asset" in {
@@ -234,6 +238,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   forAll(contentObjectApiVsDdbStates) { (docxChecksum, jsonChecksum, docxTitle, jsonName, idsThatFailed, reasonForFailure) =>
     "handler" should s"return a 'wasReconciled' value of 'false' and a 'reason' message that contains " +
       s"these ids: $idsThatFailed if $reasonForFailure " in {
+        val representationTypeMap = Map(childIdDocx.toString -> "Access", childIdJson.toString -> "Preservation")
         val updatedDynamoPostResponse = dynamoPostResponse
           .replace(s""""S": "$defaultDocxChecksum"""", s""""S": "$docxChecksum"""")
           .replace(s""""S": "$defaultJsonChecksum"""", s""""S": "$jsonChecksum"""")
@@ -248,11 +253,17 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
         val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
+        val expectedReason = idsThatFailed
+          .map { failedId =>
+            s"Out of the 1 files expected to be ingested for assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e' with representationType ${representationTypeMap(failedId)}, " +
+              s"a checksum could not be found for: $failedId"
+          }
+          .sorted
+          .mkString("\n")
+          .trim
+
         stateOutput.wasReconciled should equal(false)
-        stateOutput.reason should equal(
-          s"Out of the 2 files expected to be ingested for assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e', " +
-            s"a checksum could not be found for: ${idsThatFailed.mkString(", ")}"
-        )
+        stateOutput.reason should equal(expectedReason)
 
         argumentVerifier.verifyInvocationsAndArgumentsPassed()
       }

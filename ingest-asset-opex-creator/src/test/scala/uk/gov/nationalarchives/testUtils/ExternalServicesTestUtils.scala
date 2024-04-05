@@ -107,7 +107,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
                 <opex:Folder>Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793/Generation_1</opex:Folder>
               </opex:Folders>
               <opex:Files>
-                <opex:File type="metadata" size="2705">68b1c80b-36b8-4f0f-94d6-92589002d87e.xip</opex:File>
+                <opex:File type="metadata" size="2735">68b1c80b-36b8-4f0f-94d6-92589002d87e.xip</opex:File>
                 <opex:File type="content" size="1">Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e/Generation_1/a25d33f3-7726-4fb3-8e6f-f66358451c4e.docx</opex:File>
                 <opex:File type="content" size="2">Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793/Generation_1/feedd76d-e368-45c8-96e3-c37671476793.json</opex:File>
               </opex:Files>
@@ -184,6 +184,12 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      "digitalAssetSubtype": {
        |        "S": "Test Digital Asset Subtype"
        |      },
+       |      "representationType": {
+       |        "S": "Preservation"
+       |      },
+       |      "representationSuffix": {
+       |        "N": "1"
+       |      },
        |      "originalFiles": {
        |        "L": [ { "S" : "b6102810-53e3-43a2-9f69-fafe71d4aa40" } ]
        |      },
@@ -239,6 +245,12 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      },
        |      "digitalAssetSubtype": {
        |        "S": "Test Digital Asset Subtype"
+       |      },
+       |      "representationType": {
+       |        "S": "Preservation"
+       |      },
+       |      "representationSuffix": {
+       |        "N": "1"
        |      },
        |      "originalFiles": {
        |        "L": [ { "S" : "b6102810-53e3-43a2-9f69-fafe71d4aa40" } ]

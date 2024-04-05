@@ -112,20 +112,24 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
         <SecurityTag>{securityTag}</SecurityTag>
         <Title>Preservation</Title>
       </InformationObject>
-      <Representation>
-        <InformationObject>{asset.id}</InformationObject>
-        <Type>Preservation</Type>
-        <Name>Preservation</Name>
-        <ContentObjects>
-          {
-        children.zipWithIndex
-          .map { case (child, index) =>
-            val contentObjectElement = <ContentObject>{child.id}</ContentObject>
-            List(if (index == 0) "" else "\n          ", contentObjectElement)
+      {
+        children.groupBy(child => (child.representationType.toString, child.representationSuffix)) map { case ((representationType, representationSuffix), files) =>
+          <Representation>
+            <InformationObject>{asset.id}</InformationObject>
+            <Type>{representationType}</Type>
+            <Name>{s"${representationType}_$representationSuffix"}</Name>
+            <ContentObjects>
+              {
+            files.zipWithIndex
+              .map { case (child, index) =>
+                val contentObjectElement = <ContentObject>{child.id}</ContentObject>
+                List(if (index == 0) "" else "\n          ", contentObjectElement)
+              }
           }
+            </ContentObjects>
+          </Representation>
+        }
       }
-        </ContentObjects>
-      </Representation>
       {
         children.zipWithIndex
           .map { case (child, index) =>

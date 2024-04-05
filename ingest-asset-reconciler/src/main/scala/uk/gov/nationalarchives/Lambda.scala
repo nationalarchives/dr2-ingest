@@ -10,7 +10,7 @@ import uk.gov.nationalarchives.DADynamoDBClient._
 import uk.gov.nationalarchives.DynamoFormatters._
 import uk.gov.nationalarchives.Lambda._
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.Preservation
+import uk.gov.nationalarchives.dp.client.EntityClient.{Access, Preservation}
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import upickle.default
 import upickle.default._
@@ -60,62 +60,73 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       entity <- IO.fromOption(entitiesWithAssetName.headOption)(
         new Exception(s"No entity found using SourceId '${asset.name}'")
       )
+      children <- childrenOfAsset(dependencies.dynamoDbClient, asset, config.dynamoTableName, config.dynamoGsiName)
+      _ <- IO.fromOption(children.headOption)(
+        new Exception(s"No children were found for ${input.assetId} from ${input.batchId}")
+      )
+      _ <- log(s"${children.length} children found for asset ${asset.id}")
+      childrenGroupedByRepType = children.groupBy(_.representationType match {
+        case DynamoFormatters.PreservationRepresentationType => Preservation
+        case DynamoFormatters.AccessRepresentationType       => Access
+      })
 
-      urlsToIoRepresentations <- dependencies.entityClient.getUrlsToIoRepresentations(entity.ref, Some(Preservation))
-      contentObjects <- urlsToIoRepresentations.map { urlToIoRepresentation =>
-        val generationVersion = urlToIoRepresentation.reverse.takeWhile(_ != '/').toInt
-        dependencies.entityClient.getContentObjectsFromRepresentation(entity.ref, Preservation, generationVersion)
-      }.flatSequence
-
-      _ <- log("Content Objects, belonging to the representation, have been retrieved from API")
-
-      stateOutput <-
-        if (contentObjects.isEmpty)
-          IO.pure(
-            StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'")
-          )
-        else {
+      stateOutputs <- childrenGroupedByRepType
+        .map { case (representationType, childrenForRepresentationType) =>
           for {
-            children <- childrenOfAsset(dependencies.dynamoDbClient, asset, config.dynamoTableName, config.dynamoGsiName)
-            _ <- IO.fromOption(children.headOption)(
-              new Exception(s"No children were found for ${input.assetId} from ${input.batchId}")
-            )
-            _ <- log(s"${children.length} children found for asset ${asset.id}")
+            urlsToIoRepresentations <- dependencies.entityClient.getUrlsToIoRepresentations(entity.ref, Some(representationType))
+            contentObjects <- urlsToIoRepresentations.map { urlToIoRepresentation =>
+              val generationVersion = urlToIoRepresentation.reverse.takeWhile(_ != '/').toInt
+              dependencies.entityClient.getContentObjectsFromRepresentation(entity.ref, representationType, generationVersion)
+            }.flatSequence
 
-            bitstreamInfoPerContentObject <- contentObjects
-              .map(co => dependencies.entityClient.getBitstreamInfo(co.ref))
-              .flatSequence
+            _ <- log("Content Objects, belonging to the representation, have been retrieved from API")
 
-            _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
-          } yield {
-            val childrenThatDidNotMatchOnChecksum =
-              children.filter { assetChild =>
-                val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
-                  assetChild.checksumSha256 == bitstreamInfoForCo.fixity.value &&
-                  bitstreamInfoForCo.potentialCoTitle.exists { titleOfCo => // DDB titles don't have file extensions, CO titles do
-                    val titleOfCoWithoutExtension = titleOfCo.split('.').dropRight(1).mkString(".")
-                    lazy val fileNameWithoutExtension = assetChild.name.split('.').dropRight(1).mkString(".")
-                    val titleOrFileName = assetChild.title.getOrElse(fileNameWithoutExtension)
-                    val assetChildTitle = if (titleOrFileName.isEmpty) fileNameWithoutExtension else titleOrFileName
-                    titleOfCoWithoutExtension == assetChildTitle
+            stateOutput <-
+              if (contentObjects.isEmpty)
+                IO.pure(
+                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'")
+                )
+              else {
+                for {
+                  bitstreamInfoPerContentObject <- contentObjects
+                    .map(co => dependencies.entityClient.getBitstreamInfo(co.ref))
+                    .flatSequence
+
+                  _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
+                } yield {
+                  val childrenThatDidNotMatchOnChecksum =
+                    childrenForRepresentationType.filter { assetChild =>
+                      val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
+                        assetChild.checksumSha256 == bitstreamInfoForCo.fixity.value &&
+                        bitstreamInfoForCo.potentialCoTitle.exists { titleOfCo => // DDB titles don't have file extensions, CO titles do
+                          val titleOfCoWithoutExtension = titleOfCo.split('.').dropRight(1).mkString(".")
+                          lazy val fileNameWithoutExtension = assetChild.name.split('.').dropRight(1).mkString(".")
+                          val titleOrFileName = assetChild.title.getOrElse(fileNameWithoutExtension)
+                          val assetChildTitle = if (titleOrFileName.isEmpty) fileNameWithoutExtension else titleOrFileName
+                          titleOfCoWithoutExtension == assetChildTitle
+                        }
+                      }
+
+                      bitstreamWithSameChecksum.isEmpty
+                    }
+
+                  if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "")
+                  else {
+                    val idsOfChildrenThatDidNotMatchOnChecksum = childrenThatDidNotMatchOnChecksum.map(_.id)
+                    StateOutput(
+                      wasReconciled = false,
+                      s"Out of the ${childrenForRepresentationType.length} files expected to be ingested for assetId '${input.assetId}' with representationType $representationType, " +
+                        s"a checksum could not be found for: ${idsOfChildrenThatDidNotMatchOnChecksum.mkString(", ")}"
+                    )
                   }
                 }
-
-                bitstreamWithSameChecksum.isEmpty
               }
+          } yield stateOutput
 
-            if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "")
-            else {
-              val idsOfChildrenThatDidNotMatchOnChecksum = childrenThatDidNotMatchOnChecksum.map(_.id)
-              StateOutput(
-                wasReconciled = false,
-                s"Out of the ${children.length} files expected to be ingested for assetId '${input.assetId}', " +
-                  s"a checksum could not be found for: ${idsOfChildrenThatDidNotMatchOnChecksum.mkString(", ")}"
-              )
-            }
-          }
         }
-    } yield stateOutput
+        .toList
+        .sequence
+    } yield StateOutput(stateOutputs.forall(_.wasReconciled), stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim)
   override def dependencies(config: Config): IO[Dependencies] = Fs2Client.entityClient(config.apiUrl, config.secretName).map(client => Dependencies(client, DADynamoDBClient[IO]()))
 }
 
