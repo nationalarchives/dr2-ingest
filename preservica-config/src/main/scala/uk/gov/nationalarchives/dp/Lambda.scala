@@ -3,7 +3,8 @@ package uk.gov.nationalarchives.dp
 import cats.effect.IO
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import org.typelevel.log4cats.SelfAwareStructuredLogger
-import pureconfig.generic.auto._
+import pureconfig.generic.derivation.default._
+import pureconfig.ConfigReader
 import uk.gov.nationalarchives.EventDecoders._
 import uk.gov.nationalarchives.dp.FileProcessors._
 import uk.gov.nationalarchives.dp.Lambda.{Config, Dependencies}
@@ -29,7 +30,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
   override def dependencies(config: Config): IO[Dependencies] = Fs2Client.adminClient(config.preservicaUrl, config.secretName).map(Dependencies.apply)
 }
 object Lambda {
-  case class Config(preservicaUrl: String, secretName: String)
+  case class Config(preservicaUrl: String, secretName: String) derives ConfigReader
 
   case class Dependencies(adminClient: AdminClient[IO])
 }

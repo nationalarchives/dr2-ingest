@@ -2,12 +2,13 @@ package uk.gov.nationalarchives
 import cats.effect.IO
 import io.circe.Printer
 import io.circe.parser.decode
-import io.circe.generic.auto._
+import io.circe.generic.auto.*
 import io.circe.syntax.EncoderOps
 import org.scalatest.EitherValues
-import pureconfig.generic.auto._
+import pureconfig.generic.derivation.default.*
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
+import pureconfig.ConfigReader
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
@@ -19,7 +20,7 @@ class LambdaRunnerTest extends AnyFlatSpec with EitherValues {
 
   case class Input(inputValue: String)
   case class Output(inputCopy: String, configCopy: String, dependencyCopy: String)
-  case class Config(configValue: String, dependencyReturnValue: String)
+  case class Config(configValue: String, dependencyReturnValue: String) derives ConfigReader
   case class Dependencies(testDependency: TestDependency)
   case class EmptyDependencies()
 
@@ -53,7 +54,7 @@ class LambdaRunnerTest extends AnyFlatSpec with EitherValues {
   }
 
   "handleRequest" should "return an error if the config object is invalid" in {
-    case class InvalidConfig(invalidParameter: Int)
+    case class InvalidConfig(invalidParameter: Int) derives ConfigReader
     val lambdaRunner = new LambdaRunner[Input, Unit, InvalidConfig, EmptyDependencies]() {
       override def handler: (Input, InvalidConfig, EmptyDependencies) => IO[Unit] = (_, _, _) => IO.unit
       override def dependencies(config: InvalidConfig): IO[EmptyDependencies] = IO(EmptyDependencies())

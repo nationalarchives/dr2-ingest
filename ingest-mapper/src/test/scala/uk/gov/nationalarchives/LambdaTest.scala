@@ -2,15 +2,15 @@ package uk.gov.nationalarchives
 
 import cats.effect.unsafe.implicits.global
 import com.github.tomakehurst.wiremock.WireMockServer
-import org.mockito.MockitoSugar
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
-import uk.gov.nationalarchives.Lambda._
-import uk.gov.nationalarchives.MetadataService._
+import org.scalatest.matchers.should.Matchers.*
+import org.scalatestplus.mockito.MockitoSugar
+import uk.gov.nationalarchives.Lambda.*
+import uk.gov.nationalarchives.MetadataService.*
 import uk.gov.nationalarchives.testUtils.LambdaTestTestUtils
 import uk.gov.nationalarchives.testUtils.TestUtils.{DynamoRequestBody, DynamoTable}
-import upickle.default._
+import upickle.default.*
 
 import java.util.UUID
 import scala.jdk.CollectionConverters.ListHasAsScala

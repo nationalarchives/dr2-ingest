@@ -4,7 +4,8 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import org.joda.time.DateTime
-import org.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
+import org.mockito.Mockito._
 import org.scalatest.matchers.should.Matchers._
 import software.amazon.awssdk.services.dynamodb.model._
 import uk.gov.nationalarchives.Lambda.Config

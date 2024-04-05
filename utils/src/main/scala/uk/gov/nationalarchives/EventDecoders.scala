@@ -10,12 +10,12 @@ import scala.jdk.CollectionConverters._
 object EventDecoders {
 
   implicit val scheduledEventDecoder: Decoder[ScheduledEvent] = (c: HCursor) => for {
-    time <- c.downField("time").as[String]
-  } yield {
-    val scheduledEvent = new ScheduledEvent()
-    scheduledEvent.setTime(DateTime.parse(time))
-    scheduledEvent
-  }
+      time <- c.downField("time").as[String]
+    } yield {
+      val scheduledEvent = new ScheduledEvent()
+      scheduledEvent.setTime(DateTime.parse(time))
+      scheduledEvent
+    }
 
   implicit val sqsMessageDecoder: Decoder[SQSMessage] = (c: HCursor) => for {
     body <- c.downField("body").as[String]

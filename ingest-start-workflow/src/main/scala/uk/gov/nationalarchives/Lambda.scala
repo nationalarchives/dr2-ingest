@@ -2,7 +2,8 @@ package uk.gov.nationalarchives
 
 import cats.effect._
 import io.circe.generic.auto._
-import pureconfig.generic.auto._
+import pureconfig.generic.derivation.default._
+import pureconfig.ConfigReader
 import uk.gov.nationalarchives.Lambda._
 import uk.gov.nationalarchives.dp.client.WorkflowClient
 import uk.gov.nationalarchives.dp.client.WorkflowClient.{Parameter, StartWorkflowRequest}
@@ -34,7 +35,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
 object Lambda {
   case class Input(workflowContextName: String, executionId: String)
-  case class Config(apiUrl: String, secretName: String)
+  case class Config(apiUrl: String, secretName: String) derives ConfigReader
   case class StateOutput(id: Int)
 
   case class Dependencies(workflowClient: WorkflowClient[IO])

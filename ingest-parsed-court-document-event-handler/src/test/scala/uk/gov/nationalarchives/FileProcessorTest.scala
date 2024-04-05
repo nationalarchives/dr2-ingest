@@ -3,21 +3,24 @@ package uk.gov.nationalarchives
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import fs2.{Chunk, Stream, text}
-import io.circe.generic.auto._
+import io.circe.generic.auto.*
 import io.circe.parser.decode
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, DecodingFailure, HCursor, ParsingFailure, Printer}
-import org.mockito.ArgumentMatchers._
-import org.mockito.{ArgumentMatcher, ArgumentMatchers, MockitoSugar}
+import org.mockito.ArgumentMatchers.*
+import org.mockito.Mockito.when
+import org.mockito.{ArgumentMatcher, ArgumentMatchers}
 import org.reactivestreams.Publisher
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2, TableFor4, TableFor6}
+import org.scalatestplus.mockito.MockitoSugar
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.services.s3.model.PutObjectResponse
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
-import uk.gov.nationalarchives.FileProcessor._
+import uk.gov.nationalarchives.FileProcessor.*
 import uk.gov.nationalarchives.UriProcessor.ParsedUri
+
 import java.nio.ByteBuffer
 import java.time.OffsetDateTime
 import java.util.{Base64, HexFormat, UUID}
@@ -260,7 +263,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val s3 = mock[DAS3Client[IO]]
     val metadataId = UUID.randomUUID()
     when(s3.download(ArgumentMatchers.eq("upload"), ArgumentMatchers.eq(metadataId.toString)))
-      .thenThrow(new Exception("Error downloading metadata file"))
+      .thenThrow(new RuntimeException("Error downloading metadata file"))
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, UUIDGenerator().uuidGenerator)
 
     val ex = intercept[Exception] {

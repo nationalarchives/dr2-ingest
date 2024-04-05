@@ -1,23 +1,24 @@
 package uk.gov.nationalarchives
 
-import cats.effect._
-import cats.implicits._
-import io.circe.generic.auto._
-import org.scanamo.syntax._
-import pureconfig.generic.auto._
+import cats.effect.*
+import cats.implicits.*
+import io.circe.generic.auto.*
+import org.scanamo.syntax.*
+import pureconfig.generic.derivation.default.*
+import pureconfig.ConfigReader
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DADynamoDBClient._
-import uk.gov.nationalarchives.DynamoFormatters._
-import uk.gov.nationalarchives.Lambda._
+import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.DynamoFormatters.*
+import uk.gov.nationalarchives.DADynamoDBClient.{given, *}
+import uk.gov.nationalarchives.Lambda.*
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.{Access, Preservation}
+import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType.*
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
-import upickle.default
-import upickle.default._
 
 import java.util.UUID
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
+
   private val sourceId = "SourceID"
 
   private def childrenOfAsset(
@@ -66,8 +67,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       )
       _ <- log(s"${children.length} children found for asset ${asset.id}")
       childrenGroupedByRepType = children.groupBy(_.representationType match {
-        case DynamoFormatters.PreservationRepresentationType => Preservation
-        case DynamoFormatters.AccessRepresentationType       => Access
+        case DynamoFormatters.FileRepresentationType.PreservationRepresentationType => Preservation
+        case DynamoFormatters.FileRepresentationType.AccessRepresentationType       => Access
       })
 
       stateOutputs <- childrenGroupedByRepType
@@ -131,11 +132,11 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 }
 
 object Lambda {
-  implicit val stateDataWriter: default.Writer[StateOutput] = macroW[StateOutput]
+
   case class Input(executionId: String, batchId: String, assetId: UUID)
 
   case class StateOutput(wasReconciled: Boolean, reason: String)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO])
-  case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String)
+  case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String) derives ConfigReader
 }

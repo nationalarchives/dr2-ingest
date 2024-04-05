@@ -3,13 +3,14 @@ package uk.gov.nationalarchives.testUtils
 import cats.effect.IO
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
-import org.mockito.MockitoSugar.{mock, times, verify, when}
+import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
+import org.scalatestplus.mockito.MockitoSugar.mock
 import uk.gov.nationalarchives.Lambda.{Dependencies, Input}
 import uk.gov.nationalarchives.dp.client.ProcessMonitorClient
-import uk.gov.nationalarchives.dp.client.ProcessMonitorClient._
+import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.*
 
 class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChecks {
   private val path =
@@ -45,10 +46,10 @@ class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChec
     "a69099e5236501684d415d70b9e8ec7d",
     "monitor.info.successful.ingest.with.opex",
     "6edf984e57457dee47d2cbb555a72c9a",
-    "open",
-    "file.docx",
-    "4f7754d4-04fc-4f77-ac4b-1279a5de1245",
-    ""
+    Option("open"),
+    Option("file.docx"),
+    Option("4f7754d4-04fc-4f77-ac4b-1279a5de1245"),
+    Option("")
   )
   val runningStatuses: TableFor2[String, String] = Table(
     ("API status", "Normalised status"),

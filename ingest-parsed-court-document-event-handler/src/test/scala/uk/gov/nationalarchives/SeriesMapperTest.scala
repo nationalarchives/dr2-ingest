@@ -1,7 +1,7 @@
 package uk.gov.nationalarchives
 
 import cats.effect.unsafe.implicits.global
-import org.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}

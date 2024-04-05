@@ -86,7 +86,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
             <opex:Description>{asset.description.getOrElse("")}</opex:Description>
             <opex:SecurityDescriptor>{securityDescriptor}</opex:SecurityDescriptor>
             {
-          if (identifiers.nonEmpty) {
+          if identifiers.nonEmpty then
             <opex:Identifiers>
               {
               identifiers.zipWithIndex
@@ -96,7 +96,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
                 }
             }
             </opex:Identifiers>
-          }
+          else ()
         }
           </opex:Properties>
         </opex:OPEXMetadata>

@@ -1,12 +1,13 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
-import fs2._
+import fs2.*
 import org.reactivestreams.{FlowAdapters, Publisher}
-import pureconfig.generic.auto._
-import io.circe.generic.auto._
+import pureconfig.generic.derivation.default.*
+import io.circe.generic.auto.*
+import pureconfig.ConfigReader
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
-import uk.gov.nationalarchives.Lambda.{Config, Dependencies, PublisherToStream, Input}
+import uk.gov.nationalarchives.Lambda.*
 
 import scala.xml.PrettyPrinter
 
@@ -83,7 +84,7 @@ object Lambda extends App {
   }
 
   case class Input(executionId: String)
-  case class Config(stagingCacheBucket: String)
+  case class Config(stagingCacheBucket: String) derives ConfigReader
 
   case class Dependencies(s3Client: DAS3Client[IO])
 }

@@ -2,18 +2,18 @@ package uk.gov.nationalarchives
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import cats.implicits._
-import org.mockito.stubbing.ScalaOngoingStubbing
-import org.mockito.{ArgumentMatchers, MockitoSugar}
-import org.reactivestreams.Publisher
+import cats.implicits.*
+import org.mockito.ArgumentMatchers
+import org.mockito.Mockito.when
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
+import org.scalatestplus.mockito.MockitoSugar
 import reactor.core.publisher.Flux
-import ujson._
+import ujson.*
 import uk.gov.nationalarchives.Lambda.Input
-import uk.gov.nationalarchives.MetadataService._
-import uk.gov.nationalarchives.testUtils.TestUtils._
+import uk.gov.nationalarchives.MetadataService.*
+import uk.gov.nationalarchives.testUtils.TestUtils.*
 
 import java.nio.ByteBuffer
 import java.util.UUID
@@ -27,7 +27,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
   val invalidTestCsvWithHeaders = "invalid,header\ninvalidName,invalidValue"
   val invalidTestCsvWithoutHeaders = "invalidValue"
 
-  def mockS3(responseText: String, name: String, returnError: Boolean = false): ScalaOngoingStubbing[IO[Publisher[ByteBuffer]]] = {
+  def mockS3(responseText: String, name: String, returnError: Boolean = false): DAS3Client[IO] = {
     val s3 = mock[DAS3Client[IO]]
     val stub = when(s3.download(ArgumentMatchers.eq("bucket"), ArgumentMatchers.eq(s"prefix/$name")))
     if (returnError) {
@@ -35,6 +35,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
     } else {
       stub.thenReturn(IO(Flux.just(ByteBuffer.wrap(responseText.getBytes))))
     }
+    s3
   }
 
   private def checkTableRows(result: List[Obj], ids: List[UUID], expectedTable: DynamoTable) = {

@@ -4,19 +4,19 @@ import cats.effect.{IO, Resource}
 import cats.implicits._
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3.httpclient.fs2.HttpClientFs2Backend
-import sttp.client3.upicklejson.asJson
 import sttp.client3.{SttpBackend, UriContext, basicRequest}
-import ujson._
+import sttp.client3.circe.*
+import sttp.client3.*
 import uk.gov.nationalarchives.DiscoveryService._
 import uk.gov.nationalarchives.Lambda.Input
 import uk.gov.nationalarchives.MetadataService._
-import upickle.default._
-
+import io.circe.generic.auto._
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.util.UUID
 import javax.xml.transform.TransformerFactory
 import javax.xml.transform.stream.{StreamResult, StreamSource}
 import scala.xml.XML
+import ujson._
 
 class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Streams[IO]], randomUuidGenerator: () => UUID) {
 
@@ -32,20 +32,18 @@ class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Str
       }(is => IO(is.close()))
       outputStream <- Resource.make(IO(new ByteArrayOutputStream()))(bos => IO(bos.close()))
     } yield (xsltStream, inputStream, outputStream)
-    resources.use {
-      case (xsltStream, inputStream, outputStream) =>
-        val factory = TransformerFactory.newInstance()
-        val xslt = new StreamSource(xsltStream)
-        val input = new StreamSource(inputStream)
-        val result = new StreamResult(outputStream)
-        val transformer = factory.newTransformer(xslt)
-        transformer.transform(input, result)
-        val newDescription = outputStream.toByteArray.map(_.toChar).mkString.trim
-        val scopeContentWithNewDescription = discoveryAsset.scopeContent.copy(description = newDescription)
-        val titleWithoutHtmlCodes = replaceHtmlCodesWithUnicodeChars(discoveryAsset.title)
-        val titleWithoutBackslashes = XML.loadString(titleWithoutHtmlCodes.replaceAll("\\\\", "")).text
-        IO(discoveryAsset.copy(scopeContent = scopeContentWithNewDescription, title = titleWithoutBackslashes)).handleError(_ => discoveryAsset)
-      case _ => IO(discoveryAsset)
+    resources.use { case (xsltStream, inputStream, outputStream) =>
+      val factory = TransformerFactory.newInstance()
+      val xslt = new StreamSource(xsltStream)
+      val input = new StreamSource(inputStream)
+      val result = new StreamResult(outputStream)
+      val transformer = factory.newTransformer(xslt)
+      transformer.transform(input, result)
+      val newDescription = outputStream.toByteArray.map(_.toChar).mkString.trim
+      val scopeContentWithNewDescription = discoveryAsset.scopeContent.copy(description = newDescription)
+      val titleWithoutHtmlCodes = replaceHtmlCodesWithUnicodeChars(discoveryAsset.title)
+      val titleWithoutBackslashes = XML.loadString(titleWithoutHtmlCodes.replaceAll("\\\\", "")).text
+      IO(discoveryAsset.copy(scopeContent = scopeContentWithNewDescription, title = titleWithoutBackslashes)).handleError(_ => discoveryAsset)
     }
   }
 
@@ -95,10 +93,6 @@ object DiscoveryService {
   case class DiscoveryScopeContent(description: String)
   case class DiscoveryCollectionAsset(citableReference: String, scopeContent: DiscoveryScopeContent, title: String)
   case class DiscoveryCollectionAssetResponse(assets: List[DiscoveryCollectionAsset])
-
-  implicit val discoverScopeContentReader: Reader[DiscoveryScopeContent] = macroR[DiscoveryScopeContent]
-  implicit val discoveryAssetReader: Reader[DiscoveryCollectionAsset] = macroR[DiscoveryCollectionAsset]
-  implicit val discoveryResponseReader: Reader[DiscoveryCollectionAssetResponse] = macroR[DiscoveryCollectionAssetResponse]
 
   def apply(discoveryUrl: String, randomUuidGenerator: () => UUID): IO[DiscoveryService] = HttpClientFs2Backend.resource[IO]().use { backend =>
     IO(new DiscoveryService(discoveryUrl, backend, randomUuidGenerator))

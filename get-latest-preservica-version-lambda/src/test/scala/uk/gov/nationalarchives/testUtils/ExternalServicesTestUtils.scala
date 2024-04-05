@@ -4,11 +4,12 @@ import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
 import io.circe.Encoder
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchersSugar.any
-import org.mockito.MockitoSugar.{mock, times, verify, when}
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatestplus.mockito.MockitoSugar.mock
 import org.scanamo.DynamoFormat
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
 import sttp.capabilities.fs2.Fs2Streams
@@ -54,14 +55,14 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
     when(
       mockDynamoDBClient
-        .getItems[GetDr2PreservicaVersionResponse, PartitionKey](any[List[PartitionKey]], any[String])(
+        .getItems[GetDr2PreservicaVersionResponse, PartitionKey](any[List[PartitionKey]], any[String])(using
           any[DynamoFormat[GetDr2PreservicaVersionResponse]],
           any[DynamoFormat[PartitionKey]]
         )
     ).thenReturn(getCurrentPreservicaVersionReturnValue)
 
     when(
-      mockSnsClient.publish(any[String])(any[List[LatestPreservicaVersionMessage]])(
+      mockSnsClient.publish(any[String])(any[List[LatestPreservicaVersionMessage]])(using
         any[Encoder[LatestPreservicaVersionMessage]]
       )
     )
@@ -78,7 +79,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         .getItems[GetDr2PreservicaVersionResponse, PartitionKey](
           getItemsCaptor.capture(),
           tableNameCaptor.capture()
-        )(any[DynamoFormat[GetDr2PreservicaVersionResponse]], any[DynamoFormat[PartitionKey]])
+        )(using any[DynamoFormat[GetDr2PreservicaVersionResponse]], any[DynamoFormat[PartitionKey]])
       (0 until numOfCurrentPreservicaVersionInvocations).foreach { _ =>
         getItemsCaptor.getValue should be(List(PartitionKey("DR2PreservicaVersion")))
         tableNameCaptor.getValue should be("table-name")
@@ -93,7 +94,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
       verify(mockSnsClient, times(numOfPublishInvocations)).publish(
         snsArnCaptor.capture()
-      )(publishEntitiesCaptor.capture())(any[Encoder[LatestPreservicaVersionMessage]])
+      )(publishEntitiesCaptor.capture())(using any[Encoder[LatestPreservicaVersionMessage]])
       (0 until numOfPublishInvocations).foreach { _ =>
         snsArnCaptor.getValue should be("arn:aws:sns:eu-west-2:123456789012:MockResourceId")
         publishEntitiesCaptor.getValue should be(

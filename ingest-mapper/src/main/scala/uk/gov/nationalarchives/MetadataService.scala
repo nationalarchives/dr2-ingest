@@ -3,10 +3,10 @@ package uk.gov.nationalarchives
 import cats.effect.IO
 import cats.implicits._
 import fs2.interop.reactivestreams._
+import ujson._
 import fs2.{Chunk, Pipe, Stream, text}
 import uk.gov.nationalarchives.Lambda.Input
 import uk.gov.nationalarchives.MetadataService._
-import ujson._
 
 import java.util.UUID
 
@@ -48,12 +48,12 @@ class MetadataService(s3: DAS3Client[IO]) {
               val name = metadataEntry("name").strOpt
               val parentPath = parentPaths(id)
               val path = if (parentPath.isEmpty) pathPrefix else s"$pathPrefix/${parentPath.stripPrefix("/")}"
-              val checksum = fileIdToChecksum.get(id).map(Str).getOrElse(Null)
+              val checksum = fileIdToChecksum.get(id).map(Str.apply).getOrElse(Null)
               val fileExtension =
                 if (metadataEntry("type").str == "File")
                   name
                     .flatMap(n => n.split("\\.").lastOption)
-                    .map(Str)
+                    .map(Str.apply)
                     .getOrElse(Null)
                 else Null
               val metadataFromBagInfo: Obj = if (metadataEntry("type").str == "Asset") bagInfoJson else Obj()

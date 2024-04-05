@@ -4,12 +4,14 @@ import cats.effect.IO
 import io.circe.generic.auto._
 import org.scanamo._
 import org.scanamo.generic.semiauto._
-import pureconfig.generic.auto._
+import pureconfig.generic.derivation.default._
+import pureconfig.ConfigReader
 import ujson._
+import upickle.core._
 import uk.gov.nationalarchives.Lambda.{Config, Dependencies, Input, StateOutput}
 import uk.gov.nationalarchives.MetadataService._
 import java.util.UUID
-import scala.collection.mutable
+import io.circe.*
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
@@ -17,8 +19,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     override def read(dynamoValue: DynamoValue): Either[DynamoReadError, Obj] = {
       dynamoValue.asObject
         .map(_.toMap[String].map { valuesMap =>
-          val jsonValuesMap = valuesMap.view.mapValues(Str)
-          Obj(mutable.LinkedHashMap.newBuilder[String, Value].addAll(jsonValuesMap).result())
+          val jsonValuesMap = valuesMap.view.mapValues(Str.apply).toList
+          Obj(LinkedHashMap(jsonValuesMap))
         })
         .getOrElse(Left(TypeCoercionError(new Exception("Dynamo object not found"))))
     }
@@ -90,6 +92,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 object Lambda {
   case class StateOutput(batchId: String, s3Bucket: String, s3Prefix: String, archiveHierarchyFolders: List[UUID], contentFolders: List[UUID], contentAssets: List[UUID])
   case class Input(batchId: String, s3Bucket: String, s3Prefix: String, department: Option[String], series: Option[String])
-  case class Config(dynamoTableName: String, discoveryApiUrl: String)
+  case class Config(dynamoTableName: String, discoveryApiUrl: String) derives ConfigReader
   case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], uuidGenerator: () => UUID)
 }

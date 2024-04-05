@@ -3,23 +3,25 @@ package uk.gov.nationalarchives.testUtils
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
 import io.circe.Encoder
-import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.ArgumentMatchers.any
-import org.mockito.MockitoSugar.{mock, times, verify, when}
+import org.mockito.Mockito.{times, verify, when}
+import org.mockito.{ArgumentCaptor, Mockito}
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import software.amazon.awssdk.services.dynamodb.model._
+import org.scalatestplus.mockito.MockitoSugar.mock
+import org.scanamo.DynamoFormat
+import software.amazon.awssdk.services.dynamodb.model.*
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
+import uk.gov.nationalarchives.Lambda.{CompactEntity, Dependencies, GetItemsResponse, PartitionKey}
 import uk.gov.nationalarchives.dp.client.DataProcessor.EventAction
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
+import uk.gov.nationalarchives.dp.client.EntityClient.*
+import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, Lambda}
-import Lambda.{CompactEntity, Dependencies, GetItemsResponse, PartitionKey}
-import org.scanamo.DynamoFormat
-import uk.gov.nationalarchives.dp.client.EntityClient._
 
 import java.time.ZonedDateTime
 import java.util.UUID
@@ -149,7 +151,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       .thenReturn(entityEventActionsReturnValue)
 
     when(
-      mockDynamoDBClient.getItems[GetItemsResponse, PartitionKey](any[List[PartitionKey]], any[String])(
+      mockDynamoDBClient.getItems[GetItemsResponse, PartitionKey](any[List[PartitionKey]], any[String])(using
         any[DynamoFormat[GetItemsResponse]],
         any[DynamoFormat[PartitionKey]]
       )
@@ -157,7 +159,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     when(mockDynamoDBClient.updateAttributeValues(any[DADynamoDbRequest]))
       .thenReturn(updateAttributeValuesReturnValue)
 
-    when(mockSnsClient.publish(any[String])(any[List[CompactEntity]])(any[Encoder[CompactEntity]]))
+    when(mockSnsClient.publish(any[String])(any[List[CompactEntity]])(using any[Encoder[CompactEntity]]))
       .thenReturn(snsPublishReturnValue)
 
     def verifyInvocationsAndArgumentsPassed(
@@ -171,7 +173,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       verify(mockDynamoDBClient, times(numOfGetAttributeValuesInvocations)).getItems[GetItemsResponse, PartitionKey](
         getItemsCaptor.capture(),
         tableNameCaptor.capture()
-      )(any[DynamoFormat[GetItemsResponse]], any[DynamoFormat[PartitionKey]])
+      )(using any[DynamoFormat[GetItemsResponse]], any[DynamoFormat[PartitionKey]])
       getItemsCaptor.getAllValues.toArray.toList should be(
         List.fill(numOfGetAttributeValuesInvocations)(
           List(PartitionKey("LastPolled"))
@@ -225,7 +227,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
       verify(mockSnsClient, times(numOfPublishInvocations)).publish(
         snsArnCaptor.capture()
-      )(publishEntitiesCaptor.capture())(any[Encoder[CompactEntity]])
+      )(publishEntitiesCaptor.capture())(using any[Encoder[CompactEntity]])
       snsArnCaptor.getAllValues.toArray.toList should be(
         List.fill(numOfPublishInvocations)("arn:aws:sns:eu-west-2:123456789012:MockResourceId")
       )

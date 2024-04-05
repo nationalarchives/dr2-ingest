@@ -115,7 +115,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
           </opex:Transfer>
           <opex:Properties>
             <opex:Title>Test Name</opex:Title>
-            <opex:Description></opex:Description>
+            <opex:Description/>
             <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
             <opex:Identifiers>
               <opex:Identifier type="UpstreamSystemReference">UpstreamSystemReference</opex:Identifier>

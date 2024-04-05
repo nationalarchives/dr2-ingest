@@ -5,26 +5,30 @@ import cats.effect.unsafe.implicits.global
 import io.circe.Encoder
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
-import org.mockito.MockitoSugar.{mock, times, verify, when}
+import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor6}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatestplus.mockito.MockitoSugar
 import org.scanamo.DynamoFormat
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import sttp.capabilities.fs2.Fs2Streams
+import uk.gov.nationalarchives.DynamoFormatters.*
+import uk.gov.nationalarchives.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.Lambda.{Dependencies, Detail, EntityWithUpdateEntityRequest}
-import uk.gov.nationalarchives.DynamoFormatters._
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, Open, StructuralObject, UpdateEntityRequest}
+import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
+import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
+import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
 
-import scala.jdk.CollectionConverters._
 import java.util.UUID
 import scala.collection.immutable.ListMap
+import scala.jdk.CollectionConverters.*
 
-class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll with TableDrivenPropertyChecks {
+class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll with TableDrivenPropertyChecks with MockitoSugar {
 
   val folderIdsAndRows: ListMap[UUID, ArchiveFolderDynamoTable] = ListMap(
     UUID.fromString("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176") ->
@@ -247,14 +251,14 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         any[String],
         any[String],
         eventBridgeMessageCaptors.capture()
-      )(any[Encoder[Detail]])
+      )(using any[Encoder[Detail]])
     ).thenReturn(IO(PutEventsResponse.builder.build))
     val apiUrlCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
     def getIdentifierToGetCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
     def getAddFolderRequestCaptor: ArgumentCaptor[AddEntityRequest] = ArgumentCaptor.forClass(classOf[AddEntityRequest])
     def getRefCaptor: ArgumentCaptor[UUID] = ArgumentCaptor.forClass(classOf[UUID])
-    def structuralObjectCaptor: ArgumentCaptor[StructuralObject.type] =
-      ArgumentCaptor.forClass(classOf[StructuralObject.type])
+    def structuralObjectCaptor: ArgumentCaptor[EntityType] =
+      ArgumentCaptor.forClass(classOf[EntityType])
     def identifiersToAddCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
     def getUpdateFolderRequestCaptor: ArgumentCaptor[UpdateEntityRequest] =
       ArgumentCaptor.forClass(classOf[UpdateEntityRequest])
@@ -269,7 +273,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     val mockDynamoDBClient: DADynamoDBClient[IO] = mock[DADynamoDBClient[IO]]
 
     when(
-      mockDynamoDBClient.getItems[ArchiveFolderDynamoTable, PartitionKey](any[List[PartitionKey]], any[String])(
+      mockDynamoDBClient.getItems[ArchiveFolderDynamoTable, PartitionKey](any[List[PartitionKey]], any[String])(using
         any[DynamoFormat[ArchiveFolderDynamoTable]],
         any[DynamoFormat[PartitionKey]]
       )
@@ -317,7 +321,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       verify(mockDynamoDBClient, times(1)).getItems[ArchiveFolderDynamoTable, PartitionKey](
         attributesValuesCaptor.capture(),
         tableNameCaptor.capture()
-      )(any[DynamoFormat[ArchiveFolderDynamoTable]], any[DynamoFormat[PartitionKey]])
+      )(using any[DynamoFormat[ArchiveFolderDynamoTable]], any[DynamoFormat[PartitionKey]])
       attributesValuesCaptor.getValue.toArray.toList should be(
         folderIdsAndRows.map { case (ids, _) => PartitionKey(ids) }
       )

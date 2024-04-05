@@ -3,13 +3,17 @@ package uk.gov.nationalarchives
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import org.mockito.ArgumentMatchers.any
-import org.mockito.{ArgumentCaptor, MockitoSugar}
-import uk.gov.nationalarchives.DynamoFormatters._
-import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, ContentObject, EntityType, Open, StructuralObject, UpdateEntityRequest}
+import org.mockito.ArgumentCaptor
+import org.mockito.Mockito.{times, verify}
+import uk.gov.nationalarchives.DynamoFormatters.*
+import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest}
+import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
+import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 
 import java.util.UUID
 import scala.collection.immutable.ListMap
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
+import org.scalatestplus.mockito.MockitoSugar
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
 import uk.gov.nationalarchives.Lambda.{Config, EntityWithUpdateEntityRequest, StepFnInput}
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}

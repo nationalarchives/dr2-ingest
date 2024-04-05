@@ -3,13 +3,14 @@ package uk.gov.nationalarchives
 import cats.effect.IO
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import io.circe.Encoder
-import org.scanamo.generic.auto._
-import pureconfig.generic.auto._
-import software.amazon.awssdk.services.dynamodb.model._
+import org.scanamo.generic.auto.*
+import pureconfig.ConfigReader
+import pureconfig.generic.derivation.default.*
+import software.amazon.awssdk.services.dynamodb.model.*
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
-import uk.gov.nationalarchives.EventDecoders._
-import uk.gov.nationalarchives.Lambda._
+import uk.gov.nationalarchives.EventDecoders.*
+import uk.gov.nationalarchives.Lambda.*
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
@@ -126,7 +127,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
 }
 
 object Lambda {
-  case class Config(apiUrl: String, secretName: String, snsArn: String, lastEventActionTableName: String)
+  case class Config(apiUrl: String, secretName: String, snsArn: String, lastEventActionTableName: String) derives ConfigReader
   case class CompactEntity(id: String, deleted: Boolean)
   case class PartitionKey(id: String)
   case class GetItemsResponse(datetime: String)

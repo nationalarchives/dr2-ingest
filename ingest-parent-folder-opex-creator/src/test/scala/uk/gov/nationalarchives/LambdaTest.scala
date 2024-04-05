@@ -2,7 +2,7 @@ package uk.gov.nationalarchives
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import org.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers._
 import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.s3.model.PutObjectResponse

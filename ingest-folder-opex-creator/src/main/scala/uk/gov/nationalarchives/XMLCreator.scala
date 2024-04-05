@@ -2,6 +2,7 @@ package uk.gov.nationalarchives
 
 import cats.effect.IO
 import uk.gov.nationalarchives.DynamoFormatters._
+import uk.gov.nationalarchives.DynamoFormatters.Type._
 import uk.gov.nationalarchives.Lambda.{FolderOrAssetTable, AssetWithFileSize}
 
 import scala.xml.PrettyPrinter
@@ -24,15 +25,15 @@ class XMLCreator {
         <opex:Description>{folder.description.getOrElse("")}</opex:Description>
         <opex:SecurityDescriptor>{securityDescriptor}</opex:SecurityDescriptor>
         {
-      if (identifiers.nonEmpty) {
-        <opex:Identifiers>
+      if identifiers.nonEmpty then <opex:Identifiers>
           {identifiers.map(identifier => <opex:Identifier type={identifier.identifierName}>{identifier.value}</opex:Identifier>)}
         </opex:Identifiers>
-      }
+      else ()
+
     }
       </opex:Properties>
       <opex:Transfer>
-        {if (isHierarchyFolder) <opex:SourceID>{folder.name}</opex:SourceID>}
+        {if isHierarchyFolder then <opex:SourceID>{folder.name}</opex:SourceID> else ()}
         <opex:Manifest>
           <opex:Folders>
             {childAssets.map(assetWithFileSize => <opex:Folder>{assetWithFileSize.asset.id}.pax</opex:Folder>)}
