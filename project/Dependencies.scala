@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.23.1"
   lazy val pureConfigVersion = "0.17.6"
-  lazy val daAwsClientsVersion = "0.1.47-SNAPSHOT"
+  lazy val daAwsClientsVersion = "0.1.47"
   private val fs2Version = "3.10.1"
   private val sttpVersion = "3.9.5"
   private val circeVersion = "0.14.6"
@@ -19,7 +19,7 @@ object Dependencies {
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.26.1"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
-  lazy val dynamoFormatters = "uk.gov.nationalarchives" %% "dynamo-formatters" % "0.0.12-SNAPSHOT"
+  lazy val dynamoFormatters = "uk.gov.nationalarchives" %% "dynamo-formatters" % "0.0.12"
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
   lazy val fs2IO = "co.fs2" %% "fs2-io" % fs2Version
