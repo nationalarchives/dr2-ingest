@@ -405,7 +405,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
           val oldDescription = entity.description.getOrElse("")
           val newDescription = updateRequest.descriptionToChange.getOrElse("")
           val entityTypeShort = entity.entityType.get.entityTypeShort
-          val url = "http://localhost:9001/explorer/explorer.html#properties"
+          val url = "http://localhost:9014/explorer/explorer.html#properties"
           val messageFirstLine =
             s":preservica: Entity <$url:$entityTypeShort&${entity.ref}|${entity.ref}> has been updated: "
           val expectedMessage = if (oldTitle != newTitle && updateRequest.descriptionToChange.isEmpty) {

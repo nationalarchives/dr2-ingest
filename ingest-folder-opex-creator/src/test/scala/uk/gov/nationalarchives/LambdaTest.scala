@@ -19,8 +19,8 @@ import java.util.UUID
 import scala.jdk.CollectionConverters._
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
-  val dynamoServer = new WireMockServer(9005)
-  val s3Server = new WireMockServer(9006)
+  val dynamoServer = new WireMockServer(9006)
+  val s3Server = new WireMockServer(9007)
   val tableName = "test-table"
 
   override def beforeEach(): Unit = {
@@ -180,14 +180,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   private val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
   private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
     .builder()
-    .endpointOverride(URI.create("http://localhost:9005"))
+    .endpointOverride(URI.create("http://localhost:9006"))
     .region(Region.EU_WEST_2)
     .credentialsProvider(creds)
     .build()
 
   private val asyncS3Client: S3AsyncClient = S3AsyncClient
     .crtBuilder()
-    .endpointOverride(URI.create("http://localhost:9006"))
+    .endpointOverride(URI.create("http://localhost:9007"))
     .region(Region.EU_WEST_2)
     .credentialsProvider(creds)
     .targetThroughputInGbps(20.0)
@@ -319,7 +319,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal("Unable to execute HTTP request: Connection refused: localhost/127.0.0.1:9005")
+    ex.getMessage should equal("Unable to execute HTTP request: Connection refused: localhost/127.0.0.1:9006")
   }
 
   "handler" should "return an error if the S3 API is unavailable" in {
