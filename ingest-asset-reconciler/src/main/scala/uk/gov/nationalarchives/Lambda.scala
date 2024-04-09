@@ -129,7 +129,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     StateOutput(
                       wasReconciled = false,
                       s"Out of the ${childrenForRepresentationType.length} files expected to be ingested for assetId '${input.assetId}' with representationType $representationType, " +
-                        s"a checksum could not be found for: ${idsOfChildrenThatDidNotMatchOnChecksum.mkString(", ")}"
+                        s"a checksum and title could not be matched with a file on Preservica for: ${idsOfChildrenThatDidNotMatchOnChecksum.mkString(", ")}"
                     )
                   }
                 }
