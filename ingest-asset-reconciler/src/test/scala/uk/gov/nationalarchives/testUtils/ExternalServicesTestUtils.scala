@@ -33,6 +33,22 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
   val batchId: String = "TEST-ID"
   val executionId = "5619e6b0-e959-4e61-9f6e-17170f7c06e2-3a3443ae-92c4-4fc8-9cbd-10c2a58b6045"
   val input: Input = Input(executionId, batchId, assetId)
+
+  val defaultDocxBitStreamInfo: BitStreamInfo = BitStreamInfo(
+    s"84cca074-a7bc-4740-9418-bcc9df9fef7e.docx",
+    1234,
+    "http://localhost/api/entity/content-objects/fc0a687d-f7fa-454e-941a-683bbf5594b1/generations/1/bitstreams/1/content",
+    Fixity("SHA256", "f7523c5d03a2c850fa06b5bbfed4c216f6368826"),
+    Some(s"$docxTitle.docx")
+  )
+  val defaultJsonBitStreamInfo: BitStreamInfo = BitStreamInfo(
+    s"9ef5eb16-3017-401f-8180-cf74c2c25ec1.json",
+    1235,
+    "http://localhost/api/entity/content-objects/4dee285b-64e4-49f8-942e-84ab460b5af6/generations/1/bitstreams/1/content",
+    Fixity("SHA256", "a8cfe9e6b5c10a26046c849cd3776734626e74a2"),
+    Some(s"$batchId.json")
+  )
+
   val emptyDynamoGetResponse: String = """{"Responses": {"test-table": []}}"""
   val emptyDynamoPostResponse: String = """{"Count": 0, "Items": []}"""
   val dynamoPostResponse: String =
@@ -272,32 +288,8 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
       )
     )
 
-  private val defaultBitStreamInfo = {
-    Seq(
-      IO(
-        Seq(
-          BitStreamInfo(
-            s"84cca074-a7bc-4740-9418-bcc9df9fef7e.docx",
-            1234,
-            "http://localhost/api/entity/content-objects/fc0a687d-f7fa-454e-941a-683bbf5594b1/generations/1/bitstreams/1/content",
-            Fixity("SHA256", "f7523c5d03a2c850fa06b5bbfed4c216f6368826"),
-            Some(s"$docxTitle.docx")
-          )
-        )
-      ),
-      IO(
-        Seq(
-          BitStreamInfo(
-            s"9ef5eb16-3017-401f-8180-cf74c2c25ec1.json",
-            1235,
-            "http://localhost/api/entity/content-objects/4dee285b-64e4-49f8-942e-84ab460b5af6/generations/1/bitstreams/1/content",
-            Fixity("SHA256", "a8cfe9e6b5c10a26046c849cd3776734626e74a2"),
-            Some(s"$batchId.json")
-          )
-        )
-      )
-    )
-  }
+  private val defaultBitStreamInfo =
+    Seq(IO(Seq(defaultDocxBitStreamInfo)), IO(Seq(defaultJsonBitStreamInfo)))
 
   def stubGetRequest(batchGetResponse: String): Unit =
     dynamoServer.stubFor(

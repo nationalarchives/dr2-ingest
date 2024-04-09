@@ -6,7 +6,7 @@ import com.github.tomakehurst.wiremock.WireMockServer
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
-import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor6}
+import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4, TableFor6}
 import uk.gov.nationalarchives.Lambda.Config
 import uk.gov.nationalarchives.testUtils.ExternalServicesTestUtils
 
@@ -169,6 +169,31 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     )
   )
 
+  val uncommonButAcceptableFileExtensionStates: TableFor3[String, String, String] = Table(
+    ("Child of Asset DocxTitle", "Entity Title", "State of the title's file extension"),
+    ("", s"$docxTitle.docx", "Asset child file title is empty"),
+    ("fileNameWithNoExtension", "fileNameWithNoExtension", "Asset child file title has no extension"),
+    ("file.name.with.dots.but.no_real_extension", "file.name.with.dots.but.no_real_extension", "Asset child file title has dots but no extension"),
+    ("file.name.with.dots.and.extension.docx", "file.name.with.dots.and.extension", "Asset child's file title has an extension but the entity title doesn't"),
+    ("file.name.with.dots.and.extension", "file.name.with.dots.and.extension.docx", "Entity title has an extension but the Asset child's file title doesn't")
+  )
+
+  val uncommonButUnacceptableFileExtensionStates: TableFor4[String, String, List[String], String] = Table(
+    ("Child of Asset DocxTitle", "Entity Title", "ids that failed to match", "State of the title's file extension"),
+    (
+      "file.name.with.dots.and.ext.docx",
+      "file.name.with..more...dots.than.expected.and.ext.docx",
+      docxFileIdInList,
+      "Asset child's file title has fewer dots in it than the Entity title"
+    ),
+    (
+      "file.name.with..more...dots.than.expected.and.ext.docx",
+      "file.name.with.dots.and.ext.docx",
+      docxFileIdInList,
+      "Asset child's file title has more dots in it than the Entity title"
+    )
+  )
+
   "handler" should "return an error if the asset is not found in Dynamo" in {
     stubGetRequest(emptyDynamoGetResponse)
     val argumentVerifier = ArgumentVerifier()
@@ -269,6 +294,38 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       }
   }
 
+  forAll(uncommonButUnacceptableFileExtensionStates) { (childOfAssetDocxTitle, entityTitle, idsThatFailed, reasonForFailure) =>
+    "handler" should s"return a 'wasReconciled' value of 'false' and a 'reason' message that contains " +
+      s"these ids: $idsThatFailed if $reasonForFailure " in {
+        val updatedDynamoPostResponse = dynamoPostResponse
+          .replace(s""""S": "$defaultDocxTitle"""", s""""S": "$childOfAssetDocxTitle"""")
+
+        stubGetRequest(dynamoGetResponse)
+        stubPostRequest(updatedDynamoPostResponse)
+
+        val bitstreamWithUpdatedTitle =
+          Seq(IO(Seq(defaultDocxBitStreamInfo.copy(potentialCoTitle = Some(entityTitle)))), IO(Seq(defaultJsonBitStreamInfo)))
+
+        val argumentVerifier = ArgumentVerifier(bitstreamInfo = bitstreamWithUpdatedTitle)
+
+        val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
+
+        val expectedReason = idsThatFailed
+          .map { failedId =>
+            s"Out of the 1 files expected to be ingested for assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e' with representationType Access, " +
+              s"a checksum could not be found for: $failedId"
+          }
+          .sorted
+          .mkString("\n")
+          .trim
+
+        stateOutput.wasReconciled should equal(false)
+        stateOutput.reason should equal(expectedReason)
+
+        argumentVerifier.verifyInvocationsAndArgumentsPassed()
+      }
+  }
+
   "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
@@ -283,6 +340,28 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     argumentVerifier.verifyInvocationsAndArgumentsPassed()
   }
 
+  forAll(uncommonButAcceptableFileExtensionStates) { (childOfAssetDocxTitle, entityTitle, stateOfTitleExtension) =>
+    "handler" should s"return a 'wasReconciled' value of 'true' and an empty 'reason' if $stateOfTitleExtension" in {
+      val updatedDynamoPostResponse = dynamoPostResponse
+        .replace(s""""S": "$defaultDocxTitle"""", s""""S": "$childOfAssetDocxTitle"""")
+
+      stubGetRequest(dynamoGetResponse)
+      stubPostRequest(updatedDynamoPostResponse)
+
+      val bitstreamWithUpdatedTitle =
+        Seq(IO(Seq(defaultDocxBitStreamInfo.copy(potentialCoTitle = Some(entityTitle)))), IO(Seq(defaultJsonBitStreamInfo)))
+
+      val argumentVerifier = ArgumentVerifier(bitstreamInfo = bitstreamWithUpdatedTitle)
+
+      val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
+
+      stateOutput.wasReconciled should equal(true)
+      stateOutput.reason should equal("")
+
+      argumentVerifier.verifyInvocationsAndArgumentsPassed()
+    }
+  }
+
   "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled, " +
     "even if one of the Asset's child's title, was not present in the table" in {
       stubGetRequest(dynamoGetResponse)
@@ -294,7 +373,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         |""".stripMargin,
         ""
       )
-      println(updatedDynamoPostResponse)
+
       stubPostRequest(updatedDynamoPostResponse)
 
       val argumentVerifier = ArgumentVerifier()
