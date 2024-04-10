@@ -150,13 +150,13 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
     val asyncS3Client: S3AsyncClient = S3AsyncClient
       .crtBuilder()
-      .endpointOverride(URI.create("http://localhost:9003"))
+      .endpointOverride(URI.create("http://localhost:9008"))
       .credentialsProvider(creds)
       .region(Region.EU_WEST_2)
       .build()
     val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
       .builder()
-      .endpointOverride(URI.create("http://localhost:9005"))
+      .endpointOverride(URI.create("http://localhost:9009"))
       .region(Region.EU_WEST_2)
       .credentialsProvider(creds)
       .build()

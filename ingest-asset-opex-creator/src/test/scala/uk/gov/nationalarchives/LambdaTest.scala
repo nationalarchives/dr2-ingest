@@ -12,8 +12,8 @@ import scala.jdk.CollectionConverters._
 import scala.xml.XML
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
-  val dynamoServer = new WireMockServer(9005)
-  val s3Server = new WireMockServer(9006)
+  val dynamoServer = new WireMockServer(9003)
+  val s3Server = new WireMockServer(9004)
   private val testUtils = new ExternalServicesTestUtils(dynamoServer, s3Server)
   private val config: Config = Config("test-table", "test-gsi", "test-destination-bucket")
   import testUtils._
@@ -153,7 +153,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal("Unable to execute HTTP request: Connection refused: localhost/127.0.0.1:9005")
+    ex.getMessage should equal("Unable to execute HTTP request: Connection refused: localhost/127.0.0.1:9003")
   }
 
   "handler" should "return an error if the S3 API is unavailable" in {
