@@ -14,7 +14,12 @@ import pureconfig.module.catseffect.syntax._
 import java.io.{InputStream, OutputStream}
 import scala.reflect.ClassTag
 
-abstract class LambdaRunner[Event, Result, Config, Dependencies](implicit val decoder: Decoder[Event], val configReader: ConfigReader[Config], val classTag: ClassTag[Config], val encoder: Encoder[Result]) extends RequestStreamHandler {
+abstract class LambdaRunner[Event, Result, Config, Dependencies](implicit
+    val decoder: Decoder[Event],
+    val configReader: ConfigReader[Config],
+    val classTag: ClassTag[Config],
+    val encoder: Encoder[Result]
+) extends RequestStreamHandler {
 
   private val lambdaName: String = sys.env("AWS_LAMBDA_FUNCTION_NAME")
   implicit val loggerName: LoggerName = LoggerName(lambdaName)
@@ -25,9 +30,9 @@ abstract class LambdaRunner[Event, Result, Config, Dependencies](implicit val de
   def handler: (Event, Config, Dependencies) => IO[Result]
   def dependencies(config: Config): IO[Dependencies]
 
-
   override def handleRequest(input: InputStream, output: OutputStream, context: Context): Unit = (for {
-    inputString <- Resource.fromAutoCloseable(IO(input))
+    inputString <- Resource
+      .fromAutoCloseable(IO(input))
       .use { is =>
         IO(is.readAllBytes().map(_.toChar).mkString)
       }
@@ -37,10 +42,12 @@ abstract class LambdaRunner[Event, Result, Config, Dependencies](implicit val de
     response <- handler(event, config, deps)
     _ <- response match {
       case _: Unit => IO.unit
-      case _ => Resource.fromAutoCloseable(IO(output))
-        .use { os =>
-          IO(os.write(response.asJson.printWith(Printer.noSpaces).getBytes))
-        }
+      case _ =>
+        Resource
+          .fromAutoCloseable(IO(output))
+          .use { os =>
+            IO(os.write(response.asJson.printWith(Printer.noSpaces).getBytes))
+          }
     }
   } yield ()).onError(logLambdaError).unsafeRunSync()
 
