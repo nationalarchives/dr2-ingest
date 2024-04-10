@@ -80,7 +80,6 @@ lazy val ingestParentFolderOpexCreator = (project in file("ingest-parent-folder-
       reactorTest % Test,
       scalaXml,
       upickle
-
     )
   )
 
@@ -94,7 +93,6 @@ lazy val ingestUpsertArchiveFolders = (project in file("ingest-upsert-archive-fo
       preservicaClient,
       pureConfig,
       dynamoFormatters
-
     )
   )
 
@@ -152,7 +150,7 @@ lazy val entityEventGenerator = (project in file("entity-event-generator-lambda"
       snsClient,
       sttpClient,
       typeSafeConfig
-    ),
+    )
   )
 
 lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-version-lambda"))
@@ -207,11 +205,5 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
     )
   )
 
-  lazy val utils = (project in file("utils"))
-    .settings(commonSettings)
-
-
-
-
-
-
+lazy val utils = (project in file("utils"))
+  .settings(commonSettings)
