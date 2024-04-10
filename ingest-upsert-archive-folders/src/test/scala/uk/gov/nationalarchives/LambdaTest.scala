@@ -22,7 +22,7 @@ import uk.gov.nationalarchives.testUtils.ExternalServicesTestUtils
 import scala.jdk.CollectionConverters.ListHasAsScala
 
 class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
-  private val config: Config = Config("http://localhost:9001", "", "")
+  private val config: Config = Config("http://localhost:9014", "", "")
   private val parentSo = structuralObjects(0).head.ref
   private val childSo = structuralObjects(1).head.ref
   private val grandChildSo = structuralObjects(2).head.ref

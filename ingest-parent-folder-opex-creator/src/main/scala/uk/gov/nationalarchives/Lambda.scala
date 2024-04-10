@@ -9,8 +9,6 @@ import pureconfig.ConfigReader
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
 import uk.gov.nationalarchives.Lambda.*
 
-import scala.xml.PrettyPrinter
-
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def accumulatePrefixes(s: fs2.Stream[IO, String]): fs2.Stream[IO, List[String]] =
@@ -20,17 +18,15 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   def generateOpexWithManifest(paths: List[String]): String = {
     val folderElems = paths.map { path => <opex:Folder>{path.split("/").last}</opex:Folder> }
-    val opex =
-      <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
-        <opex:Transfer>
-          <opex:Manifest>
-            <opex:Folders>
-              {folderElems}
-            </opex:Folders>
-          </opex:Manifest>
-        </opex:Transfer>
-      </opex:OPEXMetadata>
-    new PrettyPrinter(80, 2).format(opex)
+    <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
+      <opex:Transfer>
+        <opex:Manifest>
+          <opex:Folders>
+            {folderElems}
+          </opex:Folders>
+        </opex:Manifest>
+      </opex:Transfer>
+    </opex:OPEXMetadata>.toString
   }
 
   private def uploadToS3(

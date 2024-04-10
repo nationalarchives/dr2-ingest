@@ -10,8 +10,6 @@ import software.amazon.awssdk.transfer.s3.model.CompletedUpload
 import uk.gov.nationalarchives.Lambda.{Config, Input}
 import uk.gov.nationalarchives.testUtils.ExternalServicesTestUtils
 
-import scala.xml.PrettyPrinter
-
 class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
   val input: Input = Input("9e32383f-52a7-4591-83dc-e3e598a6f1a7")
   val config: Config = Config("stagingCacheBucketName")
@@ -105,20 +103,17 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
   "generateOpexWithManifest" should "generate the correct xml" in {
     val foldersInManifest = List("dir3", "dir2", "dir1")
     val opexAsString = new Lambda().generateOpexWithManifest(List("dir3", "dir2", "dir1"))
-    val prettyPrinter = new PrettyPrinter(80, 2)
     val expectedXml =
-      <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
-        <opex:Transfer>
-          <opex:Manifest>
-            <opex:Folders>
-              <opex:Folder>{foldersInManifest.head}</opex:Folder>
-              <opex:Folder>{foldersInManifest(1)}</opex:Folder>
-              <opex:Folder>{foldersInManifest(2)}</opex:Folder>
-            </opex:Folders>
-          </opex:Manifest>
-        </opex:Transfer>
-      </opex:OPEXMetadata>
+      s"""<opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
+      <opex:Transfer>
+        <opex:Manifest>
+          <opex:Folders>
+            <opex:Folder>${foldersInManifest.head}</opex:Folder><opex:Folder>${foldersInManifest(1)}</opex:Folder><opex:Folder>${foldersInManifest(2)}</opex:Folder>
+          </opex:Folders>
+        </opex:Manifest>
+      </opex:Transfer>
+    </opex:OPEXMetadata>"""
 
-    opexAsString should equal(prettyPrinter.format(expectedXml))
+    opexAsString should equal(expectedXml)
   }
 }

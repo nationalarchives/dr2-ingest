@@ -17,11 +17,10 @@ import uk.gov.nationalarchives.Lambda.{Config, Dependencies, Input}
 import java.net.URI
 import java.util.UUID
 import scala.jdk.CollectionConverters._
-import scala.xml.PrettyPrinter
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
-  val dynamoServer = new WireMockServer(9005)
-  val s3Server = new WireMockServer(9006)
+  val dynamoServer = new WireMockServer(9006)
+  val s3Server = new WireMockServer(9007)
   val tableName = "test-table"
 
   override def beforeEach(): Unit = {
@@ -181,14 +180,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   private val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
   private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
     .builder()
-    .endpointOverride(URI.create("http://localhost:9005"))
+    .endpointOverride(URI.create("http://localhost:9006"))
     .region(Region.EU_WEST_2)
     .credentialsProvider(creds)
     .build()
 
   private val asyncS3Client: S3AsyncClient = S3AsyncClient
     .crtBuilder()
-    .endpointOverride(URI.create("http://localhost:9006"))
+    .endpointOverride(URI.create("http://localhost:9007"))
     .region(Region.EU_WEST_2)
     .credentialsProvider(creds)
     .targetThroughputInGbps(20.0)
@@ -278,30 +277,29 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "upload the correct body to S3" in {
-    val prettyPrinter = new PrettyPrinter(180, 2)
     val expectedResponseXML =
       <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
-        <opex:Properties>
-          <opex:Title>Test Name</opex:Title>
-          <opex:Description></opex:Description>
-          <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
-          <opex:Identifiers>
-            <opex:Identifier type="Code">Code</opex:Identifier>
-          </opex:Identifiers>
-        </opex:Properties>
-        <opex:Transfer>
-          <opex:SourceID>Test Name</opex:SourceID>
-          <opex:Manifest>
-            <opex:Folders>
-              <opex:Folder>{assetId}.pax</opex:Folder>
-              <opex:Folder>{childId}</opex:Folder>
-            </opex:Folders>
-            <opex:Files>
-              <opex:File type="metadata" size="100">{assetId}.pax.opex</opex:File>
-            </opex:Files>
-          </opex:Manifest>
-        </opex:Transfer>
-      </opex:OPEXMetadata>
+      <opex:Properties>
+        <opex:Title>Test Name</opex:Title>
+        <opex:Description></opex:Description>
+        <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+        <opex:Identifiers>
+          <opex:Identifier type="Code">Code</opex:Identifier>
+        </opex:Identifiers>
+      </opex:Properties>
+      <opex:Transfer>
+        <opex:SourceID>Test Name</opex:SourceID>
+        <opex:Manifest>
+          <opex:Folders>
+            <opex:Folder>{assetId}.pax</opex:Folder>
+            <opex:Folder>{childId}</opex:Folder>
+          </opex:Folders>
+          <opex:Files>
+            <opex:File type="metadata" size="100">{assetId}.pax.opex</opex:File>
+          </opex:Files>
+        </opex:Manifest>
+      </opex:Transfer>
+    </opex:OPEXMetadata>
     stubBatchGetRequest(dynamoGetResponse)
     stubDynamoQueryRequest(dynamoQueryResponse)
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
@@ -313,7 +311,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     val s3PutEvent = s3Events.filter(_.getRequest.getMethod == RequestMethod.PUT).head
     val body = s3PutEvent.getRequest.getBodyAsString.split("\r\n")(1)
 
-    body should equal(prettyPrinter.format(expectedResponseXML))
+    body should equal(expectedResponseXML.toString)
   }
 
   "handler" should "return an error if the Dynamo API is unavailable" in {
@@ -321,7 +319,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal("Unable to execute HTTP request: Connection refused: localhost/127.0.0.1:9005")
+    ex.getMessage should equal("Unable to execute HTTP request: Connection refused: localhost/127.0.0.1:9006")
   }
 
   "handler" should "return an error if the S3 API is unavailable" in {

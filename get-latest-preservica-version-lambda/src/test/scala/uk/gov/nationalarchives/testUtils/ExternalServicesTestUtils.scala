@@ -18,7 +18,7 @@ import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 
 class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll {
-  val graphQlServerPort = 9001
+  val graphQlServerPort = 9002
 
   val wiremockGraphqlServer = new WireMockServer(graphQlServerPort)
 

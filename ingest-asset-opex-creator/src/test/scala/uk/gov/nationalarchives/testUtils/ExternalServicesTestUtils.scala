@@ -324,14 +324,14 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
   private val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
   private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
     .builder()
-    .endpointOverride(URI.create("http://localhost:9005"))
+    .endpointOverride(URI.create("http://localhost:9003"))
     .region(Region.EU_WEST_2)
     .credentialsProvider(creds)
     .build()
 
   private val asyncS3Client: S3AsyncClient = S3AsyncClient
     .crtBuilder()
-    .endpointOverride(URI.create("http://localhost:9006"))
+    .endpointOverride(URI.create("http://localhost:9004"))
     .region(Region.EU_WEST_2)
     .credentialsProvider(creds)
     .targetThroughputInGbps(20.0)

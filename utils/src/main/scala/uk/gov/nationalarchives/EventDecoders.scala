@@ -31,5 +31,6 @@ object EventDecoders {
     val event = new SQSEvent()
     event.setRecords(records.asJava)
     event
+
   }
 }

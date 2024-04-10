@@ -5,8 +5,6 @@ import uk.gov.nationalarchives.DynamoFormatters._
 import uk.gov.nationalarchives.DynamoFormatters.Type._
 import uk.gov.nationalarchives.Lambda.{FolderOrAssetTable, AssetWithFileSize}
 
-import scala.xml.PrettyPrinter
-
 class XMLCreator {
   private val opexNamespace = "http://www.openpreservationexchange.org/opex/v1.2"
 
@@ -18,8 +16,7 @@ class XMLCreator {
       securityDescriptor: String = "open"
   ): IO[String] = IO {
     val isHierarchyFolder: Boolean = folder.`type` == ArchiveFolder
-    val prettyPrinter = new PrettyPrinter(180, 2)
-    val xml = <opex:OPEXMetadata xmlns:opex={opexNamespace}>
+    <opex:OPEXMetadata xmlns:opex={opexNamespace}>
       <opex:Properties>
         <opex:Title>{folder.title.getOrElse(folder.name)}</opex:Title>
         <opex:Description>{folder.description.getOrElse("")}</opex:Description>
@@ -44,8 +41,7 @@ class XMLCreator {
           </opex:Files>
         </opex:Manifest>
       </opex:Transfer>
-    </opex:OPEXMetadata>
-    prettyPrinter.format(xml)
+    </opex:OPEXMetadata>.toString
   }
 }
 object XMLCreator {

@@ -58,8 +58,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     s3Server.start()
   }
 
-  val s3Server = new WireMockServer(9003)
-  val sfnServer = new WireMockServer(9004)
+  val s3Server = new WireMockServer(9011)
+  val sfnServer = new WireMockServer(9012)
   val testOutputBucket = "outputBucket"
   val inputBucket = "inputBucket"
   private def packageAvailable(s3Key: String): TREInput = TREInput(
@@ -88,14 +88,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val credentials: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
     val s3AsyncClient: S3AsyncClient = S3AsyncClient
       .crtBuilder()
-      .endpointOverride(URI.create("http://localhost:9003"))
+      .endpointOverride(URI.create("http://localhost:9011"))
       .region(Region.EU_WEST_2)
       .credentialsProvider(credentials)
       .build()
 
     val sfnAsyncClient: SfnAsyncClient = SfnAsyncClient
       .builder()
-      .endpointOverride(URI.create("http://localhost:9004"))
+      .endpointOverride(URI.create("http://localhost:9012"))
       .region(Region.EU_WEST_2)
       .credentialsProvider(credentials)
       .build()

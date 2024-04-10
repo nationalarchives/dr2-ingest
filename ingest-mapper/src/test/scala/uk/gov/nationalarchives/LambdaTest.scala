@@ -27,10 +27,10 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
     discoveryServer.start()
   }
 
-  val s3Server = new WireMockServer(9003)
-  val dynamoServer = new WireMockServer(9005)
-  val discoveryServer = new WireMockServer(9004)
-  val config: Config = Config("test", "http://localhost:9004")
+  val s3Server = new WireMockServer(9008)
+  val dynamoServer = new WireMockServer(9009)
+  val discoveryServer = new WireMockServer(9010)
+  val config: Config = Config("test", "http://localhost:9010")
 
   private val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
   import testUtils._
@@ -137,7 +137,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
 
-    ex.getMessage should equal("Exception when sending request: GET http://localhost:9004/API/records/v1/collection/A")
+    ex.getMessage should equal("Exception when sending request: GET http://localhost:9010/API/records/v1/collection/A")
   }
 
   "handler" should "return an error if the input files are not stored in S3" in {

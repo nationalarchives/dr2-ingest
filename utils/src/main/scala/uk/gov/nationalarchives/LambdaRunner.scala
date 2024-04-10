@@ -25,9 +25,9 @@ abstract class LambdaRunner[Event, Result, Config, Dependencies](using val decod
   def handler: (Event, Config, Dependencies) => IO[Result]
   def dependencies(config: Config): IO[Dependencies]
 
-
   override def handleRequest(input: InputStream, output: OutputStream, context: Context): Unit = (for {
-    inputString <- Resource.fromAutoCloseable(IO(input))
+    inputString <- Resource
+      .fromAutoCloseable(IO(input))
       .use { is =>
         IO(is.readAllBytes().map(_.toChar).mkString)
       }
@@ -37,10 +37,12 @@ abstract class LambdaRunner[Event, Result, Config, Dependencies](using val decod
     response <- handler(event, config, deps)
     _ <- response match {
       case _: Unit => IO.unit
-      case _ => Resource.fromAutoCloseable(IO(output))
-        .use { os =>
-          IO(os.write(response.asJson.printWith(Printer.noSpaces).getBytes))
-        }
+      case _ =>
+        Resource
+          .fromAutoCloseable(IO(output))
+          .use { os =>
+            IO(os.write(response.asJson.printWith(Printer.noSpaces).getBytes))
+          }
     }
   } yield ()).onError(logLambdaError).unsafeRunSync()
 

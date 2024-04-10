@@ -16,6 +16,7 @@ import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType.*
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 
 import java.util.UUID
+import scala.math.abs
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
@@ -35,6 +36,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         "batchId" === asset.batchId and "parentPath" === childrenParentPath
       )
   }
+
+  private def stripFileExtension(title: String) = title.split('.').dropRight(1).mkString(".")
 
   override def handler: (
       Input,
@@ -100,11 +103,21 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                       val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
                         assetChild.checksumSha256 == bitstreamInfoForCo.fixity.value &&
                         bitstreamInfoForCo.potentialCoTitle.exists { titleOfCo => // DDB titles don't have file extensions, CO titles do
-                          val titleOfCoWithoutExtension = titleOfCo.split('.').dropRight(1).mkString(".")
-                          lazy val fileNameWithoutExtension = assetChild.name.split('.').dropRight(1).mkString(".")
-                          val titleOrFileName = assetChild.title.getOrElse(fileNameWithoutExtension)
-                          val assetChildTitle = if titleOrFileName.isEmpty then fileNameWithoutExtension else titleOrFileName
-                          titleOfCoWithoutExtension == assetChildTitle
+                          lazy val fileNameWithoutExtension = assetChild.name
+                          val potentialAssetChildTitleOrFileName = assetChild.title.getOrElse("")
+                          val assetChildTitleOrFileName = if potentialAssetChildTitleOrFileName.isEmpty then fileNameWithoutExtension else potentialAssetChildTitleOrFileName
+
+                          val numOfDotsInTitleOrFileName = assetChildTitleOrFileName.count(_ == '.')
+                          val numOfDotsInTitleOfCo = titleOfCo.count(_ == '.')
+                          val differenceInNumberOfDots = numOfDotsInTitleOrFileName - numOfDotsInTitleOfCo
+
+                          val (titleOfCoWithoutExtension, assetChildTitleOrFileNameWithoutExtension) =
+                            if (numOfDotsInTitleOrFileName == numOfDotsInTitleOfCo) (titleOfCo, assetChildTitleOrFileName)
+                            else if (differenceInNumberOfDots == 1) (titleOfCo, stripFileExtension(assetChildTitleOrFileName))
+                            else if (abs(differenceInNumberOfDots) > 1) (titleOfCo, assetChildTitleOrFileName) // then let it fail the equality comparison below
+                            else (stripFileExtension(titleOfCo), assetChildTitleOrFileName)
+
+                          titleOfCoWithoutExtension == assetChildTitleOrFileNameWithoutExtension
                         }
                       }
 
@@ -117,7 +130,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     StateOutput(
                       wasReconciled = false,
                       s"Out of the ${childrenForRepresentationType.length} files expected to be ingested for assetId '${input.assetId}' with representationType $representationType, " +
-                        s"a checksum could not be found for: ${idsOfChildrenThatDidNotMatchOnChecksum.mkString(", ")}"
+                        s"a checksum and title could not be matched with a file on Preservica for: ${idsOfChildrenThatDidNotMatchOnChecksum.mkString(", ")}"
                     )
                   }
                 }
