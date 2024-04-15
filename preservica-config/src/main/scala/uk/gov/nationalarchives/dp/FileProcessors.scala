@@ -19,24 +19,23 @@ import scala.xml.XML
 
 object FileProcessors {
 
-  implicit class KeyUtils(s: String) {
+  extension (s: String)
     def getName: String = s.split("/").last
 
-    def withoutFileExtension: String = s.getName.split("\\.").head
+    private def withoutFileExtension: String = s.getName.split("\\.").head
 
-    def documentType: String = s.split("/").head
-  }
+    private def documentType: String = s.split("/").head
 
   case class S3Objects(objects: List[S3Object])
   case class S3Object(bucket: String, key: String)
 
-  implicit val decodeObject: Decoder[S3Object] = (c: HCursor) =>
+  given Decoder[S3Object] = (c: HCursor) =>
     for {
       key <- c.downField("s3").downField("object").downField("key").as[String]
       bucket <- c.downField("s3").downField("bucket").downField("name").as[String]
     } yield S3Object(bucket, key)
 
-  implicit val decodeS3: Decoder[S3Objects] = (c: HCursor) =>
+  given Decoder[S3Objects] = (c: HCursor) =>
     for {
       objects <- c.downField("Records").as[List[S3Object]]
     } yield S3Objects(objects)
@@ -47,7 +46,7 @@ object FileProcessors {
   private[dp] def processTransforms(key: String, xmlData: String): TransformFileInfo = {
     val name = key.withoutFileExtension
     val fromNameSpace = XML.loadString(xmlData).getNamespace("tns")
-    val purpose = if (name.contains("view")) "view" else "edit"
+    val purpose = if name.contains("view") then "view" else "edit"
     TransformFileInfo(name, fromNameSpace, "http://www.w3.org/1999/xhtml", purpose, key.getName, xmlData)
   }
 
@@ -61,7 +60,7 @@ object FileProcessors {
       client: AdminClient[IO],
       s3Client: DAS3Client[IO],
       s3Objects: List[S3Object]
-  )(implicit logger: SelfAwareStructuredLogger[IO]): IO[List[Unit]] = {
+  )(using logger: SelfAwareStructuredLogger[IO]): IO[List[Unit]] = {
     s3Objects
       .map(event => {
         val key = event.key

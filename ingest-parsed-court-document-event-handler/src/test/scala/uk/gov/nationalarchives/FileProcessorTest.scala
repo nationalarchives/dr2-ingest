@@ -3,21 +3,24 @@ package uk.gov.nationalarchives
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import fs2.{Chunk, Stream, text}
-import io.circe.generic.auto._
+import io.circe.generic.auto.*
 import io.circe.parser.decode
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, DecodingFailure, HCursor, ParsingFailure, Printer}
-import org.mockito.ArgumentMatchers._
-import org.mockito.{ArgumentMatcher, ArgumentMatchers, MockitoSugar}
+import org.mockito.ArgumentMatchers.*
+import org.mockito.Mockito.when
+import org.mockito.{ArgumentMatcher, ArgumentMatchers}
 import org.reactivestreams.Publisher
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2, TableFor4, TableFor6}
+import org.scalatestplus.mockito.MockitoSugar
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.services.s3.model.PutObjectResponse
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
-import uk.gov.nationalarchives.FileProcessor._
+import uk.gov.nationalarchives.FileProcessor.*
 import uk.gov.nationalarchives.UriProcessor.ParsedUri
+
 import java.nio.ByteBuffer
 import java.time.OffsetDateTime
 import java.util.{Base64, HexFormat, UUID}
@@ -28,14 +31,14 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
   val reference = "TEST-REFERENCE"
   val potentialUri: Some[String] = Some("http://example.com/id/abcde/2023/1537")
 
-  implicit val typeDecoder: Decoder[Type] = (c: HCursor) =>
+  given Decoder[Type] = (c: HCursor) =>
     for {
       decodedType <- c.downField("type").as[String]
     } yield {
       decodedType match {
-        case "ArchiveFolder" => ArchiveFolder
-        case "Asset"         => Asset
-        case "File"          => File
+        case "ArchiveFolder" => Type.ArchiveFolder
+        case "Asset"         => Type.Asset
+        case "File"          => Type.File
       }
     }
 
@@ -189,7 +192,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     "readJsonFromPackage" should s"return an error if a null was passed in for the '$paramNameToMakeNull' field in the json" in {
       val s3 = mock[DAS3Client[IO]]
       val tdrParamsWithANullValue = tdrParams.map { case (paramName, value) =>
-        if (paramName == paramNameToMakeNull) (paramName, None) else (paramName, Some(value))
+        if paramName == paramNameToMakeNull then (paramName, None) else (paramName, Some(value))
       }
 
       val metadataJsonWithMissingParams: String =
@@ -260,7 +263,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val s3 = mock[DAS3Client[IO]]
     val metadataId = UUID.randomUUID()
     when(s3.download(ArgumentMatchers.eq("upload"), ArgumentMatchers.eq(metadataId.toString)))
-      .thenThrow(new Exception("Error downloading metadata file"))
+      .thenThrow(new RuntimeException("Error downloading metadata file"))
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, UUIDGenerator().uuidGenerator)
 
     val ex = intercept[Exception] {
@@ -344,7 +347,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               val folderId = uuids.head
               val assetId = uuids.last
               val fileName = treFileName.split("\\.").dropRight(1).mkString(".")
-              val folderTitle = if (titleExpected) Option(expectedFolderTitle) else None
+              val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
               val folder =
                 BagitFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)
               val asset =
@@ -365,8 +368,8 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                   ).flatten
                 )
               val files = List(
-                BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, Preservation, 1),
-                BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, Preservation, 1)
+                BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1),
+                BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, RepresentationType.Preservation, 1)
               )
               val expectedBagitMetadataObjects: List[BagitMetadataObject] = List(folder, asset) ++ files
 
@@ -402,8 +405,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     forAll(treNameTable) { (treName, treFileName, expectedFolderTitle, expectedAssetTitle) =>
       forAll(urlDepartmentAndSeriesTable) { (department, series, includeBagInfo, parsedUri, expectedFolderName, titleExpected) =>
         val updatedIdFields =
-          if (potentialCite.isDefined && expectedFolderName == trimmedUri) idFields :+ IdField("URI", trimmedUri)
-          else idFields
+          if potentialCite.isDefined && expectedFolderName == trimmedUri then idFields :+ IdField("URI", trimmedUri) else idFields
         "createBagitFiles" should s"upload the correct bagit files with $expectedFolderTitle, $expectedAssetTitle and $updatedIdFields" +
           s"for $department, $series, $parsedUri and TRE name $treName" in {
             val fileId = UUID.randomUUID()
@@ -412,7 +414,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
             val folderId = uuids.head
             val assetId = uuids.last
             val fileName = treFileName.split("\\.").dropRight(1).mkString(".")
-            val folderTitle = if (titleExpected) Option(expectedFolderTitle) else None
+            val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
             val folder =
               BagitFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)
             val asset =
@@ -431,8 +433,8 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                 ).flatten
               )
             val files = List(
-              BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, Preservation, 1),
-              BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, Preservation, 1)
+              BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1),
+              BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, RepresentationType.Preservation, 1)
             )
             val metadataJsonList: List[BagitMetadataObject] = List(folder, asset) ++ files
             val metadataJsonString = metadataJsonList.asJson.printWith(Printer.noSpaces)
@@ -472,7 +474,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               s"$metadataChecksum metadata.json"
             )
             val tagManifestString = (
-              if (includeBagInfo) List(tagManifest.head, s"$bagInfoChecksum bag-info.txt") ++ tagManifest.tail else tagManifest
+              if includeBagInfo then List(tagManifest.head, s"$bagInfoChecksum bag-info.txt") ++ tagManifest.tail else tagManifest
             ).mkString("\n")
 
             mockUpload(s3, "metadata.json", metadataJsonString, metadataChecksum)
@@ -522,7 +524,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               2,
               "metadataFileName.txt",
               2,
-              Preservation,
+              RepresentationType.Preservation,
               1
             )
           ),

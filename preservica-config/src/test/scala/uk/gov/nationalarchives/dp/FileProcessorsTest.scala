@@ -4,12 +4,14 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import fs2.Stream
 import fs2.interop.reactivestreams._
-import org.mockito.{ArgumentCaptor, MockitoSugar}
+import org.mockito.ArgumentCaptor
+import org.mockito.Mockito.when
 import org.mockito.ArgumentMatchers.any
 import org.reactivestreams.Publisher
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatestplus.mockito.MockitoSugar
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import uk.gov.nationalarchives.DAS3Client
@@ -23,7 +25,7 @@ import scala.xml.Elem
 
 class FileProcessorsTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
 
-  implicit val logger: SelfAwareStructuredLogger[IO] = Slf4jFactory.create[IO].getLogger
+  given SelfAwareStructuredLogger[IO] = Slf4jFactory.create[IO].getLogger
   val secretName = "testSecret"
   val bucket = "testBucket"
 

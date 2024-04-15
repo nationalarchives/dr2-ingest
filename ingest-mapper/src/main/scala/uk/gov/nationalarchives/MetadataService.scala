@@ -3,10 +3,10 @@ package uk.gov.nationalarchives
 import cats.effect.IO
 import cats.implicits._
 import fs2.interop.reactivestreams._
+import ujson._
 import fs2.{Chunk, Pipe, Stream, text}
 import uk.gov.nationalarchives.Lambda.Input
 import uk.gov.nationalarchives.MetadataService._
-import ujson._
 
 import java.util.UUID
 
@@ -48,12 +48,12 @@ class MetadataService(s3: DAS3Client[IO]) {
               val name = metadataEntry("name").strOpt
               val parentPath = parentPaths(id)
               val path = if (parentPath.isEmpty) pathPrefix else s"$pathPrefix/${parentPath.stripPrefix("/")}"
-              val checksum = fileIdToChecksum.get(id).map(Str).getOrElse(Null)
+              val checksum = fileIdToChecksum.get(id).map(Str.apply).getOrElse(Null)
               val fileExtension =
                 if (metadataEntry("type").str == "File")
                   name
                     .flatMap(n => n.split("\\.").lastOption)
-                    .map(Str)
+                    .map(Str.apply)
                     .getOrElse(Null)
                 else Null
               val metadataFromBagInfo: Obj = if (metadataEntry("type").str == "Asset") bagInfoJson else Obj()
@@ -106,30 +106,20 @@ class MetadataService(s3: DAS3Client[IO]) {
 }
 object MetadataService {
   def typeFromString(typeString: String): Type = typeString match {
-    case "ArchiveFolder" => ArchiveFolder
-    case "ContentFolder" => ContentFolder
-    case "Asset"         => Asset
-    case "File"          => File
+    case "ArchiveFolder" => Type.ArchiveFolder
+    case "ContentFolder" => Type.ContentFolder
+    case "Asset"         => Type.Asset
+    case "File"          => Type.File
   }
 
-  sealed trait Type {
+  enum Type:
     override def toString: String = this match {
       case ArchiveFolder => "ArchiveFolder"
       case ContentFolder => "ContentFolder"
       case Asset         => "Asset"
       case File          => "File"
     }
-  }
-  case object ArchiveFolder extends Type
-  case object ContentFolder extends Type
-  case object Asset extends Type
-  case object File extends Type
-
-  sealed trait Metadata {
-    def id: UUID
-    def parentPath: String
-    def title: String
-  }
+    case ArchiveFolder, ContentFolder, Asset, File
 
   case class BagitManifestRow(checksum: String, filePath: String)
 

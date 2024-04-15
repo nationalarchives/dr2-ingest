@@ -1,22 +1,24 @@
 package uk.gov.nationalarchives
 
-import cats.effect._
-import cats.implicits._
+import cats.effect.*
+import cats.implicits.*
 import fs2.Stream
-import io.circe.generic.auto._
+import io.circe.generic.auto.*
 import org.reactivestreams.FlowAdapters
-import org.scanamo.syntax._
-import pureconfig.generic.auto._
+import org.scanamo.syntax.*
+import pureconfig.ConfigReader
+import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
-import uk.gov.nationalarchives.DADynamoDBClient._
-import uk.gov.nationalarchives.DynamoFormatters._
-import uk.gov.nationalarchives.Lambda._
-import upickle.default._
+import uk.gov.nationalarchives.DADynamoDBClient.{given, *}
+import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.DynamoFormatters.*
+import uk.gov.nationalarchives.Lambda.*
 
 import java.time.OffsetDateTime
 import java.util.UUID
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
+
   override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DADynamoDBClient[IO](), DAS3Client[IO](), XMLCreator(OffsetDateTime.now())))
 
   override def handler: (Input, Config, Dependencies) => IO[Unit] = { (input, config, dependencies) =>
@@ -30,7 +32,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       )
       fileReference = asset.identifiers.find(_.identifierName == "BornDigitalRef").map(_.value).orNull
       log = logger.info(Map("batchRef" -> input.batchId, "fileReference" -> fileReference, "assetId" -> asset.id.toString))(_)
-      _ <- if (asset.`type` != Asset) IO.raiseError(new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")) else IO.unit
+      _ <- IO.whenA(asset.`type` != Asset)(IO.raiseError(new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")))
       _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
 
       children <- childrenOfAsset(dynamoClient, asset, config.dynamoTableName, config.dynamoGsiName)
@@ -85,11 +87,10 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 }
 
 object Lambda {
-  implicit val treInputReader: Reader[Input] = macroR[Input]
 
   case class Input(id: UUID, batchId: String, executionName: String, sourceBucket: String)
 
-  case class Config(dynamoTableName: String, dynamoGsiName: String, destinationBucket: String)
+  case class Config(dynamoTableName: String, dynamoGsiName: String, destinationBucket: String) derives ConfigReader
 
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], s3Client: DAS3Client[IO], xmlCreator: XMLCreator)
 }

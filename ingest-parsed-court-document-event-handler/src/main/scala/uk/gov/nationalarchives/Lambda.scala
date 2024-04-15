@@ -1,19 +1,20 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
-import io.circe.generic.auto._
-import uk.gov.nationalarchives.EventDecoders._
+import io.circe.Decoder.Result
+import io.circe.{Decoder, HCursor}
+import io.circe.generic.auto.*
+import uk.gov.nationalarchives.EventDecoders.given
 import io.circe.parser.decode
-import pureconfig._
-import pureconfig.generic.auto._
-import pureconfig.module.catseffect.syntax._
-import uk.gov.nationalarchives.FileProcessor._
+import pureconfig.*
+import pureconfig.module.catseffect.syntax.*
+import uk.gov.nationalarchives.FileProcessor.*
 import uk.gov.nationalarchives.Lambda.Dependencies
 
 import java.util.UUID
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 

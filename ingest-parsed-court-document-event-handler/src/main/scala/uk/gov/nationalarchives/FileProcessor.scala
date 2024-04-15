@@ -2,23 +2,23 @@ package uk.gov.nationalarchives
 
 import cats.effect.IO
 import cats.effect.kernel.Resource
-import cats.implicits._
+import cats.implicits.*
 import fs2.compression.Compression
-import fs2.io._
+import fs2.io.*
 import fs2.{Chunk, Pipe, Stream, text}
+import io.circe.Decoder.Result
 import io.circe.Json.Null
-import io.circe.generic.auto._
-import io.circe.generic.extras.Configuration
-import io.circe.generic.extras.semiauto.{deriveConfiguredDecoder, deriveConfiguredEncoder}
+import io.circe.generic.auto.*
 import io.circe.parser.decode
-import io.circe.syntax._
+import io.circe.syntax.*
 import io.circe.{Decoder, Encoder, HCursor, Json, Printer}
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.reactivestreams.{FlowAdapters, Publisher}
-import uk.gov.nationalarchives.FileProcessor._
+import pureconfig.ConfigReader
+import pureconfig.generic.derivation.default.*
+import uk.gov.nationalarchives.FileProcessor.*
 import uk.gov.nationalarchives.UriProcessor.ParsedUri
-
 import java.io.{BufferedInputStream, InputStream}
 import java.nio.ByteBuffer
 import java.time.OffsetDateTime
@@ -125,7 +125,7 @@ class FileProcessor(
         1,
         fileInfo.fileName,
         fileInfo.fileSize,
-        Preservation,
+        RepresentationType.Preservation,
         1
       )
     val fileMetadataObject = BagitFileMetadataObject(
@@ -135,7 +135,7 @@ class FileProcessor(
       2,
       metadataFileInfo.fileName,
       metadataFileInfo.fileSize,
-      Preservation,
+      RepresentationType.Preservation,
       1
     )
     List(folderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
@@ -287,9 +287,8 @@ object FileProcessor {
     idFields.map { idField =>
       (s"id_${idField.name}", Json.fromString(idField.value))
     }
-  implicit val customConfig: Configuration = Configuration.default.withDefaults
-  implicit val parserDecoder: Decoder[Parser] = deriveConfiguredDecoder
-  implicit val inputParametersDecoder: Decoder[TREInputParameters] = (c: HCursor) =>
+
+  given Decoder[TREInputParameters] = (c: HCursor) =>
     for {
       status <- c.downField("status").as[String]
       reference <- c.downField("reference").as[String]
@@ -297,9 +296,9 @@ object FileProcessor {
       s3Key <- c.downField("s3Key").as[String]
       skipSeriesLookup <- c.getOrElse("skipSeriesLookup")(false)
     } yield TREInputParameters(status, reference, skipSeriesLookup, s3Bucket, s3Key)
-  implicit val bagitMetadataEncoder: Encoder[BagitMetadataObject] = {
+  given Encoder[BagitMetadataObject] = {
     case BagitFolderMetadataObject(id, parentId, title, name, folderMetadataIdFields) =>
-      jsonFromMetadataObject(id, parentId, title, ArchiveFolder, name).deepMerge {
+      jsonFromMetadataObject(id, parentId, title, Type.ArchiveFolder, name).deepMerge {
         Json.fromFields(convertIdFieldsToJson(folderMetadataIdFields))
       }
     case BagitAssetMetadataObject(
@@ -314,7 +313,7 @@ object FileProcessor {
         ) =>
       val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) => fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
 
-      jsonFromMetadataObject(id, parentId, Option(title), Asset, name)
+      jsonFromMetadataObject(id, parentId, Option(title), Type.Asset, name)
         .deepMerge {
           Json.fromFields(convertIdFieldsToJson(assetMetadataIdFields))
         }
@@ -336,9 +335,9 @@ object FileProcessor {
           ("representationType", Json.fromString(representationType.toString)),
           ("representationSuffix", Json.fromInt(representationSuffix))
         )
-        .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), File, name))
+        .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), Type.File, name))
   }
-  implicit val bagitInfoEncoder: Encoder[BagInfo] = { case BagInfo(transferringBody, transferCompleteDatetime, upstreamSystem, digitalAssetSource, digitalAssetSubtype, idFields) =>
+  given Encoder[BagInfo] = { case BagInfo(transferringBody, transferCompleteDatetime, upstreamSystem, digitalAssetSource, digitalAssetSubtype, idFields) =>
     Json
       .obj(
         ("transferringBody", Json.fromString(transferringBody)),
@@ -367,25 +366,17 @@ object FileProcessor {
     )
   }
 
-  implicit val additionalMetadataEncoder: Encoder[AdditionalMetadata] = deriveConfiguredEncoder
-
-  implicit val typeEncoder: Encoder[Type] = {
-    case ArchiveFolder => Json.fromString("ArchiveFolder")
-    case Asset         => Json.fromString("Asset")
-    case File          => Json.fromString("File")
+  given Encoder[Type] = {
+    case Type.ArchiveFolder => Json.fromString("ArchiveFolder")
+    case Type.Asset         => Json.fromString("Asset")
+    case Type.File          => Json.fromString("File")
   }
 
-  sealed trait RepresentationType
+  enum RepresentationType:
+    case Preservation
 
-  case object Preservation extends RepresentationType
-
-  sealed trait Type
-
-  case object ArchiveFolder extends Type
-
-  case object Asset extends Type
-
-  case object File extends Type
+  enum Type:
+    case ArchiveFolder, Asset, File
 
   case class AdditionalMetadata(key: String, value: String)
   sealed trait BagitMetadataObject {
@@ -442,6 +433,19 @@ object FileProcessor {
 
   case class TREMetadata(parameters: TREMetadataParameters)
 
+  extension (c: HCursor)
+    private def listOrNil(fieldName: String): Result[List[String]] =
+      if c.keys.getOrElse(Nil).toList.contains(fieldName) then c.downField(fieldName).as[List[String]] else Right(Nil)
+
+  given parserDecoder: Decoder[Parser] = (c: HCursor) =>
+    for {
+      uri <- c.downField("uri").as[Option[String]]
+      cite <- c.downField("cite").as[Option[String]]
+      name <- c.downField("name").as[Option[String]]
+      attachments <- c.listOrNil("attachments")
+      errorMessages <- c.listOrNil("error-messages")
+    } yield Parser(uri, cite, name, attachments, errorMessages)
+
   case class Parser(
       uri: Option[String],
       cite: Option[String] = None,
@@ -465,11 +469,10 @@ object FileProcessor {
 
   case class TREMetadataParameters(PARSER: Parser, TRE: TREParams, TDR: TDRParams)
 
-  implicit class PublisherToStream(publisher: Publisher[ByteBuffer]) {
+  extension (publisher: Publisher[ByteBuffer])
     def publisherToStream: Stream[IO, ByteBuffer] = Stream.eval(IO.delay(publisher)).flatMap { publisher =>
       fs2.interop.flow.fromPublisher[IO](FlowAdapters.toFlowPublisher(publisher), chunkSize = 16)
     }
-  }
 
-  case class Config(outputBucket: String, sfnArn: String)
+  case class Config(outputBucket: String, sfnArn: String) derives ConfigReader
 }

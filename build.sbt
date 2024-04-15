@@ -1,8 +1,8 @@
-import Dependencies._
+import Dependencies.*
 import uk.gov.nationalarchives.sbt.Log4j2MergePlugin.log4j2MergeStrategy
 
 ThisBuild / organization := "uk.gov.nationalarchives"
-ThisBuild / scalaVersion := "2.13.13"
+ThisBuild / scalaVersion := "3.3.3"
 
 lazy val root = (project in file("."))
   .aggregate(
@@ -36,7 +36,6 @@ lazy val commonSettings = Seq(
     pureConfig,
     pureConfigCats,
     mockito % Test,
-    mockitoScalaTest % Test,
     scalaTest % Test,
     wiremock % Test
   ),
@@ -45,13 +44,13 @@ lazy val commonSettings = Seq(
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
     case _                                                   => MergeStrategy.first
   },
-  scalacOptions ++= Seq("-Wunused:imports", "-Werror", "-deprecation"),
+  scalacOptions ++= Seq("-Wunused:imports", "-Werror", "-deprecation", "-feature", "-language:implicitConversions"),
   (Test / fork) := true,
   (Test / envVars) := Map(
     "AWS_ACCESS_KEY_ID" -> "accesskey",
     "AWS_SECRET_ACCESS_KEY" -> "secret",
     "AWS_LAMBDA_FUNCTION_NAME" -> "test"
-  )
+  ),
 )
 
 lazy val ingestMapper = (project in file("ingest-mapper"))
@@ -65,7 +64,8 @@ lazy val ingestMapper = (project in file("ingest-mapper"))
       dynamoClient,
       scalaXml,
       sttpClientFs2,
-      sttpUpickle,
+      sttpCirce,
+      upickle,
       reactorTest % Test
     )
   )
@@ -78,8 +78,7 @@ lazy val ingestParentFolderOpexCreator = (project in file("ingest-parent-folder-
       s3Client,
       fs2Core,
       reactorTest % Test,
-      scalaXml,
-      upickle
+      scalaXml
     )
   )
 
@@ -124,7 +123,6 @@ lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"
       awsCrt,
       fs2Core,
       scalaXml,
-      upickle,
       dynamoClient,
       dynamoFormatters,
       s3Client
@@ -175,6 +173,7 @@ lazy val ingestAssetReconciler = (project in file("ingest-asset-reconciler"))
       preservicaClient
     )
   )
+
 lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
   .settings(commonSettings)
   .dependsOn(utils)
@@ -185,8 +184,7 @@ lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
       dynamoClient,
       dynamoFormatters,
       scalaXml,
-      s3Client,
-      upickle
+      s3Client
     )
   )
 
@@ -198,7 +196,6 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
       awsCrt,
       commonsCompress,
       fs2IO,
-      circeGenericExtras,
       s3Client,
       sfnClient,
       reactorTest % Test

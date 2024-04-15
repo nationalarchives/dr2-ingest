@@ -6,9 +6,9 @@ import upickle.default._
 
 import java.util.UUID
 object TestUtils {
-  implicit val sRequestFieldReader: Reader[DynamoSRequestField] = macroR[DynamoSRequestField]
-  implicit val nRequestFieldReader: Reader[DynamoNRequestField] = macroR[DynamoNRequestField]
-  implicit val itemReader: Reader[DynamoItem] = reader[Obj].map[DynamoItem] { json =>
+  given Reader[DynamoSRequestField] = macroR[DynamoSRequestField]
+  given Reader[DynamoNRequestField] = macroR[DynamoNRequestField]
+  given Reader[DynamoItem] = reader[Obj].map[DynamoItem] { json =>
     val items: Map[String, DynamoField] = json.value.toMap.view.mapValues { value =>
       if (value.obj.contains("S")) {
         DynamoSRequestField(value.obj("S").str)
@@ -20,10 +20,10 @@ object TestUtils {
     }.toMap
     DynamoItem(items)
   }
-  implicit val tableItemReader: Reader[DynamoTableItem] = macroR[DynamoTableItem]
-  implicit val putRequestReader: Reader[DynamoPutRequest] = macroR[DynamoPutRequest]
-  implicit val requestItemReader: Reader[DynamoRequestItem] = macroR[DynamoRequestItem]
-  implicit val requestBodyReader: Reader[DynamoRequestBody] = macroR[DynamoRequestBody]
+  given Reader[DynamoTableItem] = macroR[DynamoTableItem]
+  given Reader[DynamoPutRequest] = macroR[DynamoPutRequest]
+  given Reader[DynamoRequestItem] = macroR[DynamoRequestItem]
+  given Reader[DynamoRequestBody] = macroR[DynamoRequestBody]
 
   trait DynamoField
 

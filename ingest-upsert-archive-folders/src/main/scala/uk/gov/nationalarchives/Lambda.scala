@@ -3,13 +3,16 @@ package uk.gov.nationalarchives
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
-import pureconfig.generic.auto._
+import pureconfig.generic.derivation.default._
+import pureconfig.ConfigReader
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DynamoFormatters._
 import uk.gov.nationalarchives.Lambda.{Config, Dependencies, Detail, EntityWithUpdateEntityRequest, FullFolderInfo, IdentifierToUpdate, StepFnInput}
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
-import uk.gov.nationalarchives.dp.client.EntityClient
+import uk.gov.nationalarchives.dp.client.EntityClient.EntityType._
+import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag._
 import uk.gov.nationalarchives.dp.client.EntityClient._
+import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 
 import java.util.UUID
@@ -26,7 +29,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     val logWithBatchRef = log(Map("batchRef" -> stepFnInput.batchId))(_)
 
     val folderIdPartitionKeysAndValues: List[PartitionKey] =
-      stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(PartitionKey)
+      stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(PartitionKey.apply)
 
     for {
       folderRowsSortedByParentPath <- getFolderRowsSortedByParentPath(
@@ -413,7 +416,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
 }
 
 object Lambda extends App {
-  case class Config(apiUrl: String, secretName: String, archiveFolderTableName: String)
+  case class Config(apiUrl: String, secretName: String, archiveFolderTableName: String) derives ConfigReader
 
   case class StepFnInput(
       batchId: String,

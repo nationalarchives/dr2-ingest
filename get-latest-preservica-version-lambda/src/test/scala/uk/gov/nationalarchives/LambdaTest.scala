@@ -3,8 +3,8 @@ package uk.gov.nationalarchives
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
-import org.mockito.MockitoSugar
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
+import org.scalatestplus.mockito.MockitoSugar
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
 import software.amazon.awssdk.services.sns.model.SnsException
 import uk.gov.nationalarchives.Lambda.Config

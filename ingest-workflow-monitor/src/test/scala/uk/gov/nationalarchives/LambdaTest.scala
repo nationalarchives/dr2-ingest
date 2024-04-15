@@ -2,18 +2,18 @@ package uk.gov.nationalarchives
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import org.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import uk.gov.nationalarchives.Lambda.{Config, StateOutput}
 import uk.gov.nationalarchives.dp.client.ProcessMonitorClient._
+import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.MonitorCategory._
+import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.MessageStatus._
 import uk.gov.nationalarchives.testUtils.ExternalServicesTestUtils
-import upickle.default._
 
 import java.util.UUID
 
 class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableDrivenPropertyChecks {
-  implicit val stateDataReader: Reader[StateOutput] = macroR[StateOutput]
   val config: Config = Config("", "")
 
   forAll(runningStatuses) { (apiStatus, normalisedStatus) =>
