@@ -3,13 +3,15 @@ package uk.gov.nationalarchives
 import cats.effect._
 import cats.implicits._
 import io.circe.generic.auto._
-import pureconfig.generic.auto._
+import pureconfig.generic.derivation.default.*
+import pureconfig.ConfigReader
 import uk.gov.nationalarchives.Lambda._
 import uk.gov.nationalarchives.dp.client.ProcessMonitorClient
+import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.MonitorsStatus._
+import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.MonitorCategory._
+import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.MessageStatus._
 import uk.gov.nationalarchives.dp.client.ProcessMonitorClient._
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
-import upickle.default
-import upickle.default._
 
 import java.util.UUID
 
@@ -84,7 +86,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 }
 
 object Lambda {
-  implicit val stateDataWriter: default.Writer[StateOutput] = macroW[StateOutput]
   case class Input(executionId: String, contentAssets: Seq[String])
   case class AssetIds(succeededAssets: List[UUID], failedAssets: List[UUID], duplicatedAssets: List[UUID])
 
@@ -96,7 +97,7 @@ object Lambda {
       duplicatedAssets: List[UUID]
   )
 
-  case class Config(apiUrl: String, secretName: String)
+  case class Config(apiUrl: String, secretName: String) derives ConfigReader
 
   case class Dependencies(processMonitorClient: ProcessMonitorClient[IO])
 

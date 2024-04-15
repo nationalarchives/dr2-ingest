@@ -8,9 +8,9 @@ class UriProcessor(potentialUri: Option[String]) {
   def verifyJudgmentNameStartsWithPressSummaryOfIfInUri(potentialJudgmentName: Option[String]): IO[Unit] = {
     val uriContainsPressSummary = potentialUri.exists(_.contains("/press-summary"))
     val fileNameDoesNotStartWithPressSummaryOf = !potentialJudgmentName.exists(_.startsWith("Press Summary of "))
-    if (uriContainsPressSummary && fileNameDoesNotStartWithPressSummaryOf)
+    IO.whenA(uriContainsPressSummary && fileNameDoesNotStartWithPressSummaryOf)(
       IO.raiseError(new Exception("URI contains '/press-summary' but file does not start with 'Press Summary of '"))
-    else IO.unit
+    )
   }
 
   def getCourtAndUriWithoutDocType: IO[Option[ParsedUri]] = {

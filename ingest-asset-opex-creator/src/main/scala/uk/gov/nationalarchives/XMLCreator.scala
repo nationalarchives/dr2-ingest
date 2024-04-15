@@ -18,7 +18,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
       paths match {
         case Nil => path :: Nil
         case head :: tail =>
-          val newPath = if (path.isEmpty) head else s"$path/$head"
+          val newPath = if path.isEmpty then head else s"$path/$head"
           newPath :: generator(newPath, tail)
       }
     }
@@ -65,7 +65,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
             .zipWithIndex
             .map { case (folder: String, index: Int) =>
               val folderOpex = <opex:Folder>{folder}</opex:Folder>
-              List(if (index == 0) "" else "\n                ", folderOpex)
+              List(if index == 0 then "" else "\n                ", folderOpex)
             }
         }
               </opex:Folders>
@@ -75,7 +75,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
           children.zipWithIndex
             .map { case (child, index) =>
               val fileOpex = <opex:File type="content" size={child.fileSize.toString}>{bitstreamPath(child)}/{childFileName(child)}</opex:File>
-              List(if (index == 0) "" else "\n                ", fileOpex)
+              List(if index == 0 then "" else "\n                ", fileOpex)
             }
         }
               </opex:Files>
@@ -86,17 +86,17 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
             <opex:Description>{asset.description.getOrElse("")}</opex:Description>
             <opex:SecurityDescriptor>{securityDescriptor}</opex:SecurityDescriptor>
             {
-          if (identifiers.nonEmpty) {
+          if identifiers.nonEmpty then
             <opex:Identifiers>
               {
               identifiers.zipWithIndex
                 .map { case (identifier, index) =>
                   val identifierOpex = <opex:Identifier type={identifier.identifierName}>{identifier.value}</opex:Identifier>
-                  List(if (index == 0) "" else "\n              ", identifierOpex)
+                  List(if index == 0 then "" else "\n              ", identifierOpex)
                 }
             }
             </opex:Identifiers>
-          }
+          else ()
         }
           </opex:Properties>
         </opex:OPEXMetadata>
@@ -123,7 +123,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
             files.zipWithIndex
               .map { case (child, index) =>
                 val contentObjectElement = <ContentObject>{child.id}</ContentObject>
-                List(if (index == 0) "" else "\n          ", contentObjectElement)
+                List(if index == 0 then "" else "\n          ", contentObjectElement)
               }
           }
             </ContentObjects>
@@ -159,7 +159,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
           </Fixity>
         </Fixities>
       </Bitstream>
-            List(if (index == 0) "" else "\n      ", contentElement, "\n      ", generationElement, "\n      ", bitstreamElement)
+            List(if index == 0 then "" else "\n      ", contentElement, "\n      ", generationElement, "\n      ", bitstreamElement)
           }
       }
   </XIP>

@@ -1,29 +1,31 @@
 package uk.gov.nationalarchives
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import fs2.Stream
-import io.circe.generic.auto._
+import io.circe.generic.auto.*
 import org.reactivestreams.FlowAdapters
-import org.scanamo._
-import org.scanamo.syntax._
-import pureconfig.generic.auto._
+import org.scanamo.*
+import org.scanamo.syntax.*
+import pureconfig.ConfigReader
+import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
-import uk.gov.nationalarchives.DADynamoDBClient._
-import uk.gov.nationalarchives.DynamoFormatters._
-import uk.gov.nationalarchives.Lambda._
+import uk.gov.nationalarchives.DADynamoDBClient.given
+import uk.gov.nationalarchives.DynamoFormatters.*
+import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.Lambda.*
 
 import java.util.UUID
 import scala.jdk.CollectionConverters.MapHasAsScala
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
-  private def toFolderOrAssetTable[T <: DynamoTable](dynamoValue: DynamoValue)(implicit dynamoFormat: DynamoFormat[T]): Either[DynamoReadError, FolderOrAssetTable] =
+  private def toFolderOrAssetTable[T <: DynamoTable](dynamoValue: DynamoValue)(using dynamoFormat: DynamoFormat[T]): Either[DynamoReadError, FolderOrAssetTable] =
     dynamoFormat.read(dynamoValue).map { table =>
       FolderOrAssetTable(table.batchId, table.id, table.parentPath, table.name, table.`type`, table.title, table.description, table.identifiers)
     }
 
-  implicit val folderOrAssetFormat: DynamoFormat[FolderOrAssetTable] = new DynamoFormat[FolderOrAssetTable] {
+  given DynamoFormat[FolderOrAssetTable] = new DynamoFormat[FolderOrAssetTable] {
     override def read(dynamoValue: DynamoValue): Either[DynamoReadError, FolderOrAssetTable] =
       dynamoValue.toAttributeValue.m().asScala.toMap.get("type").map(_.s()) match {
         case Some(rowType) =>
@@ -79,7 +81,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       idCode = folder.identifiers.find(_.identifierName == "Code").map(_.value).orNull
       log = logger.info(Map("batchRef" -> input.batchId, "folderId" -> folder.id.toString, "idCode" -> idCode))(_)
 
-      _ <- if (!isFolder(folder.`type`)) IO.raiseError(new Exception(s"Object ${folder.id} is of type ${folder.`type`} and not 'ContentFolder' or 'ArchiveFolder'")) else IO.unit
+      _ <- IO.whenA(!isFolder(folder.`type`))(IO.raiseError(new Exception(s"Object ${folder.id} is of type ${folder.`type`} and not 'ContentFolder' or 'ArchiveFolder'")))
       _ <- log(s"Fetched ${folderItems.length} folder items from Dynamo")
 
       children <- childrenOfFolder(dependencies.dynamoClient, folder, config.dynamoTableName, config.dynamoGsiName)
@@ -105,7 +107,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 }
 
 object Lambda {
-  case class Config(dynamoTableName: String, bucketName: String, dynamoGsiName: String)
+  case class Config(dynamoTableName: String, bucketName: String, dynamoGsiName: String) derives ConfigReader
 
   case class Input(id: UUID, batchId: String, executionName: String)
 

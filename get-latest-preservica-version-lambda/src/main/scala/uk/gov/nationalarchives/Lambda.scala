@@ -2,13 +2,14 @@ package uk.gov.nationalarchives
 
 import cats.effect.IO
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
-import io.circe.generic.auto._
-import org.scanamo.generic.auto._
-import pureconfig.generic.auto._
+import io.circe.generic.auto.*
+import org.scanamo.generic.auto.*
+import pureconfig.ConfigReader
+import pureconfig.generic.derivation.default.*
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.Lambda._
+import uk.gov.nationalarchives.Lambda.*
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.EventDecoders._
+import uk.gov.nationalarchives.EventDecoders.given
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 
 class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
@@ -55,7 +56,7 @@ object Lambda {
       secretName: String,
       snsArn: String,
       currentPreservicaVersionTableName: String
-  )
+  ) derives ConfigReader
 
   case class PartitionKey(id: String)
 

@@ -3,10 +3,12 @@ package uk.gov.nationalarchives.testUtils
 import cats.effect.IO
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
-import org.mockito.MockitoSugar.{mock, times, verify, when}
+import org.mockito.Mockito.{times, verify, when}
+import org.scalatestplus.mockito.MockitoSugar
 import org.reactivestreams.Publisher
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
+import org.scalatestplus.mockito.MockitoSugar.mock
 import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.services.s3.model.{CommonPrefix, ListObjectsV2Request, ListObjectsV2Response}

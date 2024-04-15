@@ -4,6 +4,8 @@ import cats.effect.unsafe.implicits.global
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 import uk.gov.nationalarchives.DynamoFormatters._
+import uk.gov.nationalarchives.DynamoFormatters.FileRepresentationType._
+import uk.gov.nationalarchives.DynamoFormatters.Type._
 import scala.xml.{XML, Utility}
 import java.time.OffsetDateTime
 import java.util.UUID

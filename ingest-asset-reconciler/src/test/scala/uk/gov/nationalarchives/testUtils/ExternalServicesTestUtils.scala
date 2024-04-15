@@ -2,12 +2,13 @@ package uk.gov.nationalarchives.testUtils
 
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock._
+import com.github.tomakehurst.wiremock.client.WireMock.*
 import org.mockito.{ArgumentCaptor, ArgumentMatchers, Mockito}
 import org.mockito.ArgumentMatchers.any
-import org.mockito.MockitoSugar.{mock, times, verify, when}
-import org.scalatest.matchers.should.Matchers.{be, convertToAnyShouldWrapper}
+import org.mockito.Mockito.{times, verify, when}
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatestplus.mockito.MockitoSugar
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
@@ -17,14 +18,17 @@ import uk.gov.nationalarchives.Lambda.{Dependencies, Input}
 import uk.gov.nationalarchives.dp.client.Client.{BitStreamInfo, Fixity}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.{Access, ContentObject, InformationObject, Preservation, RepresentationType}
+import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType.*
+import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType
+import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
+import uk.gov.nationalarchives.dp.client.EntityClient.GenerationType.*
 import uk.gov.nationalarchives.DADynamoDBClient
 
 import java.net.URI
 import java.util.UUID
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
-class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrivenPropertyChecks {
+class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrivenPropertyChecks with MockitoSugar {
   val assetId: UUID = UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e")
   val assetParentPath: String = "a/parent/path"
   val childIdJson: UUID = UUID.fromString("feedd76d-e368-45c8-96e3-c37671476793")
@@ -39,14 +43,20 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
     1234,
     "http://localhost/api/entity/content-objects/fc0a687d-f7fa-454e-941a-683bbf5594b1/generations/1/bitstreams/1/content",
     Fixity("SHA256", "f7523c5d03a2c850fa06b5bbfed4c216f6368826"),
-    Some(s"$docxTitle.docx")
+    1,
+    Original,
+    Some(s"$docxTitle.docx"),
+    None
   )
   val defaultJsonBitStreamInfo: BitStreamInfo = BitStreamInfo(
     s"9ef5eb16-3017-401f-8180-cf74c2c25ec1.json",
     1235,
     "http://localhost/api/entity/content-objects/4dee285b-64e4-49f8-942e-84ab460b5af6/generations/1/bitstreams/1/content",
     Fixity("SHA256", "a8cfe9e6b5c10a26046c849cd3776734626e74a2"),
-    Some(s"$batchId.json")
+    1,
+    Original,
+    Some(s"$batchId.json"),
+    None
   )
 
   val emptyDynamoGetResponse: String = """{"Responses": {"test-table": []}}"""
