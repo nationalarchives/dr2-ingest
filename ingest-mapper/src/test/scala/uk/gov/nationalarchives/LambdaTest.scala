@@ -29,8 +29,8 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
 
   val s3Server = new WireMockServer(9008)
   val dynamoServer = new WireMockServer(9009)
-  val discoveryServer = new WireMockServer(9010)
-  val config: Config = Config("test", "http://localhost:9010")
+  val discoveryServer = new WireMockServer(9015)
+  val config: Config = Config("test", "http://localhost:9015")
 
   private val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
   import testUtils._
