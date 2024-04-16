@@ -137,7 +137,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
 
-    ex.getMessage should equal("Exception when sending request: GET http://localhost:9010/API/records/v1/collection/A")
+    ex.getMessage should equal("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A")
   }
 
   "handler" should "return an error if the input files are not stored in S3" in {
