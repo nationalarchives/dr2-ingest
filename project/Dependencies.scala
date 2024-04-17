@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.23.1"
   lazy val pureConfigVersion = "0.17.6"
-  lazy val daAwsClientsVersion = "0.1.48"
+  lazy val daAwsClientsVersion = "0.1.50"
   private val fs2Version = "3.10.2"
   private val sttpVersion = "3.9.5"
   private val circeVersion = "0.14.6"
@@ -10,7 +10,7 @@ object Dependencies {
   private val awsLibraryVersion = "1.12.701"
   private lazy val scalaTestVersion = "3.2.18"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.29.11"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.29.17"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val awsSecretsManager = "com.amazonaws" % "aws-java-sdk-secretsmanager" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.4"
