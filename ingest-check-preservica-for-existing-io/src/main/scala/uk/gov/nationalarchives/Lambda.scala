@@ -26,11 +26,11 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
       assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, PartitionKey](
-        List(PartitionKey(input.assetId)),
+        List(PartitionKey(input.id)),
         config.dynamoTableName
       )
       asset <- IO.fromOption(assetItems.headOption)(
-        new Exception(s"No asset found for ${input.assetId} from ${input.batchId}")
+        new Exception(s"No asset found for ${input.id} from ${input.batchId}")
       )
       _ <- IO.raiseWhen(asset.`type` != Asset)(
         new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")
@@ -60,7 +60,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         val skipIngestAttributeValue = AttributeValue.builder().bool(assetExists).build()
         val updateRequest = DADynamoDbRequest(
           config.dynamoTableName,
-          Map("id" -> AttributeValue.builder().s(input.assetId.toString).build()),
+          Map("id" -> AttributeValue.builder().s(input.id.toString).build()),
           Map("skipIngest" -> Some(skipIngestAttributeValue))
         )
         dependencies.dynamoDbClient.updateAttributeValues(updateRequest).map(_ => ())
@@ -76,7 +76,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 object Lambda {
   case class Config(apiUrl: String, secretName: String, dynamoTableName: String) derives ConfigReader
 
-  case class Input(batchId: String, assetId: UUID)
+  case class Input(id: UUID, batchId: String)
 
   case class StateOutput(assetExists: Boolean)
 

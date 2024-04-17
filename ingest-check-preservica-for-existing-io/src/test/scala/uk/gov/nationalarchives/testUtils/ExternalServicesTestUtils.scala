@@ -37,7 +37,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
   val batchId: String = "TEST-ID"
   val executionName = "test-execution"
   val config: Config = Config("http://localhost:9016", "", tableName)
-  val input: Input = Input(batchId, assetId)
+  val input: Input = Input(assetId, batchId)
 
   val defaultEntityWithSourceIdReturnValue: IO[Seq[Entity]] =
     IO.pure(
