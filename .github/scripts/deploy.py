@@ -32,7 +32,7 @@ def update_functions():
     for key in keys:
         print(f"Processing key {key}")
         try:
-            aws_lambda.update_function_code(FunctionName=f"{environment}-{key}", S3Bucket=deploy_bucket,
+            aws_lambda.update_function_code(FunctionName=f"{environment}-dr2-{key}", S3Bucket=deploy_bucket,
                                             S3Key=f"{version}/{key}")
             successful_slack_message += f":green-tick: {key}\n"
         except Exception as err:
