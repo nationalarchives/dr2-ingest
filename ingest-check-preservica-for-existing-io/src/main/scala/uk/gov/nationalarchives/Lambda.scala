@@ -40,21 +40,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
 
       entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(Identifier(sourceId, asset.name))
-
-      potentialIoExistsResponse = entitiesWithAssetName.headOption match {
-        case Some(entityWithAssetName) =>
-          val potentialEntityType: Option[EntityType] = entityWithAssetName.entityType
-          if (potentialEntityType.contains(InformationObject)) Right(true)
-          else
-            Left(
-              new Exception(
-                s"The type of the Entity returned, after looking up the $sourceId, was of type ${potentialEntityType.getOrElse("")} and not 'InformationObject'!"
-              )
-            )
-        case None => Right(false)
-      }
-
-      assetExists <- IO.fromEither(potentialIoExistsResponse)
+      assetExists = entitiesWithAssetName.headOption.flatMap(_.entityType).contains(InformationObject)
 
       _ <- IO.whenA(assetExists) {
         val skipIngestAttributeValue = AttributeValue.builder().bool(assetExists).build()

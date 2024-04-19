@@ -57,21 +57,16 @@ class LambdaTest extends ExternalServicesTestUtils {
   }
 
   List(Some(ContentObject), Some(StructuralObject), None).foreach { unexpectedEntityType =>
-    "handler" should s"return an error if the entity type returned from the Preservica client is a $unexpectedEntityType" in {
+    "handler" should s"return 'assetExists' value of 'false' if the SourceID lookup returned a non-IO type like $unexpectedEntityType" in {
       stubBatchGetRequest(dynamoGetResponse)
       val verifier = ArgumentVerifier(
         defaultEntityWithSourceIdReturnValue.map(entityResponse => entityResponse.map(_.copy(entityType = unexpectedEntityType)))
       )
       val dependencies: Dependencies = Dependencies(verifier.mockEntityClient, dynamoClient)
 
-      val ex = intercept[Exception] {
-        new Lambda().handler(input, config, dependencies).unsafeRunSync()
-      }
+      val response = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
-      ex.getMessage should equal(
-        s"The type of the Entity returned, after looking up the SourceID, was of type ${unexpectedEntityType.getOrElse("")} and not 'InformationObject'!"
-      )
-      verifier.verifyInvocationsAndArgumentsPassed(1)
+      verifier.verifyInvocationsAndArgumentsPassed(1, 0, expectedAssetExistsResponse = false, Some(response))
     }
   }
 
