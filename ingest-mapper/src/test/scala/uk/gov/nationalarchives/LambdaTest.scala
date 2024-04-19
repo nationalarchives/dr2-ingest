@@ -32,8 +32,6 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   val discoveryServer = new WireMockServer(9015)
   val config: Config = Config("test", "http://localhost:9015")
 
-
-
   "handler" should "return the correct values from the lambda" in {
     val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
     import testUtils._
