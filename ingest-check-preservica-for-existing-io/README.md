@@ -16,7 +16,7 @@ The lambda takes the following input:
 ```json
 {
   "batchId": "test-batch-id",
-  "assetId": "test-asset-id"
+  "id": "test-asset-id"
 }
 ```
 
