@@ -32,10 +32,11 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   val discoveryServer = new WireMockServer(9015)
   val config: Config = Config("test", "http://localhost:9015")
 
-  private val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
-  import testUtils._
+
 
   "handler" should "return the correct values from the lambda" in {
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    import testUtils._
     val (folderIdentifier, assetIdentifier, _, _, _, _) = stubValidNetworkRequests()
 
     val stateData = new Lambda().handler(input, config, dependencies).unsafeRunSync()
@@ -51,6 +52,8 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   }
 
   "handler" should "write the correct values to dynamo" in {
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    import testUtils._
     val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalFiles, originalMetadataFiles) = stubValidNetworkRequests()
     new Lambda().handler(input, config, dependencies).unsafeRunSync()
     val dynamoRequestBodies = dynamoServer.getAllServeEvents.asScala.map(e => read[DynamoRequestBody](e.getRequest.getBodyAsString))
@@ -131,6 +134,8 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if the discovery api is unavailable" in {
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    import testUtils._
     stubValidNetworkRequests()
     discoveryServer.stop()
     val ex = intercept[Exception] {
@@ -141,6 +146,8 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if the input files are not stored in S3" in {
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    import testUtils._
     stubValidNetworkRequests()
     val invalidInput = Input("TEST", inputBucket, "INVALID/", Option("A"), Option("A 1"))
     val ex = intercept[Exception] {
@@ -151,6 +158,8 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if the dynamo table doesn't exist" in {
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    import testUtils._
     stubValidNetworkRequests("invalidTable")
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
@@ -160,6 +169,8 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if the bag files from S3 are invalid" in {
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    import testUtils._
     stubInvalidNetworkRequests()
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
