@@ -10,6 +10,7 @@ lazy val root = (project in file("."))
     getLatestPreservicaVersion,
     ingestAssetOpexCreator,
     ingestAssetReconciler,
+    ingestCheckPreservicaForExistingIo,
     ingestFolderOpexCreator,
     ingestMapper,
     ingestParentFolderOpexCreator,
@@ -159,6 +160,17 @@ lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-ve
       dynamoClient,
       dynamoFormatters,
       snsClient,
+      preservicaClient
+    )
+  )
+
+lazy val ingestCheckPreservicaForExistingIo = (project in file("ingest-check-preservica-for-existing-io"))
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      dynamoFormatters,
       preservicaClient
     )
   )

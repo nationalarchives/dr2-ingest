@@ -19,12 +19,18 @@ import scala.jdk.CollectionConverters.ListHasAsScala
 class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
 
   override def beforeEach(): Unit = {
-    dynamoServer.resetAll()
     dynamoServer.start()
-    s3Server.resetAll()
     s3Server.start()
-    discoveryServer.resetAll()
     discoveryServer.start()
+  }
+
+  override def afterEach(): Unit = {
+    dynamoServer.resetAll()
+    dynamoServer.stop()
+    s3Server.resetAll()
+    s3Server.stop()
+    discoveryServer.resetAll()
+    discoveryServer.stop()
   }
 
   val s3Server = new WireMockServer(9008)
