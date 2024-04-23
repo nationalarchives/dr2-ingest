@@ -37,7 +37,7 @@ jobs:
         run: |
           pip install cargo-lambda
           cargo lambda build --release -p lambda
-          cargo lambda deploy --binary-name lambda intg-court-document-package-anonymiser
+          cargo lambda deploy --binary-name lambda intg-dr2-court-document-package-anonymiser
       - name: Send success message
         uses: nationalarchives/dr2-github-actions/.github/actions/slack-send@main
         with:
