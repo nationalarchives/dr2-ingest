@@ -32,7 +32,7 @@ class SeriesMapperTest extends AnyFlatSpec with MockitoSugar with TableDrivenPro
       val seriesMapper = SeriesMapper()
       val output =
         seriesMapper.createOutput("upload", "batch", Option(court), skipSeriesLookup = false).unsafeRunSync()
-      output.department.get should equal(series.split(" ").head)
+      output.department.get should equal(series.split(' ').head)
       output.series.get should equal(series)
     }
   }

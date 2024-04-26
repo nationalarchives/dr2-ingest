@@ -184,7 +184,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   ): IO[List[Int]] = {
     val numberOfSlashesInParentPathPerFolder: List[Int] =
       folderRowsSortedByParentPath.map { folderRow =>
-        val parentPathSplitBySlash: Array[String] = folderRow.parentPath.getOrElse("").split("/")
+        val parentPathSplitBySlash: Array[String] = folderRow.parentPath.getOrElse("").split('/')
         if (parentPathSplitBySlash.head.isEmpty || parentPathSplitBySlash.isEmpty) 0 else parentPathSplitBySlash.length
       }
 
@@ -212,7 +212,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       folderRowsSortedByLongestParentPath.zip(folderRowsSortedByLongestParentPath.drop(1))
 
     subfoldersWithPresumedParents.map { case (subfolderInfo, presumedParentFolderInfo) =>
-      val directParentRefOfSubfolder: String = subfolderInfo.parentPath.getOrElse("").split("/").last
+      val directParentRefOfSubfolder: String = subfolderInfo.parentPath.getOrElse("").split('/').last
 
       if (directParentRefOfSubfolder != presumedParentFolderInfo.id.toString) {
         IO.raiseError {
@@ -254,7 +254,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     IO {
       folderIdAndInfo.map { case (_, fullFolderInfo) =>
         val directParent = fullFolderInfo.folderRow.parentPath
-          .flatMap(_.split("/").lastOption)
+          .flatMap(_.split('/').lastOption)
           .map(UUID.fromString)
         directParent.flatMap(folderIdAndInfo.get) match {
           case None => fullFolderInfo // top-level folder doesn't/shouldn't have parent path
@@ -279,7 +279,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
         if (folderInfo.expectedParentRef.isEmpty) {
           // 'expectedParentRef' is empty either because parent was not in Preservica at start of Lambda, or folder is top-level
           val parentId = folderInfo.folderRow.parentPath
-            .flatMap(_.split("/").lastOption)
+            .flatMap(_.split('/').lastOption)
             .map(UUID.fromString)
           parentId.flatMap(previouslyCreatedEntityIdsWithFolderRowIdsAsKeys.get)
         } else folderInfo.expectedParentRef

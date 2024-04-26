@@ -22,7 +22,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
           newPath :: generator(newPath, tail)
       }
     }
-    generator("", path.split("/").toList.filter(_.nonEmpty))
+    generator("", path.split('/').toList.filter(_.nonEmpty))
   }
 
   private[nationalarchives] def createOpex(

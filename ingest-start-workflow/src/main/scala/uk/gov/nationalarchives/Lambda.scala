@@ -16,7 +16,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       Config,
       Dependencies
   ) => IO[StateOutput] = (input, _, dependencies) => {
-    val batchRef = input.executionId.split("-").take(3).mkString("-")
+    val batchRef = input.executionId.split('-').take(3).mkString("-")
     val logWithBatch = log(Map("batchRef" -> batchRef))(_)
     for {
       _ <- logWithBatch(s"Starting ingest workflow ${input.workflowContextName} for $batchRef")

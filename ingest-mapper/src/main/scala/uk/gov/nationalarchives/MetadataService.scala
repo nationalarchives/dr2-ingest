@@ -52,7 +52,7 @@ class MetadataService(s3: DAS3Client[IO]) {
               val fileExtension =
                 if (metadataEntry("type").str == "File")
                   name
-                    .flatMap(n => n.split("\\.").lastOption)
+                    .flatMap(n => n.split('.').lastOption)
                     .map(Str.apply)
                     .getOrElse(Null)
                 else Null
@@ -75,9 +75,9 @@ class MetadataService(s3: DAS3Client[IO]) {
       _.flatMap { bagitManifestString =>
         Stream.evalSeq {
           bagitManifestString
-            .split("\n")
+            .split('\n')
             .map { rowAsString =>
-              val rowAsArray = rowAsString.split(" ")
+              val rowAsArray = rowAsString.split(' ')
               if (rowAsArray.size != 2) {
                 IO.raiseError(new Exception(s"Expecting 2 columns in manifest-sha256.txt, found ${rowAsArray.size}"))
               } else {

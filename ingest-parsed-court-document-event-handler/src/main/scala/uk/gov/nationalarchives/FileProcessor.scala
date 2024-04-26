@@ -102,7 +102,7 @@ class FileProcessor(
       fileReference.map(ref => IdField("BornDigitalRef", ref)),
       Option(IdField("RecordID", tdrUuid))
     ).flatten
-    val fileTitle = fileInfo.fileName.split("\\.").dropRight(1).mkString(".")
+    val fileTitle = fileInfo.fileName.split('.').dropRight(1).mkString(".")
     val folderId = uuidGenerator()
     val assetId = uuidGenerator()
     val folderMetadataObject = BagitFolderMetadataObject(folderId, None, potentialFolderTitle, folderName, folderMetadataIdFields)
@@ -220,7 +220,7 @@ class FileProcessor(
                   .use(pub => s3.upload(uploadBucket, id.toString, tarEntry.getSize, FlowAdapters.toPublisher(pub)))
                   .map { res =>
                     val checksum = checksumToString(res.response().checksumSHA256())
-                    tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split("/").last, checksum)
+                    tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, checksum)
                   }
               )
             } else Stream.empty
