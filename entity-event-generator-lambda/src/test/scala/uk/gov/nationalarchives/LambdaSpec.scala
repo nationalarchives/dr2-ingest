@@ -57,7 +57,7 @@ class LambdaSpec extends ExternalServicesTestUtils with MockitoSugar {
   "handler" should "call getAttributeValues and entitiesUpdatedSince 3 times and entityEventActions twice, but not " +
     "make the call to publish to SNS nor update the time in DynamoDB if the date returned is not before the event triggered date" in {
       val argumentVerifier = ArgumentVerifier(entityEventActionsReturnValue =
-        IO(
+        IO.pure(
           Seq(
             EventAction(
               UUID.fromString("f24313ce-dd5d-4b28-9ebc-b47893f55a8e"),

@@ -56,7 +56,7 @@ class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Str
       body <- IO.fromEither(response.body)
       potentialAsset = body.assets.find(_.citableReference == citableReference)
       formattedAsset <- potentialAsset.map(stripHtmlFromDiscoveryResponse).getOrElse {
-        IO(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), citableReference))
+        IO.pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), citableReference))
       }
     } yield formattedAsset
   }
@@ -96,6 +96,6 @@ object DiscoveryService {
   case class DiscoveryCollectionAssetResponse(assets: List[DiscoveryCollectionAsset])
 
   def apply(discoveryUrl: String, randomUuidGenerator: () => UUID): IO[DiscoveryService] = HttpClientFs2Backend.resource[IO]().use { backend =>
-    IO(new DiscoveryService(discoveryUrl, backend, randomUuidGenerator))
+    IO.pure(new DiscoveryService(discoveryUrl, backend, randomUuidGenerator))
   }
 }

@@ -37,7 +37,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
   case class ArgumentVerifier(
       getPreservicaNamespaceVersionReturnValue: IO[Float] = IO.pure(7.0f),
       getCurrentPreservicaVersionReturnValue: IO[List[GetDr2PreservicaVersionResponse]] = IO.pure(List(GetDr2PreservicaVersionResponse(6.9f))),
-      snsPublishReturnValue: IO[List[PublishBatchResponse]] = IO.pure(List(PublishBatchResponse.builder().build()))
+      snsPublishReturnValue: IO[List[PublishBatchResponse]] = IO(List(PublishBatchResponse.builder().build()))
   ) {
     val endpointSinceCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
     val getItemsCaptor: ArgumentCaptor[List[PartitionKey]] = ArgumentCaptor.forClass(classOf[List[PartitionKey]])

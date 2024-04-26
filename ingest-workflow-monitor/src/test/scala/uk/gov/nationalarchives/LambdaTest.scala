@@ -20,7 +20,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
     "handler" should s"pass a '$normalisedStatus' 'state', 'mappedId', 0 succeededAssetId, 0 failedAssetIds, 0 duplicatedAssetIds" +
       s"to the OutputStream if the status returned from the API is $apiStatus" in {
         val argumentVerifier = ArgumentVerifier(
-          IO(Seq(defaultMonitor.copy(status = apiStatus))),
+          IO.pure(Seq(defaultMonitor.copy(status = apiStatus))),
           IO.pure(Nil)
         )
         val stateData = new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
@@ -44,8 +44,8 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
     "handler" should s"pass a '$normalisedStatus' 'state', 'mappedId', 1 succeededAssetId, 2 failedAssetIds, 0 duplicatedAssetIds" +
       s"to the OutputStream if the status returned from the API is $apiStatus" in {
         val argumentVerifier = ArgumentVerifier(
-          IO(Seq(defaultMonitor.copy(status = apiStatus))),
-          IO(Seq(defaultMessage))
+          IO.pure(Seq(defaultMonitor.copy(status = apiStatus))),
+          IO.pure(Seq(defaultMessage))
         )
         val stateData = new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
 
@@ -73,8 +73,8 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
     "handler" should s"pass a '$normalisedStatus' 'state', 'mappedId', 0 succeededAssetId, 3 failedAssetIds, 0 duplicatedAssetIds" +
       s"to the OutputStream if the status returned from the API is $apiStatus" in {
         val argumentVerifier = ArgumentVerifier(
-          IO(Seq(defaultMonitor.copy(status = apiStatus))),
-          IO(Seq(defaultMessage.copy(message = "monitor.error.folder.not.ingested")))
+          IO.pure(Seq(defaultMonitor.copy(status = apiStatus))),
+          IO.pure(Seq(defaultMessage.copy(message = "monitor.error.folder.not.ingested")))
         )
         val stateData = new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
 
@@ -102,8 +102,8 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
   forAll(pathsWithNoPaxFileAtTheEnd) { (pathWithNoPaxFileAtTheEnd, exceptionMessage) =>
     "handler" should s"return an exception if an UUID could not be parsed from the end of path '$pathWithNoPaxFileAtTheEnd'" in {
       val argumentVerifier = ArgumentVerifier(
-        IO(Seq(defaultMonitor)),
-        IO(Seq(defaultMessage.copy(path = pathWithNoPaxFileAtTheEnd)))
+        IO.pure(Seq(defaultMonitor)),
+        IO.pure(Seq(defaultMessage.copy(path = pathWithNoPaxFileAtTheEnd)))
       )
 
       val ex = intercept[Exception] {
@@ -141,7 +141,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
 
   "handler" should s"return an exception if the API returns a status that's unexpected" in {
     val argumentVerifier = ArgumentVerifier(
-      IO(Seq(defaultMonitor.copy(status = "InvalidStatus"))),
+      IO.pure(Seq(defaultMonitor.copy(status = "InvalidStatus"))),
       IO.pure(Nil)
     )
 
@@ -162,7 +162,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with TableD
 
   "handler" should s"return an exception if the API returns 0 Monitors" in {
     val argumentVerifier = ArgumentVerifier(
-      IO(Nil),
+      IO.pure(Nil),
       IO.pure(Nil)
     )
 

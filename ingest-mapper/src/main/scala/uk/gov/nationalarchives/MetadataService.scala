@@ -81,7 +81,7 @@ class MetadataService(s3: DAS3Client[IO]) {
               if (rowAsArray.size != 2) {
                 IO.raiseError(new Exception(s"Expecting 2 columns in manifest-sha256.txt, found ${rowAsArray.size}"))
               } else {
-                IO(BagitManifestRow(rowAsArray.head, rowAsArray.last))
+                IO.pure(BagitManifestRow(rowAsArray.head, rowAsArray.last))
               }
             }
             .toList

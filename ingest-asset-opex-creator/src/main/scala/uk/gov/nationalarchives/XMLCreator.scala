@@ -163,7 +163,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
           }
       }
   </XIP>
-    IO(xip.toString + "\n")
+    IO.pure(xip.toString + "\n")
   }
 }
 object XMLCreator {

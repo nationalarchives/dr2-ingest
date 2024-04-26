@@ -104,9 +104,9 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
   )
 
   val defaultEntitiesWithSourceIdReturnValues: List[IO[Seq[Entity]]] =
-    List(IO(structuralObjects(0)), IO(structuralObjects(1)), IO(structuralObjects(2)))
+    List(IO.pure(structuralObjects(0)), IO.pure(structuralObjects(1)), IO.pure(structuralObjects(2)))
 
-  val defaultIdentifiersReturnValue: IO[Seq[IdentifierResponse]] = IO(Seq(IdentifierResponse("id", "Code", "code")))
+  val defaultIdentifiersReturnValue: IO[Seq[IdentifierResponse]] = IO.pure(Seq(IdentifierResponse("id", "Code", "code")))
 
   val missingTitleInDbScenarios: TableFor6[String, Option[String], Option[String], Option[String], Option[String], String] = Table(
     (
@@ -236,12 +236,12 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       getAttributeValuesReturnValue: IO[List[ArchiveFolderDynamoTable]],
       entitiesWithSourceIdReturnValue: List[IO[Seq[Entity]]] = defaultEntitiesWithSourceIdReturnValues,
       addEntityReturnValues: List[IO[UUID]] = List(
-        IO(structuralObjects(0).head.ref),
-        IO(structuralObjects(1).head.ref),
-        IO(structuralObjects(2).head.ref)
+        IO.pure(structuralObjects(0).head.ref),
+        IO.pure(structuralObjects(1).head.ref),
+        IO.pure(structuralObjects(2).head.ref)
       ),
-      addIdentifierReturnValue: IO[String] = IO("The Identifier was added"),
-      updateEntityReturnValues: IO[String] = IO("Entity was updated"),
+      addIdentifierReturnValue: IO[String] = IO.pure("The Identifier was added"),
+      updateEntityReturnValues: IO[String] = IO.pure("Entity was updated"),
       getIdentifiersForEntityReturnValues: IO[Seq[IdentifierResponse]] = defaultIdentifiersReturnValue
   ) {
     val testEventBridgeClient: DAEventBridgeClient[IO] = mock[DAEventBridgeClient[IO]]
@@ -289,8 +289,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       )
     when(mockEntityClient.addEntity(any[AddEntityRequest])).thenReturn(
       addEntityReturnValues.head,
-      addEntityReturnValues.lift(1).getOrElse(IO(UUID.randomUUID())),
-      addEntityReturnValues.lift(2).getOrElse(IO(UUID.randomUUID()))
+      addEntityReturnValues.lift(1).getOrElse(IO.pure(UUID.randomUUID())),
+      addEntityReturnValues.lift(2).getOrElse(IO.pure(UUID.randomUUID()))
     )
     when(
       mockEntityClient.addIdentifierForEntity(

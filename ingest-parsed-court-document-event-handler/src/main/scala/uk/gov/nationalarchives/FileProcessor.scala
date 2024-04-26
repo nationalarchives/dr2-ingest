@@ -239,7 +239,7 @@ class FileProcessor(
 
   private def uploadAsFile(fileContent: String, key: String) = {
     Stream
-      .eval(IO(fileContent))
+      .eval(IO.pure(fileContent))
       .map(s => ByteBuffer.wrap(s.getBytes()))
       .toPublisherResource
       .use { pub =>

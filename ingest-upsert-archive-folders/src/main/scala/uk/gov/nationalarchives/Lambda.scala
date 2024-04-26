@@ -200,7 +200,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
             s"instead it was ${numberOfSlashesInParentPathPerFolder.mkString(", ")}"
         )
       }
-    else IO(numberOfSlashesInParentPathPerFolder)
+    else IO.pure(numberOfSlashesInParentPathPerFolder)
   }
 
   private def checkEachParentPathMatchesFolderBeforeIt(
@@ -349,8 +349,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
         }
       else
         entity.securityTag match {
-          case open @ Some(Open)     => IO(folderInfo.copy(securityTag = open))
-          case closed @ Some(Closed) => IO(folderInfo.copy(securityTag = closed))
+          case open @ Some(Open)     => IO.pure(folderInfo.copy(securityTag = open))
+          case closed @ Some(Closed) => IO.pure(folderInfo.copy(securityTag = closed))
           case unexpectedTag =>
             IO.raiseError(new Exception(s"Security tag '$unexpectedTag' is unexpected for SO ref '$ref'"))
         }
