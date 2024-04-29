@@ -2,29 +2,35 @@ package uk.gov.nationalarchives.testUtils
 
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock._
+import com.github.tomakehurst.wiremock.client.WireMock.*
+import org.mockito.Mockito._
 import org.scalatest.Assertion
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
-import uk.gov.nationalarchives.Lambda.{Dependencies, Input}
+import sttp.client3.SttpBackend
+import ujson.{Obj, Str}
+import uk.gov.nationalarchives.Lambda.{Config, Dependencies, Input}
+import uk.gov.nationalarchives.MetadataService.DepartmentAndSeriesTableData
 import uk.gov.nationalarchives.testUtils.TestUtils.{DynamoLRequestField, DynamoNRequestField, DynamoSRequestField, DynamoTable, DynamoTableItem}
-import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, MetadataService}
+import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DiscoveryService, MetadataService}
+import sttp.capabilities.fs2.Fs2Streams
 import upickle.default.write
 
 import java.net.URI
 import java.util.UUID
 
-class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer, discoveryServer: WireMockServer) extends TableDrivenPropertyChecks {
+class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer, s3Prefix: String = "TEST/") extends TableDrivenPropertyChecks {
   val inputBucket = "input"
   val uuids: List[String] = List(
     "c7e6b27f-5778-4da8-9b83-1b64bbccbd03",
     "61ac0166-ccdf-48c4-800f-29e5fba2efda"
   )
-  val input: Input = Input("TEST", inputBucket, "TEST/", Option("A"), Option("A 1"))
+  val config: Config = Config("test", "http://localhost:9015")
+  val input: Input = Input("TEST", inputBucket, s3Prefix, Option("A"), Option("A 1"))
 
   def stubValidNetworkRequests(dynamoTable: String = "test"): (UUID, UUID, UUID, UUID, List[String], List[String]) = {
     val folderIdentifier = UUID.randomUUID()
@@ -95,27 +101,6 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
           .willReturn(ok.withBody(responseCsv.getBytes))
       )
     }
-
-    List("A", "A 1").foreach { col =>
-      val body =
-        s"""{
-           |  "assets": [
-           |    {
-           |      "citableReference": "$col",
-           |      "scopeContent": {
-           |        "description": "<scopecontent><head>Head</head><p>TestDescription$col with &#48</p></scopecontent>"
-           |      },
-           |      "title": "<unittitle type=&#34Title\\">Test Title $col</unittitle>"
-           |    }
-           |  ]
-           |}
-           |""".stripMargin
-
-      discoveryServer.stubFor(
-        get(urlEqualTo(s"/API/records/v1/collection/${col.replace(" ", "%20")}"))
-          .willReturn(okJson(body))
-      )
-    }
   }
 
   def checkDynamoItems(tableRequestItems: List[DynamoTableItem], expectedTable: DynamoTable): Assertion = {
@@ -146,7 +131,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     list("originalMetadataFiles") should equal(expectedTable.originalMetadataFiles)
   }
 
-  def dependencies: Dependencies = {
+  def dependencies(discoveryServiceException: Boolean = false): Dependencies = {
     val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
     val asyncS3Client: S3AsyncClient = S3AsyncClient
       .crtBuilder()
@@ -164,6 +149,29 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     val metadataService: MetadataService = new MetadataService(DAS3Client[IO](asyncS3Client))
     val dynamo: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
     val randomUuidGenerator: () => UUID = () => UUID.fromString(uuidsIterator.next())
-    Dependencies(metadataService, dynamo, randomUuidGenerator)
+    val mockBackend = mock[SttpBackend[IO, Fs2Streams[IO]]]()
+    val discoveryService = MockDiscoveryService(config.discoveryApiUrl, mockBackend, randomUuidGenerator, discoveryServiceException)
+    Dependencies(metadataService, dynamo, IO.pure(discoveryService))
+  }
+
+  case class MockDiscoveryService(discoveryApiUrl: String, backend: SttpBackend[IO, Fs2Streams[IO]], randomUuidGenerator: () => UUID, discoveryServiceException: Boolean)
+      extends DiscoveryService(discoveryApiUrl, backend, randomUuidGenerator) {
+    private def generateJsonMap(col: String) = Map(
+      "batchId" -> Str(input.batchId),
+      "id" -> Str(randomUuidGenerator().toString),
+      "name" -> Str(s"$col"),
+      "type" -> Str("ArchiveFolder"),
+      "title" -> Str(s"Test Title $col"),
+      "description" -> Str(s"TestDescription$col with 0")
+    )
+
+    private val departmentJsonMap = generateJsonMap("A")
+    private val departmentTableData = departmentJsonMap ++ Map("id_Code" -> departmentJsonMap("name"))
+    private val seriesJsonMap = generateJsonMap("A 1")
+    private val seriesTableData = seriesJsonMap ++ Map("parentPath" -> departmentJsonMap("id"), "id_Code" -> seriesJsonMap("name"))
+
+    override def getDepartmentAndSeriesRows(input: Input): IO[DepartmentAndSeriesTableData] =
+      if (discoveryServiceException) IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
+      else IO.pure(DepartmentAndSeriesTableData(Obj.from(departmentTableData), Some(Obj.from(seriesTableData))))
   }
 }
