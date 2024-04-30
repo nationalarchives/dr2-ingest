@@ -3,6 +3,7 @@ package uk.gov.nationalarchives
 import cats.effect.*
 import cats.implicits.*
 import io.circe.generic.auto.*
+import io.circe.parser.decode
 import org.scanamo.syntax.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
@@ -45,18 +46,21 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       Dependencies
   ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
+      assetId <- IO.pure(input.assetId)
       assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, PartitionKey](
-        List(PartitionKey(input.assetId)),
+        List(PartitionKey(assetId)),
         config.dynamoTableName
       )
+
+      batchId = input.batchId
       asset <- IO.fromOption(assetItems.headOption)(
-        new Exception(s"No asset found for ${input.assetId} from ${input.batchId}")
+        new Exception(s"No asset found for $assetId from $batchId")
       )
       _ <- IO.raiseWhen(asset.`type` != Asset)(
         new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")
       )
 
-      logCtx = Map("batchId" -> input.batchId, "assetId" -> asset.id.toString)
+      logCtx = Map("batchId" -> batchId, "assetId" -> asset.id.toString)
       log = logger.info(logCtx)(_)
       _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
 
@@ -64,9 +68,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       entity <- IO.fromOption(entitiesWithAssetName.headOption)(
         new Exception(s"No entity found using SourceId '${asset.name}'")
       )
+
       children <- childrenOfAsset(dependencies.dynamoDbClient, asset, config.dynamoTableName, config.dynamoGsiName)
       _ <- IO.fromOption(children.headOption)(
-        new Exception(s"No children were found for ${input.assetId} from ${input.batchId}")
+        new Exception(s"No children were found for $assetId from $batchId")
       )
       _ <- log(s"${children.length} children found for asset ${asset.id}")
       childrenGroupedByRepType = children.groupBy(_.representationType match {
@@ -129,18 +134,40 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     val idsOfChildrenThatDidNotMatchOnChecksum = childrenThatDidNotMatchOnChecksum.map(_.id)
                     StateOutput(
                       wasReconciled = false,
-                      s"Out of the ${childrenForRepresentationType.length} files expected to be ingested for assetId '${input.assetId}' with representationType $representationType, " +
+                      s"Out of the ${childrenForRepresentationType.length} files expected to be ingested for assetId '$assetId' with representationType $representationType, " +
                         s"a checksum and title could not be matched with a file on Preservica for: ${idsOfChildrenThatDidNotMatchOnChecksum.mkString(", ")}"
                     )
                   }
                 }
               }
           } yield stateOutput
-
         }
         .toList
         .sequence
-    } yield StateOutput(stateOutputs.forall(_.wasReconciled), stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim)
+      allReconciled = stateOutputs.forall(_.wasReconciled)
+      combinedOutputs = StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim)
+
+      finalOutput <-
+        if (allReconciled)
+          for {
+            items <- dependencies.dynamoDbClient.getItems[IngestLockTable, PartitionKey](
+              List(PartitionKey(assetId)),
+              config.dynamoLockTableName
+            )
+
+            attributes <- IO.fromOption(items.headOption)(
+              new Exception(s"No items found for assetId '$assetId' from batchId '$batchId'")
+            )
+
+            message <- IO.fromEither(decode[Message](attributes.message.replace('\'', '\"')))
+            potentialExecutionId = message.executionId
+
+            _ <- IO.raiseWhen(potentialExecutionId.exists(_ != batchId)) {
+              new Exception(s"executionId '${potentialExecutionId.get}' belonging to assetId '$assetId' does not equal '$batchId'")
+            }
+          } yield combinedOutputs.copy(parentMessageId = message.parentMessageId, executionId = message.executionId, messageId = Some(message.messageId))
+        else IO.pure(combinedOutputs)
+    } yield finalOutput
   override def dependencies(config: Config): IO[Dependencies] = Fs2Client.entityClient(config.apiUrl, config.secretName).map(client => Dependencies(client, DADynamoDBClient[IO]()))
 }
 
@@ -148,8 +175,10 @@ object Lambda {
 
   case class Input(executionId: String, batchId: String, assetId: UUID)
 
-  case class StateOutput(wasReconciled: Boolean, reason: String)
+  case class Message(messageId: String, parentMessageId: Option[String] = None, executionId: Option[String] = None)
+
+  case class StateOutput(wasReconciled: Boolean, reason: String, parentMessageId: Option[String] = None, executionId: Option[String] = None, messageId: Option[String] = None)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO])
-  case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String) derives ConfigReader
+  case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String, dynamoLockTableName: String) derives ConfigReader
 }

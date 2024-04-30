@@ -35,7 +35,10 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
   val childIdDocx: UUID = UUID.fromString("a25d33f3-7726-4fb3-8e6f-f66358451c4e")
   val docxTitle: String = "TestTitle"
   val batchId: String = "TEST-ID"
+  val lockTableBatchId: UUID = UUID.fromString("3d6f242a-f2f9-4e09-91b3-b2d3c8c6a84d")
   val executionId = "5619e6b0-e959-4e61-9f6e-17170f7c06e2-3a3443ae-92c4-4fc8-9cbd-10c2a58b6045"
+  val parentMessageId: UUID = UUID.fromString("6d7ff426-047e-4dcb-a4d6-95077976b763")
+  val messageId: UUID = UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd")
   val input: Input = Input(executionId, batchId, assetId)
 
   val defaultDocxBitStreamInfo: BitStreamInfo = BitStreamInfo(
@@ -250,6 +253,29 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
        |  }
        |}
        |""".stripMargin
+
+  val dynamoLockTableGetResponse: String =
+    s"""{
+       |  "Responses": {
+       |    "test-lock-table": [
+       |      {
+       |        "ioId": {
+       |          "S": "$assetId"
+       |        },
+       |        "batchId": {
+       |          "S": "$lockTableBatchId"
+       |        },
+       |        "message": {
+       |          "S": "{'parentMessageId':'$parentMessageId','messageId':'$messageId','executionId':'$batchId'}"
+       |        }
+       |      }
+       |    ]
+       |  }
+       |}
+       |""".stripMargin
+
+  val emptyLockTableGetResponse: String = """{"Responses": {"test-lock-table": []}}"""
+
   private val defaultIoWithIdentifier =
     IO(
       Seq(
@@ -313,6 +339,13 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
       post(urlEqualTo("/"))
         .withRequestBody(matchingJsonPath("$.TableName", equalTo("test-table")))
         .willReturn(ok().withBody(postResponse))
+    )
+
+  def stubLockTableGetRequest(batchLockTableGetResponse: String): Unit =
+    dynamoServer.stubFor(
+      post(urlEqualTo("/"))
+        .withRequestBody(matchingJsonPath("$.RequestItems", containing("test-lock-table")))
+        .willReturn(ok().withBody(batchLockTableGetResponse))
     )
 
   private val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
