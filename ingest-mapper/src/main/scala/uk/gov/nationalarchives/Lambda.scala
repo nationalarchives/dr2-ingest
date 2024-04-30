@@ -56,7 +56,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       log <- IO(log(Map("batchRef" -> input.batchId)))
       _ <- log(s"Processing batchRef ${input.batchId}")
 
-      discoveryService <- DiscoveryService(config.discoveryApiUrl, dependencies.uuidGenerator)
+      discoveryService <- dependencies.discoveryService
       departmentAndSeries <- discoveryService.getDepartmentAndSeriesRows(input)
       _ <- log(s"Retrieved department and series ${departmentAndSeries.show}")
 
@@ -87,12 +87,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     val metadataService: MetadataService = MetadataService()
     val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
     val randomUuidGenerator: () => UUID = () => UUID.randomUUID()
-    IO(Dependencies(metadataService, dynamo, randomUuidGenerator))
+    val discoveryService = DiscoveryService(config.discoveryApiUrl, randomUuidGenerator)
+    IO(Dependencies(metadataService, dynamo, discoveryService))
   }
 }
 object Lambda {
   case class StateOutput(batchId: String, s3Bucket: String, s3Prefix: String, archiveHierarchyFolders: List[UUID], contentFolders: List[UUID], contentAssets: List[UUID])
   case class Input(batchId: String, s3Bucket: String, s3Prefix: String, department: Option[String], series: Option[String])
   case class Config(dynamoTableName: String, discoveryApiUrl: String) derives ConfigReader
-  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], uuidGenerator: () => UUID)
+  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], discoveryService: IO[DiscoveryService])
 }
