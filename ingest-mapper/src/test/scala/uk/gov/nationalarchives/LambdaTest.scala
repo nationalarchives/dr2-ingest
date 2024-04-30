@@ -21,7 +21,6 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   override def beforeEach(): Unit = {
     dynamoServer.start()
     s3Server.start()
-    discoveryServer.start()
   }
 
   override def afterEach(): Unit = {
@@ -29,21 +28,17 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
     dynamoServer.stop()
     s3Server.resetAll()
     s3Server.stop()
-    discoveryServer.resetAll()
-    discoveryServer.stop()
   }
 
   val s3Server = new WireMockServer(9008)
   val dynamoServer = new WireMockServer(9009)
-  val discoveryServer = new WireMockServer(9015)
-  val config: Config = Config("test", "http://localhost:9015")
 
   "handler" should "return the correct values from the lambda" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
     import testUtils._
     val (folderIdentifier, assetIdentifier, _, _, _, _) = stubValidNetworkRequests()
 
-    val stateData = new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    val stateData = new Lambda().handler(input, config, dependencies()).unsafeRunSync()
     val archiveFolders = stateData.archiveHierarchyFolders
     archiveFolders.size should be(3)
     archiveFolders.contains(folderIdentifier) should be(true)
@@ -56,10 +51,10 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   }
 
   "handler" should "write the correct values to dynamo" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
     import testUtils._
     val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalFiles, originalMetadataFiles) = stubValidNetworkRequests()
-    new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    new Lambda().handler(input, config, dependencies()).unsafeRunSync()
     val dynamoRequestBodies = dynamoServer.getAllServeEvents.asScala.map(e => read[DynamoRequestBody](e.getRequest.getBodyAsString))
     dynamoRequestBodies.length should equal(1)
     val tableRequestItems = dynamoRequestBodies.head.RequestItems.test
@@ -138,46 +133,45 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if the discovery api is unavailable" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
     import testUtils._
     stubValidNetworkRequests()
-    discoveryServer.stop()
+
     val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+      new Lambda().handler(input, config, dependencies(true)).unsafeRunSync()
     }
 
     ex.getMessage should equal("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A")
   }
 
   "handler" should "return an error if the input files are not stored in S3" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, s3Prefix = "INVALID/")
     import testUtils._
     stubValidNetworkRequests()
-    val invalidInput = Input("TEST", inputBucket, "INVALID/", Option("A"), Option("A 1"))
     val ex = intercept[Exception] {
-      new Lambda().handler(invalidInput, config, dependencies).unsafeRunSync()
+      new Lambda().handler(input, config, dependencies()).unsafeRunSync()
     }
 
     ex.getMessage should equal("null (Service: S3, Status Code: 404, Request ID: null)")
   }
 
   "handler" should "return an error if the dynamo table doesn't exist" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
     import testUtils._
     stubValidNetworkRequests("invalidTable")
     val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+      new Lambda().handler(input, config, dependencies()).unsafeRunSync()
     }
 
     ex.getMessage should equal("Service returned HTTP status code 404 (Service: DynamoDb, Status Code: 404, Request ID: null)")
   }
 
   "handler" should "return an error if the bag files from S3 are invalid" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, discoveryServer)
+    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
     import testUtils._
     stubInvalidNetworkRequests()
     val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+      new Lambda().handler(input, config, dependencies()).unsafeRunSync()
     }
 
     ex.getMessage should equal("Expected ujson.Arr (data: {})")
