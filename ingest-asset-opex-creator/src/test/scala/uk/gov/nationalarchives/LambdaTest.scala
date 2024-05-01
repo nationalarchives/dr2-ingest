@@ -126,7 +126,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3CopyRequests = s3Server.getAllServeEvents.asScala
-    val xipString = s3CopyRequests.filter(_.getRequest.getUrl == xipPath).head.getRequest.getBodyAsString.split("\n").tail.dropRight(4).mkString("\n")
+    val xipString = s3CopyRequests.filter(_.getRequest.getUrl == xipPath).head.getRequest.getBodyAsString.split('\n').tail.dropRight(4).mkString("\n")
     val contentObjects = XML.loadString(xipString) \ "Representation" \ "ContentObjects" \ "ContentObject"
     contentObjects.head.text should equal(childIdDocx.toString)
     contentObjects.last.text should equal(childIdJson.toString)
@@ -143,7 +143,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3UploadRequests = s3Server.getAllServeEvents.asScala
-    val opexString = s3UploadRequests.filter(_.getRequest.getUrl == opexPath).head.getRequest.getBodyAsString.split("\n").tail.dropRight(3).mkString("\n")
+    val opexString = s3UploadRequests.filter(_.getRequest.getUrl == opexPath).head.getRequest.getBodyAsString.split('\n').tail.dropRight(3).mkString("\n")
     val opexXml = XML.loadString(opexString)
     opexXml should equal(expectedOpex)
   }

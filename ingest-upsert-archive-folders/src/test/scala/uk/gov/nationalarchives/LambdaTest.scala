@@ -32,15 +32,15 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
   val input: StepFnInput = StepFnInput("TDD-2023-ABC", folderIds.map(_.toString), Nil, List("a8163bde-7daa-43a7-9363-644f93fe2f2b"))
 
   private def convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows: ListMap[UUID, ArchiveFolderDynamoTable]) =
-    IO(folderIdsAndRows.values.toList)
+    IO.pure(folderIdsAndRows.values.toList)
 
   "handler" should "call the DDB client's 'getAttributeValues' and entities client's 'entitiesByIdentifier' 3x, " +
     "and 'addEntity' and 'addIdentifiersForEntity' once if 1 folder row's Entity was not returned from the 'entitiesByIdentifier' call" in {
-      val responseWithNoEntity = IO(Seq())
+      val responseWithNoEntity = IO.pure(Seq())
       val argumentVerifier = ArgumentVerifier(
         convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
         entitiesWithSourceIdReturnValue = defaultEntitiesWithSourceIdReturnValues.updated(2, responseWithNoEntity),
-        addEntityReturnValues = List(IO(childSo))
+        addEntityReturnValues = List(IO.pure(childSo))
       )
 
       new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
@@ -65,14 +65,14 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
   "handler" should "call the DDB client's 'getAttributeValues' and entities client's 'entitiesByIdentifier' 3x, " +
     "and 'addEntity' and 'addIdentifiersForEntity' 3x if 3 folder row's Entities were not returned from the 'entitiesByIdentifier' call" + "" +
     "passing in None as the parentRef for the top-level folder" in {
-      val responseWithNoEntity = IO(Seq())
+      val responseWithNoEntity = IO.pure(Seq())
       val argumentVerifier = ArgumentVerifier(
         convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
         entitiesWithSourceIdReturnValue = List(responseWithNoEntity, responseWithNoEntity, responseWithNoEntity),
         addEntityReturnValues = List(
-          IO(parentSo),
-          IO(childSo),
-          IO(grandChildSo)
+          IO.pure(parentSo),
+          IO.pure(childSo),
+          IO.pure(grandChildSo)
         )
       )
 
@@ -114,14 +114,14 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
   "handler" should "call the DDB client's 'getAttributeValues' and entities client's 'entitiesByIdentifier' 3x, " +
     "and 'addEntity' and 'addIdentifiersForEntity' twice if a folder row's Entity was not returned from the 'entitiesByIdentifier' call, nor its parent" in {
       // Since the parent's ref is unknown, Entity's "expectedParentRef" property can not be used and instead needs to use different method
-      val responseWithNoEntity = IO(Seq())
+      val responseWithNoEntity = IO.pure(Seq())
       val argumentVerifier =
         ArgumentVerifier(
           convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
           entitiesWithSourceIdReturnValue = defaultEntitiesWithSourceIdReturnValues.take(1) ++ List(responseWithNoEntity, responseWithNoEntity),
           addEntityReturnValues = List(
-            IO(childSo),
-            IO(grandChildSo)
+            IO.pure(childSo),
+            IO.pure(grandChildSo)
           )
         )
 
@@ -160,12 +160,12 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
           folderId -> response.copy(name = "mock name_1_1_1", title = None)
         else folderId -> response
       }
-      val responseWithNoEntity = IO(Seq())
+      val responseWithNoEntity = IO.pure(Seq())
       val argumentVerifier =
         ArgumentVerifier(
           convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows1stIdModified),
           entitiesWithSourceIdReturnValue = defaultEntitiesWithSourceIdReturnValues.updated(2, responseWithNoEntity),
-          addEntityReturnValues = List(IO(grandChildSo))
+          addEntityReturnValues = List(IO.pure(grandChildSo))
         )
 
       new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
@@ -222,7 +222,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
         val argumentVerifier =
           ArgumentVerifier(
             convertFolderIdsAndRowsToListOfIoRows(rowsWithIdentifiers),
-            getIdentifiersForEntityReturnValues = IO(identifierFromPreservica.map(idp => IdentifierResponse("id", idp.identifierName, idp.value)))
+            getIdentifiersForEntityReturnValues = IO.pure(identifierFromPreservica.map(idp => IdentifierResponse("id", idp.identifierName, idp.value)))
           )
         new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
 
@@ -251,14 +251,14 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
     "and 'updateEntity' once if folder's title is different from what's DDB" in {
       val ref = UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50")
       val entityWithAnOldTitle = structuralObjects(0).map(_.copy(title = Some("mock title_old_1")))
-      val responseWithNoEntity = IO(Seq())
+      val responseWithNoEntity = IO.pure(Seq())
       val argumentVerifier =
         ArgumentVerifier(
           convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
           entitiesWithSourceIdReturnValue = defaultEntitiesWithSourceIdReturnValues
-            .updated(0, IO(entityWithAnOldTitle))
+            .updated(0, IO.pure(entityWithAnOldTitle))
             .updated(2, responseWithNoEntity),
-          addEntityReturnValues = List(IO(childSo))
+          addEntityReturnValues = List(IO.pure(childSo))
         )
 
       new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
@@ -308,7 +308,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
       val argumentVerifier =
         ArgumentVerifier(
           convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
-          entitiesWithSourceIdReturnValue = allEntities.map(e => IO(e))
+          entitiesWithSourceIdReturnValue = allEntities.map(e => IO.pure(e))
         )
 
       new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
@@ -436,7 +436,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
     "throw an exception if the API returns an Exception when attempting to get an entity by its identifier" in {
       val argumentVerifier = ArgumentVerifier(
         convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
-        entitiesWithSourceIdReturnValue = List(IO.raiseError(new Exception("API has encountered and issue")), IO(Nil), IO(Nil))
+        entitiesWithSourceIdReturnValue = List(IO.raiseError(new Exception("API has encountered and issue")), IO.pure(Nil), IO.pure(Nil))
       )
 
       val thrownException = intercept[Exception] {
@@ -453,7 +453,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
       val argumentVerifier = ArgumentVerifier(
         convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
         entitiesWithSourceIdReturnValue = List(
-          IO(
+          IO.pure(
             Seq(
               Entity(
                 Some(StructuralObject),
@@ -473,8 +473,8 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
               )
             )
           ),
-          IO(Nil),
-          IO(Nil)
+          IO.pure(Nil),
+          IO.pure(Nil)
         )
       )
 
@@ -491,7 +491,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
 
   "handler" should "call the DDB client's 'getAttributeValues' method and call entities client's 'entitiesByIdentifier' method 3x " +
     "and addEntity once but throw an exception if the API returns an Exception when attempting to create the SO" in {
-      val responseWithNoEntity = IO(Seq())
+      val responseWithNoEntity = IO.pure(Seq())
       val argumentVerifier =
         ArgumentVerifier(
           convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
@@ -527,12 +527,12 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
 
   "handler" should "call the DDB client's 'getAttributeValues' method and call entities client's 'entitiesByIdentifier' method 3x " +
     "and 'addEntity' and 'addIdentifiersForEntity' once but throw an exception if the API returns an Exception when attempting to add an identifier" in {
-      val responseWithNoEntity = IO(Seq())
+      val responseWithNoEntity = IO.pure(Seq())
       val argumentVerifier =
         ArgumentVerifier(
           convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
           entitiesWithSourceIdReturnValue = defaultEntitiesWithSourceIdReturnValues.updated(2, responseWithNoEntity),
-          addEntityReturnValues = List(IO(childSo)),
+          addEntityReturnValues = List(IO.pure(childSo)),
           addIdentifierReturnValue = IO.raiseError(new Exception("API has encountered an issue adding identifier"))
         )
 
@@ -588,9 +588,9 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
       val argumentVerifier = ArgumentVerifier(
         convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
         List(
-          IO(structuralObjects(0)),
-          IO(structuralObjects(1).map(_.copy(parent = Some(UUID.fromString("c5e50662-2b3d-4924-8e4b-53a543800507"))))),
-          IO(structuralObjects(2))
+          IO.pure(structuralObjects(0)),
+          IO.pure(structuralObjects(1).map(_.copy(parent = Some(UUID.fromString("c5e50662-2b3d-4924-8e4b-53a543800507"))))),
+          IO.pure(structuralObjects(2))
         )
       )
 
@@ -611,9 +611,9 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
       val argumentVerifier = ArgumentVerifier(
         convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
         List(
-          IO(structuralObjects(0).map(_.copy(parent = Some(UUID.fromString("c5e50662-2b3d-4924-8e4b-53a543800507"))))),
-          IO(structuralObjects(1)),
-          IO(structuralObjects(2))
+          IO.pure(structuralObjects(0).map(_.copy(parent = Some(UUID.fromString("c5e50662-2b3d-4924-8e4b-53a543800507"))))),
+          IO.pure(structuralObjects(1)),
+          IO.pure(structuralObjects(2))
         )
       )
 
@@ -634,9 +634,9 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
       val argumentVerifier = ArgumentVerifier(
         convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
         List(
-          IO(structuralObjects(0).map(_.copy(securityTag = None))),
-          IO(structuralObjects(1)),
-          IO(structuralObjects(2))
+          IO.pure(structuralObjects(0).map(_.copy(securityTag = None))),
+          IO.pure(structuralObjects(1)),
+          IO.pure(structuralObjects(2))
         )
       )
 
@@ -656,9 +656,9 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
       val argumentVerifier = ArgumentVerifier(
         convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
         List(
-          IO(structuralObjects(0).map(_.copy(securityTag = Some(null)))),
-          IO(structuralObjects(1)),
-          IO(structuralObjects(2))
+          IO.pure(structuralObjects(0).map(_.copy(securityTag = Some(null)))),
+          IO.pure(structuralObjects(1)),
+          IO.pure(structuralObjects(2))
         )
       )
 
@@ -679,7 +679,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
       val ref = UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50")
       val argumentVerifier = ArgumentVerifier(
         convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows),
-        entitiesWithSourceIdReturnValue = defaultEntitiesWithSourceIdReturnValues.updated(0, IO(entityWithAnOldTitle)),
+        entitiesWithSourceIdReturnValue = defaultEntitiesWithSourceIdReturnValues.updated(0, IO.pure(entityWithAnOldTitle)),
         updateEntityReturnValues = IO.raiseError(new Exception("API has encountered and issue"))
       )
 
@@ -729,7 +729,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
     val argumentVerifier =
       ArgumentVerifier(
         convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows1stIdModified),
-        entitiesWithSourceIdReturnValue = defaultEntitiesWithSourceIdReturnValues.updated(0, IO(entityWithAnOldTitle))
+        entitiesWithSourceIdReturnValue = defaultEntitiesWithSourceIdReturnValues.updated(0, IO.pure(entityWithAnOldTitle))
       )
 
     new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()

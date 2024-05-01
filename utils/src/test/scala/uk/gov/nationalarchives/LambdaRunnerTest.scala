@@ -27,10 +27,10 @@ class LambdaRunnerTest extends AnyFlatSpec with EitherValues {
   "handleRequest" should "write the correct output to the output stream" in {
     val lambdaRunner = new LambdaRunner[Input, Output, Config, Dependencies]() {
       override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
-        IO(Output(input.inputValue, config.configValue, dependencies.testDependency.callMethod))
+        IO.pure(Output(input.inputValue, config.configValue, dependencies.testDependency.callMethod))
       }
 
-      override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(TestDependency(config.dependencyReturnValue)))
+      override def dependencies(config: Config): IO[Dependencies] = IO.pure(Dependencies(TestDependency(config.dependencyReturnValue)))
     }
     val os = new ByteArrayOutputStream()
     lambdaRunner.handleRequest(inputStream, os, null)
@@ -44,7 +44,7 @@ class LambdaRunnerTest extends AnyFlatSpec with EitherValues {
   "handleRequest" should "write nothing to the output stream if Unit is provided as the output type" in {
     val lambdaRunner = new LambdaRunner[Input, Unit, Config, EmptyDependencies]() {
       override def handler: (Input, Config, EmptyDependencies) => IO[Unit] = (_, _, _) => IO.unit
-      override def dependencies(config: Config): IO[EmptyDependencies] = IO(EmptyDependencies())
+      override def dependencies(config: Config): IO[EmptyDependencies] = IO.pure(EmptyDependencies())
     }
 
     val os = new ByteArrayOutputStream()
@@ -57,7 +57,7 @@ class LambdaRunnerTest extends AnyFlatSpec with EitherValues {
     case class InvalidConfig(invalidParameter: Int) derives ConfigReader
     val lambdaRunner = new LambdaRunner[Input, Unit, InvalidConfig, EmptyDependencies]() {
       override def handler: (Input, InvalidConfig, EmptyDependencies) => IO[Unit] = (_, _, _) => IO.unit
-      override def dependencies(config: InvalidConfig): IO[EmptyDependencies] = IO(EmptyDependencies())
+      override def dependencies(config: InvalidConfig): IO[EmptyDependencies] = IO.pure(EmptyDependencies())
     }
 
     val os = new ByteArrayOutputStream()
@@ -84,7 +84,7 @@ class LambdaRunnerTest extends AnyFlatSpec with EitherValues {
   "handleRequest" should "return an error if the handler method returns an error" in {
     val lambdaRunner = new LambdaRunner[Input, Unit, Config, EmptyDependencies]() {
       override def handler: (Input, Config, EmptyDependencies) => IO[Unit] = (_, _, _) => IO.raiseError(new Exception("Error running handler"))
-      override def dependencies(config: Config): IO[EmptyDependencies] = IO(EmptyDependencies())
+      override def dependencies(config: Config): IO[EmptyDependencies] = IO.pure(EmptyDependencies())
     }
 
     val os = new ByteArrayOutputStream()

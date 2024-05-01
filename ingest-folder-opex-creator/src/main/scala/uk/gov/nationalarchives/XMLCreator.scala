@@ -14,7 +14,7 @@ class XMLCreator {
       childFolders: List[FolderOrAssetTable],
       identifiers: List[Identifier],
       securityDescriptor: String = "open"
-  ): IO[String] = IO {
+  ): IO[String] = IO.pure {
     val isHierarchyFolder: Boolean = folder.`type` == ArchiveFolder
     <opex:OPEXMetadata xmlns:opex={opexNamespace}>
       <opex:Properties>

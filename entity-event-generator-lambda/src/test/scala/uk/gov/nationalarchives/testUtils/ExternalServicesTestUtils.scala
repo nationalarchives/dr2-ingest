@@ -45,7 +45,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
   case class ArgumentVerifier(
       entitiesUpdatedSinceReturnValue: List[IO[Seq[Entity]]] = List(
-        IO(
+        IO.pure(
           Seq(
             Entity(
               Option(ContentObject),
@@ -73,7 +73,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
             )
           )
         ),
-        IO(
+        IO.pure(
           Seq(
             Entity(
               Option(StructuralObject),
@@ -102,7 +102,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
           )
         )
       ),
-      entityEventActionsReturnValue: IO[Seq[EventAction]] = IO(
+      entityEventActionsReturnValue: IO[Seq[EventAction]] = IO.pure(
         Seq(
           EventAction(
             UUID.fromString("f24313ce-dd5d-4b28-9ebc-b47893f55a8e"),
@@ -111,11 +111,11 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
           )
         )
       ),
-      getAttributeValuesReturnValue: IO[List[GetItemsResponse]] = IO(
+      getAttributeValuesReturnValue: IO[List[GetItemsResponse]] = IO.pure(
         List(GetItemsResponse("2023-06-06T20:39:53.377170+01:00"))
       ),
       snsPublishReturnValue: IO[List[PublishBatchResponse]] = IO(List(PublishBatchResponse.builder().build())),
-      updateAttributeValuesReturnValue: IO[Int] = IO(200)
+      updateAttributeValuesReturnValue: IO[Int] = IO.pure(200)
   ) {
     val apiUrlCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
     val updatedSinceCaptor: ArgumentCaptor[ZonedDateTime] = ArgumentCaptor.forClass(classOf[ZonedDateTime])
@@ -143,9 +143,9 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
     when(mockEntityClient.entitiesUpdatedSince(any[ZonedDateTime], any[Int], any[Int]))
       .thenReturn(
-        entitiesUpdatedSinceReturnValue.headOption.getOrElse(IO(Nil)),
-        if entitiesUpdatedSinceReturnValue.length > 1 then entitiesUpdatedSinceReturnValue(1) else IO(Nil),
-        IO(Nil)
+        entitiesUpdatedSinceReturnValue.headOption.getOrElse(IO.pure(Nil)),
+        if entitiesUpdatedSinceReturnValue.length > 1 then entitiesUpdatedSinceReturnValue(1) else IO.pure(Nil),
+        IO.pure(Nil)
       )
     when(mockEntityClient.entityEventActions(any[Entity], any[Int], any[Int]))
       .thenReturn(entityEventActionsReturnValue)
