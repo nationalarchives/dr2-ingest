@@ -346,7 +346,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               val metadataId = UUID.randomUUID()
               val folderId = uuids.head
               val assetId = uuids.last
-              val fileName = treFileName.split("\\.").dropRight(1).mkString(".")
+              val fileName = treFileName.split('.').dropRight(1).mkString(".")
               val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
               val folder =
                 BagitFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)
@@ -413,7 +413,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
             val s3 = mock[DAS3Client[IO]]
             val folderId = uuids.head
             val assetId = uuids.last
-            val fileName = treFileName.split("\\.").dropRight(1).mkString(".")
+            val fileName = treFileName.split('.').dropRight(1).mkString(".")
             val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
             val folder =
               BagitFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)

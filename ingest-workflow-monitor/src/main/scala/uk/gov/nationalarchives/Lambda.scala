@@ -64,7 +64,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
               .sequence
 
             idsOfIngestedAssets = pathsOfAssetsIngestedWithOpex.map { path =>
-              val splitPath = path.split("/")
+              val splitPath = path.split('/')
               val paxFileNameForAsset = splitPath.last
               UUID.fromString(paxFileNameForAsset.stripSuffix(".pax"))
             }

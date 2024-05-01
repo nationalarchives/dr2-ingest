@@ -304,7 +304,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         stubPostRequest(updatedDynamoPostResponse)
 
         val bitstreamWithUpdatedTitle =
-          Seq(IO(Seq(defaultDocxBitStreamInfo.copy(potentialCoTitle = Some(entityTitle)))), IO(Seq(defaultJsonBitStreamInfo)))
+          Seq(IO.pure(Seq(defaultDocxBitStreamInfo.copy(potentialCoTitle = Some(entityTitle)))), IO.pure(Seq(defaultJsonBitStreamInfo)))
 
         val argumentVerifier = ArgumentVerifier(bitstreamInfo = bitstreamWithUpdatedTitle)
 
@@ -349,7 +349,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       stubPostRequest(updatedDynamoPostResponse)
 
       val bitstreamWithUpdatedTitle =
-        Seq(IO(Seq(defaultDocxBitStreamInfo.copy(potentialCoTitle = Some(entityTitle)))), IO(Seq(defaultJsonBitStreamInfo)))
+        Seq(IO.pure(Seq(defaultDocxBitStreamInfo.copy(potentialCoTitle = Some(entityTitle)))), IO.pure(Seq(defaultJsonBitStreamInfo)))
 
       val argumentVerifier = ArgumentVerifier(bitstreamInfo = bitstreamWithUpdatedTitle)
 

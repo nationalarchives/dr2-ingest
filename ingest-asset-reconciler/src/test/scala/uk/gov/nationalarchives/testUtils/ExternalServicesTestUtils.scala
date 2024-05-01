@@ -251,7 +251,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
        |}
        |""".stripMargin
   private val defaultIoWithIdentifier =
-    IO(
+    IO.pure(
       Seq(
         Entity(
           Some(InformationObject),
@@ -266,14 +266,14 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
       )
     )
 
-  private val defaultUrlToIoRep = IO(
+  private val defaultUrlToIoRep = IO.pure(
     Seq(
       "http://localhost/api/entity/information-objects/14e54a24-db26-4c00-852c-f28045e51828/representations/Preservation/10"
     )
   )
 
   private val defaultContentObjectsFromRep =
-    IO(
+    IO.pure(
       Seq(
         Entity(
           Some(ContentObject),
@@ -299,7 +299,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
     )
 
   private val defaultBitStreamInfo =
-    Seq(IO(Seq(defaultDocxBitStreamInfo)), IO(Seq(defaultJsonBitStreamInfo)))
+    Seq(IO.pure(Seq(defaultDocxBitStreamInfo)), IO.pure(Seq(defaultJsonBitStreamInfo)))
 
   def stubGetRequest(batchGetResponse: String): Unit =
     dynamoServer.stubFor(

@@ -53,7 +53,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
             startFrom + maxEntitiesPerPage,
             eventTriggeredDatetime
           )
-        else IO(numOfRecentlyUpdatedEntities)
+        else IO.pure(numOfRecentlyUpdatedEntities)
     } yield numOfRecentlyUpdatedEntities
 
   private def getEntitiesUpdatedAndUpdateDB(
@@ -80,7 +80,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
           entitiesClient.entityEventActions(lastUpdatedEntity).map { entityEventActions =>
             Some(entityEventActions.head.dateOfEvent.toOffsetDateTime)
           }
-        } else IO(None)
+        } else IO.pure(None)
 
       _ <- IO.whenA(entityLastEventActionDate.exists(_.isBefore(eventTriggeredDatetime))) {
         for {

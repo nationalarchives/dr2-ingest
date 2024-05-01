@@ -91,7 +91,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       assetRows <- getAssetRowsWithFileSize(dependencies.s3Client, children, config.bucketName, input.executionName)
       _ <- log("File sizes for assets fetched from S3")
 
-      folderRows <- IO(children.filter(child => isFolder(child.`type`)))
+      folderRows <- IO.pure(children.filter(child => isFolder(child.`type`)))
       folderOpex <- dependencies.xmlCreator.createFolderOpex(folder, assetRows, folderRows, folder.identifiers)
       key = generateKey(input.executionName, folder)
       _ <- uploadXMLToS3(dependencies.s3Client, folderOpex, config.bucketName, key)

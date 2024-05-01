@@ -20,11 +20,11 @@ import scala.xml.XML
 object FileProcessors {
 
   extension (s: String)
-    def getName: String = s.split("/").last
+    def getName: String = s.split('/').last
 
-    private def withoutFileExtension: String = s.getName.split("\\.").head
+    private def withoutFileExtension: String = s.getName.split('.').head
 
-    private def documentType: String = s.split("/").head
+    private def documentType: String = s.split('/').head
 
   case class S3Objects(objects: List[S3Object])
   case class S3Object(bucket: String, key: String)

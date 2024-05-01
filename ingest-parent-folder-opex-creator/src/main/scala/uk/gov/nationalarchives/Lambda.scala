@@ -17,7 +17,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     }.filter(_.nonEmpty)
 
   def generateOpexWithManifest(paths: List[String]): String = {
-    val folderElems = paths.map { path => <opex:Folder>{path.split("/").last}</opex:Folder> }
+    val folderElems = paths.map { path => <opex:Folder>{path.split('/').last}</opex:Folder> }
     <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
       <opex:Transfer>
         <opex:Manifest>
@@ -52,7 +52,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
     val keyPrefix = s"opex/${input.executionId}/"
     val opexFileName = s"$keyPrefix${input.executionId}.opex"
-    val batchRef = input.executionId.split("-").take(3).mkString("-")
+    val batchRef = input.executionId.split('-').take(3).mkString("-")
     val log = logger.info(Map("batchRef" -> batchRef))(_)
     for {
       publisher <- dependencies.s3Client.listCommonPrefixes(config.stagingCacheBucket, keyPrefix)

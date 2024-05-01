@@ -17,7 +17,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar {
   val config: Config = Config("", "")
   private def input: Input = Input("testContextName", "TST-1234-345")
 
-  case class ArgumentVerifier(startWorkflowReturnId: IO[Int] = IO(123)) {
+  case class ArgumentVerifier(startWorkflowReturnId: IO[Int] = IO.pure(123)) {
     private val mockWorkflowClient: WorkflowClient[IO] = mock[WorkflowClient[IO]]
     when(
       mockWorkflowClient.startWorkflow(any[StartWorkflowRequest])

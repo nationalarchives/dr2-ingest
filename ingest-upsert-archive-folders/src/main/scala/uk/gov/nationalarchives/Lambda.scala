@@ -184,7 +184,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   ): IO[List[Int]] = {
     val numberOfSlashesInParentPathPerFolder: List[Int] =
       folderRowsSortedByParentPath.map { folderRow =>
-        val parentPathSplitBySlash: Array[String] = folderRow.parentPath.getOrElse("").split("/")
+        val parentPathSplitBySlash: Array[String] = folderRow.parentPath.getOrElse("").split('/')
         if (parentPathSplitBySlash.head.isEmpty || parentPathSplitBySlash.isEmpty) 0 else parentPathSplitBySlash.length
       }
 
@@ -200,7 +200,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
             s"instead it was ${numberOfSlashesInParentPathPerFolder.mkString(", ")}"
         )
       }
-    else IO(numberOfSlashesInParentPathPerFolder)
+    else IO.pure(numberOfSlashesInParentPathPerFolder)
   }
 
   private def checkEachParentPathMatchesFolderBeforeIt(
@@ -212,7 +212,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       folderRowsSortedByLongestParentPath.zip(folderRowsSortedByLongestParentPath.drop(1))
 
     subfoldersWithPresumedParents.map { case (subfolderInfo, presumedParentFolderInfo) =>
-      val directParentRefOfSubfolder: String = subfolderInfo.parentPath.getOrElse("").split("/").last
+      val directParentRefOfSubfolder: String = subfolderInfo.parentPath.getOrElse("").split('/').last
 
       if (directParentRefOfSubfolder != presumedParentFolderInfo.id.toString) {
         IO.raiseError {
@@ -254,7 +254,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     IO {
       folderIdAndInfo.map { case (_, fullFolderInfo) =>
         val directParent = fullFolderInfo.folderRow.parentPath
-          .flatMap(_.split("/").lastOption)
+          .flatMap(_.split('/').lastOption)
           .map(UUID.fromString)
         directParent.flatMap(folderIdAndInfo.get) match {
           case None => fullFolderInfo // top-level folder doesn't/shouldn't have parent path
@@ -279,7 +279,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
         if (folderInfo.expectedParentRef.isEmpty) {
           // 'expectedParentRef' is empty either because parent was not in Preservica at start of Lambda, or folder is top-level
           val parentId = folderInfo.folderRow.parentPath
-            .flatMap(_.split("/").lastOption)
+            .flatMap(_.split('/').lastOption)
             .map(UUID.fromString)
           parentId.flatMap(previouslyCreatedEntityIdsWithFolderRowIdsAsKeys.get)
         } else folderInfo.expectedParentRef
@@ -349,8 +349,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
         }
       else
         entity.securityTag match {
-          case open @ Some(Open)     => IO(folderInfo.copy(securityTag = open))
-          case closed @ Some(Closed) => IO(folderInfo.copy(securityTag = closed))
+          case open @ Some(Open)     => IO.pure(folderInfo.copy(securityTag = open))
+          case closed @ Some(Closed) => IO.pure(folderInfo.copy(securityTag = closed))
           case unexpectedTag =>
             IO.raiseError(new Exception(s"Security tag '$unexpectedTag' is unexpected for SO ref '$ref'"))
         }
