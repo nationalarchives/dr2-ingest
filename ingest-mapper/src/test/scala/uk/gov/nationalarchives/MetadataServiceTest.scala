@@ -31,11 +31,10 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
   def mockS3(responseText: String, name: String, returnError: Boolean = false): DAS3Client[IO] = {
     val s3 = mock[DAS3Client[IO]]
     val stub = when(s3.download(ArgumentMatchers.eq("bucket"), ArgumentMatchers.eq(s"prefix/$name")))
-    if (returnError) {
+    if (returnError)
       stub.thenThrow(new Exception("Key not found"))
-    } else {
+    else
       stub.thenReturn(IO(Flux.just(ByteBuffer.wrap(responseText.getBytes))))
-    }
     s3
   }
 
@@ -100,7 +99,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
     forAll(departmentSeriesTable) { (departmentId, seriesIdOpt) =>
       "parseMetadataJson" should s"return a list of tables with the correct prefix for department $departmentId and series " +
         s"${seriesIdOpt.getOrElse("None")} and a 'fileExtension' of ${expectedExt.getOrElse("None")} if file name is $name" in {
-          def table(id: UUID, tableType: String, parentPath: String) = {
+          def table(id: UUID, tableType: String, parentPath: String) =
             Obj.from {
               Map(
                 "batchId" -> "batchId",
@@ -112,7 +111,6 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
                 "description" -> s"$tableType Description"
               )
             }
-          }
 
           val batchId = "batchId"
           val folderId = UUID.randomUUID()
