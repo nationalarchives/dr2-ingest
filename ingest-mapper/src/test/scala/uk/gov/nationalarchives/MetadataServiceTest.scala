@@ -88,113 +88,123 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
     (UUID.randomUUID(), Option(UUID.randomUUID())),
     (UUID.randomUUID(), None)
   )
-  forAll(departmentSeriesTable) { (departmentId, seriesIdOpt) =>
-    "parseMetadataJson" should s"return a list of tables with the correct prefix for department $departmentId and series ${seriesIdOpt.getOrElse("None")}" in {
-      def table(id: UUID, tableType: String, parentPath: String) = {
-        Obj.from {
-          Map(
-            "batchId" -> "batchId",
-            "id" -> id.toString,
-            "parentPath" -> parentPath,
-            "name" -> tableType,
-            "type" -> "ArchiveFolder",
-            "title" -> s"$tableType Title",
-            "description" -> s"$tableType Description"
-          )
-        }
-      }
+  val fileNameStates: TableFor2[String, Option[String]] = Table(
+    ("fileName", "expectedExtension"),
+    ("", None),
+    ("nameWithoutExtension", None),
+    ("name.txt", Some("txt")),
+    ("name.with.dot.txt", Some("txt"))
+  )
 
-      val batchId = "batchId"
-      val folderId = UUID.randomUUID()
-      val assetId = UUID.randomUUID()
-      val fileIdOne = UUID.randomUUID()
-      val fileIdTwo = UUID.randomUUID()
-      val departmentTable = table(departmentId, "department", "")
-      val seriesTable = seriesIdOpt.map(id => table(id, "series", departmentId.toString))
-      val departmentAndSeries = DepartmentAndSeriesTableData(departmentTable, seriesTable)
-      val originalFileId = UUID.randomUUID()
-      val originalMetadataFileId = UUID.randomUUID()
-      val metadata =
-        s"""[{"id":"$folderId","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null},
+  forAll(fileNameStates) { (name, expectedExt) =>
+    forAll(departmentSeriesTable) { (departmentId, seriesIdOpt) =>
+      "parseMetadataJson" should s"return a list of tables with the correct prefix for department $departmentId and series " +
+        s"${seriesIdOpt.getOrElse("None")} and a 'fileExtension' of ${expectedExt.getOrElse("None")} if file name is $name" in {
+          def table(id: UUID, tableType: String, parentPath: String) = {
+            Obj.from {
+              Map(
+                "batchId" -> "batchId",
+                "id" -> id.toString,
+                "parentPath" -> parentPath,
+                "name" -> tableType,
+                "type" -> "ArchiveFolder",
+                "title" -> s"$tableType Title",
+                "description" -> s"$tableType Description"
+              )
+            }
+          }
+
+          val batchId = "batchId"
+          val folderId = UUID.randomUUID()
+          val assetId = UUID.randomUUID()
+          val fileIdOne = UUID.randomUUID()
+          val fileIdTwo = UUID.randomUUID()
+          val departmentTable = table(departmentId, "department", "")
+          val seriesTable = seriesIdOpt.map(id => table(id, "series", departmentId.toString))
+          val departmentAndSeries = DepartmentAndSeriesTableData(departmentTable, seriesTable)
+          val originalFileId = UUID.randomUUID()
+          val originalMetadataFileId = UUID.randomUUID()
+          val metadata =
+            s"""[{"id":"$folderId","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null},
            |{"id":"$assetId","parentId":"$folderId","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalFiles" : ["$originalFileId"], "originalMetadataFiles": ["$originalMetadataFileId"]},
-           |{"id":"$fileIdOne","parentId":"$assetId","title":"Test","type":"File","name":"name.txt","fileSize":1, "checksumSha256": "name-checksum"},
+           |{"id":"$fileIdOne","parentId":"$assetId","title":"Test","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
            |{"id":"$fileIdTwo","parentId":"$assetId","title":"","type":"File","name":"TEST-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"}]
            |""".stripMargin.replaceAll("\n", "")
-      val bagitManifests: List[BagitManifestRow] = List(BagitManifestRow("checksum-docx", fileIdOne.toString), BagitManifestRow("checksum-metadata", fileIdTwo.toString))
-      val s3 = mockS3(metadata, "metadata.json")
-      val bagInfoJson = Obj(("customMetadataAttribute1", Value(Str("customMetadataAttributeValue"))))
-      val input = Input(batchId, "bucket", "prefix/", Option("department"), Option("series"))
-      val result =
-        new MetadataService(s3).parseMetadataJson(input, departmentAndSeries, bagitManifests, bagInfoJson).unsafeRunSync()
+          val bagitManifests: List[BagitManifestRow] = List(BagitManifestRow("checksum-docx", fileIdOne.toString), BagitManifestRow("checksum-metadata", fileIdTwo.toString))
+          val s3 = mockS3(metadata, "metadata.json")
+          val bagInfoJson = Obj(("customMetadataAttribute1", Value(Str("customMetadataAttributeValue"))))
+          val input = Input(batchId, "bucket", "prefix/", Option("department"), Option("series"))
+          val result =
+            new MetadataService(s3).parseMetadataJson(input, departmentAndSeries, bagitManifests, bagInfoJson).unsafeRunSync()
 
-      result.size should equal(5 + seriesIdOpt.size)
+          result.size should equal(5 + seriesIdOpt.size)
 
-      val prefix = s"$departmentId${seriesIdOpt.map(id => s"/$id").getOrElse("")}"
-      checkTableRows(
-        result,
-        List(departmentId),
-        DynamoTable(batchId, departmentId, "", "department", ArchiveFolder, "department Title", "department Description", Some("department"))
-      )
-      seriesIdOpt.map(seriesId =>
-        checkTableRows(
-          result,
-          List(seriesId),
-          DynamoTable(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"))
-        )
-      )
-      checkTableRows(result, List(folderId), DynamoTable(batchId, folderId, prefix, "TestName", ArchiveFolder, "TestTitle", "", None))
-      checkTableRows(
-        result,
-        List(assetId),
-        DynamoTable(
-          batchId,
-          assetId,
-          s"$prefix/$folderId",
-          "TestAssetName",
-          Asset,
-          "TestAssetTitle",
-          "",
-          None,
-          customMetadataAttribute1 = Option("customMetadataAttributeValue"),
-          originalFiles = List(originalFileId.toString),
-          originalMetadataFiles = List(originalMetadataFileId.toString)
-        )
-      )
-      checkTableRows(
-        result,
-        List(fileIdOne),
-        DynamoTable(
-          batchId,
-          assetId,
-          s"$prefix/$folderId/$assetId",
-          "name.txt",
-          File,
-          "Test",
-          "",
-          Some("name.txt"),
-          Option(1),
-          Option(s"name-checksum"),
-          Option("txt")
-        )
-      )
-      checkTableRows(
-        result,
-        List(fileIdTwo),
-        DynamoTable(
-          batchId,
-          assetId,
-          s"$prefix/$folderId/$assetId",
-          "TEST-metadata.json",
-          File,
-          "",
-          "",
-          Some("TEST-metadata.json"),
-          Option(2),
-          Option(s"metadata-checksum"),
-          Option("json")
-        )
-      )
+          val prefix = s"$departmentId${seriesIdOpt.map(id => s"/$id").getOrElse("")}"
+          checkTableRows(
+            result,
+            List(departmentId),
+            DynamoTable(batchId, departmentId, "", "department", ArchiveFolder, "department Title", "department Description", Some("department"))
+          )
+          seriesIdOpt.map(seriesId =>
+            checkTableRows(
+              result,
+              List(seriesId),
+              DynamoTable(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"))
+            )
+          )
+          checkTableRows(result, List(folderId), DynamoTable(batchId, folderId, prefix, "TestName", ArchiveFolder, "TestTitle", "", None))
+          checkTableRows(
+            result,
+            List(assetId),
+            DynamoTable(
+              batchId,
+              assetId,
+              s"$prefix/$folderId",
+              "TestAssetName",
+              Asset,
+              "TestAssetTitle",
+              "",
+              None,
+              customMetadataAttribute1 = Option("customMetadataAttributeValue"),
+              originalFiles = List(originalFileId.toString),
+              originalMetadataFiles = List(originalMetadataFileId.toString)
+            )
+          )
+          checkTableRows(
+            result,
+            List(fileIdOne),
+            DynamoTable(
+              batchId,
+              assetId,
+              s"$prefix/$folderId/$assetId",
+              name,
+              File,
+              "Test",
+              "",
+              Some(name),
+              Option(1),
+              Option(s"$name-checksum"),
+              expectedExt
+            )
+          )
+          checkTableRows(
+            result,
+            List(fileIdTwo),
+            DynamoTable(
+              batchId,
+              assetId,
+              s"$prefix/$folderId/$assetId",
+              "TEST-metadata.json",
+              File,
+              "",
+              "",
+              Some("TEST-metadata.json"),
+              Option(2),
+              Option(s"metadata-checksum"),
+              Option("json")
+            )
+          )
+        }
     }
   }
-
 }

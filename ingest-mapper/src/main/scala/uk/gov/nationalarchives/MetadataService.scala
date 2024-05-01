@@ -45,16 +45,16 @@ class MetadataService(s3: DAS3Client[IO]) {
           Stream.emits {
             json.arr.toList.map { metadataEntry =>
               val id = UUID.fromString(metadataEntry("id").str)
-              val name = metadataEntry("name").strOpt
+              val name = metadataEntry("name").str
               val parentPath = parentPaths(id)
               val path = if (parentPath.isEmpty) pathPrefix else s"$pathPrefix/${parentPath.stripPrefix("/")}"
               val checksum = fileIdToChecksum.get(id).map(Str.apply).getOrElse(Null)
               val fileExtension =
                 if (metadataEntry("type").str == "File")
-                  name
-                    .flatMap(n => n.split('.').lastOption)
-                    .map(Str.apply)
-                    .getOrElse(Null)
+                  name.split('.').toList.reverse match {
+                    case ext :: _ :: _ => Str(ext)
+                    case _             => Null
+                  }
                 else Null
               val metadataFromBagInfo: Obj = if (metadataEntry("type").str == "Asset") bagInfoJson else Obj()
               val metadataMap =
