@@ -5,14 +5,16 @@ import cats.effect.unsafe.implicits.global
 import com.github.tomakehurst.wiremock.WireMockServer
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4, TableFor6}
 import uk.gov.nationalarchives.Lambda.Config
 import uk.gov.nationalarchives.testUtils.ExternalServicesTestUtils
 
+import java.util.UUID
+
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPropertyChecks {
   val dynamoServer = new WireMockServer(9005)
-  val config: Config = Config("", "", "", "test-table")
+  val config: Config = Config("", "", "", "test-table", "test-lock-table")
 
   override def beforeEach(): Unit = {
     dynamoServer.start()
@@ -256,6 +258,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     stateOutput.reason should equal(
       "There were no Content Objects returned for entity ref '354f47cf-3ca2-4a4e-8181-81b714334f00'"
     )
+    stateOutput.reconciliationSnsMessage should equal(None)
 
     argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfGetBitstreamInfoRequests = 0)
   }
@@ -290,6 +293,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         stateOutput.wasReconciled should equal(false)
         stateOutput.reason should equal(expectedReason)
 
+        stateOutput.reconciliationSnsMessage should equal(None)
+
         argumentVerifier.verifyInvocationsAndArgumentsPassed()
       }
   }
@@ -322,13 +327,63 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         stateOutput.wasReconciled should equal(false)
         stateOutput.reason should equal(expectedReason)
 
+        stateOutput.reconciliationSnsMessage should equal(None)
+
         argumentVerifier.verifyInvocationsAndArgumentsPassed()
       }
+  }
+
+  "handler" should "return a an error if COs could be reconciled but the lock table returns 0 results" in {
+    stubGetRequest(dynamoGetResponse)
+    stubPostRequest(dynamoPostResponse)
+    stubLockTableGetRequest(emptyLockTableGetResponse)
+
+    val argumentVerifier = ArgumentVerifier()
+    val ex = intercept[Exception] {
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    }
+    ex.getMessage should equal(
+      "No items found for assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e' from batchId 'TEST-ID'"
+    )
+
+    argumentVerifier.verifyInvocationsAndArgumentsPassed()
+  }
+
+  "handler" should "return a an error if COs could be reconciled but the 'executionId' from the lock table does not match " +
+    "the 'batchId' from the input" in {
+      stubGetRequest(dynamoGetResponse)
+      stubPostRequest(dynamoPostResponse)
+      stubLockTableGetRequest(dynamoLockTableGetResponse.replace(s"$batchId", "b13ea544-7452-4f53-9db9-c7510c684855"))
+
+      val argumentVerifier = ArgumentVerifier()
+      val ex = intercept[Exception] {
+        new Lambda().handler(input, config, dependencies).unsafeRunSync()
+      }
+      ex.getMessage should equal(
+        "executionId 'b13ea544-7452-4f53-9db9-c7510c684855' belonging to assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e' does not equal 'TEST-ID'"
+      )
+
+      argumentVerifier.verifyInvocationsAndArgumentsPassed()
+    }
+
+  "handler" should "return a 'decoding' error if COs could be reconciled but the 'messageId' was missing from lock table" in {
+    stubGetRequest(dynamoGetResponse)
+    stubPostRequest(dynamoPostResponse)
+    stubLockTableGetRequest(dynamoLockTableGetResponse.replace(s",'messageId':'$messageId'", ""))
+
+    val argumentVerifier = ArgumentVerifier()
+    val ex = intercept[Exception] {
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    }
+    ex.getMessage should equal(s"DecodingFailure at .messageId: Missing required field")
+
+    argumentVerifier.verifyInvocationsAndArgumentsPassed()
   }
 
   "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
+    stubLockTableGetRequest(dynamoLockTableGetResponse)
 
     val argumentVerifier = ArgumentVerifier()
 
@@ -336,6 +391,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
     stateOutput.wasReconciled should equal(true)
     stateOutput.reason should equal("")
+
+    val message = stateOutput.reconciliationSnsMessage.get
+
+    message.reconciliationUpdate should equal("Asset was reconciled")
+    message.assetId should equal(UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e"))
+    message.properties.messageId should equal(newMessageId)
+    message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
+    message.properties.executionId should equal("TEST-ID")
 
     argumentVerifier.verifyInvocationsAndArgumentsPassed()
   }
@@ -347,6 +410,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
       stubGetRequest(dynamoGetResponse)
       stubPostRequest(updatedDynamoPostResponse)
+      stubLockTableGetRequest(dynamoLockTableGetResponse)
 
       val bitstreamWithUpdatedTitle =
         Seq(IO.pure(Seq(defaultDocxBitStreamInfo.copy(potentialCoTitle = Some(entityTitle)))), IO.pure(Seq(defaultJsonBitStreamInfo)))
@@ -357,6 +421,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
       stateOutput.wasReconciled should equal(true)
       stateOutput.reason should equal("")
+
+      val message = stateOutput.reconciliationSnsMessage.get
+
+      message.reconciliationUpdate should equal("Asset was reconciled")
+      message.assetId should equal(UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e"))
+      message.properties.messageId should equal(newMessageId)
+      message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
+      message.properties.executionId should equal("TEST-ID")
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed()
     }
@@ -375,6 +447,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       )
 
       stubPostRequest(updatedDynamoPostResponse)
+      stubLockTableGetRequest(dynamoLockTableGetResponse)
 
       val argumentVerifier = ArgumentVerifier()
 
@@ -382,6 +455,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
       stateOutput.wasReconciled should equal(true)
       stateOutput.reason should equal("")
+
+      val message = stateOutput.reconciliationSnsMessage.get
+
+      message.reconciliationUpdate should equal("Asset was reconciled")
+      message.assetId should equal(UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e"))
+      message.properties.messageId should equal(newMessageId)
+      message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
+      message.properties.executionId should equal("TEST-ID")
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed()
     }
