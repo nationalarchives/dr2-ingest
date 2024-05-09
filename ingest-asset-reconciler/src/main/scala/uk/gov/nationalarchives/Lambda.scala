@@ -40,6 +40,26 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   private def stripFileExtension(title: String) = title.split('.').dropRight(1).mkString(".")
 
+  private def coTitleMatchesAssetChildTitle(potentialCoTitle: Option[String], assetChild: FileDynamoTable): Boolean = {
+    potentialCoTitle.exists { titleOfCo => // DDB titles don't have file extensions, CO titles do
+      lazy val fileNameWithoutExtension = assetChild.name
+      val potentialAssetChildTitleOrFileName = assetChild.title.getOrElse("")
+      val assetChildTitleOrFileName = if potentialAssetChildTitleOrFileName.isEmpty then fileNameWithoutExtension else potentialAssetChildTitleOrFileName
+
+      val numOfDotsInTitleOrFileName = assetChildTitleOrFileName.count(_ == '.')
+      val numOfDotsInTitleOfCo = titleOfCo.count(_ == '.')
+      val differenceInNumberOfDots = numOfDotsInTitleOrFileName - numOfDotsInTitleOfCo
+
+      val (titleOfCoWithoutExtension, assetChildTitleOrFileNameWithoutExtension) =
+        if (numOfDotsInTitleOrFileName == numOfDotsInTitleOfCo) (titleOfCo, assetChildTitleOrFileName)
+        else if (differenceInNumberOfDots == 1) (titleOfCo, stripFileExtension(assetChildTitleOrFileName))
+        else if (abs(differenceInNumberOfDots) > 1) (titleOfCo, assetChildTitleOrFileName) // then let it fail the equality comparison below
+        else (stripFileExtension(titleOfCo), assetChildTitleOrFileName)
+
+      titleOfCoWithoutExtension == assetChildTitleOrFileNameWithoutExtension
+    }
+  }
+
   override def handler: (
       Input,
       Config,
@@ -107,23 +127,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     childrenForRepresentationType.filter { assetChild =>
                       val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
                         assetChild.checksumSha256 == bitstreamInfoForCo.fixity.value &&
-                        bitstreamInfoForCo.potentialCoTitle.exists { titleOfCo => // DDB titles don't have file extensions, CO titles do
-                          lazy val fileNameWithoutExtension = assetChild.name
-                          val potentialAssetChildTitleOrFileName = assetChild.title.getOrElse("")
-                          val assetChildTitleOrFileName = if potentialAssetChildTitleOrFileName.isEmpty then fileNameWithoutExtension else potentialAssetChildTitleOrFileName
-
-                          val numOfDotsInTitleOrFileName = assetChildTitleOrFileName.count(_ == '.')
-                          val numOfDotsInTitleOfCo = titleOfCo.count(_ == '.')
-                          val differenceInNumberOfDots = numOfDotsInTitleOrFileName - numOfDotsInTitleOfCo
-
-                          val (titleOfCoWithoutExtension, assetChildTitleOrFileNameWithoutExtension) =
-                            if (numOfDotsInTitleOrFileName == numOfDotsInTitleOfCo) (titleOfCo, assetChildTitleOrFileName)
-                            else if (differenceInNumberOfDots == 1) (titleOfCo, stripFileExtension(assetChildTitleOrFileName))
-                            else if (abs(differenceInNumberOfDots) > 1) (titleOfCo, assetChildTitleOrFileName) // then let it fail the equality comparison below
-                            else (stripFileExtension(titleOfCo), assetChildTitleOrFileName)
-
-                          titleOfCoWithoutExtension == assetChildTitleOrFileNameWithoutExtension
-                        }
+                        coTitleMatchesAssetChildTitle(bitstreamInfoForCo.potentialCoTitle, assetChild)
                       }
 
                       bitstreamWithSameChecksum.isEmpty
