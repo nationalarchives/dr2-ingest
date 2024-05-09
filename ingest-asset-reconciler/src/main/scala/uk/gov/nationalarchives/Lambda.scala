@@ -40,7 +40,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   private def stripFileExtension(title: String) = title.split('.').dropRight(1).mkString(".")
 
-  private def coTitleMatchesAssetChildTitle(potentialCoTitle: Option[String], assetChild: FileDynamoTable): Boolean = {
+  private def coTitleMatchesAssetChildTitle(potentialCoTitle: Option[String], assetChild: FileDynamoTable): Boolean =
     potentialCoTitle.exists { titleOfCo => // DDB titles don't have file extensions, CO titles do
       lazy val fileNameWithoutExtension = assetChild.name
       val potentialAssetChildTitleOrFileName = assetChild.title.getOrElse("")
@@ -58,7 +58,29 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
       titleOfCoWithoutExtension == assetChildTitleOrFileNameWithoutExtension
     }
-  }
+
+  private def generateSnsMessage(dependencies: Dependencies, assetId: UUID, lockTableName: String, batchId: String) =
+    for {
+      items <- dependencies.dynamoDbClient.getItems[IngestLockTable, PartitionKey](
+        List(PartitionKey(assetId)),
+        lockTableName
+      )
+
+      attributes <- IO.fromOption(items.headOption)(
+        new Exception(s"No items found for assetId '$assetId' from batchId '$batchId'")
+      )
+
+      message <- IO.fromEither(decode[AssetMessage](attributes.message.replace('\'', '\"')))
+      executionId = message.executionId
+
+      _ <- IO.raiseWhen(executionId != batchId) {
+        new Exception(s"executionId '$executionId' belonging to assetId '$assetId' does not equal '$batchId'")
+      }
+    } yield ReconciliationSnsMessage(
+      "Asset was reconciled",
+      assetId,
+      NewMessageProperties(dependencies.newMessageId, message.messageId, batchId)
+    )
 
   override def handler: (
       Input,
@@ -115,7 +137,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                 IO.pure(
                   StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'")
                 )
-              else {
+              else
                 for {
                   bitstreamInfoPerContentObject <- contentObjects
                     .map(co => dependencies.entityClient.getBitstreamInfo(co.ref))
@@ -143,7 +165,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     )
                   }
                 }
-              }
           } yield stateOutput
         }
         .toList
@@ -152,34 +173,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       combinedOutputs = StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim)
 
       finalOutput <-
-        if (allReconciled)
-          for {
-            items <- dependencies.dynamoDbClient.getItems[IngestLockTable, PartitionKey](
-              List(PartitionKey(assetId)),
-              config.dynamoLockTableName
-            )
-
-            attributes <- IO.fromOption(items.headOption)(
-              new Exception(s"No items found for assetId '$assetId' from batchId '$batchId'")
-            )
-
-            message <- IO.fromEither(decode[AssetMessage](attributes.message.replace('\'', '\"')))
-            executionId = message.executionId
-
-            _ <- IO.raiseWhen(executionId != batchId) {
-              new Exception(s"executionId '$executionId' belonging to assetId '$assetId' does not equal '$batchId'")
-            }
-          } yield combinedOutputs.copy(
-            reconciliationSnsMessage = Some(
-              ReconciliationSnsMessage(
-                "Asset was reconciled",
-                assetId,
-                NewMessageProperties(dependencies.newMessageId, message.messageId, batchId)
-              )
-            )
-          )
+        if (allReconciled) generateSnsMessage(dependencies, assetId, config.dynamoLockTableName, batchId).map { message =>
+          combinedOutputs.copy(reconciliationSnsMessage = Some(message))
+        }
         else IO.pure(combinedOutputs)
     } yield finalOutput
+
   override def dependencies(config: Config): IO[Dependencies] =
     Fs2Client
       .entityClient(config.apiUrl, config.secretName)
