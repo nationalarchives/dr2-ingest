@@ -2,7 +2,7 @@ import Dependencies.*
 import uk.gov.nationalarchives.sbt.Log4j2MergePlugin.log4j2MergeStrategy
 
 ThisBuild / organization := "uk.gov.nationalarchives"
-ThisBuild / scalaVersion := "3.3.3"
+ThisBuild / scalaVersion := "3.4.1"
 
 lazy val root = (project in file("."))
   .aggregate(
@@ -51,7 +51,7 @@ lazy val commonSettings = Seq(
     "AWS_ACCESS_KEY_ID" -> "accesskey",
     "AWS_SECRET_ACCESS_KEY" -> "secret",
     "AWS_LAMBDA_FUNCTION_NAME" -> "test"
-  ),
+  )
 )
 
 lazy val ingestMapper = (project in file("ingest-mapper"))
