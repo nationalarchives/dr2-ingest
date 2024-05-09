@@ -5,14 +5,16 @@ import cats.implicits.*
 import io.circe.generic.auto.*
 import io.circe.parser.decode
 import org.scanamo.syntax.*
-import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
+import pureconfig.generic.derivation.default.*
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.DADynamoDBClient.{*, given}
 import uk.gov.nationalarchives.DynamoFormatters.*
-import uk.gov.nationalarchives.DADynamoDBClient.{given, *}
+import uk.gov.nationalarchives.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.Lambda.*
+import uk.gov.nationalarchives.dp.client.Client.BitStreamInfo
 import uk.gov.nationalarchives.dp.client.EntityClient
+import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType
 import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType.*
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 
@@ -58,6 +60,33 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
       titleOfCoWithoutExtension == assetChildTitleOrFileNameWithoutExtension
     }
+
+  private def verifyFilesInDdbAreInPreservica(
+      childrenForRepresentationType: List[FileDynamoTable],
+      bitstreamInfoPerContentObject: Seq[BitStreamInfo],
+      assetId: UUID,
+      representationType: RepresentationType
+  ) = {
+    val childrenThatDidNotMatchOnChecksum =
+      childrenForRepresentationType.filter { assetChild =>
+        val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
+          assetChild.checksumSha256 == bitstreamInfoForCo.fixity.value &&
+          coTitleMatchesAssetChildTitle(bitstreamInfoForCo.potentialCoTitle, assetChild)
+        }
+
+        bitstreamWithSameChecksum.isEmpty
+      }
+
+    lazy val idsOfChildrenThatDidNotMatchOnChecksum = childrenThatDidNotMatchOnChecksum.map(_.id)
+
+    if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "")
+    else
+      StateOutput(
+        wasReconciled = false,
+        s"Out of the ${childrenForRepresentationType.length} files expected to be ingested for assetId '$assetId' with representationType $representationType, " +
+          s"a checksum and title could not be matched with a file on Preservica for: ${idsOfChildrenThatDidNotMatchOnChecksum.mkString(", ")}"
+      )
+  }
 
   private def generateSnsMessage(dependencies: Dependencies, assetId: UUID, lockTableName: String, batchId: String) =
     for {
@@ -144,27 +173,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     .flatSequence
 
                   _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
-                } yield {
-                  val childrenThatDidNotMatchOnChecksum =
-                    childrenForRepresentationType.filter { assetChild =>
-                      val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
-                        assetChild.checksumSha256 == bitstreamInfoForCo.fixity.value &&
-                        coTitleMatchesAssetChildTitle(bitstreamInfoForCo.potentialCoTitle, assetChild)
-                      }
-
-                      bitstreamWithSameChecksum.isEmpty
-                    }
-
-                  if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "")
-                  else {
-                    val idsOfChildrenThatDidNotMatchOnChecksum = childrenThatDidNotMatchOnChecksum.map(_.id)
-                    StateOutput(
-                      wasReconciled = false,
-                      s"Out of the ${childrenForRepresentationType.length} files expected to be ingested for assetId '$assetId' with representationType $representationType, " +
-                        s"a checksum and title could not be matched with a file on Preservica for: ${idsOfChildrenThatDidNotMatchOnChecksum.mkString(", ")}"
-                    )
-                  }
-                }
+                } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType)
           } yield stateOutput
         }
         .toList
