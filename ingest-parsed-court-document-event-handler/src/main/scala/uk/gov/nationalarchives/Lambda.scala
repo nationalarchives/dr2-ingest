@@ -3,13 +3,12 @@ package uk.gov.nationalarchives
 import cats.effect.IO
 import cats.implicits.*
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
-import io.circe.Decoder.Result
-import io.circe.{Decoder, HCursor}
+import io.circe.Decoder
 import io.circe.generic.auto.*
-import uk.gov.nationalarchives.EventDecoders.given
 import io.circe.parser.decode
 import pureconfig.*
 import pureconfig.module.catseffect.syntax.*
+import uk.gov.nationalarchives.EventDecoders.given
 import uk.gov.nationalarchives.FileProcessor.*
 import uk.gov.nationalarchives.Lambda.Dependencies
 
