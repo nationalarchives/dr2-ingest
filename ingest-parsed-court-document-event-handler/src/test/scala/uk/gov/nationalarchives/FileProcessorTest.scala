@@ -142,8 +142,10 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val s3 = mock[DAS3Client[IO]]
 
     when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], any[String], any[Long], any[Publisher[ByteBuffer]])) thenThrow new RuntimeException(
-      "Upload failed"
+    when(s3.upload(any[String], any[String], any[Long], any[Publisher[ByteBuffer]])).thenThrow(
+      new RuntimeException(
+        "Upload failed"
+      )
     )
 
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, UUIDGenerator().uuidGenerator)
@@ -236,7 +238,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
       }
 
       ex.getMessage should equal(
-        s"""DecodingFailure at .parameters.$paramNameToExclude: Missing required field""".stripMargin
+        s"""DecodingFailure at .parameters.TDR.$paramNameToExclude: Missing required field""".stripMargin
       )
     }
   }
@@ -505,8 +507,10 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
   "createBagitFiles" should "throw an error if there is an error uploading to s3" in {
     val s3 = mock[DAS3Client[IO]]
 
-    when(s3.upload(any[String], any[String], any[Long], any[Publisher[ByteBuffer]])) thenThrow new RuntimeException(
-      "Upload failed"
+    when(s3.upload(any[String], any[String], any[Long], any[Publisher[ByteBuffer]])).thenThrow(
+      new RuntimeException(
+        "Upload failed"
+      )
     )
 
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, UUIDGenerator().uuidGenerator)
