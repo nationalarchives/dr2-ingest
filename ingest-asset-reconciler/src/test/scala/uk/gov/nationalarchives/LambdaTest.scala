@@ -333,7 +333,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       }
   }
 
-  "handler" should "return a an error if COs could be reconciled but the lock table returns 0 results" in {
+  "handler" should "return an error if COs could be reconciled but the lock table returns 0 results" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
     stubLockTableGetRequest(emptyLockTableGetResponse)
@@ -349,7 +349,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     argumentVerifier.verifyInvocationsAndArgumentsPassed()
   }
 
-  "handler" should "return a an error if COs could be reconciled but the 'executionId' from the lock table does not match " +
+  "handler" should "return an error if COs could be reconciled but the 'executionId' from the lock table does not match " +
     "the 'batchId' from the input" in {
       stubGetRequest(dynamoGetResponse)
       stubPostRequest(dynamoPostResponse)
