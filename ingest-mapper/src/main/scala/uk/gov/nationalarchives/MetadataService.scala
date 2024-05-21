@@ -30,7 +30,7 @@ class MetadataService(s3: DAS3Client[IO]) {
 
   def parseBagInfoJson(input: Input): IO[List[Obj]] = parseFileFromS3(input, "bag-info.json", _.map(bagInfoJson => Obj.from(read(bagInfoJson).obj)))
 
-  def parseMetadataJson(input: Input, departmentAndSeries: DepartmentAndSeriesTableData, bagitManifests: List[BagitManifestRow], bagInfoJson: Obj): IO[List[Obj]] = {
+  def parseMetadataJson(input: Input, departmentAndSeries: DepartmentAndSeriesTableData, bagitManifests: List[BagitManifestRow], bagInfoJson: Obj): IO[List[Obj]] =
     parseFileFromS3(
       input,
       "metadata.json",
@@ -66,9 +66,8 @@ class MetadataService(s3: DAS3Client[IO]) {
           }
         }
     )
-  }
 
-  def parseBagManifest(input: Input): IO[List[BagitManifestRow]] = {
+  def parseBagManifest(input: Input): IO[List[BagitManifestRow]] =
     parseFileFromS3(
       input,
       "manifest-sha256.txt",
@@ -78,20 +77,18 @@ class MetadataService(s3: DAS3Client[IO]) {
             .split('\n')
             .map { rowAsString =>
               val rowAsArray = rowAsString.split(' ')
-              if (rowAsArray.size != 2) {
+              if (rowAsArray.size != 2)
                 IO.raiseError(new Exception(s"Expecting 2 columns in manifest-sha256.txt, found ${rowAsArray.size}"))
-              } else {
+              else
                 IO.pure(BagitManifestRow(rowAsArray.head, rowAsArray.last))
-              }
             }
             .toList
             .sequence
         }
       }
     )
-  }
 
-  private def parseFileFromS3[T](input: Input, name: String, decoderPipe: Pipe[IO, String, T]): IO[List[T]] = {
+  private def parseFileFromS3[T](input: Input, name: String, decoderPipe: Pipe[IO, String, T]): IO[List[T]] =
     for {
       pub <- s3.download(input.s3Bucket, s"${input.s3Prefix}$name")
       s3FileString <- pub
@@ -102,8 +99,8 @@ class MetadataService(s3: DAS3Client[IO]) {
         .compile
         .toList
     } yield s3FileString
-  }
 }
+
 object MetadataService {
   def typeFromString(typeString: String): Type = typeString match {
     case "ArchiveFolder" => Type.ArchiveFolder

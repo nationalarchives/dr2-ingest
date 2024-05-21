@@ -184,5 +184,4 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val department = result.department
     checkDynamoTable(department, "Unknown", uuids.head, None)
   }
-
 }
