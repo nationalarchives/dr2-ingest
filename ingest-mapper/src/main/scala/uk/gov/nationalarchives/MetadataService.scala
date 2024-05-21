@@ -77,8 +77,8 @@ class MetadataService(s3: DAS3Client[IO]) {
             .split('\n')
             .map { rowAsString =>
               val rowAsArray = rowAsString.split(' ')
-              if (rowAsArray.size != 2)
-                IO.raiseError(new Exception(s"Expecting 2 columns in manifest-sha256.txt, found ${rowAsArray.size}"))
+              if (rowAsArray.length != 2)
+                IO.raiseError(new Exception(s"Expecting 2 columns in manifest-sha256.txt, found ${rowAsArray.length}"))
               else
                 IO.pure(BagitManifestRow(rowAsArray.head, rowAsArray.last))
             }
