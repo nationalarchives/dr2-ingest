@@ -6,31 +6,18 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import io.circe.Decoder
 import io.circe.generic.auto.*
 import io.circe.parser.decode
-import org.scanamo.{DynamoFormat, DynamoObject, DynamoReadError, DynamoValue}
 import pureconfig.*
 import pureconfig.module.catseffect.syntax.*
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.EventDecoders.given
 import uk.gov.nationalarchives.FileProcessor.*
-import uk.gov.nationalarchives.Lambda.{Dependencies, DynamoItems}
+import uk.gov.nationalarchives.Lambda.Dependencies
 
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
-
-  given DynamoFormat[DynamoItems] = new DynamoFormat[DynamoItems] {
-    // We're not using read but we have to have this overridden
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, DynamoItems] = Right(DynamoItems("", "", ""))
-
-    override def write(items: DynamoItems): DynamoValue = {
-      val valuesAsDynamoValues = items.productIterator.map(value => DynamoValue.fromString(value.toString))
-      val dynamoValuesMap: Map[String, DynamoValue] = (items.productElementNames zip valuesAsDynamoValues).toMap
-      DynamoValue.fromDynamoObject(DynamoObject(dynamoValuesMap))
-    }
-  }
-
   override def handler: (
       SQSEvent,
       Config,
@@ -145,5 +132,4 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 
 object Lambda {
   case class Dependencies(s3: DAS3Client[IO], sfn: DASFNClient[IO], dynamo: DADynamoDBClient[IO], randomUuidGenerator: () => UUID, seriesMapper: SeriesMapper)
-  case class DynamoItems(ioId: String, batchId: String, message: String)
 }
