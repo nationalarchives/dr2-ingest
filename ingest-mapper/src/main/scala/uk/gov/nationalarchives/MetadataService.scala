@@ -7,6 +7,7 @@ import ujson._
 import fs2.{Chunk, Pipe, Stream, text}
 import uk.gov.nationalarchives.Lambda.Input
 import uk.gov.nationalarchives.MetadataService._
+import uk.gov.nationalarchives.MetadataService.Type.{File, Asset}
 
 import java.util.UUID
 
@@ -30,7 +31,7 @@ class MetadataService(s3: DAS3Client[IO]) {
 
   def parseBagInfoJson(input: Input): IO[List[Obj]] = parseFileFromS3(input, "bag-info.json", _.map(bagInfoJson => Obj.from(read(bagInfoJson).obj)))
 
-  def parseMetadataJson(input: Input, departmentAndSeries: DepartmentAndSeriesTableData, bagitManifests: List[BagitManifestRow], bagInfoJson: Obj): IO[List[Obj]] = {
+  def parseMetadataJson(input: Input, departmentAndSeries: DepartmentAndSeriesTableData, bagitManifests: List[BagitManifestRow], bagInfoJson: Obj): IO[List[Obj]] =
     parseFileFromS3(
       input,
       "metadata.json",
@@ -38,9 +39,10 @@ class MetadataService(s3: DAS3Client[IO]) {
         s.flatMap { metadataJson =>
           val fileIdToChecksum: Map[UUID, String] = bagitManifests.map(bm => UUID.fromString(bm.filePath.stripPrefix("data/")) -> bm.checksum).toMap
           val json = read(metadataJson)
+          val departmentId = departmentAndSeries.department("id").str
           val pathPrefix = departmentAndSeries.series
-            .map(series => s"${departmentAndSeries.department("id").str}/${series("id").str}")
-            .getOrElse(s"${departmentAndSeries.department("id").str}")
+            .map(series => s"$departmentId/${series("id").str}")
+            .getOrElse(departmentId)
           val parentPaths = getParentPaths(json)
           Stream.emits {
             json.arr.toList.map { metadataEntry =>
@@ -49,14 +51,15 @@ class MetadataService(s3: DAS3Client[IO]) {
               val parentPath = parentPaths(id)
               val path = if (parentPath.isEmpty) pathPrefix else s"$pathPrefix/${parentPath.stripPrefix("/")}"
               val checksum = fileIdToChecksum.get(id).map(Str.apply).getOrElse(Null)
+              val entryType = metadataEntry("type").str
               val fileExtension =
-                if (metadataEntry("type").str == "File")
+                if (entryType == File.toString)
                   name.split('.').toList.reverse match {
                     case ext :: _ :: _ => Str(ext)
                     case _             => Null
                   }
                 else Null
-              val metadataFromBagInfo: Obj = if (metadataEntry("type").str == "Asset") bagInfoJson else Obj()
+              val metadataFromBagInfo: Obj = if (entryType == Asset.toString) bagInfoJson else Obj()
               val metadataMap =
                 Map("batchId" -> Str(input.batchId), "parentPath" -> Str(path), "checksum_sha256" -> checksum, "fileExtension" -> fileExtension) ++ metadataEntry.obj.view
                   .filterKeys(_ != "parentId")
@@ -66,9 +69,8 @@ class MetadataService(s3: DAS3Client[IO]) {
           }
         }
     )
-  }
 
-  def parseBagManifest(input: Input): IO[List[BagitManifestRow]] = {
+  def parseBagManifest(input: Input): IO[List[BagitManifestRow]] =
     parseFileFromS3(
       input,
       "manifest-sha256.txt",
@@ -78,20 +80,18 @@ class MetadataService(s3: DAS3Client[IO]) {
             .split('\n')
             .map { rowAsString =>
               val rowAsArray = rowAsString.split(' ')
-              if (rowAsArray.size != 2) {
-                IO.raiseError(new Exception(s"Expecting 2 columns in manifest-sha256.txt, found ${rowAsArray.size}"))
-              } else {
+              if (rowAsArray.length != 2)
+                IO.raiseError(new Exception(s"Expecting 2 columns in manifest-sha256.txt, found ${rowAsArray.length}"))
+              else
                 IO.pure(BagitManifestRow(rowAsArray.head, rowAsArray.last))
-              }
             }
             .toList
             .sequence
         }
       }
     )
-  }
 
-  private def parseFileFromS3[T](input: Input, name: String, decoderPipe: Pipe[IO, String, T]): IO[List[T]] = {
+  private def parseFileFromS3[T](input: Input, name: String, decoderPipe: Pipe[IO, String, T]): IO[List[T]] =
     for {
       pub <- s3.download(input.s3Bucket, s"${input.s3Prefix}$name")
       s3FileString <- pub
@@ -102,8 +102,8 @@ class MetadataService(s3: DAS3Client[IO]) {
         .compile
         .toList
     } yield s3FileString
-  }
 }
+
 object MetadataService {
   def typeFromString(typeString: String): Type = typeString match {
     case "ArchiveFolder" => Type.ArchiveFolder

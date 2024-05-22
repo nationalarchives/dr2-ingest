@@ -4,10 +4,10 @@ object Dependencies {
   lazy val pureConfigVersion = "0.17.6"
   lazy val daAwsClientsVersion = "0.1.57"
   private val fs2Version = "3.10.2"
-  private val sttpVersion = "3.9.6"
+  private val sttpVersion = "3.9.7"
   private val circeVersion = "0.14.7"
   private val log4CatsVersion = "2.7.0"
-  private val awsLibraryVersion = "1.12.720"
+  private val awsLibraryVersion = "1.12.727"
   private lazy val scalaTestVersion = "3.2.18"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.29.17"
@@ -33,10 +33,10 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % s"$scalaTestVersion.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.69"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.71"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
-  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.5"
+  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.6"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
@@ -47,7 +47,6 @@ object Dependencies {
   lazy val sttpClientFs2 = "com.softwaremill.sttp.client3" %% "fs2" % sttpVersion
   lazy val sttpCirce = "com.softwaremill.sttp.client3" %% "circe" % sttpVersion
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
-  lazy val upickle = "com.lihaoyi" %% "upickle" % "3.3.0"
+  lazy val upickle = "com.lihaoyi" %% "upickle" % "3.3.1"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock" % "3.0.1"
-
 }
