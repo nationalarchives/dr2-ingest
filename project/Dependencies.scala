@@ -47,7 +47,7 @@ object Dependencies {
   lazy val sttpClientFs2 = "com.softwaremill.sttp.client3" %% "fs2" % sttpVersion
   lazy val sttpCirce = "com.softwaremill.sttp.client3" %% "circe" % sttpVersion
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
-  lazy val upickle = "com.lihaoyi" %% "upickle" % "3.3.0"
+  lazy val upickle = "com.lihaoyi" %% "upickle" % "3.3.1"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock" % "3.0.1"
 
 }
