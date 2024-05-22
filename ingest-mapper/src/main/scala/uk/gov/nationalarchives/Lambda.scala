@@ -17,14 +17,13 @@ import io.circe.*
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   given Typeclass[Obj] = new Typeclass[Obj] {
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, Obj] = {
+    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, Obj] =
       dynamoValue.asObject
         .map(_.toMap[String].map { valuesMap =>
           val jsonValuesMap = valuesMap.view.mapValues(Str.apply).toList
           Obj(LinkedHashMap(jsonValuesMap))
         })
         .getOrElse(Left(TypeCoercionError(new Exception("Dynamo object not found"))))
-    }
 
     override def write(jsonObject: Obj): DynamoValue = {
       val dynamoValuesMap: Map[String, DynamoValue] = jsonObject.value.toMap.view
@@ -35,16 +34,14 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     }
   }
 
-  private def processDynamoValue(dynamoValue: Value): DynamoValue = {
+  private def processDynamoValue(dynamoValue: Value): DynamoValue =
     dynamoValue match {
       case Num(value) =>
         DynamoValue.fromNumber[Long](value.toLong)
       case Arr(arr) => DynamoValue.fromDynamoArray(DynamoArray(arr.map(processDynamoValue).toList))
       case s =>
         DynamoValue.fromString(s.str)
-
     }
-  }
 
   override def handler: (
       Input,
@@ -52,7 +49,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       Dependencies
   ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
-
       log <- IO(log(Map("batchRef" -> input.batchId)))
       _ <- log(s"Processing batchRef ${input.batchId}")
 
@@ -66,7 +62,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       _ <- dependencies.dynamo.writeItems(config.dynamoTableName, metadataJson)
       _ <- log("Metadata written to dynamo db")
     } yield {
-
       val typeToId: Map[Type, List[UUID]] = metadataJson
         .groupBy(jsonObj => typeFromString(jsonObj("type").str))
         .view
