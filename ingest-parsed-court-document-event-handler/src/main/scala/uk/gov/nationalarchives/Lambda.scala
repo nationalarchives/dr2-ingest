@@ -109,6 +109,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
               Some(s"attribute_not_exists($ioId)")
             )
           )
+          _ <- logWithFileRef("Written asset to lock table")
 
           _ <- dependencies.sfn.startExecution(config.sfnArn, output, Option(batchRef))
           _ <- logWithFileRef("Started step function execution")
