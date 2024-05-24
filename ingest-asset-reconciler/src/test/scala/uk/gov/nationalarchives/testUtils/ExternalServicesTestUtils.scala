@@ -30,6 +30,7 @@ import scala.jdk.CollectionConverters.*
 
 class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrivenPropertyChecks with MockitoSugar {
   val assetId: UUID = UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e")
+  val assetName: UUID = UUID.fromString("acdb2e57-923b-4caa-8fd9-a2f79f650c43")
   val assetParentPath: String = "a/parent/path"
   val childIdJson: UUID = UUID.fromString("feedd76d-e368-45c8-96e3-c37671476793")
   val childIdDocx: UUID = UUID.fromString("a25d33f3-7726-4fb3-8e6f-f66358451c4e")
@@ -211,7 +212,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
        |          "S": "$assetId"
        |        },
        |        "name": {
-       |          "S": "Test Name"
+       |          "S": "$assetName"
        |        },
        |        "parentPath": {
        |          "S": "$assetParentPath"
@@ -408,7 +409,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
       )
 
       if (numOfEntitiesByIdentifierInvocations > 0)
-        entitiesByIdentifierIdentifierToGetCaptor.getValue should be(Identifier("SourceID", "Test Name"))
+        entitiesByIdentifierIdentifierToGetCaptor.getValue should be(Identifier("SourceID", "acdb2e57-923b-4caa-8fd9-a2f79f650c43"))
 
       val ioEntityRefForUrlsRequestCaptor = getIoEntityRefCaptor
       val optionalRepresentationTypeCaptorRequestCaptor = getOptionalRepresentationTypeCaptor

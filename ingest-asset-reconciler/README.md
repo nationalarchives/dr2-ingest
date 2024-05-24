@@ -18,7 +18,7 @@ The lambda:
 * Get the child files from Dynamo where the child's parent path equals the asset path.
 * Get the bitstreams of the Content Objects from the API
 * Iterate through each child, using its checksum to find a Content Object that has the same checksum (fixity) and file name
-* If all files could be reconciled, get the attributes that correspond to the assetId:
+* If all files could be reconciled, get the attributes that correspond to the assetName:
   * `messageId`
   * `parentMessageId`
   * `executionId`
@@ -27,7 +27,7 @@ The lambda:
   * (and if they weren't reconciled), the reason why
   * (if files could be reconciled) the SNS message to send (`Some(ReconciliationSnsMessage)`), containing information such as:
     * `reconciliationUpdate`
-    * `assetId`
+    * `assetName`
     * `properties`, containing the values:
       * `messageId`
       * `parentMessageId`
