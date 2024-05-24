@@ -13,7 +13,7 @@ import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.EventDecoders.given
 import uk.gov.nationalarchives.FileProcessor.*
 import uk.gov.nationalarchives.Lambda.Dependencies
-
+import uk.gov.nationalarchives.DynamoFormatters.{batchId, ioId, message}
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
@@ -102,11 +102,11 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             DADynamoDbWriteItemRequest(
               config.dynamoLockTableName,
               Map(
-                "ioId" -> toDynamoString(tdrUuid),
-                "batchId" -> toDynamoString(batchRef),
-                "message" -> toDynamoString(s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""")
+                s"$ioId" -> toDynamoString(tdrUuid),
+                s"$batchId" -> toDynamoString(batchRef),
+                s"$message" -> toDynamoString(s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""")
               ),
-              Some(s"attribute_not_exists($tdrUuid)")
+              Some(s"attribute_not_exists($ioId)")
             )
           )
 
