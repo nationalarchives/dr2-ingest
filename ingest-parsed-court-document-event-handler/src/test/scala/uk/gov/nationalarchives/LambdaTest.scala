@@ -340,7 +340,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     ddbRequest.Item.ioId.S should equal("24190792-a2e5-43a0-a9e9-6a0580905d90")
     ddbRequest.Item.batchId.S should equal("TEST-REFERENCE")
     ddbRequest.Item.message.S should equal("{\"messageId\":\"27a9a6bb-a023-4cab-8592-39b44761a30a\"}")
-    ddbRequest.ConditionExpression should equal("attribute_not_exists(24190792-a2e5-43a0-a9e9-6a0580905d90)")
+    ddbRequest.ConditionExpression should equal("attribute_not_exists(ioId)")
   }
 
   "handler" should "return an error if the Dynamo API is unavailable" in {
