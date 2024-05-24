@@ -207,6 +207,7 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
     libraryDependencies ++= Seq(
       awsCrt,
       commonsCompress,
+      dynamoClient,
       fs2IO,
       s3Client,
       sfnClient,

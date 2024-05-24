@@ -474,5 +474,5 @@ object FileProcessor {
       fs2.interop.flow.fromPublisher[IO](FlowAdapters.toFlowPublisher(publisher), chunkSize = 16)
     }
 
-  case class Config(outputBucket: String, sfnArn: String) derives ConfigReader
+  case class Config(outputBucket: String, sfnArn: String, dynamoLockTableName: String) derives ConfigReader
 }

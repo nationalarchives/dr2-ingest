@@ -12,6 +12,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.services.sfn.SfnAsyncClient
 import uk.gov.nationalarchives.FileProcessor._
@@ -31,7 +32,11 @@ import scala.jdk.CollectionConverters._
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPropertyChecks {
   case class SFNRequest(stateMachineArn: String, name: String, input: String)
 
-  val config: Config = Config("", "")
+  case class DDBRequest(TableName: String, Item: DDBItem, ConditionExpression: String)
+  case class DDBItem(ioId: DDBValue, batchId: DDBValue, message: DDBValue)
+  case class DDBValue(S: String)
+
+  val config: Config = Config("", "", "")
 
   val reference = "TEST-REFERENCE"
   val uuidsAndChecksum: List[(String, String)] = List(
@@ -54,12 +59,15 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   override def beforeEach(): Unit = {
     sfnServer.resetAll()
     s3Server.resetAll()
+    dynamoServer.resetAll()
     sfnServer.start()
     s3Server.start()
+    dynamoServer.start()
   }
 
   val s3Server = new WireMockServer(9011)
   val sfnServer = new WireMockServer(9012)
+  val dynamoServer = new WireMockServer(9013)
   val testOutputBucket = "outputBucket"
   val inputBucket = "inputBucket"
   private def packageAvailable(s3Key: String): TREInput = TREInput(
@@ -84,6 +92,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     read[SFNRequest](sfnEvent.getRequest.getBodyAsString)
   }
 
+  private def runLambdaAndReturnDynamoDbRequest(metadataJsonOpt: Option[String] = None) = {
+    stubAWSRequests(inputBucket, metadataJsonOpt = metadataJsonOpt)
+    new Lambda().handler(event(), config, dependencies).unsafeRunSync()
+
+    val ddbEvent = dynamoServer.getAllServeEvents.asScala.head
+    read[DDBRequest](ddbEvent.getRequest.getBodyAsString)
+  }
+
   def dependencies: Dependencies = {
     val credentials: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
     val s3AsyncClient: S3AsyncClient = S3AsyncClient
@@ -100,11 +116,19 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       .credentialsProvider(credentials)
       .build()
 
+    val dynamoAsyncClient: DynamoDbAsyncClient = DynamoDbAsyncClient
+      .builder()
+      .endpointOverride(URI.create("http://localhost:9013"))
+      .region(Region.EU_WEST_2)
+      .credentialsProvider(credentials)
+      .build()
+
     val s3: DAS3Client[IO] = DAS3Client[IO](s3AsyncClient)
     val sfn: DASFNClient[IO] = new DASFNClient(sfnAsyncClient)
+    val dynamo: DADynamoDBClient[IO] = new DADynamoDBClient[IO](dynamoAsyncClient)
     val seriesMapper: SeriesMapper = new SeriesMapper(Set(Court("COURT", "TEST", "TEST SERIES")))
     val uuidsIterator: Iterator[String] = uuidsAndChecksum.map(_._1).iterator
-    Dependencies(s3, sfn, () => UUID.fromString(uuidsIterator.next()), seriesMapper)
+    Dependencies(s3, sfn, dynamo, () => UUID.fromString(uuidsIterator.next()), seriesMapper)
   }
 
   def createEvent(body: String): SQSEvent = {
@@ -183,6 +207,12 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           )
       )
     }
+
+    dynamoServer.stubFor(
+      post(urlEqualTo("/"))
+        .withRequestBody(matchingJsonPath("$.TableName", equalTo("test-table")))
+        .willReturn(ok())
+    )
   }
 
   "the lambda" should "download the .tar.gz file from the input bucket" in {
@@ -301,6 +331,26 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         actualMetadataContent should equal(expectedMetadataContent)
       }
     }
+  }
+
+  "the lambda" should "write the correct values to the lock table" in {
+    val ddbRequest = runLambdaAndReturnDynamoDbRequest()
+
+    ddbRequest.TableName should equal("test-table")
+    ddbRequest.Item.ioId.S should equal("24190792-a2e5-43a0-a9e9-6a0580905d90")
+    ddbRequest.Item.batchId.S should equal("TEST-REFERENCE")
+    ddbRequest.Item.message.S should equal("{\"messageId\":\"27a9a6bb-a023-4cab-8592-39b44761a30a\"}")
+    ddbRequest.ConditionExpression should equal("attribute_not_exists(24190792-a2e5-43a0-a9e9-6a0580905d90)")
+  }
+
+  "handler" should "return an error if the Dynamo API is unavailable" in {
+    stubAWSRequests(inputBucket)
+    dynamoServer.stop()
+    val ex = intercept[Exception] {
+      new Lambda().handler(event(), config, dependencies).unsafeRunSync()
+    }
+
+    ex.getMessage should equal("Unable to execute HTTP request: Connection refused: localhost/127.0.0.1:9013")
   }
 
   "the lambda" should "start the state machine execution with the correct parameters" in {

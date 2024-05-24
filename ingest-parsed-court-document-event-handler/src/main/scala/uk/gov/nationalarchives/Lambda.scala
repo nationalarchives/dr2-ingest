@@ -8,6 +8,8 @@ import io.circe.generic.auto.*
 import io.circe.parser.decode
 import pureconfig.*
 import pureconfig.module.catseffect.syntax.*
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.EventDecoders.given
 import uk.gov.nationalarchives.FileProcessor.*
 import uk.gov.nationalarchives.Lambda.Dependencies
@@ -16,7 +18,6 @@ import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
-
   override def handler: (
       SQSEvent,
       Config,
@@ -63,6 +64,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             treInput.parameters.skipSeriesLookup
           )
           fileInfoWithUpdatedChecksum = fileInfo.copy(checksum = treMetadata.parameters.TDR.`Document-Checksum-sha256`)
+          tdrUuid = treMetadata.parameters.TDR.`UUID`.toString
           bagitMetadata = fileProcessor.createBagitMetadataObjects(
             fileInfoWithUpdatedChecksum,
             metadataFileInfo,
@@ -74,7 +76,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             fileReference,
             output.department,
             output.series,
-            treMetadata.parameters.TDR.`UUID`.toString
+            tdrUuid
           )
           _ <- fileProcessor.createBagitFiles(
             bagitMetadata,
@@ -96,6 +98,18 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           _ <- dependencies.s3.deleteObjects(outputBucket, fileNameToFileInfo.values.map(_.id.toString).toList)
           _ <- logWithFileRef("Deleted objects from the root of S3")
 
+          _ <- dependencies.dynamo.writeItem(
+            DADynamoDbWriteItemRequest(
+              config.dynamoLockTableName,
+              Map(
+                "ioId" -> toDynamoString(tdrUuid),
+                "batchId" -> toDynamoString(batchRef),
+                "message" -> toDynamoString(s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""")
+              ),
+              Some(s"attribute_not_exists($tdrUuid)")
+            )
+          )
+
           _ <- dependencies.sfn.startExecution(config.sfnArn, output, Option(batchRef))
           _ <- logWithFileRef("Started step function execution")
         } yield ()
@@ -104,15 +118,18 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
       .map(_.head)
   }
 
+  private def toDynamoString(value: String): AttributeValue = AttributeValue.builder.s(value).build
+
   override def dependencies(config: Config): IO[Dependencies] = IO {
     val s3: DAS3Client[IO] = DAS3Client[IO]()
     val sfn: DASFNClient[IO] = DASFNClient[IO]()
+    val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
     val randomUuidGenerator: () => UUID = () => UUID.randomUUID
     val seriesMapper: SeriesMapper = SeriesMapper()
-    Dependencies(s3, sfn, randomUuidGenerator, seriesMapper)
+    Dependencies(s3, sfn, dynamo, randomUuidGenerator, seriesMapper)
   }
 }
 
 object Lambda {
-  case class Dependencies(s3: DAS3Client[IO], sfn: DASFNClient[IO], randomUuidGenerator: () => UUID, seriesMapper: SeriesMapper)
+  case class Dependencies(s3: DAS3Client[IO], sfn: DASFNClient[IO], dynamo: DADynamoDBClient[IO], randomUuidGenerator: () => UUID, seriesMapper: SeriesMapper)
 }

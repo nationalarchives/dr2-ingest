@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.23.1"
   lazy val pureConfigVersion = "0.17.6"
-  lazy val daAwsClientsVersion = "0.1.56"
+  lazy val daAwsClientsVersion = "0.1.57"
   private val fs2Version = "3.10.2"
   private val sttpVersion = "3.9.7"
   private val circeVersion = "0.14.7"
@@ -49,5 +49,4 @@ object Dependencies {
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
   lazy val upickle = "com.lihaoyi" %% "upickle" % "3.3.1"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock" % "3.0.1"
-
 }
