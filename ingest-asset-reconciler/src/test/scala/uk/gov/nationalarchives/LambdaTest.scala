@@ -226,7 +226,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal(s"No entity found using SourceId 'Test Name'")
+    ex.getMessage should equal(s"No entity found using SourceId 'acdb2e57-923b-4caa-8fd9-a2f79f650c43'")
 
     argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0)
   }
@@ -343,7 +343,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(
-      "No items found for assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e' from batchId 'TEST-ID'"
+      "No items found for ioId 'acdb2e57-923b-4caa-8fd9-a2f79f650c43' from batchId 'TEST-ID'"
     )
 
     argumentVerifier.verifyInvocationsAndArgumentsPassed()
@@ -360,7 +360,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         new Lambda().handler(input, config, dependencies).unsafeRunSync()
       }
       ex.getMessage should equal(
-        "executionId 'b13ea544-7452-4f53-9db9-c7510c684855' belonging to assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e' does not equal 'TEST-ID'"
+        "executionId 'b13ea544-7452-4f53-9db9-c7510c684855' belonging to ioId 'acdb2e57-923b-4caa-8fd9-a2f79f650c43' does not equal 'TEST-ID'"
       )
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed()
@@ -395,7 +395,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val message = stateOutput.reconciliationSnsMessage.get
 
     message.reconciliationUpdate should equal("Asset was reconciled")
-    message.assetId should equal(UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e"))
+    message.assetName should equal(assetName)
     message.properties.messageId should equal(newMessageId)
     message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
     message.properties.executionId should equal("TEST-ID")
@@ -425,7 +425,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       val message = stateOutput.reconciliationSnsMessage.get
 
       message.reconciliationUpdate should equal("Asset was reconciled")
-      message.assetId should equal(UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e"))
+      message.assetName should equal(assetName)
       message.properties.messageId should equal(newMessageId)
       message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
       message.properties.executionId should equal("TEST-ID")
@@ -459,7 +459,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       val message = stateOutput.reconciliationSnsMessage.get
 
       message.reconciliationUpdate should equal("Asset was reconciled")
-      message.assetId should equal(UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e"))
+      message.assetName should equal(assetName)
       message.properties.messageId should equal(newMessageId)
       message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
       message.properties.executionId should equal("TEST-ID")
