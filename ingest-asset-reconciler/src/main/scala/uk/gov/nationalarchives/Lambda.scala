@@ -86,26 +86,26 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       )
   }
 
-  private def generateSnsMessage(dependencies: Dependencies, assetId: UUID, lockTableName: String, batchId: String) =
+  private def generateSnsMessage(dependencies: Dependencies, assetName: UUID, lockTableName: String, batchId: String) =
     for {
       items <- dependencies.dynamoDbClient.getItems[IngestLockTable, PartitionKey](
-        List(PartitionKey(assetId)),
+        List(PartitionKey(assetName)),
         lockTableName
       )
 
       attributes <- IO.fromOption(items.headOption)(
-        new Exception(s"No items found for assetId '$assetId' from batchId '$batchId'")
+        new Exception(s"No items found for ioId '$assetName' from batchId '$batchId'")
       )
 
       message <- IO.fromEither(decode[AssetMessage](attributes.message.replace('\'', '\"')))
       executionId = message.executionId
 
       _ <- IO.raiseWhen(executionId != batchId) {
-        new Exception(s"executionId '$executionId' belonging to assetId '$assetId' does not equal '$batchId'")
+        new Exception(s"executionId '$executionId' belonging to ioId '$assetName' does not equal '$batchId'")
       }
     } yield ReconciliationSnsMessage(
       "Asset was reconciled",
-      assetId,
+      assetName,
       NewMessageProperties(dependencies.newMessageId, message.messageId, batchId)
     )
 
@@ -180,9 +180,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       combinedOutputs = StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim)
 
       finalOutput <-
-        if (allReconciled) generateSnsMessage(dependencies, assetId, config.dynamoLockTableName, batchId).map { message =>
-          combinedOutputs.copy(reconciliationSnsMessage = Some(message))
-        }
+        if (allReconciled)
+          generateSnsMessage(dependencies, UUID.fromString(asset.name), config.dynamoLockTableName, batchId).map { message =>
+            combinedOutputs.copy(reconciliationSnsMessage = Some(message))
+          }
         else IO.pure(combinedOutputs)
     } yield finalOutput
 
@@ -200,7 +201,7 @@ object Lambda {
 
   case class NewMessageProperties(messageId: UUID, parentMessageId: UUID, executionId: String)
 
-  case class ReconciliationSnsMessage(reconciliationUpdate: String, assetId: UUID, properties: NewMessageProperties)
+  case class ReconciliationSnsMessage(reconciliationUpdate: String, assetName: UUID, properties: NewMessageProperties)
 
   case class StateOutput(wasReconciled: Boolean, reason: String, reconciliationSnsMessage: Option[ReconciliationSnsMessage] = None)
 
