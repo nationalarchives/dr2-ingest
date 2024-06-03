@@ -204,7 +204,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     }
     ex.getMessage should equal(s"No asset found for $assetId from $batchId")
 
-    argumentVerifier.verifyInvocationsAndArgumentsPassed(0, 0, 0, 0)
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(0, 0, 0, 0, 1, 0)
   }
 
   "handler" should "return an error if the Dynamo entry does not have a type of 'Asset'" in {
@@ -216,7 +216,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     }
     ex.getMessage should equal(s"Object $assetId is of type ArchiveFolder and not 'Asset'")
 
-    argumentVerifier.verifyInvocationsAndArgumentsPassed(0, 0, 0, 0)
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(0, 0, 0, 0, 1, 0)
   }
 
   "handler" should "return an error if there were no entities that had the asset name as the SourceId" in {
@@ -228,7 +228,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     }
     ex.getMessage should equal(s"No entity found using SourceId 'acdb2e57-923b-4caa-8fd9-a2f79f650c43'")
 
-    argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0)
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
   }
 
   "handler" should "return an error if no children are found for the asset" in {
@@ -346,7 +346,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       "No items found for ioId 'acdb2e57-923b-4caa-8fd9-a2f79f650c43' from batchId 'TEST-ID'"
     )
 
-    argumentVerifier.verifyInvocationsAndArgumentsPassed()
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
   }
 
   "handler" should "return an error if COs could be reconciled but the 'executionId' from the lock table does not match " +
@@ -363,7 +363,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         "executionId 'b13ea544-7452-4f53-9db9-c7510c684855' belonging to ioId 'acdb2e57-923b-4caa-8fd9-a2f79f650c43' does not equal 'TEST-ID'"
       )
 
-      argumentVerifier.verifyInvocationsAndArgumentsPassed()
+      argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
     }
 
   "handler" should "return a 'decoding' error if COs could be reconciled but the 'messageId' was missing from lock table" in {
@@ -377,7 +377,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     }
     ex.getMessage should equal(s"DecodingFailure at .messageId: Missing required field")
 
-    argumentVerifier.verifyInvocationsAndArgumentsPassed()
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
   }
 
   "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled" in {
@@ -401,7 +401,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
     message.properties.executionId should equal("TEST-ID")
 
-    argumentVerifier.verifyInvocationsAndArgumentsPassed()
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
   }
 
   forAll(uncommonButAcceptableFileExtensionStates) { (childOfAssetDocxTitle, entityTitle, stateOfTitleExtension) =>
@@ -432,7 +432,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
       message.properties.executionId should equal("TEST-ID")
 
-      argumentVerifier.verifyInvocationsAndArgumentsPassed()
+      argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
     }
   }
 
@@ -467,6 +467,6 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
       message.properties.executionId should equal("TEST-ID")
 
-      argumentVerifier.verifyInvocationsAndArgumentsPassed()
+      argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
     }
 }
