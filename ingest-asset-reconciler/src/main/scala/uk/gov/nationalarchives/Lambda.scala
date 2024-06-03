@@ -90,8 +90,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   private def generateSnsMessage(dependencies: Dependencies, assetName: UUID, lockTableName: String, batchId: String, assetId: UUID) =
     for {
-      items <- dependencies.dynamoDbClient.getItems[IngestLockTable, PartitionKey](
-        List(PartitionKey(assetName)),
+      items <- dependencies.dynamoDbClient.getItems[IngestLockTable, LockTablePartitionKey](
+        List(LockTablePartitionKey(assetName)),
         lockTableName
       )
 
@@ -118,8 +118,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
       assetId <- IO.pure(input.assetId)
-      assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, PartitionKey](
-        List(PartitionKey(assetId)),
+      assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, FilesTablePartitionKey](
+        List(FilesTablePartitionKey(assetId)),
         config.dynamoTableName
       )
 

@@ -28,8 +28,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   ) => IO[Unit] = (stepFnInput, config, dependencies) => {
     val logWithBatchRef = log(Map("batchRef" -> stepFnInput.batchId))(_)
 
-    val folderIdPartitionKeysAndValues: List[PartitionKey] =
-      stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(PartitionKey.apply)
+    val folderIdPartitionKeysAndValues: List[FilesTablePartitionKey] =
+      stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(FilesTablePartitionKey.apply)
 
     for {
       folderRowsSortedByParentPath <- getFolderRowsSortedByParentPath(
@@ -167,11 +167,11 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
 
   private def getFolderRowsSortedByParentPath(
       dADynamoDBClient: DADynamoDBClient[IO],
-      folderIdPartitionKeysAndValues: List[PartitionKey],
+      folderIdPartitionKeysAndValues: List[FilesTablePartitionKey],
       archiveFolderTableName: String
   ): IO[List[DynamoTable]] = {
     val getItemsResponse: IO[List[DynamoTable]] =
-      dADynamoDBClient.getItems[ArchiveFolderDynamoTable, PartitionKey](
+      dADynamoDBClient.getItems[ArchiveFolderDynamoTable, FilesTablePartitionKey](
         folderIdPartitionKeysAndValues,
         archiveFolderTableName
       )
