@@ -100,10 +100,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       )
 
       message <- IO.fromEither(decode[AssetMessage](attributes.message.replace('\'', '\"')))
-      executionId = message.executionId
+      executionIdNotSameAsBatchId = message.executionId.exists(_ != batchId)
 
-      _ <- IO.raiseWhen(executionId != batchId) {
-        new Exception(s"executionId '$executionId' belonging to ioId '$assetName' does not equal '$batchId'")
+      _ <- IO.raiseWhen(executionIdNotSameAsBatchId) {
+        new Exception(s"executionId '${message.executionId.get}' belonging to ioId '$assetName' does not equal '$batchId'")
       }
     } yield ReconciliationSnsMessage(
       "Asset was reconciled",
@@ -200,7 +200,7 @@ object Lambda {
 
   case class Input(executionId: String, batchId: String, assetId: UUID)
 
-  case class AssetMessage(messageId: UUID, parentMessageId: Option[UUID] = None, executionId: String)
+  case class AssetMessage(messageId: UUID, parentMessageId: Option[UUID] = None, executionId: Option[String])
 
   case class NewMessageProperties(messageId: UUID, parentMessageId: UUID, executionId: String)
 
