@@ -65,7 +65,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       childrenForRepresentationType: List[FileDynamoTable],
       bitstreamInfoPerContentObject: Seq[BitStreamInfo],
       assetId: UUID,
-      representationType: RepresentationType
+      representationType: RepresentationType,
+      assetName: UUID
   ) = {
     val childrenThatDidNotMatchOnChecksum =
       childrenForRepresentationType.filter { assetChild =>
@@ -77,16 +78,17 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         bitstreamWithSameChecksum.isEmpty
       }
 
-    if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "")
+    if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "", assetName)
     else
       StateOutput(
         wasReconciled = false,
         s"Out of the ${childrenForRepresentationType.length} files expected to be ingested for assetId '$assetId' with representationType $representationType, " +
-          s"a checksum and title could not be matched with a file on Preservica for: ${childrenThatDidNotMatchOnChecksum.map(_.id).mkString(", ")}"
+          s"a checksum and title could not be matched with a file on Preservica for: ${childrenThatDidNotMatchOnChecksum.map(_.id).mkString(", ")}",
+        assetName
       )
   }
 
-  private def generateSnsMessage(dependencies: Dependencies, assetName: UUID, lockTableName: String, batchId: String) =
+  private def generateSnsMessage(dependencies: Dependencies, assetName: UUID, lockTableName: String, batchId: String, assetId: UUID) =
     for {
       items <- dependencies.dynamoDbClient.getItems[IngestLockTable, PartitionKey](
         List(PartitionKey(assetName)),
@@ -105,7 +107,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       }
     } yield ReconciliationSnsMessage(
       "Asset was reconciled",
-      assetName,
+      assetId,
       NewMessageProperties(dependencies.newMessageId, message.messageId, batchId)
     )
 
@@ -125,6 +127,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       asset <- IO.fromOption(assetItems.headOption)(
         new Exception(s"No asset found for $assetId from $batchId")
       )
+      assetName = UUID.fromString(asset.name)
       _ <- IO.raiseWhen(asset.`type` != Asset)(
         new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")
       )
@@ -162,7 +165,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
             stateOutput <-
               if (contentObjects.isEmpty)
                 IO.pure(
-                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'")
+                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'", assetName)
                 )
               else
                 for {
@@ -171,17 +174,17 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     .flatSequence
 
                   _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
-                } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType)
+                } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType, assetName)
           } yield stateOutput
         }
         .toList
         .sequence
       allReconciled = stateOutputs.forall(_.wasReconciled)
-      combinedOutputs = StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim)
+      combinedOutputs = StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim, assetName)
 
       finalOutput <-
         if (allReconciled)
-          generateSnsMessage(dependencies, UUID.fromString(asset.name), config.dynamoLockTableName, batchId).map { message =>
+          generateSnsMessage(dependencies, assetName, config.dynamoLockTableName, batchId, assetId).map { message =>
             combinedOutputs.copy(reconciliationSnsMessage = Some(message))
           }
         else IO.pure(combinedOutputs)
@@ -201,9 +204,9 @@ object Lambda {
 
   case class NewMessageProperties(messageId: UUID, parentMessageId: UUID, executionId: String)
 
-  case class ReconciliationSnsMessage(reconciliationUpdate: String, assetName: UUID, properties: NewMessageProperties)
+  case class ReconciliationSnsMessage(reconciliationUpdate: String, assetId: UUID, properties: NewMessageProperties)
 
-  case class StateOutput(wasReconciled: Boolean, reason: String, reconciliationSnsMessage: Option[ReconciliationSnsMessage] = None)
+  case class StateOutput(wasReconciled: Boolean, reason: String, assetName: UUID, reconciliationSnsMessage: Option[ReconciliationSnsMessage] = None)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO], newMessageId: UUID)
   case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String, dynamoLockTableName: String) derives ConfigReader

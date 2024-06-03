@@ -391,11 +391,12 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
     stateOutput.wasReconciled should equal(true)
     stateOutput.reason should equal("")
+    stateOutput.assetName should equal(assetName)
 
     val message = stateOutput.reconciliationSnsMessage.get
 
     message.reconciliationUpdate should equal("Asset was reconciled")
-    message.assetName should equal(assetName)
+    message.assetId should equal(assetId)
     message.properties.messageId should equal(newMessageId)
     message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
     message.properties.executionId should equal("TEST-ID")
@@ -421,11 +422,12 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
       stateOutput.wasReconciled should equal(true)
       stateOutput.reason should equal("")
+      stateOutput.assetName should equal(assetName)
 
       val message = stateOutput.reconciliationSnsMessage.get
 
       message.reconciliationUpdate should equal("Asset was reconciled")
-      message.assetName should equal(assetName)
+      message.assetId should equal(assetId)
       message.properties.messageId should equal(newMessageId)
       message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
       message.properties.executionId should equal("TEST-ID")
@@ -455,11 +457,12 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
       stateOutput.wasReconciled should equal(true)
       stateOutput.reason should equal("")
+      stateOutput.assetName should equal(assetName)
 
       val message = stateOutput.reconciliationSnsMessage.get
 
       message.reconciliationUpdate should equal("Asset was reconciled")
-      message.assetName should equal(assetName)
+      message.assetId should equal(assetId)
       message.properties.messageId should equal(newMessageId)
       message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
       message.properties.executionId should equal("TEST-ID")
