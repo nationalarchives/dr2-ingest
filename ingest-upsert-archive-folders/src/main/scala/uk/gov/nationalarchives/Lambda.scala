@@ -14,6 +14,7 @@ import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag._
 import uk.gov.nationalarchives.dp.client.EntityClient._
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
+import uk.gov.nationalarchives.ExternalUtils.DetailType.DR2Message
 
 import java.util.UUID
 
@@ -85,7 +86,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
             identifiersToUpdate,
             identifiersToAdd
           )
-          _ <- updatedSlackMessage.map(msg => dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, "DR2Message", Detail(msg))).sequence
+          _ <- updatedSlackMessage.map(msg => dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, DR2Message, Detail(msg))).sequence
         } yield ()
       }.sequence
       _ <- folderUpdateRequests.map { folderUpdateRequest =>
@@ -94,7 +95,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
           _ <- logWithBatchRef(s"Updating entity ${folderUpdateRequest.updateEntityRequest.ref}")
           _ <- dependencies.entityClient.updateEntity(folderUpdateRequest.updateEntityRequest)
           _ <- logWithBatchRef(s"Sending\n$message\nto slack")
-          _ <- dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, "DR2Message", Detail(message))
+          _ <- dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, DR2Message, Detail(message))
         } yield ()
       }.sequence
     } yield ()
