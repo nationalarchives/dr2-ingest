@@ -14,7 +14,7 @@ import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 
 class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
 
-  private val lowImpactEndpoint = "by-identifier?type=tnaTest&value=getLatestPreservicaVersion"
+  private val lowImpactEndpoint = "entities/by-identifier?type=tnaTest&value=getLatestPreservicaVersion"
 
   override def handler: (ScheduledEvent, Config, Dependencies) => IO[Unit] = { (_, config, dependencies) =>
     for {
