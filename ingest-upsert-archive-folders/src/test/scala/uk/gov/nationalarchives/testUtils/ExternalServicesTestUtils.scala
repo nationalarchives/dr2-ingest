@@ -16,6 +16,7 @@ import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DynamoFormatters.*
 import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.ExternalUtils.DetailType
 import uk.gov.nationalarchives.Lambda.{Dependencies, Detail, EntityWithUpdateEntityRequest}
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient
@@ -247,9 +248,9 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     val testEventBridgeClient: DAEventBridgeClient[IO] = mock[DAEventBridgeClient[IO]]
     val eventBridgeMessageCaptors: ArgumentCaptor[Detail] = ArgumentCaptor.forClass(classOf[Detail])
     when(
-      testEventBridgeClient.publishEventToEventBridge[Detail](
+      testEventBridgeClient.publishEventToEventBridge[Detail, DetailType](
         any[String],
-        any[String],
+        any[DetailType],
         eventBridgeMessageCaptors.capture()
       )(using any[Encoder[Detail]])
     ).thenReturn(IO(PutEventsResponse.builder.build))
