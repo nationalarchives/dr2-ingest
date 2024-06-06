@@ -74,7 +74,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       Dependencies
   ) => IO[Unit] = (input, config, dependencies) =>
     for {
-      folderItems <- dependencies.dynamoClient.getItems[ArchiveFolderDynamoTable, PartitionKey](List(PartitionKey(input.id)), config.dynamoTableName)
+      folderItems <- dependencies.dynamoClient.getItems[ArchiveFolderDynamoTable, FilesTablePartitionKey](List(FilesTablePartitionKey(input.id)), config.dynamoTableName)
       folder <- IO.fromOption(folderItems.headOption)(
         new Exception(s"No folder found for ${input.id} and ${input.batchId}")
       )
