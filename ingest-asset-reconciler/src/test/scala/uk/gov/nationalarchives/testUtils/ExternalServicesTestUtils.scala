@@ -6,6 +6,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.*
 import org.mockito.{ArgumentCaptor, ArgumentMatchers, Mockito}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{times, verify, when}
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatestplus.mockito.MockitoSugar
@@ -28,7 +29,7 @@ import java.net.URI
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
-class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrivenPropertyChecks with MockitoSugar {
+class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpec with TableDrivenPropertyChecks with MockitoSugar {
   val assetId: UUID = UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e")
   val assetName: UUID = UUID.fromString("acdb2e57-923b-4caa-8fd9-a2f79f650c43")
   val assetParentPath: String = "a/parent/path"
@@ -278,6 +279,17 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
 
   val emptyLockTableGetResponse: String = """{"Responses": {"test-lock-table": []}}"""
 
+  private val expectedFilesTableGetRequest =
+    s"""{"RequestItems":{"test-table":{"Keys":[{"id":{"S":"$assetId"}}]}}}"""
+  private val expectedFilesTableUpdateRequest =
+    s"""{"TableName":"test-table","IndexName":"",""" +
+      """"KeyConditionExpression":"#A = :batchId AND #B = :parentPath",""" +
+      """"ExpressionAttributeNames":{"#A":"batchId","#B":"parentPath"},""" +
+      s""""ExpressionAttributeValues":{":batchId":{"S":"$batchId"},":parentPath":{"S":"${assetParentPath}/$assetId"}}}"""
+
+  private val expectedLockTableGetRequest =
+    s"""{"RequestItems":{"test-lock-table":{"Keys":[{"ioId":{"S":"$assetName"}}]}}}"""
+
   private val defaultIoWithIdentifier =
     IO.pure(
       Seq(
@@ -400,8 +412,20 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends TableDrive
         numOfEntitiesByIdentifierInvocations: Int = 1,
         numOfGetUrlsToIoRepresentationsRequests: Int = 2,
         numOfGetContentObjectsFromRepresentationRequests: Int = 2,
-        numOfGetBitstreamInfoRequests: Int = 2
+        numOfGetBitstreamInfoRequests: Int = 2,
+        numOfFileTableGetRequests: Int = 1,
+        numOfFileTableUpdateRequests: Int = 1,
+        numOfLockTableGetRequests: Int = 0
     ): Unit = {
+      val serveEvents = dynamoServer.getAllServeEvents.asScala.toList
+
+      serveEvents.size should equal(numOfFileTableGetRequests + numOfFileTableUpdateRequests + numOfLockTableGetRequests)
+      serveEvents.map(_.getRequest.getBodyAsString) should equal(
+        List.fill(numOfLockTableGetRequests)(expectedLockTableGetRequest) ++
+          List.fill(numOfFileTableUpdateRequests)(expectedFilesTableUpdateRequest) ++
+          List.fill(numOfFileTableGetRequests)(expectedFilesTableGetRequest)
+      )
+
       val entitiesByIdentifierIdentifierToGetCaptor = getIdentifierToGetCaptor
 
       verify(mockEntityClient, times(numOfEntitiesByIdentifierInvocations)).entitiesByIdentifier(
