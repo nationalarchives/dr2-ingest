@@ -283,8 +283,9 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
         val expectedReason = idsThatFailed
           .map { failedId =>
-            s"Out of the 1 files expected to be ingested for assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e' with representationType ${representationTypeMap(failedId)}, " +
-              s"a checksum and title could not be matched with a file on Preservica for: $failedId"
+            s":alert-noflash-slow: Reconciliation Failure - Out of the *1* files expected to be ingested for `assetId` " +
+              s"'*68b1c80b-36b8-4f0f-94d6-92589002d87e*' with `representationType` *${representationTypeMap(failedId)}*, " +
+              s"a _*checksum*_ and _*title*_ could not be matched with a file on Preservica for:\n1. $failedId"
           }
           .sorted
           .mkString("\n")
@@ -317,8 +318,9 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
         val expectedReason = idsThatFailed
           .map { failedId =>
-            s"Out of the 1 files expected to be ingested for assetId '68b1c80b-36b8-4f0f-94d6-92589002d87e' with representationType Access, " +
-              s"a checksum and title could not be matched with a file on Preservica for: $failedId"
+            s":alert-noflash-slow: Reconciliation Failure - Out of the *1* files expected to be ingested for `assetId` " +
+              "'*68b1c80b-36b8-4f0f-94d6-92589002d87e*' with `representationType` *Access*, " +
+              s"a _*checksum*_ and _*title*_ could not be matched with a file on Preservica for:\n1. $failedId"
           }
           .sorted
           .mkString("\n")

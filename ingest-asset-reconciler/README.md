@@ -43,7 +43,7 @@ The lambda:
 ```json
 {
   "wasReconciled": false,
-  "reason": "Out of the 2 files expected to be ingested for assetId 'a8163bde-7daa-43a7-9363-644f93fe2f2b', a checksum and title could not be matched with a file on Preservica for: b285c02d-44e3-4939-a856-66252fd7919a, 974081e5-3123-42ea-923d-3999cc160718"
+  "reason": ":alert-noflash-slow: Reconciliation Failure - Out of the 2 files expected to be ingested for assetId 'a8163bde-7daa-43a7-9363-644f93fe2f2b' with `representationType` Preservation, a checksum and title could not be matched with a file on Preservica for:\n1. b285c02d-44e3-4939-a856-66252fd7919a\n2. 974081e5-3123-42ea-923d-3999cc160718"
 }
 ```
 

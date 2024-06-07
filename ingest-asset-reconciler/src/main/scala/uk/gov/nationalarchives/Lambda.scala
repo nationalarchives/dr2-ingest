@@ -82,8 +82,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     else
       StateOutput(
         wasReconciled = false,
-        s"Out of the ${childrenForRepresentationType.length} files expected to be ingested for assetId '$assetId' with representationType $representationType, " +
-          s"a checksum and title could not be matched with a file on Preservica for: ${childrenThatDidNotMatchOnChecksum.map(_.id).mkString(", ")}",
+        s":alert-noflash-slow: Reconciliation Failure - Out of the *${childrenForRepresentationType.length}* files expected " +
+          s"to be ingested for `assetId` '*$assetId*' with `representationType` *$representationType*, " +
+          s"a _*checksum*_ and _*title*_ could not be matched with a file on Preservica for:\n" +
+          childrenThatDidNotMatchOnChecksum.zip(LazyList.from(1)).map((child, index) => s"$index. ${child.id}").mkString("\n"),
         assetName
       )
   }
