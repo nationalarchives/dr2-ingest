@@ -92,8 +92,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   private def generateSnsMessage(dependencies: Dependencies, assetName: UUID, lockTableName: String, batchId: String, assetId: UUID) =
     for {
-      items <- dependencies.dynamoDbClient.getItems[IngestLockTable, PartitionKey](
-        List(PartitionKey(assetName)),
+      items <- dependencies.dynamoDbClient.getItems[IngestLockTable, LockTablePartitionKey](
+        List(LockTablePartitionKey(assetName)),
         lockTableName
       )
 
@@ -102,10 +102,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       )
 
       message <- IO.fromEither(decode[AssetMessage](attributes.message.replace('\'', '\"')))
-      executionId = message.executionId
+      executionIdNotSameAsBatchId = message.executionId.exists(_ != batchId)
 
-      _ <- IO.raiseWhen(executionId != batchId) {
-        new Exception(s"executionId '$executionId' belonging to ioId '$assetName' does not equal '$batchId'")
+      _ <- IO.raiseWhen(executionIdNotSameAsBatchId) {
+        new Exception(s"executionId '${message.executionId.get}' belonging to ioId '$assetName' does not equal '$batchId'")
       }
     } yield ReconciliationSnsMessage(
       "Asset was reconciled",
@@ -120,8 +120,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
       assetId <- IO.pure(input.assetId)
-      assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, PartitionKey](
-        List(PartitionKey(assetId)),
+      assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, FilesTablePartitionKey](
+        List(FilesTablePartitionKey(assetId)),
         config.dynamoTableName
       )
 
@@ -202,7 +202,7 @@ object Lambda {
 
   case class Input(executionId: String, batchId: String, assetId: UUID)
 
-  case class AssetMessage(messageId: UUID, parentMessageId: Option[UUID] = None, executionId: String)
+  case class AssetMessage(messageId: UUID, parentMessageId: Option[UUID] = None, executionId: Option[String])
 
   case class NewMessageProperties(messageId: UUID, parentMessageId: UUID, executionId: String)
 
