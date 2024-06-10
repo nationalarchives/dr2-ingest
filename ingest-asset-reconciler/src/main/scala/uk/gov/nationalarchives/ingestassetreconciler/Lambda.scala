@@ -141,7 +141,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       log = logger.info(logCtx)(_)
       _ <- log(s"Asset $assetId retrieved from Dynamo")
 
-      entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(Identifier(sourceId, assetName.toString))
+      entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(PreservicaIdentifier(sourceId, assetName.toString))
       entity <- IO.fromOption(entitiesWithAssetName.headOption)(
         new Exception(s"No entity found using $sourceId '$assetName'")
       )

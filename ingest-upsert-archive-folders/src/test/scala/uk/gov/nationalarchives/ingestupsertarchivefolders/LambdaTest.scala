@@ -5,8 +5,8 @@ import cats.effect.unsafe.implicits.global
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito.{times, verify}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.ArchiveFolderDynamoTable
-import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest, Identifier}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoTable, Identifier => DynamoIdentifier}
+import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest, Identifier as PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 
@@ -217,16 +217,16 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
     {
       "handler" should s"$addDescription and $updateDescription" in {
         val rowsWithIdentifiers = folderIdsAndRows.take(1).map { case (id, dynamoResponse) =>
-          id -> dynamoResponse.copy(identifiers = identifierFromDynamo)
+          id -> dynamoResponse.copy(identifiers = identifierFromDynamo.map(ti => DynamoIdentifier(ti.name, ti.value)))
         }
         val argumentVerifier =
           ArgumentVerifier(
             convertFolderIdsAndRowsToListOfIoRows(rowsWithIdentifiers),
-            getIdentifiersForEntityReturnValues = IO.pure(identifierFromPreservica.map(idp => IdentifierResponse("id", idp.identifierName, idp.value)))
+            getIdentifiersForEntityReturnValues = IO.pure(identifierFromPreservica.map(idp => IdentifierResponse("id", idp.name, idp.value)))
           )
         new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
 
-        val addIdentifierCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
+        val addIdentifierCaptor: ArgumentCaptor[PreservicaIdentifier] = ArgumentCaptor.forClass(classOf[PreservicaIdentifier])
         val updateIdentifierCaptor: ArgumentCaptor[Seq[IdentifierResponse]] =
           ArgumentCaptor.forClass(classOf[Seq[IdentifierResponse]])
 
@@ -235,13 +235,13 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
         verify(argumentVerifier.mockEntityClient, times(updateIdentifierRequest.length))
           .updateEntityIdentifiers(any[Entity], updateIdentifierCaptor.capture())
 
-        val addIdentifierValues: List[Identifier] = addIdentifierCaptor.getAllValues.asScala.toList
-        addIdentifierValues should equal(addIdentifierRequest)
+        val addIdentifierValues: List[PreservicaIdentifier] = addIdentifierCaptor.getAllValues.asScala.toList
+        addIdentifierValues.map(aiv => TestIdentifier(aiv.identifierName, aiv.value)) should equal(addIdentifierRequest)
 
-        val updateIdentifierValues: Seq[Identifier] = updateIdentifierCaptor.getAllValues.asScala.headOption
+        val updateIdentifierValues: Seq[PreservicaIdentifier] = updateIdentifierCaptor.getAllValues.asScala.headOption
           .getOrElse(Nil)
-          .map(id => Identifier(id.identifierName, id.value))
-        updateIdentifierValues should equal(updateIdentifierRequest)
+          .map(id => PreservicaIdentifier(id.identifierName, id.value))
+        updateIdentifierValues.map(iv => TestIdentifier(iv.identifierName, iv.value)) should equal(updateIdentifierRequest)
       }
     }
   }

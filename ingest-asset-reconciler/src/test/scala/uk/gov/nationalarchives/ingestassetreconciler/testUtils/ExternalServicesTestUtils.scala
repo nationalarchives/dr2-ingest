@@ -14,7 +14,6 @@ import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCrede
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Identifier
 import uk.gov.nationalarchives.ingestassetreconciler.Lambda.{Dependencies, Input}
 import uk.gov.nationalarchives.dp.client.Client.{BitStreamInfo, Fixity}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
@@ -434,7 +433,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
       )
 
       if (numOfEntitiesByIdentifierInvocations > 0)
-        entitiesByIdentifierIdentifierToGetCaptor.getValue should be(Identifier("SourceID", "acdb2e57-923b-4caa-8fd9-a2f79f650c43"))
+        entitiesByIdentifierIdentifierToGetCaptor.getValue should be(PreservicaIdentifier("SourceID", "acdb2e57-923b-4caa-8fd9-a2f79f650c43"))
 
       val ioEntityRefForUrlsRequestCaptor = getIoEntityRefCaptor
       val optionalRepresentationTypeCaptorRequestCaptor = getOptionalRepresentationTypeCaptor
