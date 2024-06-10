@@ -44,7 +44,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         ArchiveFolder,
         Some("mock title_1"),
         Some("mock description_1"),
-        List(DynamoIdentifier("Code", "code"))
+        List(DynamoIdentifier("Code", "code")),
+        1
       ),
     UUID.fromString("e88e433a-1f3e-48c5-b15f-234c0e663c27") -> ArchiveFolderDynamoTable(
       "batchId",
@@ -54,7 +55,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       ArchiveFolder,
       Some("mock title_1_1"),
       Some("mock description_1_1"),
-      List(DynamoIdentifier("Code", "code"))
+      List(DynamoIdentifier("Code", "code")),
+      1
     ),
     UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2") -> ArchiveFolderDynamoTable(
       "batchId",
@@ -64,7 +66,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       ArchiveFolder,
       Some("mock title_1_1_1"),
       Some("mock description_1_1_1"),
-      List(DynamoIdentifier("Code", "code"))
+      List(DynamoIdentifier("Code", "code")),
+      1
     )
   )
 
