@@ -10,7 +10,7 @@ lazy val root = (project in file("."))
     getLatestPreservicaVersion,
     ingestAssetOpexCreator,
     ingestAssetReconciler,
-    ingestCheckPreservicaForExistingIo,
+    ingestFindExistingAsset,
     ingestFolderOpexCreator,
     ingestMapper,
     ingestParentFolderOpexCreator,
@@ -164,10 +164,11 @@ lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-ve
     )
   )
 
-lazy val ingestCheckPreservicaForExistingIo = (project in file("ingest-check-preservica-for-existing-io"))
+lazy val ingestFindExistingAsset = (project in file("ingest-find-existing-asset"))
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(
+    name := "ingest-check-preservica-for-existing-io", //This stops the name change breaking the existing lambda. This can be removed when we rename the lambda
     libraryDependencies ++= Seq(
       dynamoClient,
       dynamoFormatters,
