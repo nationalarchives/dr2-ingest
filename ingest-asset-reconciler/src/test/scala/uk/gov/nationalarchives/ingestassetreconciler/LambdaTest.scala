@@ -219,14 +219,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     argumentVerifier.verifyInvocationsAndArgumentsPassed(0, 0, 0, 0, 1, 0)
   }
 
-  "handler" should "return an error if there were no entities that had the asset name as the SourceId" in {
+  "handler" should "return an error if there were no entities that had the asset name as the SourceID" in {
     stubGetRequest(dynamoGetResponse)
     stubPostRequest(dynamoPostResponse)
     val argumentVerifier = ArgumentVerifier(entitiesWithIdentifier = IO.pure(Nil))
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal(s"No entity found using SourceId 'acdb2e57-923b-4caa-8fd9-a2f79f650c43'")
+    ex.getMessage should equal(s"No entity found using SourceID 'acdb2e57-923b-4caa-8fd9-a2f79f650c43'")
 
     argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
   }
