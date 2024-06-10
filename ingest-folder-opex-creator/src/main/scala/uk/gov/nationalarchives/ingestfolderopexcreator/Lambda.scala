@@ -87,6 +87,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- log(s"Fetched ${folderItems.length} folder items from Dynamo")
 
       children <- childrenOfFolder(dependencies.dynamoClient, folder, config.dynamoTableName, config.dynamoGsiName)
+      _ <- IO.raiseWhen(folder.childCount != children.length)(new Exception(s"Folder ${folder.id}: Expected ${folder.childCount} children but found ${children.length} children"))
       _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
       _ <- log(s"Fetched ${children.length} children from Dynamo")
 

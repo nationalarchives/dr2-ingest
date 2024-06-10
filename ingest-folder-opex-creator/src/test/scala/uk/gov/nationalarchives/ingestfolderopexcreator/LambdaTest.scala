@@ -155,7 +155,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
        |]
        |}
        |""".stripMargin
-  val dynamoGetResponse: String =
+  def dynamoGetResponse(childCount: Int = 2): String =
     s"""{
        |  "Responses": {
        |    "$tableName": [
@@ -176,7 +176,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
        |          "S": "$batchId"
        |        },
        |        "childCount": {
-       |          "N": "0"
+       |          "N": "$childCount"
        |        },
        |        "id_Code": {
        |          "S": "Code"
@@ -217,7 +217,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if no children are found for the folder" in {
-    stubBatchGetRequest(dynamoGetResponse)
+    stubBatchGetRequest(dynamoGetResponse(0))
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
@@ -226,12 +226,24 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if the dynamo entry does not have a type of 'folder'" in {
-    stubBatchGetRequest(dynamoGetResponse.replace("ArchiveFolder", "Asset"))
+    stubBatchGetRequest(dynamoGetResponse().replace("ArchiveFolder", "Asset"))
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"Object $folderId is of type Asset and not 'ContentFolder' or 'ArchiveFolder'")
+  }
+
+  "handler" should "return an error if the expected child count does not match" in {
+    stubBatchGetRequest(dynamoGetResponse(3))
+    stubDynamoQueryRequest(dynamoQueryResponse)
+    val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
+    stubPutRequest(opexPath)
+
+    val ex = intercept[Exception] {
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    }
+    ex.getMessage should equal(s"Folder $folderId: Expected 3 children but found 2 children")
   }
 
   "handler" should "pass the correct id to dynamo getItem" in {
@@ -245,7 +257,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "pass the parent path with no prefixed slash to dynamo if the parent path is empty" in {
-    stubBatchGetRequest(dynamoGetResponse.replace("a/parent/path", ""))
+    stubBatchGetRequest(dynamoGetResponse().replace("a/parent/path", ""))
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
@@ -260,7 +272,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "pass the correct parameters to dynamo for the query request" in {
-    stubBatchGetRequest(dynamoGetResponse)
+    stubBatchGetRequest(dynamoGetResponse())
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
@@ -275,7 +287,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "upload the opex file to the correct path" in {
-    stubBatchGetRequest(dynamoGetResponse)
+    stubBatchGetRequest(dynamoGetResponse())
     stubDynamoQueryRequest(dynamoQueryResponse)
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
     stubPutRequest(opexPath)
@@ -310,7 +322,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
         </opex:Manifest>
       </opex:Transfer>
     </opex:OPEXMetadata>
-    stubBatchGetRequest(dynamoGetResponse)
+    stubBatchGetRequest(dynamoGetResponse())
     stubDynamoQueryRequest(dynamoQueryResponse)
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
     stubPutRequest(opexPath)
@@ -334,7 +346,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
 
   "handler" should "return an error if the S3 API is unavailable" in {
     s3Server.stop()
-    stubBatchGetRequest(dynamoGetResponse)
+    stubBatchGetRequest(dynamoGetResponse())
     stubDynamoQueryRequest(dynamoQueryResponse)
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
