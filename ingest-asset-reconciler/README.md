@@ -11,29 +11,35 @@ The lambda:
   "assetId": "asset"
 }
 ```
-* Fetches the asset from Dynamo using the id passed as input.
-* Query Preservica for an Entity that has a SourceID value that is the same as the Asset's name
-* Get the Entity's ref from the returned Entity object and use it to get the urls to the Entity's representations
-* Use the urls to obtain the Content Objects belonging to each representation from the API
-* Get the child files from Dynamo where the child's parent path equals the asset path.
-* Get the bitstreams of the Content Objects from the API
-* Iterate through each child, using its checksum to find a Content Object that has the same checksum (fixity) and file name
-* If all files could be reconciled, get the attributes that correspond to the assetName:
+* Fetches the Asset from our "files" Dynamo table, using the id passed as input.
+* Query Preservica API for an `Entity` that has a `SourceID` value that is the same as the Asset's `name`
+* Get the `Entity`'s `ref` from the returned Entity object and use it to get the urls to the Entity's representations
+* Use the urls to obtain the Content Objects (COs) belonging to each `representationType` from the API
+* Get the Asset's child files from Dynamo where the child's `parentPath` equals the asset's `parentPath` + `/` + asset `id`.
+* Get the bitstream info of the COs from the API using the CO `ref`
+* Iterate through each child, using its checksum to find the CO that has the same checksum (fixity) and file title (reconciliation)
+* If any file couldn't be reconciled, return a `StateOutput` with:
+  * a `wasReconciled` value of `false`
+  * a `reason` with info on the file/files that could not be reconciled
+  * the `assetName`
+  * A `None` value for the `ReconciliationSnsMessage`
+* If all files could be reconciled, get the item that corresponds to the `assetName` from the lock table
+* Get the attribute `message` from the item; this is a JSON object string with the keys :
   * `messageId`
-  * `parentMessageId`
-  * `executionId`
-* Return a StateOutput object that contains:
-  *  information on whether all files were reconciled (Boolean)
-  * (and if they weren't reconciled), the reason why
-  * (if files could be reconciled) the SNS message to send (`Some(ReconciliationSnsMessage)`), containing information such as:
+  * `parentMessageId` (optional)
+  * `executionId` (optional)
+* Return a `StateOutput` object that contains:
+  * a `wasReconciled` value of `true`
+  * an empty string for the `reason`
+  * the `assetName`
+  * A `Some(ReconciliationSnsMessage)`, containing information such as:
     * `reconciliationUpdate`
-    * `assetName`
+    * `assetId`
     * `properties`, containing the values:
-      * `messageId`
-      * `parentMessageId`
+      * `messageId` (a newly generated `messageId`)
+      * `parentMessageId` (the old `messageId`)
       * `executionId`
-  * (if files could not be reconciled), the default value for the `ReconciliationSnsMessage`, would be `None`
-* Writes the StateOutput data for the next step function step with this format:
+* Writes the `StateOutput` data for the next step function step as JSON with this format:
 ```json
 {
   "wasReconciled": false,
