@@ -155,6 +155,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      "sortOrder": {
        |        "N": "1"
        |      },
+       |      "childCount": {
+       |        "N": "0"
+       |      },
        |      "id": {
        |        "S": "$childIdDocx"
        |      },
@@ -216,6 +219,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      },
        |      "sortOrder": {
        |        "N": "2"
+       |      },
+       |      "childCount": {
+       |        "N": "0"
        |      },
        |      "id": {
        |        "S": "$childIdJson"
@@ -288,6 +294,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |        },
        |        "batchId": {
        |          "S": "$batchId"
+       |        },
+       |        "childCount": {
+       |          "N": "0"
        |        },
        |        "transferringBody": {
        |          "S": "Test Transferring Body"

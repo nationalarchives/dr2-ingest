@@ -98,6 +98,9 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
        |      },
        |      "batchId": {
        |        "S": "$batchId"
+       |      },
+       |      "childCount": {
+       |        "N": "0"
        |      }
        |    },
        |    {
@@ -115,6 +118,9 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
        |      },
        |      "batchId": {
        |        "S": "$batchId"
+       |      },
+       |      "childCount": {
+       |        "N": "0"
        |      },
        |      "transferringBody": {
        |        "S": "transferringBody"
@@ -168,6 +174,9 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
        |        },
        |        "batchId": {
        |          "S": "$batchId"
+       |        },
+       |        "childCount": {
+       |          "N": "0"
        |        },
        |        "id_Code": {
        |          "S": "Code"
