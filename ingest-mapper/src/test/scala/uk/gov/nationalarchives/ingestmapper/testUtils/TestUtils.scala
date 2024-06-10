@@ -42,6 +42,7 @@ object TestUtils {
       title: String,
       description: String,
       id_Code: Option[String],
+      childCount: Int,
       fileSize: Option[Long] = None,
       checksumSha256: Option[String] = None,
       fileExtension: Option[String] = None,
