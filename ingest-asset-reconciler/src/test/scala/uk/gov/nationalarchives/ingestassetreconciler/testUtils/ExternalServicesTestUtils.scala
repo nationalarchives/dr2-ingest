@@ -14,11 +14,12 @@ import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCrede
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DynamoFormatters.Identifier
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Identifier
 import uk.gov.nationalarchives.ingestassetreconciler.Lambda.{Dependencies, Input}
 import uk.gov.nationalarchives.dp.client.Client.{BitStreamInfo, Fixity}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
+import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier => PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType.*
 import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
@@ -385,7 +386,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
   ) {
     Mockito.reset(mockEntityClient)
     when(
-      mockEntityClient.entitiesByIdentifier(any[Identifier])
+      mockEntityClient.entitiesByIdentifier(any[PreservicaIdentifier])
     ).thenReturn(entitiesWithIdentifier)
 
     when(
@@ -480,7 +481,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
       ()
     }
 
-    def getIdentifierToGetCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
+    def getIdentifierToGetCaptor: ArgumentCaptor[PreservicaIdentifier] = ArgumentCaptor.forClass(classOf[PreservicaIdentifier])
 
     def getIoEntityRefCaptor: ArgumentCaptor[UUID] = ArgumentCaptor.forClass(classOf[UUID])
 

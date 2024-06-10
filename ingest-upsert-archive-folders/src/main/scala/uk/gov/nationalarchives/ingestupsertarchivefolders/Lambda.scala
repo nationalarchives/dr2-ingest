@@ -6,7 +6,7 @@ import io.circe.generic.auto.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{DynamoTable, FilesTablePartitionKey, ArchiveFolderDynamoTable}
 import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda.*
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
@@ -66,7 +66,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       )
 
       _ <- folderInfoOfEntitiesThatExistWithSecurityTags.map { fi =>
-        val identifiersFromDynamo = fi.folderRow.identifiers
+        val identifiersFromDynamo = fi.folderRow.identifiers.map(id => Identifier(id.identifierName, id.value))
+
         val entity = fi.entity.get
         for {
           identifiersFromPreservica <- dependencies.entityClient.getEntityIdentifiers(entity)

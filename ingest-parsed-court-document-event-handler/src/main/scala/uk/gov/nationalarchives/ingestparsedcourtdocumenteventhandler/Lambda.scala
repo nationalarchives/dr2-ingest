@@ -13,7 +13,7 @@ import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.utils.EventDecoders.given
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
-import uk.gov.nationalarchives.DynamoFormatters.{batchId, ioId, message}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{batchId, ioId, message}
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 

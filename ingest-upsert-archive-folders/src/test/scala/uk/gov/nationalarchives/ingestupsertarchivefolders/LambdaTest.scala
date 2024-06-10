@@ -5,8 +5,8 @@ import cats.effect.unsafe.implicits.global
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito.{times, verify}
-import uk.gov.nationalarchives.DynamoFormatters.*
-import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.ArchiveFolderDynamoTable
+import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest, Identifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 

@@ -15,10 +15,10 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient
-import uk.gov.nationalarchives.DynamoFormatters.Identifier
 import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.{Config, Input, StateOutput}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
+import uk.gov.nationalarchives.dp.client.EntityClient.Identifier
 import uk.gov.nationalarchives.dp.client.EntityClient.*
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 

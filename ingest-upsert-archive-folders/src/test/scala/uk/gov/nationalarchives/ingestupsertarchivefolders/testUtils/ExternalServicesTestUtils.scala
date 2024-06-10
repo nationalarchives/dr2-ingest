@@ -14,12 +14,13 @@ import org.scalatestplus.mockito.MockitoSugar
 import org.scanamo.DynamoFormat
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DynamoFormatters.*
-import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.utils.ExternalUtils.DetailType
 import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda.{Dependencies, Detail, EntityWithUpdateEntityRequest}
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient
+import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier => PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest}
@@ -255,12 +256,12 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       )(using any[Encoder[Detail]])
     ).thenReturn(IO(PutEventsResponse.builder.build))
     val apiUrlCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-    def getIdentifierToGetCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
+    def getIdentifierToGetCaptor: ArgumentCaptor[PreservicaIdentifier] = ArgumentCaptor.forClass(classOf[PreservicaIdentifier])
     def getAddFolderRequestCaptor: ArgumentCaptor[AddEntityRequest] = ArgumentCaptor.forClass(classOf[AddEntityRequest])
     def getRefCaptor: ArgumentCaptor[UUID] = ArgumentCaptor.forClass(classOf[UUID])
     def structuralObjectCaptor: ArgumentCaptor[EntityType] =
       ArgumentCaptor.forClass(classOf[EntityType])
-    def identifiersToAddCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
+    def identifiersToAddCaptor: ArgumentCaptor[PreservicaIdentifier] = ArgumentCaptor.forClass(classOf[PreservicaIdentifier])
     def getUpdateFolderRequestCaptor: ArgumentCaptor[UpdateEntityRequest] =
       ArgumentCaptor.forClass(classOf[UpdateEntityRequest])
 
@@ -282,7 +283,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       getAttributeValuesReturnValue
     )
 
-    when(mockEntityClient.entitiesByIdentifier(any[Identifier]))
+    when(mockEntityClient.entitiesByIdentifier(any[PreservicaIdentifier]))
       .thenReturn(
         entitiesWithSourceIdReturnValue.head,
         entitiesWithSourceIdReturnValue(1),
@@ -297,7 +298,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       mockEntityClient.addIdentifierForEntity(
         any[UUID],
         any[StructuralObject.type],
-        any[Identifier]
+        any[PreservicaIdentifier]
       )
     )
       .thenReturn(addIdentifierReturnValue)
