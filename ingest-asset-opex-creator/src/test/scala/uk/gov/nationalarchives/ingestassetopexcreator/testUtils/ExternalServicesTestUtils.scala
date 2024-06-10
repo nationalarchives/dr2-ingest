@@ -275,7 +275,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |  ]
        |}
        |""".stripMargin
-  val dynamoGetResponse: String =
+  def dynamoGetResponse(childCount: Int = 2): String =
     s"""{
        |  "Responses": {
        |    "test-table": [
@@ -296,7 +296,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |          "S": "$batchId"
        |        },
        |        "childCount": {
-       |          "N": "0"
+       |          "N": "$childCount"
        |        },
        |        "transferringBody": {
        |          "S": "Test Transferring Body"
