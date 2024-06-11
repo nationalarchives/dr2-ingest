@@ -10,6 +10,7 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4, Tabl
 import uk.gov.nationalarchives.ingestassetreconciler.Lambda.Config
 import uk.gov.nationalarchives.ingestassetreconciler.testUtils.ExternalServicesTestUtils
 
+import java.time.OffsetDateTime
 import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPropertyChecks {
@@ -394,14 +395,15 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     stateOutput.wasReconciled should equal(true)
     stateOutput.reason should equal("")
     stateOutput.assetName should equal(assetName)
+    stateOutput.assetId should equal(assetId)
 
     val message = stateOutput.reconciliationSnsMessage.get
 
-    message.reconciliationUpdate should equal("Asset was reconciled")
-    message.assetId should equal(assetId)
     message.properties.messageId should equal(newMessageId)
     message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
-    message.properties.executionId should equal("TEST-ID")
+
+    message.properties.timestamp should equal(OffsetDateTime.parse("2024-06-01T00:00Z"))
+    message.parameters.assetId should equal(assetId)
 
     argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
   }
@@ -425,14 +427,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       stateOutput.wasReconciled should equal(true)
       stateOutput.reason should equal("")
       stateOutput.assetName should equal(assetName)
+      stateOutput.assetId should equal(assetId)
 
       val message = stateOutput.reconciliationSnsMessage.get
 
-      message.reconciliationUpdate should equal("Asset was reconciled")
-      message.assetId should equal(assetId)
       message.properties.messageId should equal(newMessageId)
       message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
-      message.properties.executionId should equal("TEST-ID")
+      message.properties.timestamp should equal(OffsetDateTime.parse("2024-06-01T00:00Z"))
+      message.parameters.assetId should equal(assetId)
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
     }
@@ -460,14 +462,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       stateOutput.wasReconciled should equal(true)
       stateOutput.reason should equal("")
       stateOutput.assetName should equal(assetName)
+      stateOutput.assetId should equal(assetId)
 
       val message = stateOutput.reconciliationSnsMessage.get
 
-      message.reconciliationUpdate should equal("Asset was reconciled")
-      message.assetId should equal(assetId)
       message.properties.messageId should equal(newMessageId)
       message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
-      message.properties.executionId should equal("TEST-ID")
+      message.properties.timestamp should equal(OffsetDateTime.parse("2024-06-01T00:00Z"))
+      message.parameters.assetId should equal(assetId)
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
     }

@@ -20,6 +20,7 @@ import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.ingestassetreconciler.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 
+import java.time.OffsetDateTime
 import java.util.UUID
 import scala.math.abs
 
@@ -80,7 +81,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         bitstreamWithSameChecksum.isEmpty
       }
 
-    if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "", assetName)
+    if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "", assetName, assetId)
     else
       StateOutput(
         wasReconciled = false,
@@ -88,7 +89,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
           s"to be ingested for `assetId` '*$assetId*' with `representationType` *$representationType*, " +
           s"a _*checksum*_ and _*title*_ could not be matched with a file on Preservica for:\n" +
           childrenThatDidNotMatchOnChecksum.zip(LazyList.from(1)).map((child, index) => s"$index. ${child.id}").mkString("\n"),
-        assetName
+        assetName,
+        assetId
       )
   }
 
@@ -110,9 +112,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         new Exception(s"executionId '${message.executionId.get}' belonging to ioId '$assetName' does not equal '$batchId'")
       }
     } yield ReconciliationSnsMessage(
-      "Asset was reconciled",
-      assetId,
-      NewMessageProperties(dependencies.newMessageId, message.messageId, batchId)
+      NewMessageProperties(dependencies.newMessageId, message.messageId, dependencies.datetime()),
+      NewMessageParameters(assetId)
     )
 
   override def handler: (
@@ -169,7 +170,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
             stateOutput <-
               if (contentObjects.isEmpty)
                 IO.pure(
-                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'", assetName)
+                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'", assetName, assetId)
                 )
               else
                 for {
@@ -184,7 +185,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         .toList
         .sequence
       allReconciled = stateOutputs.forall(_.wasReconciled)
-      combinedOutputs = StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim, assetName)
+      combinedOutputs = StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim, assetName, assetId)
 
       finalOutput <-
         if (allReconciled)
@@ -197,7 +198,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   override def dependencies(config: Config): IO[Dependencies] =
     Fs2Client
       .entityClient(config.apiUrl, config.secretName)
-      .map(client => Dependencies(client, DADynamoDBClient[IO](), UUID.randomUUID()))
+      .map(client => Dependencies(client, DADynamoDBClient[IO](), UUID.randomUUID(), () => OffsetDateTime.now()))
 }
 
 object Lambda {
@@ -206,12 +207,14 @@ object Lambda {
 
   case class AssetMessage(messageId: UUID, parentMessageId: Option[UUID] = None, executionId: Option[String])
 
-  case class NewMessageProperties(messageId: UUID, parentMessageId: UUID, executionId: String)
+  case class NewMessageProperties(messageId: UUID, parentMessageId: UUID, timestamp: OffsetDateTime)
 
-  case class ReconciliationSnsMessage(reconciliationUpdate: String, assetId: UUID, properties: NewMessageProperties)
+  case class NewMessageParameters(assetId: UUID)
 
-  case class StateOutput(wasReconciled: Boolean, reason: String, assetName: UUID, reconciliationSnsMessage: Option[ReconciliationSnsMessage] = None)
+  case class ReconciliationSnsMessage(properties: NewMessageProperties, parameters: NewMessageParameters)
 
-  case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO], newMessageId: UUID)
+  case class StateOutput(wasReconciled: Boolean, reason: String, assetName: UUID, assetId: UUID, reconciliationSnsMessage: Option[ReconciliationSnsMessage] = None)
+
+  case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO], newMessageId: UUID, datetime: () => OffsetDateTime)
   case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String, dynamoLockTableName: String) derives ConfigReader
 }

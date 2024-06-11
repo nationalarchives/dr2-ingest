@@ -26,6 +26,7 @@ import uk.gov.nationalarchives.dp.client.EntityClient.GenerationType.*
 import uk.gov.nationalarchives.DADynamoDBClient
 
 import java.net.URI
+import java.time.OffsetDateTime
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
@@ -375,7 +376,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
 
   private val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
 
-  val dependencies: Dependencies = Dependencies(mockEntityClient, dADynamoDBClient, newMessageId)
+  val dependencies: Dependencies = Dependencies(mockEntityClient, dADynamoDBClient, newMessageId, () => OffsetDateTime.parse("2024-06-01T00:00Z"))
 
   case class ArgumentVerifier(
       entitiesWithIdentifier: IO[Seq[Entity]] = defaultIoWithIdentifier,
