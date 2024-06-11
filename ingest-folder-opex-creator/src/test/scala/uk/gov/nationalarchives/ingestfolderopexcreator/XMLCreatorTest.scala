@@ -14,27 +14,39 @@ class XMLCreatorTest extends AnyFlatSpec {
   private val opexNamespace = "http://www.openpreservationexchange.org/opex/v1.2"
 
   val expectedStandardNonArchiveFolderXml: String = s"""<opex:OPEXMetadata xmlns:opex="${opexNamespace}">
+      <opex:Transfer>
+        [INDENT]
+        <opex:Manifest>
+          <opex:Files>
+            <opex:File type="metadata" size="1">a814ee41-89f4-4975-8f92-303553fe9a02.pax.opex</opex:File><opex:File type="metadata" size="1">9ecbba86-437f-42c6-aeba-e28b678bbf4c.pax.opex</opex:File>
+          </opex:Files>
+          <opex:Folders>
+            <opex:Folder>a814ee41-89f4-4975-8f92-303553fe9a02.pax</opex:Folder><opex:Folder>9ecbba86-437f-42c6-aeba-e28b678bbf4c.pax</opex:Folder>
+            <opex:Folder>7fcd94a9-be3f-456d-875f-bc697f7ed106</opex:Folder><opex:Folder>9ecbba86-437f-42c6-aeba-e28b678bbf4c</opex:Folder>
+          </opex:Folders>
+        </opex:Manifest>
+      </opex:Transfer>
       <opex:Properties>
         <opex:Title>title</opex:Title>
         <opex:Description>description</opex:Description>
         <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
         [INDENT]
       </opex:Properties>
+    </opex:OPEXMetadata>""".replace("[INDENT]", "")
+
+  val expectedStandardArchivedFolderXml: Elem = <opex:OPEXMetadata xmlns:opex={opexNamespace}>
       <opex:Transfer>
-        [INDENT]
+        <opex:SourceID>name</opex:SourceID>
         <opex:Manifest>
+          <opex:Files>
+            <opex:File type="metadata" size="1">a814ee41-89f4-4975-8f92-303553fe9a02.pax.opex</opex:File><opex:File type="metadata" size="1">9ecbba86-437f-42c6-aeba-e28b678bbf4c.pax.opex</opex:File>
+          </opex:Files>
           <opex:Folders>
             <opex:Folder>a814ee41-89f4-4975-8f92-303553fe9a02.pax</opex:Folder><opex:Folder>9ecbba86-437f-42c6-aeba-e28b678bbf4c.pax</opex:Folder>
             <opex:Folder>7fcd94a9-be3f-456d-875f-bc697f7ed106</opex:Folder><opex:Folder>9ecbba86-437f-42c6-aeba-e28b678bbf4c</opex:Folder>
           </opex:Folders>
-          <opex:Files>
-            <opex:File type="metadata" size="1">a814ee41-89f4-4975-8f92-303553fe9a02.pax.opex</opex:File><opex:File type="metadata" size="1">9ecbba86-437f-42c6-aeba-e28b678bbf4c.pax.opex</opex:File>
-          </opex:Files>
         </opex:Manifest>
       </opex:Transfer>
-    </opex:OPEXMetadata>""".replace("[INDENT]", "")
-
-  val expectedStandardArchivedFolderXml: Elem = <opex:OPEXMetadata xmlns:opex={opexNamespace}>
       <opex:Properties>
         <opex:Title>title</opex:Title>
         <opex:Description>description</opex:Description>
@@ -43,39 +55,27 @@ class XMLCreatorTest extends AnyFlatSpec {
           <opex:Identifier type="Code">name</opex:Identifier>
         </opex:Identifiers>
       </opex:Properties>
+    </opex:OPEXMetadata>
+
+  val expectedXmlNoTitle: String = s"""<opex:OPEXMetadata xmlns:opex="${opexNamespace}">
       <opex:Transfer>
         <opex:SourceID>name</opex:SourceID>
         <opex:Manifest>
+          <opex:Files>
+            <opex:File type="metadata" size="1">a814ee41-89f4-4975-8f92-303553fe9a02.pax.opex</opex:File><opex:File type="metadata" size="1">9ecbba86-437f-42c6-aeba-e28b678bbf4c.pax.opex</opex:File>
+          </opex:Files>
           <opex:Folders>
             <opex:Folder>a814ee41-89f4-4975-8f92-303553fe9a02.pax</opex:Folder><opex:Folder>9ecbba86-437f-42c6-aeba-e28b678bbf4c.pax</opex:Folder>
             <opex:Folder>7fcd94a9-be3f-456d-875f-bc697f7ed106</opex:Folder><opex:Folder>9ecbba86-437f-42c6-aeba-e28b678bbf4c</opex:Folder>
           </opex:Folders>
-          <opex:Files>
-            <opex:File type="metadata" size="1">a814ee41-89f4-4975-8f92-303553fe9a02.pax.opex</opex:File><opex:File type="metadata" size="1">9ecbba86-437f-42c6-aeba-e28b678bbf4c.pax.opex</opex:File>
-          </opex:Files>
         </opex:Manifest>
       </opex:Transfer>
-    </opex:OPEXMetadata>
-
-  val expectedXmlNoTitle: String = s"""<opex:OPEXMetadata xmlns:opex="${opexNamespace}">
       <opex:Properties>
         <opex:Title>name</opex:Title>
         <opex:Description>description</opex:Description>
         <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
         [INDENT]
       </opex:Properties>
-      <opex:Transfer>
-        <opex:SourceID>name</opex:SourceID>
-        <opex:Manifest>
-          <opex:Folders>
-            <opex:Folder>a814ee41-89f4-4975-8f92-303553fe9a02.pax</opex:Folder><opex:Folder>9ecbba86-437f-42c6-aeba-e28b678bbf4c.pax</opex:Folder>
-            <opex:Folder>7fcd94a9-be3f-456d-875f-bc697f7ed106</opex:Folder><opex:Folder>9ecbba86-437f-42c6-aeba-e28b678bbf4c</opex:Folder>
-          </opex:Folders>
-          <opex:Files>
-            <opex:File type="metadata" size="1">a814ee41-89f4-4975-8f92-303553fe9a02.pax.opex</opex:File><opex:File type="metadata" size="1">9ecbba86-437f-42c6-aeba-e28b678bbf4c.pax.opex</opex:File>
-          </opex:Files>
-        </opex:Manifest>
-      </opex:Transfer>
     </opex:OPEXMetadata>""".replace("[INDENT]", "")
 
   val expectedXMLNoHierarchyFolder: Elem = <opex:OPEXMetadata xmlns:opex={opexNamespace}>

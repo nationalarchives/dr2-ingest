@@ -123,6 +123,7 @@ lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"
     libraryDependencies ++= Seq(
       awsCrt,
       fs2Core,
+      preservicaClient,
       scalaXml,
       dynamoClient,
       s3Client
@@ -191,6 +192,7 @@ lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
       awsCrt,
       fs2Core,
       dynamoClient,
+      preservicaClient,
       scalaXml,
       s3Client
     )
