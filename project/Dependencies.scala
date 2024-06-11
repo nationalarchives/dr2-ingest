@@ -36,7 +36,7 @@ object Dependencies {
   lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.72"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
-  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.6"
+  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.7"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
