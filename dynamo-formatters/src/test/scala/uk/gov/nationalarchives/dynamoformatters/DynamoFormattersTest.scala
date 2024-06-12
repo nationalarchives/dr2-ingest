@@ -189,6 +189,16 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       Asset
     ),
     (
+      invalidNumericField(childCount, File),
+      "'childCount': not of type: 'Number' was 'DynString(1)'",
+      File
+    ),
+    (
+      invalidNumericValue(childCount, File),
+      "'childCount': could not be converted to desired type: java.lang.RuntimeException: Cannot parse NaN for field childCount into int",
+      File
+    ),
+    (
       invalidNumericField(fileSize, File),
       "'fileSize': not of type: 'Number' was 'DynString(1)'",
       File
