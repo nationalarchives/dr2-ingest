@@ -1,8 +1,8 @@
 package uk.gov.nationalarchives.ingestfolderopexcreator
 
 import cats.effect.IO
-import uk.gov.nationalarchives.DynamoFormatters.*
-import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetWithFileSize, FolderOrAssetTable}
 
 class XMLCreator {

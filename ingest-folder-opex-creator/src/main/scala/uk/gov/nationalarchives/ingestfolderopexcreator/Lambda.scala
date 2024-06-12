@@ -11,8 +11,8 @@ import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
 import uk.gov.nationalarchives.DADynamoDBClient.given
-import uk.gov.nationalarchives.DynamoFormatters.*
-import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner

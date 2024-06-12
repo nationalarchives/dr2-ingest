@@ -6,6 +6,7 @@ ThisBuild / scalaVersion := "3.4.2"
 
 lazy val root = (project in file("."))
   .aggregate(
+    dynamoFormatters,
     entityEventGenerator,
     getLatestPreservicaVersion,
     ingestAssetOpexCreator,
@@ -85,14 +86,13 @@ lazy val ingestParentFolderOpexCreator = (project in file("ingest-parent-folder-
 
 lazy val ingestUpsertArchiveFolders = (project in file("ingest-upsert-archive-folders"))
   .settings(commonSettings)
-  .dependsOn(utils)
+  .dependsOn(utils, dynamoFormatters)
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
       eventBridgeClient,
       preservicaClient,
-      pureConfig,
-      dynamoFormatters
+      pureConfig
     )
   )
 
@@ -118,14 +118,13 @@ lazy val preservicaConfig = (project in file("preservica-config"))
 
 lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"))
   .settings(commonSettings)
-  .dependsOn(utils)
+  .dependsOn(utils, dynamoFormatters)
   .settings(
     libraryDependencies ++= Seq(
       awsCrt,
       fs2Core,
       scalaXml,
       dynamoClient,
-      dynamoFormatters,
       s3Client
     )
   )
@@ -154,11 +153,10 @@ lazy val entityEventGenerator = (project in file("entity-event-generator-lambda"
 
 lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-version-lambda"))
   .settings(commonSettings)
-  .dependsOn(utils)
+  .dependsOn(utils, dynamoFormatters)
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
-      dynamoFormatters,
       snsClient,
       preservicaClient
     )
@@ -166,36 +164,33 @@ lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-ve
 
 lazy val ingestFindExistingAsset = (project in file("ingest-find-existing-asset"))
   .settings(commonSettings)
-  .dependsOn(utils)
+  .dependsOn(utils, dynamoFormatters)
   .settings(
     name := "ingest-check-preservica-for-existing-io", //This stops the name change breaking the existing lambda. This can be removed when we rename the lambda
     libraryDependencies ++= Seq(
       dynamoClient,
-      dynamoFormatters,
       preservicaClient
     )
   )
 
 lazy val ingestAssetReconciler = (project in file("ingest-asset-reconciler"))
   .settings(commonSettings)
-  .dependsOn(utils)
+  .dependsOn(utils, dynamoFormatters)
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
-      dynamoFormatters,
       preservicaClient
     )
   )
 
 lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
   .settings(commonSettings)
-  .dependsOn(utils)
+  .dependsOn(utils, dynamoFormatters)
   .settings(
     libraryDependencies ++= Seq(
       awsCrt,
       fs2Core,
       dynamoClient,
-      dynamoFormatters,
       scalaXml,
       s3Client
     )
@@ -203,13 +198,12 @@ lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
 
 lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed-court-document-event-handler"))
   .settings(commonSettings)
-  .dependsOn(utils)
+  .dependsOn(utils, dynamoFormatters)
   .settings(
     libraryDependencies ++= Seq(
       awsCrt,
       commonsCompress,
       dynamoClient,
-      dynamoFormatters,
       fs2IO,
       s3Client,
       sfnClient,
@@ -219,3 +213,11 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
 
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)
+
+lazy val dynamoFormatters = (project in file("dynamo-formatters"))
+  .settings(
+    libraryDependencies ++= Seq(
+      scanamo,
+      scalaTest % Test
+    )
+  ).disablePlugins(AssemblyPlugin)

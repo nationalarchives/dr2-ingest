@@ -14,12 +14,13 @@ import org.scalatestplus.mockito.MockitoSugar
 import org.scanamo.DynamoFormat
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DynamoFormatters.*
-import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoTable, FilesTablePartitionKey, Identifier => DynamoIdentifier}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.utils.ExternalUtils.DetailType
 import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda.{Dependencies, Detail, EntityWithUpdateEntityRequest}
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient
+import uk.gov.nationalarchives.dp.client.EntityClient.Identifier
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest}
@@ -31,6 +32,8 @@ import scala.jdk.CollectionConverters.*
 
 class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll with TableDrivenPropertyChecks with MockitoSugar {
 
+  case class TestIdentifier(name: String, value: String)
+
   val folderIdsAndRows: ListMap[UUID, ArchiveFolderDynamoTable] = ListMap(
     UUID.fromString("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176") ->
       ArchiveFolderDynamoTable(
@@ -41,7 +44,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         ArchiveFolder,
         Some("mock title_1"),
         Some("mock description_1"),
-        List(Identifier("Code", "code"))
+        List(DynamoIdentifier("Code", "code"))
       ),
     UUID.fromString("e88e433a-1f3e-48c5-b15f-234c0e663c27") -> ArchiveFolderDynamoTable(
       "batchId",
@@ -51,7 +54,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       ArchiveFolder,
       Some("mock title_1_1"),
       Some("mock description_1_1"),
-      List(Identifier("Code", "code"))
+      List(DynamoIdentifier("Code", "code"))
     ),
     UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2") -> ArchiveFolderDynamoTable(
       "batchId",
@@ -61,7 +64,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       ArchiveFolder,
       Some("mock title_1_1_1"),
       Some("mock description_1_1_1"),
-      List(Identifier("Code", "code"))
+      List(DynamoIdentifier("Code", "code"))
     )
   )
 
@@ -195,13 +198,13 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     )
   )
 
-  private val singleIdentifier1: List[Identifier] = List(Identifier("Test1", "Value1"))
-  private val singleIdentifier1DifferentValue: List[Identifier] = List(Identifier("Test1", "Value2"))
-  private val singleIdentifier2: List[Identifier] = List(Identifier("Test2", "Value2"))
-  private val multipleIdentifiers: List[Identifier] = singleIdentifier1 ++ singleIdentifier2
-  private val singleIdentifier3: List[Identifier] = List(Identifier("Test2", "Value3"))
+  private val singleIdentifier1: List[TestIdentifier] = List(TestIdentifier("Test1", "Value1"))
+  private val singleIdentifier1DifferentValue: List[TestIdentifier] = List(TestIdentifier("Test1", "Value2"))
+  private val singleIdentifier2: List[TestIdentifier] = List(TestIdentifier("Test2", "Value2"))
+  private val multipleIdentifiers: List[TestIdentifier] = singleIdentifier1 ++ singleIdentifier2
+  private val singleIdentifier3: List[TestIdentifier] = List(TestIdentifier("Test2", "Value3"))
 
-  val identifierScenarios: TableFor6[List[Identifier], List[Identifier], List[Identifier], List[Identifier], String, String] = Table(
+  val identifierScenarios: TableFor6[List[TestIdentifier], List[TestIdentifier], List[TestIdentifier], List[TestIdentifier], String, String] = Table(
     ("identifierFromDynamo", "identifierFromPreservica", "addIdentifierRequest", "updateIdentifierRequest", "addResult", "updateResult"),
     (singleIdentifier1, singleIdentifier1, Nil, Nil, addIdentifiersDescription(Nil), updateIdentifiersDescription(Nil)),
     (
@@ -223,13 +226,13 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     )
   )
 
-  private def addIdentifiersDescription(identifiers: List[Identifier]) = identifiersTestDescription(identifiers, "add")
-  private def updateIdentifiersDescription(identifiers: List[Identifier]) = identifiersTestDescription(identifiers, "update")
-  private def identifiersTestDescription(identifiers: List[Identifier], operation: String) =
+  private def addIdentifiersDescription(identifiers: List[TestIdentifier]) = identifiersTestDescription(identifiers, "add")
+  private def updateIdentifiersDescription(identifiers: List[TestIdentifier]) = identifiersTestDescription(identifiers, "update")
+  private def identifiersTestDescription(identifiers: List[TestIdentifier], operation: String) =
     if (identifiers.isEmpty) {
       s"not $operation any identifiers"
     } else {
-      val identifiersString = identifiers.map(i => s"${i.identifierName}=${i.value}").mkString(" ")
+      val identifiersString = identifiers.map(i => s"${i.name}=${i.value}").mkString(" ")
       s"add $identifiersString"
     }
 
