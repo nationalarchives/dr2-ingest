@@ -63,7 +63,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     stringToRepresentationType(getPotentialStringValue(representationType)),
     getNumber(representationSuffix, _.toInt),
     getPotentialStringValue(ingestedPreservica),
-    identifiers
+    identifiers,
+    getNumber(childCount, _.toInt)
   )
 
   private def stringToType(potentialTypeString: Option[String]): ValidatedNel[InvalidProperty, Type] =
@@ -178,8 +179,9 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableFields.batchId,
       allValidatedFileTableFields.id,
       allValidatedFileTableFields.name,
-      allValidatedFileTableFields.`type`
-    ).mapN { (batchId, id, name, rowType) =>
+      allValidatedFileTableFields.`type`,
+      allValidatedFileTableFields.childCount
+    ).mapN { (batchId, id, name, rowType, childCount) =>
       ArchiveFolderDynamoTable(
         batchId,
         id,
@@ -188,7 +190,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
         rowType,
         allValidatedFileTableFields.title,
         allValidatedFileTableFields.description,
-        allValidatedFileTableFields.identifiers
+        allValidatedFileTableFields.identifiers,
+        childCount
       )
     }.toEither
       .left
@@ -199,8 +202,9 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableFields.batchId,
       allValidatedFileTableFields.id,
       allValidatedFileTableFields.name,
-      allValidatedFileTableFields.`type`
-    ).mapN { (batchId, id, name, rowType) =>
+      allValidatedFileTableFields.`type`,
+      allValidatedFileTableFields.childCount
+    ).mapN { (batchId, id, name, rowType, childCount) =>
       ContentFolderDynamoTable(
         batchId,
         id,
@@ -209,7 +213,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
         rowType,
         allValidatedFileTableFields.title,
         allValidatedFileTableFields.description,
-        allValidatedFileTableFields.identifiers
+        allValidatedFileTableFields.identifiers,
+        childCount
       )
     }.toEither
       .left
@@ -227,7 +232,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableFields.digitalAssetSubtype,
       allValidatedFileTableFields.originalFiles,
       allValidatedFileTableFields.originalMetadataFiles,
-      allValidatedFileTableFields.`type`
+      allValidatedFileTableFields.`type`,
+      allValidatedFileTableFields.childCount
     ).mapN {
       (
           batchId,
@@ -240,7 +246,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           digitalAssetSubtype,
           originalFiles,
           originalMetadataFiles,
-          rowType
+          rowType,
+          childCount
       ) =>
         AssetDynamoTable(
           batchId,
@@ -258,7 +265,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           originalFiles,
           originalMetadataFiles,
           allValidatedFileTableFields.ingestedPreservica.contains("true"),
-          allValidatedFileTableFields.identifiers
+          allValidatedFileTableFields.identifiers,
+          childCount
         )
     }.toEither
       .left
@@ -275,7 +283,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableFields.fileExtension,
       allValidatedFileTableFields.`type`,
       allValidatedFileTableFields.representationType,
-      allValidatedFileTableFields.representationSuffix
+      allValidatedFileTableFields.representationSuffix,
+      allValidatedFileTableFields.childCount
     ).mapN {
       (
           batchId,
@@ -287,7 +296,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           fileExtension,
           rowType,
           representationType,
-          representationSuffix
+          representationSuffix,
+          childCount
       ) =>
         FileDynamoTable(
           batchId,
@@ -304,7 +314,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           representationType,
           representationSuffix,
           allValidatedFileTableFields.ingestedPreservica.contains("true"),
-          allValidatedFileTableFields.identifiers
+          allValidatedFileTableFields.identifiers,
+          childCount
         )
     }.toEither
       .left

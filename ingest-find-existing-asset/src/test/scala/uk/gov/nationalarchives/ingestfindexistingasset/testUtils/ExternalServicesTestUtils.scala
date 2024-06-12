@@ -93,6 +93,9 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
        |        "digitalAssetSubtype": {
        |          "S": "digitalAssetSubtype"
        |        },
+       |        "childCount": {
+       |          "N": "0"
+       |        },
        |        "originalFiles": {
        |          "L": [
        |            {
