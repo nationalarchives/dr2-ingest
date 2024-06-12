@@ -87,6 +87,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |      "sortOrder": {
        |        "N": "1"
        |      },
+       |      "childCount": {
+       |        "N": "0"
+       |      },
        |      "id": {
        |        "S": "$childIdDocx"
        |      },
@@ -151,6 +154,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |      },
        |      "sortOrder": {
        |        "N": "2"
+       |      },
+       |      "childCount": {
+       |        "N": "0"
        |      },
        |      "id": {
        |        "S": "$childIdJson"
@@ -223,6 +229,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |        },
        |        "batchId": {
        |          "S": "$batchId"
+       |        },
+       |        "childCount": {
+       |          "N": "0"
        |        },
        |        "transferringBody": {
        |          "S": "Test Transferring Body"
