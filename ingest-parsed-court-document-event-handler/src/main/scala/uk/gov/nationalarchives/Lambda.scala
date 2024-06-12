@@ -1,3 +1,0 @@
-package uk.gov.nationalarchives
-
-class Lambda extends ingestparsedcourtdocumenteventhandler.Lambda
