@@ -3,9 +3,9 @@ package uk.gov.nationalarchives.ingestassetopexcreator
 import cats.effect.unsafe.implicits.global
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
-import uk.gov.nationalarchives.DynamoFormatters.*
-import uk.gov.nationalarchives.DynamoFormatters.FileRepresentationType.*
-import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 
 import scala.xml.{Utility, XML}
 import java.time.OffsetDateTime

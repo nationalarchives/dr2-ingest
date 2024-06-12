@@ -1,7 +1,7 @@
 package uk.gov.nationalarchives.ingestassetopexcreator
 
 import cats.effect.IO
-import uk.gov.nationalarchives.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 
 import java.time.OffsetDateTime
 
