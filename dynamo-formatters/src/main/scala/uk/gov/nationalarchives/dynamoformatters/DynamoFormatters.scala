@@ -80,6 +80,7 @@ object DynamoFormatters {
   val representationType = "representationType"
   val representationSuffix = "representationSuffix"
   val ingestedPreservica = "ingested_PS"
+  val childCount = "childCount"
 
   given filesTablePkFormat: Typeclass[FilesTablePartitionKey] = deriveDynamoFormat[FilesTablePartitionKey]
   given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
@@ -96,6 +97,7 @@ object DynamoFormatters {
     def title: Option[String]
     def description: Option[String]
     def identifiers: List[Identifier]
+    def childCount: Int
   }
 
   private type ValidatedField[T] = ValidatedNel[(FieldName, DynamoReadError), T]
@@ -128,7 +130,8 @@ object DynamoFormatters {
       representationType: ValidatedField[FileRepresentationType],
       representationSuffix: ValidatedField[Int],
       ingestedPreservica: Option[String],
-      identifiers: List[Identifier]
+      identifiers: List[Identifier],
+      childCount: ValidatedField[Int]
   )
 
   case class ArchiveFolderDynamoTable(
@@ -139,7 +142,8 @@ object DynamoFormatters {
       `type`: Type,
       title: Option[String],
       description: Option[String],
-      identifiers: List[Identifier]
+      identifiers: List[Identifier],
+      childCount: Int
   ) extends DynamoTable
 
   case class ContentFolderDynamoTable(
@@ -150,7 +154,8 @@ object DynamoFormatters {
       `type`: Type,
       title: Option[String],
       description: Option[String],
-      identifiers: List[Identifier]
+      identifiers: List[Identifier],
+      childCount: Int
   ) extends DynamoTable
 
   case class AssetDynamoTable(
@@ -169,7 +174,8 @@ object DynamoFormatters {
       originalFiles: List[UUID],
       originalMetadataFiles: List[UUID],
       ingestedPreservica: Boolean,
-      identifiers: List[Identifier]
+      identifiers: List[Identifier],
+      childCount: Int
   ) extends DynamoTable
 
   case class FileDynamoTable(
@@ -187,7 +193,8 @@ object DynamoFormatters {
       representationType: FileRepresentationType,
       representationSuffix: Int,
       ingestedPreservica: Boolean,
-      identifiers: List[Identifier]
+      identifiers: List[Identifier],
+      childCount: Int
   ) extends DynamoTable
 
   case class Identifier(identifierName: String, value: String)

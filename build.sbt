@@ -167,7 +167,6 @@ lazy val ingestFindExistingAsset = (project in file("ingest-find-existing-asset"
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
-    name := "ingest-check-preservica-for-existing-io", //This stops the name change breaking the existing lambda. This can be removed when we rename the lambda
     libraryDependencies ++= Seq(
       dynamoClient,
       preservicaClient

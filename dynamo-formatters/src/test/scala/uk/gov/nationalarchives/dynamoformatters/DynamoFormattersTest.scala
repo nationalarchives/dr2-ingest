@@ -27,7 +27,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       typeField -> fromS("ArchiveFolder"),
       title -> fromS("title"),
       description -> fromS("description"),
-      "id_Test" -> fromS("testIdentifier")
+      "id_Test" -> fromS("testIdentifier"),
+      childCount -> fromN("1")
     )
 
   val allFileFieldsPopulated: Map[String, AttributeValue] =
@@ -46,7 +47,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       representationType -> fromS("Preservation"),
       ingestedPreservica -> fromS("true"),
       representationSuffix -> fromN("1"),
-      "id_Test" -> fromS("testIdentifier")
+      "id_Test" -> fromS("testIdentifier"),
+      childCount -> fromN("1")
     )
   val allAssetFieldsPopulated: Map[String, AttributeValue] = {
     Map(
@@ -66,7 +68,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       ingestedPreservica -> fromS("true"),
       description -> fromS("testDescription"),
       "id_Test" -> fromS("testIdentifier"),
-      "id_Test2" -> fromS("testIdentifier2")
+      "id_Test2" -> fromS("testIdentifier2"),
+      childCount -> fromN("1")
     )
   }
 
@@ -78,7 +81,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       (id, UUID.randomUUID().toString),
       (batchId, "batchId"),
       (name, "name"),
-      (typeField, typeValue)
+      (typeField, typeValue),
+      (childCount, "1")
     )
     val fields = typeValue match {
       case "ArchiveFolder" => baseFields
@@ -180,6 +184,21 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       Asset
     ),
     (
+      missingFieldsAttributeValue(Asset, childCount),
+      "'childCount': missing",
+      Asset
+    ),
+    (
+      invalidNumericField(childCount, File),
+      "'childCount': not of type: 'Number' was 'DynString(1)'",
+      File
+    ),
+    (
+      invalidNumericValue(childCount, File),
+      "'childCount': could not be converted to desired type: java.lang.RuntimeException: Cannot parse NaN for field childCount into int",
+      File
+    ),
+    (
       invalidNumericField(fileSize, File),
       "'fileSize': not of type: 'Number' was 'DynString(1)'",
       File
@@ -206,7 +225,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     ),
     (
       invalidTypeAttributeValue,
-      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'checksum_sha256': missing, 'fileExtension': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing",
+      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'checksum_sha256': missing, 'fileExtension': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing",
       File
     ),
     (
@@ -418,7 +437,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       List(originalFilesUuid),
       List(originalMetadataFilesUuid),
       true,
-      Nil
+      Nil,
+      1
     )
     val res = assetTableFormat.write(dynamoTable)
     val resultMap = res.toAttributeValue.m().asScala
@@ -585,7 +605,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       List(originalFilesUuid),
       List(originalMetadataFilesUuid),
       ingestedPreservica,
-      identifiers
+      identifiers,
+      1
     )
   }
 
@@ -608,7 +629,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       PreservationRepresentationType,
       1,
       ingestedPreservica,
-      List(Identifier("FileIdentifier1", "FileIdentifier1Value"))
+      List(Identifier("FileIdentifier1", "FileIdentifier1Value")),
+      1
     )
   }
 
@@ -621,7 +643,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       ArchiveFolder,
       Option(title),
       Option(description),
-      Nil
+      Nil,
+      1
     )
   }
 
@@ -634,6 +657,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       ContentFolder,
       Option(title),
       Option(description),
-      Nil
+      Nil,
+      1
     )
 }
