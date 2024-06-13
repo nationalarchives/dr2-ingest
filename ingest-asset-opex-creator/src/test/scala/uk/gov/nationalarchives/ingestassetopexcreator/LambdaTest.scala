@@ -55,7 +55,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal(s"Asset $assetId: Expected 3 children but 2 children found")
+    ex.getMessage should equal(s"Asset id $assetId: has 3 children in the files table but found 2 children in the Preservation system")
   }
 
   "handler" should "return an error if the dynamo entry does not have a type of 'Asset'" in {

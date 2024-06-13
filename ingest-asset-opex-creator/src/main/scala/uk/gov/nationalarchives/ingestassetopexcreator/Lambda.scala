@@ -38,7 +38,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
 
       children <- childrenOfAsset(dynamoClient, asset, config.dynamoTableName, config.dynamoGsiName)
-      _ <- IO.raiseWhen(children.length != asset.childCount)(new Exception(s"Asset ${asset.id}: Expected ${asset.childCount} children but ${children.length} children found"))
+      _ <- IO.raiseWhen(children.length != asset.childCount)(new Exception(s"Asset id ${asset.id}: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system"))
       _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
       _ <- log(s"${children.length} children found for asset ${asset.id}")
 
