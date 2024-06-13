@@ -375,7 +375,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal(s"Asset $assetId: Expected 3 children but found 2 children")
+    ex.getMessage should equal(s"Asset id $assetId: has 3 children in the files table but found 2 children in the Preservation system")
   }
 
   "handler" should "return a 'decoding' error if COs could be reconciled but the 'messageId' was missing from lock table" in {
