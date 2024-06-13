@@ -97,7 +97,6 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
       folderRows <- IO.pure(children.filter(child => isFolder(child.`type`)))
       folderOpex <- dependencies.xmlCreator.createFolderOpex(folder, assetRows, folderRows, folder.identifiers)
-      _ <- IO.println(folderOpex)
       _ <- xmlValidator(PreservicaSchema.OpexMetadataSchema).xmlStringIsValid("""<?xml version="1.0" encoding="UTF-8"?>""" + folderOpex)
       key = generateKey(input.executionName, folder)
       _ <- uploadXMLToS3(dependencies.s3Client, folderOpex, config.bucketName, key)
