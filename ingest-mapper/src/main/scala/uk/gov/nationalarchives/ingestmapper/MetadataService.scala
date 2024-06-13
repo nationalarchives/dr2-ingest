@@ -32,12 +32,12 @@ class MetadataService(s3: DAS3Client[IO]) {
 
   def parseBagInfoJson(input: Input): IO[List[Obj]] = parseFileFromS3(input, "bag-info.json", _.map(bagInfoJson => Obj.from(read(bagInfoJson).obj)))
 
-  private def addChildCountValues(metadataJson: List[Obj]): List[Obj] = {
-    metadataJson.map { mr =>
-      val rowMap = mr.value.toMap
-      val parentPath = s"${rowMap.get("parentPath").map(path => s"${path.str}/").getOrElse("")}${rowMap("id").str}"
-      val count = metadataJson.count(mr => mr.value.toMap.get("parentPath").map(_.str).contains(parentPath))
-      Obj.from(("childCount", Num(count)) :: rowMap.toList)
+  private def addChildCountAttributes(metadataJson: List[Obj]): List[Obj] = {
+    metadataJson.map { row =>
+      val rowMap = row.value.toMap
+      val parentPathOfChildren = s"${rowMap.get("parentPath").map(path => s"${path.str}/").getOrElse("")}${rowMap("id").str}"
+      val childCount = metadataJson.count(row => row.value.toMap.get("parentPath").map(_.str).contains(parentPathOfChildren))
+      Obj.from(("childCount", Num(childCount)) :: rowMap.toList)
     }
   }
 
@@ -55,7 +55,7 @@ class MetadataService(s3: DAS3Client[IO]) {
             .getOrElse(departmentId)
           val parentPaths = getParentPaths(json)
           Stream.emits {
-            val jsonArr = json.arr.toList.map { metadataEntry =>
+            val updatedJson = json.arr.toList.map { metadataEntry =>
               val id = UUID.fromString(metadataEntry("id").str)
               val name = metadataEntry("name").str
               val parentPath = parentPaths(id)
@@ -76,7 +76,7 @@ class MetadataService(s3: DAS3Client[IO]) {
                   .toMap
               Obj.from(metadataFromBagInfo.value ++ metadataMap)
             } ++ departmentAndSeries.series.toList ++ List(departmentAndSeries.department)
-            addChildCountValues(jsonArr)
+            addChildCountAttributes(updatedJson)
           }
         }
     )
