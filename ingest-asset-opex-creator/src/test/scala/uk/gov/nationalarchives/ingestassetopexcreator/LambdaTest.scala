@@ -39,7 +39,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if no children are found for the asset" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse(0))
     stubPostRequest(emptyDynamoPostResponse)
 
     val ex = intercept[Exception] {
@@ -48,8 +48,18 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     ex.getMessage should equal(s"No children found for $assetId and $batchId")
   }
 
+  "handler" should "return an error if childCount is higher than the number of rows returned" in {
+    stubGetRequest(dynamoGetResponse(3))
+    stubPostRequest(dynamoPostResponse)
+
+    val ex = intercept[Exception] {
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    }
+    ex.getMessage should equal(s"Asset id $assetId: has 3 children in the files table but found 2 children in the Preservation system")
+  }
+
   "handler" should "return an error if the dynamo entry does not have a type of 'Asset'" in {
-    stubGetRequest(dynamoGetResponse.replace(""""S": "Asset"""", """"S": "ArchiveFolder""""))
+    stubGetRequest(dynamoGetResponse().replace(""""S": "Asset"""", """"S": "ArchiveFolder""""))
     stubPostRequest(emptyDynamoPostResponse)
 
     val ex = intercept[Exception] {
@@ -69,7 +79,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "pass the correct parameters to dynamo for the query request" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(emptyDynamoPostResponse)
     intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
@@ -84,7 +94,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "copy the correct child assets from source to destination" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
     val (sourceJson, destinationJson) = stubJsonCopyRequest()
     val (sourceDocx, destinationDocx) = stubDocxCopyRequest()
@@ -103,7 +113,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "upload the xip and opex files" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
     val (xipPath, opexPath) = stubPutRequest()
     stubJsonCopyRequest()
@@ -117,7 +127,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "write the xip content objects in the correct order" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
     val (xipPath, _) = stubPutRequest()
     stubJsonCopyRequest()
@@ -133,7 +143,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "upload the correct opex file to s3" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
 
     val (_, opexPath) = stubPutRequest()
@@ -158,7 +168,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
 
   "handler" should "return an error if the S3 API is unavailable" in {
     s3Server.stop()
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
