@@ -62,11 +62,11 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
     tableRequestItems.length should equal(6)
     checkDynamoItems(
       tableRequestItems,
-      DynamoTable("TEST", UUID.fromString(uuids.head), "", "A", ArchiveFolder, "Test Title A", "TestDescriptionA with 0", Some("A"))
+      DynamoTable("TEST", UUID.fromString(uuids.head), "", "A", ArchiveFolder, "Test Title A", "TestDescriptionA with 0", Some("A"), 1)
     )
     checkDynamoItems(
       tableRequestItems,
-      DynamoTable("TEST", UUID.fromString(uuids.tail.head), uuids.head, "A 1", ArchiveFolder, "Test Title A 1", "TestDescriptionA 1 with 0", Some("A 1"))
+      DynamoTable("TEST", UUID.fromString(uuids.tail.head), uuids.head, "A 1", ArchiveFolder, "Test Title A 1", "TestDescriptionA 1 with 0", Some("A 1"), 1)
     )
     checkDynamoItems(
       tableRequestItems,
@@ -79,6 +79,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         "TestTitle",
         "",
         None,
+        1,
         customMetadataAttribute2 = Option("customMetadataValue2")
       )
     )
@@ -93,6 +94,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         "TestAssetTitle",
         "",
         None,
+        2,
         customMetadataAttribute2 = Option("customMetadataValueFromBagInfo"),
         attributeUniqueToBagInfo = Option("bagInfoAttributeValue"),
         originalFiles = originalFiles,
@@ -110,6 +112,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         "Test",
         "",
         None,
+        0,
         Option(1),
         customMetadataAttribute1 = Option("customMetadataValue1")
       )
@@ -125,6 +128,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         "",
         "",
         None,
+        0,
         Option(2),
         Option("checksum"),
         Option("txt")
