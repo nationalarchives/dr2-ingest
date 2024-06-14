@@ -2,12 +2,12 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.23.1"
   lazy val pureConfigVersion = "0.17.7"
-  lazy val daAwsClientsVersion = "0.1.61"
+  lazy val daAwsClientsVersion = "0.1.63"
   private val fs2Version = "3.10.2"
   private val sttpVersion = "3.9.7"
   private val circeVersion = "0.14.7"
   private val log4CatsVersion = "2.7.0"
-  private val awsLibraryVersion = "1.12.740"
+  private val awsLibraryVersion = "1.12.742"
   private lazy val scalaTestVersion = "3.2.18"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.29.17"
@@ -25,7 +25,7 @@ object Dependencies {
   lazy val fs2Reactive = "co.fs2" %% "fs2-reactive-streams" % fs2Version
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
   lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.2.3"
-  lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.11.5"
+  lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.11.6"
   lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion;
   lazy val log4CatsSlf4j = "org.typelevel" %% "log4cats-slf4j" % log4CatsVersion
   lazy val log4jCore = "org.apache.logging.log4j" % "log4j-core" % logbackVersion
