@@ -9,7 +9,7 @@ import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.Config
 import uk.gov.nationalarchives.ingestassetopexcreator.testUtils.ExternalServicesTestUtils
 
 import scala.jdk.CollectionConverters.*
-import scala.xml.XML
+import scala.xml.{Utility, XML}
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val dynamoServer = new WireMockServer(9003)
@@ -155,7 +155,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     val s3UploadRequests = s3Server.getAllServeEvents.asScala
     val opexString = s3UploadRequests.filter(_.getRequest.getUrl == opexPath).head.getRequest.getBodyAsString.split('\n').tail.dropRight(3).mkString("\n")
     val opexXml = XML.loadString(opexString)
-    opexXml should equal(expectedOpex)
+    Utility.trim(opexXml) should equal(Utility.trim(expectedOpex))
   }
 
   "handler" should "return an error if the Dynamo API is unavailable" in {

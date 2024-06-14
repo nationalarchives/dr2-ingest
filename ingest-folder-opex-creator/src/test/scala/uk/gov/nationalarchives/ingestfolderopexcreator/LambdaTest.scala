@@ -18,6 +18,7 @@ import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{Config, Dependenc
 import java.net.URI
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
+import scala.xml.Elem
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val dynamoServer = new WireMockServer(9006)
@@ -289,6 +290,18 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   "handler" should "upload the correct body to S3" in {
     val expectedResponseXML =
       <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
+      <opex:Transfer>
+        <opex:SourceID>Test Name</opex:SourceID>
+        <opex:Manifest>
+          <opex:Files>
+            <opex:File type="metadata" size="100">{assetId}.pax.opex</opex:File>
+          </opex:Files>
+          <opex:Folders>
+            <opex:Folder>{assetId}.pax</opex:Folder>
+            <opex:Folder>{childId}</opex:Folder>
+          </opex:Folders>
+        </opex:Manifest>
+      </opex:Transfer>
       <opex:Properties>
         <opex:Title>Test Name</opex:Title>
         <opex:Description></opex:Description>
@@ -297,18 +310,6 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
           <opex:Identifier type="Code">Code</opex:Identifier>
         </opex:Identifiers>
       </opex:Properties>
-      <opex:Transfer>
-        <opex:SourceID>Test Name</opex:SourceID>
-        <opex:Manifest>
-          <opex:Folders>
-            <opex:Folder>{assetId}.pax</opex:Folder>
-            <opex:Folder>{childId}</opex:Folder>
-          </opex:Folders>
-          <opex:Files>
-            <opex:File type="metadata" size="100">{assetId}.pax.opex</opex:File>
-          </opex:Files>
-        </opex:Manifest>
-      </opex:Transfer>
     </opex:OPEXMetadata>
     stubBatchGetRequest(dynamoGetResponse)
     stubDynamoQueryRequest(dynamoQueryResponse)
