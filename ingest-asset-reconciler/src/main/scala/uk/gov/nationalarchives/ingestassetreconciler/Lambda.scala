@@ -147,6 +147,9 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       )
 
       children <- childrenOfAsset(dependencies.dynamoDbClient, asset, config.dynamoTableName, config.dynamoGsiName)
+      _ <- IO.raiseWhen(asset.childCount != children.length)(
+        new Exception(s"Asset id $assetId: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
+      )
       _ <- IO.fromOption(children.headOption)(
         new Exception(s"No children were found for $assetId from $batchId")
       )
