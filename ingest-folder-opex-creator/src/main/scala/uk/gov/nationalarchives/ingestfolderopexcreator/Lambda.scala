@@ -11,9 +11,11 @@ import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
 import uk.gov.nationalarchives.DADynamoDBClient.given
+import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd.PreservicaSchema
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
+import uk.gov.nationalarchives.dp.client.fs2.Fs2Client.xmlValidator
 import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 
@@ -87,6 +89,9 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- log(s"Fetched ${folderItems.length} folder items from Dynamo")
 
       children <- childrenOfFolder(dependencies.dynamoClient, folder, config.dynamoTableName, config.dynamoGsiName)
+      _ <- IO.raiseWhen(folder.childCount != children.length)(
+        new Exception(s"Folder id ${folder.id}: has ${folder.childCount} children in the files table but found ${children.length} children in the Preservation system")
+      )
       _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
       _ <- log(s"Fetched ${children.length} children from Dynamo")
 
@@ -95,6 +100,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
       folderRows <- IO.pure(children.filter(child => isFolder(child.`type`)))
       folderOpex <- dependencies.xmlCreator.createFolderOpex(folder, assetRows, folderRows, folder.identifiers)
+      _ <- xmlValidator(PreservicaSchema.OpexMetadataSchema).xmlStringIsValid("""<?xml version="1.0" encoding="UTF-8"?>""" + folderOpex)
       key = generateKey(input.executionName, folder)
       _ <- uploadXMLToS3(dependencies.s3Client, folderOpex, config.bucketName, key)
       _ <- log(s"Uploaded OPEX $key to S3 ${config.bucketName}")

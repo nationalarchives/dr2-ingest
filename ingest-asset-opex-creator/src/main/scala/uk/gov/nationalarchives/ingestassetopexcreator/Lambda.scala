@@ -10,6 +10,8 @@ import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
 import uk.gov.nationalarchives.DADynamoDBClient.{*, given}
+import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd
+import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd.PreservicaSchema.{OpexMetadataSchema, XipXsdSchemaV7}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.*
@@ -38,16 +40,21 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
 
       children <- childrenOfAsset(dynamoClient, asset, config.dynamoTableName, config.dynamoGsiName)
+      _ <- IO.raiseWhen(children.length != asset.childCount)(
+        new Exception(s"Asset id ${asset.id}: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
+      )
       _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
       _ <- log(s"${children.length} children found for asset ${asset.id}")
 
       _ <- log(s"Starting copy from ${input.sourceBucket} to ${config.destinationBucket}")
       _ <- children.map(child => copyFromSourceToDestination(s3Client, input, config.destinationBucket, asset, child, xmlCreator)).sequence
       xip <- xmlCreator.createXip(asset, children.sortBy(_.sortOrder))
+      _ <- ValidateXmlAgainstXsd[IO](XipXsdSchemaV7).xmlStringIsValid(xip)
       _ <- uploadXMLToS3(s3Client, xip, config.destinationBucket, s"${assetPath(input, asset)}/${asset.id}.xip")
       _ <- log(s"XIP ${assetPath(input, asset)}/${asset.id}.xip uploaded to ${config.destinationBucket}")
 
       opex <- xmlCreator.createOpex(asset, children, xip.getBytes.length, asset.identifiers)
+      _ <- ValidateXmlAgainstXsd[IO](OpexMetadataSchema).xmlStringIsValid(opex)
       _ <- uploadXMLToS3(s3Client, opex, config.destinationBucket, s"${parentPath(input, asset)}/${asset.id}.pax.opex")
       _ <- log(s"OPEX ${parentPath(input, asset)}/${asset.id}.pax.opex uploaded to ${config.destinationBucket}")
     } yield ()
