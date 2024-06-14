@@ -17,93 +17,103 @@ class XMLCreatorTest extends AnyFlatSpec {
   private val ingestDateTime = OffsetDateTime.parse("2023-12-04T10:55:44.848622Z")
 
   private def verifyXmlEqual(xmlStringOne: String, xmlElem: Elem) =
-    Utility.trim(XML.loadString(xmlStringOne)) should equal(Utility.trim(xmlElem))
+    Utility.trim(XML.loadString(xmlStringOne)).toString should equal(Utility.trim(xmlElem).toString)
   private def verifyXmlEqual(xmlStringOne: String, xmlStringTwo: String) =
     Utility.trim(XML.loadString(xmlStringOne)) should equal(Utility.trim(XML.loadString(xmlStringTwo)))
 
-  val expectedOpexXml: Elem = <opex:OPEXMetadata xmlns:opex={opexNamespace}>
-          <opex:DescriptiveMetadata>
-            <Source xmlns="http://dr2.nationalarchives.gov.uk/source">
-              <DigitalAssetSource>digitalAssetSource</DigitalAssetSource>
-              <DigitalAssetSubtype>digitalAssetSubtype</DigitalAssetSubtype>
-              <IngestDateTime>{ingestDateTime}</IngestDateTime>
-              <OriginalFiles>
-                <File>dec2b921-20e3-41e8-a299-f3cbc13131a2</File>
-              </OriginalFiles>
-              <OriginalMetadataFiles>
-                <File>3f42e3f2-fffe-4fe9-87f7-262e95b86d75</File>
-              </OriginalMetadataFiles>
-              <TransferDateTime>2023-06-01T00:00Z</TransferDateTime>
-              <TransferringBody>transferringBody</TransferringBody>
-              <UpstreamSystem>upstreamSystem</UpstreamSystem>
-              <UpstreamSystemRef>testSystemRef2</UpstreamSystemRef>
-            </Source>
-          </opex:DescriptiveMetadata>
-          <opex:Transfer>
-            <opex:SourceID>name</opex:SourceID>
-            <opex:Manifest>
-              <opex:Folders>
-                <opex:Folder>Representation_Preservation</opex:Folder>
-                <opex:Folder>Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02</opex:Folder>
-                <opex:Folder>Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02/Generation_1</opex:Folder>
-                <opex:Folder>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c</opex:Folder>
-                <opex:Folder>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1</opex:Folder>
-              </opex:Folders>
-              <opex:Files>
-                <opex:File type="metadata" size="4">90730c77-8faa-4dbf-b20d-bba1046dac87.xip</opex:File>
-                <opex:File type="content" size="1">Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02/Generation_1/a814ee41-89f4-4975-8f92-303553fe9a02.ext0</opex:File>
-                <opex:File type="content" size="1">Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1/9ecbba86-437f-42c6-aeba-e28b678bbf4c.ext1</opex:File>
-              </opex:Files>
-            </opex:Manifest>
-          </opex:Transfer>
-          <opex:Properties>
-            <opex:Title>title</opex:Title>
-            <opex:Description>description</opex:Description>
-            <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
-            <opex:Identifiers>
-              <opex:Identifier type="Test1">Value1</opex:Identifier>
-              <opex:Identifier type="Test2">Value2</opex:Identifier>
-              <opex:Identifier type="UpstreamSystemReference">testSystemRef2</opex:Identifier>
-            </opex:Identifiers>
-          </opex:Properties>
-        </opex:OPEXMetadata>
+  val expectedOpexXml: Elem =
+    <opex:OPEXMetadata xmlns:opex={opexNamespace}>
+      <opex:Transfer>
+        <opex:SourceID>name</opex:SourceID>
+        <opex:Manifest>
+          <opex:Files>
+            <opex:File type="metadata" size="4">90730c77-8faa-4dbf-b20d-bba1046dac87.xip</opex:File>
+            <opex:File type="content" size="1">Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02/Generation_1/a814ee41-89f4-4975-8f92-303553fe9a02.ext0</opex:File>
+            <opex:File type="content" size="1">Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1/9ecbba86-437f-42c6-aeba-e28b678bbf4c.ext1</opex:File>
+          </opex:Files>
+          <opex:Folders>
+            <opex:Folder>Representation_Preservation</opex:Folder>
+            <opex:Folder>Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02</opex:Folder>
+            <opex:Folder>Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02/Generation_1</opex:Folder>
+            <opex:Folder>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c</opex:Folder>
+            <opex:Folder>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1</opex:Folder>
+          </opex:Folders>
+        </opex:Manifest>
+      </opex:Transfer>
+      <opex:Properties>
+        <opex:Title>title</opex:Title>
+        <opex:Description>description</opex:Description>
+        <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+        <opex:Identifiers>
+          <opex:Identifier type="Test1">Value1</opex:Identifier>
+          <opex:Identifier type="Test2">Value2</opex:Identifier>
+          <opex:Identifier type="UpstreamSystemReference">testSystemRef2</opex:Identifier>
+        </opex:Identifiers>
+      </opex:Properties>
+        <opex:DescriptiveMetadata>
+          <Source xmlns="http://dr2.nationalarchives.gov.uk/source">
+            <DigitalAssetSource>digitalAssetSource</DigitalAssetSource>
+            <DigitalAssetSubtype>digitalAssetSubtype</DigitalAssetSubtype>
+            <IngestDateTime>{ingestDateTime}</IngestDateTime>
+            <OriginalFiles>
+              <File>dec2b921-20e3-41e8-a299-f3cbc13131a2</File>
+            </OriginalFiles>
+            <OriginalMetadataFiles>
+              <File>3f42e3f2-fffe-4fe9-87f7-262e95b86d75</File>
+            </OriginalMetadataFiles>
+            <TransferDateTime>2023-06-01T00:00Z</TransferDateTime>
+            <TransferringBody>transferringBody</TransferringBody>
+            <UpstreamSystem>upstreamSystem</UpstreamSystem>
+            <UpstreamSystemRef>testSystemRef2</UpstreamSystemRef>
+          </Source>
+        </opex:DescriptiveMetadata>
+    </opex:OPEXMetadata>
 
   val expectedXipXml: Elem =
     <XIP xmlns="http://preservica.com/XIP/v7.0">
-      <InformationObject>
+      <InformationObject xmlns="http://preservica.com/XIP/v7.0">
         <Ref>90730c77-8faa-4dbf-b20d-bba1046dac87</Ref>
         <SecurityTag>open</SecurityTag>
         <Title>Preservation</Title>
       </InformationObject>
-      <Representation>
+      <Representation xmlns="http://preservica.com/XIP/v7.0">
         <InformationObject>90730c77-8faa-4dbf-b20d-bba1046dac87</InformationObject>
-        <Type>Preservation</Type>
         <Name>Preservation_1</Name>
+        <Type>Preservation</Type>
         <ContentObjects>
           <ContentObject>a814ee41-89f4-4975-8f92-303553fe9a02</ContentObject>
         </ContentObjects>
-      </Representation>
-      <Representation>
-        <InformationObject>90730c77-8faa-4dbf-b20d-bba1046dac87</InformationObject>
-        <Type>Access</Type>
-        <Name>Access_1</Name>
-        <ContentObjects>
-          <ContentObject>9ecbba86-437f-42c6-aeba-e28b678bbf4c</ContentObject>
-        </ContentObjects>
-      </Representation>
-      <ContentObject>
+      </Representation><Representation xmlns="http://preservica.com/XIP/v7.0">
+      <InformationObject>90730c77-8faa-4dbf-b20d-bba1046dac87</InformationObject>
+      <Name>Access_1</Name>
+      <Type>Access</Type>
+      <ContentObjects>
+        <ContentObject>9ecbba86-437f-42c6-aeba-e28b678bbf4c</ContentObject>
+      </ContentObjects>
+    </Representation>
+      <ContentObject xmlns="http://preservica.com/XIP/v7.0">
         <Ref>a814ee41-89f4-4975-8f92-303553fe9a02</Ref>
         <Title>name0</Title>
-        <Parent>90730c77-8faa-4dbf-b20d-bba1046dac87</Parent>
         <SecurityTag>open</SecurityTag>
-      </ContentObject>
-      <Generation original="true" active="true">
+        <Parent>90730c77-8faa-4dbf-b20d-bba1046dac87</Parent>
+      </ContentObject><ContentObject xmlns="http://preservica.com/XIP/v7.0">
+      <Ref>9ecbba86-437f-42c6-aeba-e28b678bbf4c</Ref>
+      <Title>name1</Title>
+      <SecurityTag>open</SecurityTag>
+      <Parent>90730c77-8faa-4dbf-b20d-bba1046dac87</Parent>
+    </ContentObject>
+      <Generation original="true" active="true" xmlns="http://preservica.com/XIP/v7.0">
         <ContentObject>a814ee41-89f4-4975-8f92-303553fe9a02</ContentObject>
         <Bitstreams>
           <Bitstream>Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02/Generation_1/a814ee41-89f4-4975-8f92-303553fe9a02.ext0</Bitstream>
         </Bitstreams>
-      </Generation>
-      <Bitstream>
+      </Generation><Generation original="true" active="true" xmlns="http://preservica.com/XIP/v7.0">
+      <ContentObject>9ecbba86-437f-42c6-aeba-e28b678bbf4c</ContentObject>
+      <Bitstreams>
+        <Bitstream>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1/9ecbba86-437f-42c6-aeba-e28b678bbf4c.ext1</Bitstream>
+      </Bitstreams>
+    </Generation>
+      <Bitstream xmlns="http://preservica.com/XIP/v7.0">
         <Filename>a814ee41-89f4-4975-8f92-303553fe9a02.ext0</Filename>
         <FileSize>1</FileSize>
         <PhysicalLocation>Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02/Generation_1</PhysicalLocation>
@@ -113,31 +123,18 @@ class XMLCreatorTest extends AnyFlatSpec {
             <FixityValue>checksum0</FixityValue>
           </Fixity>
         </Fixities>
-      </Bitstream>
-      <ContentObject>
-        <Ref>9ecbba86-437f-42c6-aeba-e28b678bbf4c</Ref>
-        <Title>name1</Title>
-        <Parent>90730c77-8faa-4dbf-b20d-bba1046dac87</Parent>
-        <SecurityTag>open</SecurityTag>
-      </ContentObject>
-      <Generation original="true" active="true">
-        <ContentObject>9ecbba86-437f-42c6-aeba-e28b678bbf4c</ContentObject>
-        <Bitstreams>
-          <Bitstream>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1/9ecbba86-437f-42c6-aeba-e28b678bbf4c.ext1</Bitstream>
-        </Bitstreams>
-      </Generation>
-      <Bitstream>
-        <Filename>9ecbba86-437f-42c6-aeba-e28b678bbf4c.ext1</Filename>
-        <FileSize>1</FileSize>
-        <PhysicalLocation>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1</PhysicalLocation>
-        <Fixities>
-          <Fixity>
-            <FixityAlgorithmRef>SHA256</FixityAlgorithmRef>
-            <FixityValue>checksum1</FixityValue>
-          </Fixity>
-        </Fixities>
-      </Bitstream>
-  </XIP>
+      </Bitstream><Bitstream xmlns="http://preservica.com/XIP/v7.0">
+      <Filename>9ecbba86-437f-42c6-aeba-e28b678bbf4c.ext1</Filename>
+      <FileSize>1</FileSize>
+      <PhysicalLocation>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1</PhysicalLocation>
+      <Fixities>
+        <Fixity>
+          <FixityAlgorithmRef>SHA256</FixityAlgorithmRef>
+          <FixityValue>checksum1</FixityValue>
+        </Fixity>
+      </Fixities>
+    </Bitstream>
+    </XIP>
 
   val asset: AssetDynamoTable = AssetDynamoTable(
     "TEST-ID",
@@ -194,7 +191,7 @@ class XMLCreatorTest extends AnyFlatSpec {
   "createOpex" should "create the correct opex xml with identifiers" in {
     val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
     val xml = XMLCreator(ingestDateTime).createOpex(asset, children, 4, identifiers).unsafeRunSync()
-    xml should equal(expectedOpexXml.toString)
+    verifyXmlEqual(xml, expectedOpexXml)
   }
 
   "createOpex" should "create the correct opex xml with identifiers and an asset with the exact title that was in the table " +
@@ -210,7 +207,7 @@ class XMLCreatorTest extends AnyFlatSpec {
           "<opex:Title>title</opex:Title>",
           """<opex:Title>Title_with_ASCII_Chars_!&quot;#$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~</opex:Title>"""
         )
-      xml should equal(expectedOpexXmlWithNewTitle)
+      verifyXmlEqual(xml, expectedOpexXmlWithNewTitle)
     }
 
   "createOpex" should "create the correct opex xml with identifiers and an asset with the exact title that was in the table " +
@@ -221,7 +218,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       val xml = XMLCreator(ingestDateTime).createOpex(assetWithTitleWithChars, children, 4, identifiers).unsafeRunSync()
       val expectedOpexXmlWithNewTitle =
         expectedOpexXml.toString.replace("<opex:Title>title</opex:Title>", "<opex:Title>A title     with   spaces  in            it</opex:Title>")
-      xml should equal(expectedOpexXmlWithNewTitle)
+      verifyXmlEqual(xml, expectedOpexXmlWithNewTitle)
     }
 
   "createOpex" should "throw a 'NoSuchElementException' if the identifiers the opex need are missing" in {

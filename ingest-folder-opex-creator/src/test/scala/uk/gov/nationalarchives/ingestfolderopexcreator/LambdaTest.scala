@@ -18,6 +18,7 @@ import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{Config, Dependenc
 import java.net.URI
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
+import scala.xml.Elem
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val dynamoServer = new WireMockServer(9006)
@@ -155,7 +156,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
        |]
        |}
        |""".stripMargin
-  val dynamoGetResponse: String =
+  def dynamoGetResponse(childCount: Int = 2): String =
     s"""{
        |  "Responses": {
        |    "$tableName": [
@@ -176,7 +177,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
        |          "S": "$batchId"
        |        },
        |        "childCount": {
-       |          "N": "0"
+       |          "N": "$childCount"
        |        },
        |        "id_Code": {
        |          "S": "Code"
@@ -217,7 +218,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if no children are found for the folder" in {
-    stubBatchGetRequest(dynamoGetResponse)
+    stubBatchGetRequest(dynamoGetResponse(0))
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
@@ -226,12 +227,24 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if the dynamo entry does not have a type of 'folder'" in {
-    stubBatchGetRequest(dynamoGetResponse.replace("ArchiveFolder", "Asset"))
+    stubBatchGetRequest(dynamoGetResponse().replace("ArchiveFolder", "Asset"))
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"Object $folderId is of type Asset and not 'ContentFolder' or 'ArchiveFolder'")
+  }
+
+  "handler" should "return an error if the expected child count does not match" in {
+    stubBatchGetRequest(dynamoGetResponse(3))
+    stubDynamoQueryRequest(dynamoQueryResponse)
+    val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
+    stubPutRequest(opexPath)
+
+    val ex = intercept[Exception] {
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    }
+    ex.getMessage should equal(s"Folder id $folderId: has 3 children in the files table but found 2 children in the Preservation system")
   }
 
   "handler" should "pass the correct id to dynamo getItem" in {
@@ -245,7 +258,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "pass the parent path with no prefixed slash to dynamo if the parent path is empty" in {
-    stubBatchGetRequest(dynamoGetResponse.replace("a/parent/path", ""))
+    stubBatchGetRequest(dynamoGetResponse().replace("a/parent/path", ""))
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
@@ -260,7 +273,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "pass the correct parameters to dynamo for the query request" in {
-    stubBatchGetRequest(dynamoGetResponse)
+    stubBatchGetRequest(dynamoGetResponse())
     stubDynamoQueryRequest(emptyDynamoQueryResponse)
     intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
@@ -275,7 +288,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   "handler" should "upload the opex file to the correct path" in {
-    stubBatchGetRequest(dynamoGetResponse)
+    stubBatchGetRequest(dynamoGetResponse())
     stubDynamoQueryRequest(dynamoQueryResponse)
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
     stubPutRequest(opexPath)
@@ -289,6 +302,18 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   "handler" should "upload the correct body to S3" in {
     val expectedResponseXML =
       <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
+      <opex:Transfer>
+        <opex:SourceID>Test Name</opex:SourceID>
+        <opex:Manifest>
+          <opex:Files>
+            <opex:File type="metadata" size="100">{assetId}.pax.opex</opex:File>
+          </opex:Files>
+          <opex:Folders>
+            <opex:Folder>{assetId}.pax</opex:Folder>
+            <opex:Folder>{childId}</opex:Folder>
+          </opex:Folders>
+        </opex:Manifest>
+      </opex:Transfer>
       <opex:Properties>
         <opex:Title>Test Name</opex:Title>
         <opex:Description></opex:Description>
@@ -297,20 +322,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
           <opex:Identifier type="Code">Code</opex:Identifier>
         </opex:Identifiers>
       </opex:Properties>
-      <opex:Transfer>
-        <opex:SourceID>Test Name</opex:SourceID>
-        <opex:Manifest>
-          <opex:Folders>
-            <opex:Folder>{assetId}.pax</opex:Folder>
-            <opex:Folder>{childId}</opex:Folder>
-          </opex:Folders>
-          <opex:Files>
-            <opex:File type="metadata" size="100">{assetId}.pax.opex</opex:File>
-          </opex:Files>
-        </opex:Manifest>
-      </opex:Transfer>
     </opex:OPEXMetadata>
-    stubBatchGetRequest(dynamoGetResponse)
+    stubBatchGetRequest(dynamoGetResponse())
     stubDynamoQueryRequest(dynamoQueryResponse)
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
     stubPutRequest(opexPath)
@@ -334,7 +347,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
 
   "handler" should "return an error if the S3 API is unavailable" in {
     s3Server.stop()
-    stubBatchGetRequest(dynamoGetResponse)
+    stubBatchGetRequest(dynamoGetResponse())
     stubDynamoQueryRequest(dynamoQueryResponse)
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()

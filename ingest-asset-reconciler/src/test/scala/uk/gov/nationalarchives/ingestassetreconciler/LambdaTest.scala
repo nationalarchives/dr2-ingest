@@ -208,7 +208,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   }
 
   "handler" should "return an error if the Dynamo entry does not have a type of 'Asset'" in {
-    stubGetRequest(dynamoGetResponse.replace(""""S": "Asset"""", """"S": "ArchiveFolder""""))
+    stubGetRequest(dynamoGetResponse().replace(""""S": "Asset"""", """"S": "ArchiveFolder""""))
     stubPostRequest(emptyDynamoPostResponse)
     val argumentVerifier = ArgumentVerifier()
     val ex = intercept[Exception] {
@@ -220,7 +220,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   }
 
   "handler" should "return an error if there were no entities that had the asset name as the SourceID" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
     val argumentVerifier = ArgumentVerifier(entitiesWithIdentifier = IO.pure(Nil))
     val ex = intercept[Exception] {
@@ -232,7 +232,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   }
 
   "handler" should "return an error if no children are found for the asset" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse(0))
     stubPostRequest(emptyDynamoPostResponse)
     val argumentVerifier = ArgumentVerifier()
     val ex = intercept[Exception] {
@@ -248,7 +248,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   }
 
   "handler" should "return a 'wasReconciled' value of 'false' and a 'No entity found' 'reason' if there were no Content Objects belonging to the asset" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
 
     val argumentVerifier = ArgumentVerifier(contentObjectsFromReps = IO.pure(Nil))
@@ -274,7 +274,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           .replace(s""""S": "$defaultDocxTitle.docx"""", s""""S": "$docxTitle.docx"""")
           .replace(s""""S": "$defaultJsonName.json"""", s""""S": "$jsonName"""")
 
-        stubGetRequest(dynamoGetResponse)
+        stubGetRequest(dynamoGetResponse())
         stubPostRequest(updatedDynamoPostResponse)
 
         val argumentVerifier = ArgumentVerifier()
@@ -306,7 +306,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         val updatedDynamoPostResponse = dynamoPostResponse
           .replace(s""""S": "$defaultDocxTitle"""", s""""S": "$childOfAssetDocxTitle"""")
 
-        stubGetRequest(dynamoGetResponse)
+        stubGetRequest(dynamoGetResponse())
         stubPostRequest(updatedDynamoPostResponse)
 
         val bitstreamWithUpdatedTitle =
@@ -336,7 +336,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   }
 
   "handler" should "return an error if COs could be reconciled but the lock table returns 0 results" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
     stubLockTableGetRequest(emptyLockTableGetResponse)
 
@@ -353,7 +353,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
   "handler" should "return an error if COs could be reconciled but the 'executionId' from the lock table does not match " +
     "the 'batchId' from the input" in {
-      stubGetRequest(dynamoGetResponse)
+      stubGetRequest(dynamoGetResponse())
       stubPostRequest(dynamoPostResponse)
       stubLockTableGetRequest(dynamoLockTableGetResponse.replace(s"$batchId", "b13ea544-7452-4f53-9db9-c7510c684855"))
 
@@ -368,8 +368,18 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
     }
 
+  "handler" should "return an error if the child count and the number of children don't match" in {
+    stubGetRequest(dynamoGetResponse(3))
+    stubPostRequest(dynamoPostResponse)
+    ArgumentVerifier()
+    val ex = intercept[Exception] {
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    }
+    ex.getMessage should equal(s"Asset id $assetId: has 3 children in the files table but found 2 children in the Preservation system")
+  }
+
   "handler" should "return a 'decoding' error if COs could be reconciled but the 'messageId' was missing from lock table" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
     stubLockTableGetRequest(dynamoLockTableGetResponse.replace(s",'messageId':'$messageId'", ""))
 
@@ -383,7 +393,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   }
 
   "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled" in {
-    stubGetRequest(dynamoGetResponse)
+    stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
     stubLockTableGetRequest(dynamoLockTableGetResponse)
 
@@ -411,7 +421,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       val updatedDynamoPostResponse = dynamoPostResponse
         .replace(s""""S": "$defaultDocxTitle"""", s""""S": "$childOfAssetDocxTitle"""")
 
-      stubGetRequest(dynamoGetResponse)
+      stubGetRequest(dynamoGetResponse())
       stubPostRequest(updatedDynamoPostResponse)
       stubLockTableGetRequest(dynamoLockTableGetResponse)
 
@@ -440,7 +450,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
   "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled, " +
     "even if one of the Asset's child's title, was not present in the table" in {
-      stubGetRequest(dynamoGetResponse)
+      stubGetRequest(dynamoGetResponse())
 
       val updatedDynamoPostResponse = dynamoPostResponse.replace(
         """      "title": {
