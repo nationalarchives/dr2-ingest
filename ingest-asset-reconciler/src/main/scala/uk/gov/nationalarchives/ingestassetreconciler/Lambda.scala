@@ -9,11 +9,12 @@ import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient.{*, given}
-import uk.gov.nationalarchives.DynamoFormatters.*
-import uk.gov.nationalarchives.DynamoFormatters.Type.*
-import uk.gov.nationalarchives.{DADynamoDBClient, DynamoFormatters}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.DADynamoDBClient
 import uk.gov.nationalarchives.dp.client.Client.BitStreamInfo
 import uk.gov.nationalarchives.dp.client.EntityClient
+import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier => PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType
 import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType.*
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
@@ -141,19 +142,22 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       log = logger.info(logCtx)(_)
       _ <- log(s"Asset $assetId retrieved from Dynamo")
 
-      entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(Identifier(sourceId, assetName.toString))
+      entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(PreservicaIdentifier(sourceId, assetName.toString))
       entity <- IO.fromOption(entitiesWithAssetName.headOption)(
         new Exception(s"No entity found using $sourceId '$assetName'")
       )
 
       children <- childrenOfAsset(dependencies.dynamoDbClient, asset, config.dynamoTableName, config.dynamoGsiName)
+      _ <- IO.raiseWhen(asset.childCount != children.length)(
+        new Exception(s"Asset id $assetId: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
+      )
       _ <- IO.fromOption(children.headOption)(
         new Exception(s"No children were found for $assetId from $batchId")
       )
       _ <- log(s"${children.length} children found for asset $assetId")
       childrenGroupedByRepType = children.groupBy(_.representationType match {
-        case DynamoFormatters.FileRepresentationType.PreservationRepresentationType => Preservation
-        case DynamoFormatters.FileRepresentationType.AccessRepresentationType       => Access
+        case FileRepresentationType.PreservationRepresentationType => Preservation
+        case FileRepresentationType.AccessRepresentationType       => Access
       })
 
       stateOutputs <- childrenGroupedByRepType

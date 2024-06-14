@@ -14,11 +14,11 @@ import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCrede
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DynamoFormatters.Identifier
 import uk.gov.nationalarchives.ingestassetreconciler.Lambda.{Dependencies, Input}
 import uk.gov.nationalarchives.dp.client.Client.{BitStreamInfo, Fixity}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
+import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier => PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType.*
 import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
@@ -88,6 +88,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |      "sortOrder": {
        |        "N": "1"
        |      },
+       |      "childCount": {
+       |        "N": "0"
+       |      },
        |      "id": {
        |        "S": "$childIdDocx"
        |      },
@@ -153,6 +156,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |      "sortOrder": {
        |        "N": "2"
        |      },
+       |      "childCount": {
+       |        "N": "0"
+       |      },
        |      "id": {
        |        "S": "$childIdJson"
        |      },
@@ -205,7 +211,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |  ]
        |}
        |""".stripMargin
-  val dynamoGetResponse: String =
+  def dynamoGetResponse(childCount: Int = 2): String =
     s"""{
        |  "Responses": {
        |    "test-table": [
@@ -224,6 +230,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |        },
        |        "batchId": {
        |          "S": "$batchId"
+       |        },
+       |        "childCount": {
+       |          "N": "$childCount"
        |        },
        |        "transferringBody": {
        |          "S": "Test Transferring Body"
@@ -386,7 +395,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
   ) {
     Mockito.reset(mockEntityClient)
     when(
-      mockEntityClient.entitiesByIdentifier(any[Identifier])
+      mockEntityClient.entitiesByIdentifier(any[PreservicaIdentifier])
     ).thenReturn(entitiesWithIdentifier)
 
     when(
@@ -434,7 +443,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
       )
 
       if (numOfEntitiesByIdentifierInvocations > 0)
-        entitiesByIdentifierIdentifierToGetCaptor.getValue should be(Identifier("SourceID", "acdb2e57-923b-4caa-8fd9-a2f79f650c43"))
+        entitiesByIdentifierIdentifierToGetCaptor.getValue should be(PreservicaIdentifier("SourceID", "acdb2e57-923b-4caa-8fd9-a2f79f650c43"))
 
       val ioEntityRefForUrlsRequestCaptor = getIoEntityRefCaptor
       val optionalRepresentationTypeCaptorRequestCaptor = getOptionalRepresentationTypeCaptor
@@ -481,7 +490,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
       ()
     }
 
-    def getIdentifierToGetCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
+    def getIdentifierToGetCaptor: ArgumentCaptor[PreservicaIdentifier] = ArgumentCaptor.forClass(classOf[PreservicaIdentifier])
 
     def getIoEntityRefCaptor: ArgumentCaptor[UUID] = ArgumentCaptor.forClass(classOf[UUID])
 

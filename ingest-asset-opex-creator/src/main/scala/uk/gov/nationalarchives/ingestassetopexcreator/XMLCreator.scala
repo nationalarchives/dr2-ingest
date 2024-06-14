@@ -1,7 +1,7 @@
 package uk.gov.nationalarchives.ingestassetopexcreator
 
 import cats.effect.IO
-import uk.gov.nationalarchives.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 
 import java.time.OffsetDateTime
 
@@ -36,26 +36,19 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
     IO.raiseWhen(transferCompleteDatetime.isAfter(ingestDateTime))(new Exception("'ingestDateTime' is before 'transferCompleteDatetime'!")).map { _ =>
       val xml =
         <opex:OPEXMetadata xmlns:opex={opexNamespace}>
-          <opex:DescriptiveMetadata>
-            <Source xmlns="http://dr2.nationalarchives.gov.uk/source">
-              <DigitalAssetSource>{asset.digitalAssetSource}</DigitalAssetSource>
-              <DigitalAssetSubtype>{asset.digitalAssetSubtype}</DigitalAssetSubtype>
-              <IngestDateTime>{ingestDateTime}</IngestDateTime>
-              <OriginalFiles>
-                {asset.originalFiles.map(originalFile => <File>{originalFile}</File>)}
-              </OriginalFiles>
-              <OriginalMetadataFiles>
-                {asset.originalMetadataFiles.map(originalMetadataFile => <File>{originalMetadataFile}</File>)}
-              </OriginalMetadataFiles>
-              <TransferDateTime>{transferCompleteDatetime}</TransferDateTime>
-              <TransferringBody>{asset.transferringBody}</TransferringBody>
-              <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
-              <UpstreamSystemRef>{identifiers.find(_.identifierName == "UpstreamSystemReference").get.value}</UpstreamSystemRef>
-            </Source>
-          </opex:DescriptiveMetadata>
           <opex:Transfer>
             <opex:SourceID>{asset.name}</opex:SourceID>
             <opex:Manifest>
+              <opex:Files>
+                <opex:File type="metadata" size={assetXipSize.toString}>{asset.id}.xip</opex:File>
+                {
+          children.zipWithIndex
+            .map { case (child, index) =>
+              val fileOpex = <opex:File type="content" size={child.fileSize.toString}>{bitstreamPath(child)}/{childFileName(child)}</opex:File>
+              List(if index == 0 then "" else "\n                ", fileOpex)
+            }
+        }
+              </opex:Files>
               <opex:Folders>
                 {
           children
@@ -69,16 +62,6 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
             }
         }
               </opex:Folders>
-              <opex:Files>
-                <opex:File type="metadata" size={assetXipSize.toString}>{asset.id}.xip</opex:File>
-                {
-          children.zipWithIndex
-            .map { case (child, index) =>
-              val fileOpex = <opex:File type="content" size={child.fileSize.toString}>{bitstreamPath(child)}/{childFileName(child)}</opex:File>
-              List(if index == 0 then "" else "\n                ", fileOpex)
-            }
-        }
-              </opex:Files>
             </opex:Manifest>
           </opex:Transfer>
           <opex:Properties>
@@ -99,6 +82,23 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
           else ()
         }
           </opex:Properties>
+          <opex:DescriptiveMetadata>
+            <Source xmlns="http://dr2.nationalarchives.gov.uk/source">
+              <DigitalAssetSource>{asset.digitalAssetSource}</DigitalAssetSource>
+              <DigitalAssetSubtype>{asset.digitalAssetSubtype}</DigitalAssetSubtype>
+              <IngestDateTime>{ingestDateTime}</IngestDateTime>
+              <OriginalFiles>
+                {asset.originalFiles.map(originalFile => <File>{originalFile}</File>)}
+              </OriginalFiles>
+              <OriginalMetadataFiles>
+                {asset.originalMetadataFiles.map(originalMetadataFile => <File>{originalMetadataFile}</File>)}
+              </OriginalMetadataFiles>
+              <TransferDateTime>{transferCompleteDatetime}</TransferDateTime>
+              <TransferringBody>{asset.transferringBody}</TransferringBody>
+              <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
+              <UpstreamSystemRef>{identifiers.find(_.identifierName == "UpstreamSystemReference").get.value}</UpstreamSystemRef>
+            </Source>
+          </opex:DescriptiveMetadata>
         </opex:OPEXMetadata>
       xml.toString()
     }
@@ -116,8 +116,8 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
         children.groupBy(child => (child.representationType.toString, child.representationSuffix)) map { case ((representationType, representationSuffix), files) =>
           <Representation>
             <InformationObject>{asset.id}</InformationObject>
-            <Type>{representationType}</Type>
             <Name>{s"${representationType}_$representationSuffix"}</Name>
+            <Type>{representationType}</Type>
             <ContentObjects>
               {
             files.zipWithIndex
@@ -137,8 +137,8 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
               <ContentObject>
         <Ref>{child.id}</Ref>
         <Title>{child.name}</Title>
-        <Parent>{asset.id}</Parent>
         <SecurityTag>{securityTag}</SecurityTag>
+        <Parent>{asset.id}</Parent>
       </ContentObject>
             val generationElement =
               <Generation original="true" active="true">
@@ -163,7 +163,15 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
           }
       }
   </XIP>
-    IO.pure(xip.toString + "\n")
+    IO.pure {
+      <XIP xmlns="http://preservica.com/XIP/v7.0">
+        {xip \ "InformationObject"}
+        {xip \ "Representation"}
+        {xip \ "ContentObject"}
+        {xip \ "Generation"}
+        {xip \ "Bitstream"}
+      </XIP>.toString + "\n"
+    }
   }
 }
 object XMLCreator {

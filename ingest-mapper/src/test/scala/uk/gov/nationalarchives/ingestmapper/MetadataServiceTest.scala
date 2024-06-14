@@ -142,16 +142,16 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           checkTableRows(
             result,
             List(departmentId),
-            DynamoTable(batchId, departmentId, "", "department", ArchiveFolder, "department Title", "department Description", Some("department"))
+            DynamoTable(batchId, departmentId, "", "department", ArchiveFolder, "department Title", "department Description", Some("department"), 1)
           )
           seriesIdOpt.map(seriesId =>
             checkTableRows(
               result,
               List(seriesId),
-              DynamoTable(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"))
+              DynamoTable(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"), 1)
             )
           )
-          checkTableRows(result, List(folderId), DynamoTable(batchId, folderId, prefix, "TestName", ArchiveFolder, "TestTitle", "", None))
+          checkTableRows(result, List(folderId), DynamoTable(batchId, folderId, prefix, "TestName", ArchiveFolder, "TestTitle", "", None, 1))
           checkTableRows(
             result,
             List(assetId),
@@ -164,6 +164,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               "TestAssetTitle",
               "",
               None,
+              1,
               customMetadataAttribute1 = Option("customMetadataAttributeValue"),
               originalFiles = List(originalFileId.toString),
               originalMetadataFiles = List(originalMetadataFileId.toString)
@@ -181,6 +182,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               "Test",
               "",
               Some(name),
+              1,
               Option(1),
               Option(s"$name-checksum"),
               expectedExt
@@ -198,6 +200,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               "",
               "",
               Some("TEST-metadata.json"),
+              1,
               Option(2),
               Option(s"metadata-checksum"),
               Option("json")

@@ -79,51 +79,52 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
         .willReturn(ok().withBody(postResponse))
     )
 
-  val expectedOpex: Elem = <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
-          <opex:DescriptiveMetadata>
-            <Source xmlns="http://dr2.nationalarchives.gov.uk/source">
-              <DigitalAssetSource>Test Digital Asset Source</DigitalAssetSource>
-              <DigitalAssetSubtype>Test Digital Asset Subtype</DigitalAssetSubtype>
-              <IngestDateTime>2023-09-01T00:00Z</IngestDateTime>
-              <OriginalFiles>
-                <File>b6102810-53e3-43a2-9f69-fafe71d4aa40</File>
-              </OriginalFiles>
-              <OriginalMetadataFiles>
-                <File>c019df6a-fccd-4f81-86d8-085489fc71db</File>
-              </OriginalMetadataFiles>
-              <TransferDateTime>2023-08-01T00:00Z</TransferDateTime>
-              <TransferringBody>Test Transferring Body</TransferringBody>
-              <UpstreamSystem>Test Upstream System</UpstreamSystem>
-              <UpstreamSystemRef>UpstreamSystemReference</UpstreamSystemRef>
-            </Source>
-          </opex:DescriptiveMetadata>
-          <opex:Transfer>
-            <opex:SourceID>Test Name</opex:SourceID>
-            <opex:Manifest>
-              <opex:Folders>
-                <opex:Folder>Representation_Preservation</opex:Folder>
-                <opex:Folder>Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e</opex:Folder>
-                <opex:Folder>Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e/Generation_1</opex:Folder>
-                <opex:Folder>Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793</opex:Folder>
-                <opex:Folder>Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793/Generation_1</opex:Folder>
-              </opex:Folders>
-              <opex:Files>
-                <opex:File type="metadata" size="2735">68b1c80b-36b8-4f0f-94d6-92589002d87e.xip</opex:File>
-                <opex:File type="content" size="1">Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e/Generation_1/a25d33f3-7726-4fb3-8e6f-f66358451c4e.docx</opex:File>
-                <opex:File type="content" size="2">Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793/Generation_1/feedd76d-e368-45c8-96e3-c37671476793.json</opex:File>
-              </opex:Files>
-            </opex:Manifest>
-          </opex:Transfer>
-          <opex:Properties>
-            <opex:Title>Test Name</opex:Title>
-            <opex:Description/>
-            <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
-            <opex:Identifiers>
-              <opex:Identifier type="UpstreamSystemReference">UpstreamSystemReference</opex:Identifier>
-              <opex:Identifier type="Code">Code</opex:Identifier>
-            </opex:Identifiers>
-          </opex:Properties>
-        </opex:OPEXMetadata>
+  val expectedOpex: Elem =
+    <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
+      <opex:Transfer>
+        <opex:SourceID>Test Name</opex:SourceID>
+        <opex:Manifest>
+          <opex:Files>
+            <opex:File type="metadata" size="3040">68b1c80b-36b8-4f0f-94d6-92589002d87e.xip</opex:File>
+            <opex:File type="content" size="1">Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e/Generation_1/a25d33f3-7726-4fb3-8e6f-f66358451c4e.docx</opex:File>
+            <opex:File type="content" size="2">Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793/Generation_1/feedd76d-e368-45c8-96e3-c37671476793.json</opex:File>
+          </opex:Files>
+          <opex:Folders>
+            <opex:Folder>Representation_Preservation</opex:Folder>
+            <opex:Folder>Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e</opex:Folder>
+            <opex:Folder>Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e/Generation_1</opex:Folder>
+            <opex:Folder>Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793</opex:Folder>
+            <opex:Folder>Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793/Generation_1</opex:Folder>
+          </opex:Folders>
+        </opex:Manifest>
+      </opex:Transfer>
+      <opex:Properties>
+        <opex:Title>Test Name</opex:Title>
+        <opex:Description/>
+        <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+        <opex:Identifiers>
+          <opex:Identifier type="UpstreamSystemReference">UpstreamSystemReference</opex:Identifier>
+          <opex:Identifier type="Code">Code</opex:Identifier>
+        </opex:Identifiers>
+      </opex:Properties>
+      <opex:DescriptiveMetadata>
+        <Source xmlns="http://dr2.nationalarchives.gov.uk/source">
+          <DigitalAssetSource>Test Digital Asset Source</DigitalAssetSource>
+          <DigitalAssetSubtype>Test Digital Asset Subtype</DigitalAssetSubtype>
+          <IngestDateTime>2023-09-01T00:00Z</IngestDateTime>
+          <OriginalFiles>
+            <File>b6102810-53e3-43a2-9f69-fafe71d4aa40</File>
+          </OriginalFiles>
+          <OriginalMetadataFiles>
+            <File>c019df6a-fccd-4f81-86d8-085489fc71db</File>
+          </OriginalMetadataFiles>
+          <TransferDateTime>2023-08-01T00:00Z</TransferDateTime>
+          <TransferringBody>Test Transferring Body</TransferringBody>
+          <UpstreamSystem>Test Upstream System</UpstreamSystem>
+          <UpstreamSystemRef>UpstreamSystemReference</UpstreamSystemRef>
+        </Source>
+      </opex:DescriptiveMetadata>
+    </opex:OPEXMetadata>
 
   val assetId: UUID = UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e")
   val assetParentPath: String = "a/parent/path"
@@ -154,6 +155,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      },
        |      "sortOrder": {
        |        "N": "1"
+       |      },
+       |      "childCount": {
+       |        "N": "0"
        |      },
        |      "id": {
        |        "S": "$childIdDocx"
@@ -217,6 +221,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      "sortOrder": {
        |        "N": "2"
        |      },
+       |      "childCount": {
+       |        "N": "0"
+       |      },
        |      "id": {
        |        "S": "$childIdJson"
        |      },
@@ -269,7 +276,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |  ]
        |}
        |""".stripMargin
-  val dynamoGetResponse: String =
+  def dynamoGetResponse(childCount: Int = 2): String =
     s"""{
        |  "Responses": {
        |    "test-table": [
@@ -288,6 +295,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |        },
        |        "batchId": {
        |          "S": "$batchId"
+       |        },
+       |        "childCount": {
+       |          "N": "$childCount"
        |        },
        |        "transferringBody": {
        |          "S": "Test Transferring Body"

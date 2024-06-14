@@ -1,8 +1,8 @@
 package uk.gov.nationalarchives.ingestfolderopexcreator
 
 import cats.effect.IO
-import uk.gov.nationalarchives.DynamoFormatters.*
-import uk.gov.nationalarchives.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetWithFileSize, FolderOrAssetTable}
 
 class XMLCreator {
@@ -17,6 +17,18 @@ class XMLCreator {
   ): IO[String] = IO.pure {
     val isHierarchyFolder: Boolean = folder.`type` == ArchiveFolder
     <opex:OPEXMetadata xmlns:opex={opexNamespace}>
+      <opex:Transfer>
+        {if isHierarchyFolder then <opex:SourceID>{folder.name}</opex:SourceID> else ()}
+        <opex:Manifest>
+          <opex:Files>
+            {childAssets.map(assetWithFileSize => <opex:File type="metadata" size={assetWithFileSize.fileSize.toString}>{assetWithFileSize.asset.id.toString}.pax.opex</opex:File>)}
+          </opex:Files>
+          <opex:Folders>
+            {childAssets.map(assetWithFileSize => <opex:Folder>{assetWithFileSize.asset.id}.pax</opex:Folder>)}
+            {childFolders.map(folder => <opex:Folder>{folder.id}</opex:Folder>)}
+          </opex:Folders>
+        </opex:Manifest>
+      </opex:Transfer>
       <opex:Properties>
         <opex:Title>{folder.title.getOrElse(folder.name)}</opex:Title>
         <opex:Description>{folder.description.getOrElse("")}</opex:Description>
@@ -29,18 +41,6 @@ class XMLCreator {
 
     }
       </opex:Properties>
-      <opex:Transfer>
-        {if isHierarchyFolder then <opex:SourceID>{folder.name}</opex:SourceID> else ()}
-        <opex:Manifest>
-          <opex:Folders>
-            {childAssets.map(assetWithFileSize => <opex:Folder>{assetWithFileSize.asset.id}.pax</opex:Folder>)}
-            {childFolders.map(folder => <opex:Folder>{folder.id}</opex:Folder>)}
-          </opex:Folders>
-          <opex:Files>
-            {childAssets.map(assetWithFileSize => <opex:File type="metadata" size={assetWithFileSize.fileSize.toString}>{assetWithFileSize.asset.id.toString}.pax.opex</opex:File>)}
-          </opex:Files>
-        </opex:Manifest>
-      </opex:Transfer>
     </opex:OPEXMetadata>.toString
   }
 }
