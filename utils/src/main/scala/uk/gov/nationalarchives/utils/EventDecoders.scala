@@ -9,7 +9,8 @@ import scala.jdk.CollectionConverters._
 
 object EventDecoders {
 
-  given Decoder[ScheduledEvent] = (c: HCursor) => for {
+  given Decoder[ScheduledEvent] = (c: HCursor) =>
+    for {
       time <- c.downField("time").as[String]
     } yield {
       val scheduledEvent = new ScheduledEvent()
@@ -17,20 +18,22 @@ object EventDecoders {
       scheduledEvent
     }
 
-  given Decoder[SQSMessage] = (c: HCursor) => for {
-    body <- c.downField("body").as[String]
-  } yield {
-    val message = new SQSMessage()
-    message.setBody(body)
-    message
-  }
+  given Decoder[SQSMessage] = (c: HCursor) =>
+    for {
+      body <- c.downField("body").as[String]
+    } yield {
+      val message = new SQSMessage()
+      message.setBody(body)
+      message
+    }
 
-  given Decoder[SQSEvent] = (c: HCursor) => for {
-    records <- c.downField("Records").as[List[SQSMessage]]
-  } yield {
-    val event = new SQSEvent()
-    event.setRecords(records.asJava)
-    event
+  given Decoder[SQSEvent] = (c: HCursor) =>
+    for {
+      records <- c.downField("Records").as[List[SQSMessage]]
+    } yield {
+      val event = new SQSEvent()
+      event.setRecords(records.asJava)
+      event
 
-  }
+    }
 }

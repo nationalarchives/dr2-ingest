@@ -14,7 +14,12 @@ import pureconfig.module.catseffect.syntax._
 import java.io.{InputStream, OutputStream}
 import scala.reflect.ClassTag
 
-abstract class LambdaRunner[Event, Result, Config, Dependencies](using val decoder: Decoder[Event], val configReader: ConfigReader[Config], val classTag: ClassTag[Config], val encoder: Encoder[Result]) extends RequestStreamHandler {
+abstract class LambdaRunner[Event, Result, Config, Dependencies](using
+    val decoder: Decoder[Event],
+    val configReader: ConfigReader[Config],
+    val classTag: ClassTag[Config],
+    val encoder: Encoder[Result]
+) extends RequestStreamHandler {
 
   private val lambdaName: String = sys.env("AWS_LAMBDA_FUNCTION_NAME")
   given LoggerName = LoggerName(lambdaName)
