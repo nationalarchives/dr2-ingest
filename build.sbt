@@ -221,4 +221,5 @@ lazy val dynamoFormatters = (project in file("dynamo-formatters"))
       scanamo,
       scalaTest % Test
     )
-  ).disablePlugins(AssemblyPlugin)
+  )
+  .disablePlugins(AssemblyPlugin)
