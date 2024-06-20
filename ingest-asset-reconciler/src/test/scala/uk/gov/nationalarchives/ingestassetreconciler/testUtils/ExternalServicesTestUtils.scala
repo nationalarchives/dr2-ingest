@@ -316,10 +316,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
   private val expectedLockTableGetRequest =
     s"""{"RequestItems":{"test-lock-table":{"Keys":[{"ioId":{"S":"$assetName"}}]}}}"""
 
-  private val defaultIoWithIdentifier =
-    IO.pure(
-      Seq(defaultEntity)
-    )
+  private val defaultIoWithIdentifier = IO.pure(Seq(defaultEntity))
 
   private val defaultUrlToIoRep = IO.pure(
     Seq(

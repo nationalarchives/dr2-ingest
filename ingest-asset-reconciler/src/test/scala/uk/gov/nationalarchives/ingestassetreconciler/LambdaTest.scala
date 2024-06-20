@@ -233,7 +233,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
   }
 
-  "handler" should "return an error if more than one entity with the same asset name as SourceIdis" in {
+  "handler" should "return an error if more than one entity has the same asset name as SourceIdis" in {
     stubGetRequest(dynamoGetResponse())
     stubPostRequest(dynamoPostResponse)
     val argumentVerifier = ArgumentVerifier(entitiesWithIdentifier = IO.pure(twoEntitiesWithSameDetails))
