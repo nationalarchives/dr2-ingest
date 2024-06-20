@@ -211,6 +211,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |  ]
        |}
        |""".stripMargin
+
   def dynamoGetResponse(childCount: Int = 2): String =
     s"""{
        |  "Responses": {
@@ -393,11 +394,11 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
   val dependencies: Dependencies = Dependencies(mockEntityClient, dADynamoDBClient, newMessageId, () => OffsetDateTime.parse("2024-06-01T00:00Z"))
 
   case class ArgumentVerifier(
-      entitiesWithIdentifier: IO[Seq[Entity]] = defaultIoWithIdentifier,
-      urlsToIoRepresentations: IO[Seq[String]] = defaultUrlToIoRep,
-      contentObjectsFromReps: IO[Seq[Entity]] = defaultContentObjectsFromRep,
-      bitstreamInfo: Seq[IO[Seq[BitStreamInfo]]] = defaultBitStreamInfo
-  ) {
+                               entitiesWithIdentifier: IO[Seq[Entity]] = defaultIoWithIdentifier,
+                               urlsToIoRepresentations: IO[Seq[String]] = defaultUrlToIoRep,
+                               contentObjectsFromReps: IO[Seq[Entity]] = defaultContentObjectsFromRep,
+                               bitstreamInfo: Seq[IO[Seq[BitStreamInfo]]] = defaultBitStreamInfo
+                             ) {
     Mockito.reset(mockEntityClient)
     when(
       mockEntityClient.entitiesByIdentifier(any[PreservicaIdentifier])
@@ -424,14 +425,14 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
     ).thenReturn(bitstreamInfo.last)
 
     def verifyInvocationsAndArgumentsPassed(
-        numOfEntitiesByIdentifierInvocations: Int = 1,
-        numOfGetUrlsToIoRepresentationsRequests: Int = 2,
-        numOfGetContentObjectsFromRepresentationRequests: Int = 2,
-        numOfGetBitstreamInfoRequests: Int = 2,
-        numOfFileTableGetRequests: Int = 1,
-        numOfFileTableUpdateRequests: Int = 1,
-        numOfLockTableGetRequests: Int = 0
-    ): Unit = {
+                                             numOfEntitiesByIdentifierInvocations: Int = 1,
+                                             numOfGetUrlsToIoRepresentationsRequests: Int = 2,
+                                             numOfGetContentObjectsFromRepresentationRequests: Int = 2,
+                                             numOfGetBitstreamInfoRequests: Int = 2,
+                                             numOfFileTableGetRequests: Int = 1,
+                                             numOfFileTableUpdateRequests: Int = 1,
+                                             numOfLockTableGetRequests: Int = 0
+                                           ): Unit = {
       val serveEvents = dynamoServer.getAllServeEvents.asScala.toList
 
       serveEvents.size should equal(numOfFileTableGetRequests + numOfFileTableUpdateRequests + numOfLockTableGetRequests)

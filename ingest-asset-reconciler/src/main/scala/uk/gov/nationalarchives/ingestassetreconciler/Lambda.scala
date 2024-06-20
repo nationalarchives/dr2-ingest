@@ -30,11 +30,11 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   private val sourceId = "SourceID"
 
   private def childrenOfAsset(
-      daDynamoDBClient: DADynamoDBClient[IO],
-      asset: AssetDynamoTable,
-      tableName: String,
-      gsiName: String
-  ): IO[List[FileDynamoTable]] = {
+                               daDynamoDBClient: DADynamoDBClient[IO],
+                               asset: AssetDynamoTable,
+                               tableName: String,
+                               gsiName: String
+                             ): IO[List[FileDynamoTable]] = {
     val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
     daDynamoDBClient
       .queryItems[FileDynamoTable](
@@ -66,17 +66,17 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     }
 
   private def verifyFilesInDdbAreInPreservica(
-      childrenForRepresentationType: List[FileDynamoTable],
-      bitstreamInfoPerContentObject: Seq[BitStreamInfo],
-      assetId: UUID,
-      representationType: RepresentationType,
-      assetName: UUID
-  ) = {
+                                               childrenForRepresentationType: List[FileDynamoTable],
+                                               bitstreamInfoPerContentObject: Seq[BitStreamInfo],
+                                               assetId: UUID,
+                                               representationType: RepresentationType,
+                                               assetName: UUID
+                                             ) = {
     val childrenThatDidNotMatchOnChecksum =
       childrenForRepresentationType.filter { assetChild =>
         val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
           assetChild.checksumSha256 == bitstreamInfoForCo.fixity.value &&
-          coTitleMatchesAssetChildTitle(bitstreamInfoForCo.potentialCoTitle, assetChild)
+            coTitleMatchesAssetChildTitle(bitstreamInfoForCo.potentialCoTitle, assetChild)
         }
 
         bitstreamWithSameChecksum.isEmpty
@@ -118,10 +118,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     )
 
   override def handler: (
-      Input,
+    Input,
       Config,
       Dependencies
-  ) => IO[StateOutput] = (input, config, dependencies) =>
+    ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
       assetId <- IO.pure(input.assetId)
       assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, FilesTablePartitionKey](
@@ -143,7 +143,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       _ <- log(s"Asset $assetId retrieved from Dynamo")
 
       entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(PreservicaIdentifier(sourceId, assetName.toString))
-      _ <- IO.raiseWhen(entitiesWithAssetName.length > 1) (
+      _ <- IO.raiseWhen(entitiesWithAssetName.length > 1)(
         new Exception(s"More than one entity found using $sourceId '$assetName'")
       )
       entity <- IO.fromOption(entitiesWithAssetName.headOption)(
@@ -160,7 +160,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       _ <- log(s"${children.length} children found for asset $assetId")
       childrenGroupedByRepType = children.groupBy(_.representationType match {
         case FileRepresentationType.PreservationRepresentationType => Preservation
-        case FileRepresentationType.AccessRepresentationType       => Access
+        case FileRepresentationType.AccessRepresentationType => Access
       })
 
       stateOutputs <- childrenGroupedByRepType
@@ -223,5 +223,6 @@ object Lambda {
   case class StateOutput(wasReconciled: Boolean, reason: String, assetName: UUID, assetId: UUID, reconciliationSnsMessage: Option[ReconciliationSnsMessage] = None)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO], newMessageId: UUID, datetime: () => OffsetDateTime)
-  case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String, dynamoLockTableName: String) derives ConfigReader
+
+  case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String, dynamoLockTableName: String)derives ConfigReader
 }
