@@ -413,7 +413,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
 
     message.properties.timestamp should equal(OffsetDateTime.parse("2024-06-01T00:00Z"))
-    message.parameters.assetId should equal(assetId)
+    message.parameters.assetName should equal(assetName)
 
     argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
   }
@@ -444,7 +444,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       message.properties.messageId should equal(newMessageId)
       message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
       message.properties.timestamp should equal(OffsetDateTime.parse("2024-06-01T00:00Z"))
-      message.parameters.assetId should equal(assetId)
+      message.parameters.assetName should equal(assetName)
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
     }
@@ -479,7 +479,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       message.properties.messageId should equal(newMessageId)
       message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
       message.properties.timestamp should equal(OffsetDateTime.parse("2024-06-01T00:00Z"))
-      message.parameters.assetId should equal(assetId)
+      message.parameters.assetName should equal(assetName)
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
     }

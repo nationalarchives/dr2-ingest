@@ -95,7 +95,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       )
   }
 
-  private def generateSnsMessage(dependencies: Dependencies, assetName: UUID, lockTableName: String, batchId: String, assetId: UUID) =
+  private def generateSnsMessage(dependencies: Dependencies, assetName: UUID, lockTableName: String, batchId: String) =
     for {
       items <- dependencies.dynamoDbClient.getItems[IngestLockTable, LockTablePartitionKey](
         List(LockTablePartitionKey(assetName)),
@@ -114,7 +114,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       }
     } yield ReconciliationSnsMessage(
       NewMessageProperties(dependencies.newMessageId, message.messageId, dependencies.datetime()),
-      NewMessageParameters(assetId)
+      NewMessageParameters(assetName)
     )
 
   override def handler: (
@@ -193,7 +193,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
       finalOutput <-
         if (allReconciled)
-          generateSnsMessage(dependencies, assetName, config.dynamoLockTableName, batchId, assetId).map { message =>
+          generateSnsMessage(dependencies, assetName, config.dynamoLockTableName, batchId).map { message =>
             combinedOutputs.copy(reconciliationSnsMessage = Some(message))
           }
         else IO.pure(combinedOutputs)
@@ -213,7 +213,7 @@ object Lambda {
 
   case class NewMessageProperties(messageId: UUID, parentMessageId: UUID, timestamp: OffsetDateTime)
 
-  case class NewMessageParameters(assetId: UUID)
+  case class NewMessageParameters(assetName: UUID)
 
   case class ReconciliationSnsMessage(properties: NewMessageProperties, parameters: NewMessageParameters)
 
