@@ -246,7 +246,6 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
   }
 
-
   "handler" should "return an error if no children are found for the asset" in {
     stubGetRequest(dynamoGetResponse(0))
     stubPostRequest(emptyDynamoPostResponse)
@@ -282,73 +281,73 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   forAll(contentObjectApiVsDdbStates) { (docxChecksum, jsonChecksum, docxTitle, jsonName, idsThatFailed, reasonForFailure) =>
     "handler" should s"return a 'wasReconciled' value of 'false' and a 'reason' message that contains " +
       s"these ids: $idsThatFailed if $reasonForFailure " in {
-      val representationTypeMap = Map(childIdDocx.toString -> "Access", childIdJson.toString -> "Preservation")
-      val updatedDynamoPostResponse = dynamoPostResponse
-        .replace(s""""S": "$defaultDocxChecksum"""", s""""S": "$docxChecksum"""")
-        .replace(s""""S": "$defaultJsonChecksum"""", s""""S": "$jsonChecksum"""")
-        .replace(s""""S": "$defaultDocxTitle"""", s""""S": "$docxTitle"""")
-        .replace(s""""S": "$defaultDocxTitle.docx"""", s""""S": "$docxTitle.docx"""")
-        .replace(s""""S": "$defaultJsonName.json"""", s""""S": "$jsonName"""")
+        val representationTypeMap = Map(childIdDocx.toString -> "Access", childIdJson.toString -> "Preservation")
+        val updatedDynamoPostResponse = dynamoPostResponse
+          .replace(s""""S": "$defaultDocxChecksum"""", s""""S": "$docxChecksum"""")
+          .replace(s""""S": "$defaultJsonChecksum"""", s""""S": "$jsonChecksum"""")
+          .replace(s""""S": "$defaultDocxTitle"""", s""""S": "$docxTitle"""")
+          .replace(s""""S": "$defaultDocxTitle.docx"""", s""""S": "$docxTitle.docx"""")
+          .replace(s""""S": "$defaultJsonName.json"""", s""""S": "$jsonName"""")
 
-      stubGetRequest(dynamoGetResponse())
-      stubPostRequest(updatedDynamoPostResponse)
+        stubGetRequest(dynamoGetResponse())
+        stubPostRequest(updatedDynamoPostResponse)
 
-      val argumentVerifier = ArgumentVerifier()
+        val argumentVerifier = ArgumentVerifier()
 
-      val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
+        val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
-      val expectedReason = idsThatFailed
-        .map { failedId =>
-          s":alert-noflash-slow: Reconciliation Failure - Out of the *1* files expected to be ingested for `assetId` " +
-            s"'*68b1c80b-36b8-4f0f-94d6-92589002d87e*' with `representationType` *${representationTypeMap(failedId)}*, " +
-            s"a _*checksum*_ and _*title*_ could not be matched with a file on Preservica for:\n1. $failedId"
-        }
-        .sorted
-        .mkString("\n")
-        .trim
+        val expectedReason = idsThatFailed
+          .map { failedId =>
+            s":alert-noflash-slow: Reconciliation Failure - Out of the *1* files expected to be ingested for `assetId` " +
+              s"'*68b1c80b-36b8-4f0f-94d6-92589002d87e*' with `representationType` *${representationTypeMap(failedId)}*, " +
+              s"a _*checksum*_ and _*title*_ could not be matched with a file on Preservica for:\n1. $failedId"
+          }
+          .sorted
+          .mkString("\n")
+          .trim
 
-      stateOutput.wasReconciled should equal(false)
-      stateOutput.reason should equal(expectedReason)
+        stateOutput.wasReconciled should equal(false)
+        stateOutput.reason should equal(expectedReason)
 
-      stateOutput.reconciliationSnsMessage should equal(None)
+        stateOutput.reconciliationSnsMessage should equal(None)
 
-      argumentVerifier.verifyInvocationsAndArgumentsPassed()
-    }
+        argumentVerifier.verifyInvocationsAndArgumentsPassed()
+      }
   }
 
   forAll(uncommonButUnacceptableFileExtensionStates) { (childOfAssetDocxTitle, entityTitle, idsThatFailed, reasonForFailure) =>
     "handler" should s"return a 'wasReconciled' value of 'false' and a 'reason' message that contains " +
       s"these ids: $idsThatFailed if $reasonForFailure " in {
-      val updatedDynamoPostResponse = dynamoPostResponse
-        .replace(s""""S": "$defaultDocxTitle"""", s""""S": "$childOfAssetDocxTitle"""")
+        val updatedDynamoPostResponse = dynamoPostResponse
+          .replace(s""""S": "$defaultDocxTitle"""", s""""S": "$childOfAssetDocxTitle"""")
 
-      stubGetRequest(dynamoGetResponse())
-      stubPostRequest(updatedDynamoPostResponse)
+        stubGetRequest(dynamoGetResponse())
+        stubPostRequest(updatedDynamoPostResponse)
 
-      val bitstreamWithUpdatedTitle =
-        Seq(IO.pure(Seq(defaultDocxBitStreamInfo.copy(potentialCoTitle = Some(entityTitle)))), IO.pure(Seq(defaultJsonBitStreamInfo)))
+        val bitstreamWithUpdatedTitle =
+          Seq(IO.pure(Seq(defaultDocxBitStreamInfo.copy(potentialCoTitle = Some(entityTitle)))), IO.pure(Seq(defaultJsonBitStreamInfo)))
 
-      val argumentVerifier = ArgumentVerifier(bitstreamInfo = bitstreamWithUpdatedTitle)
+        val argumentVerifier = ArgumentVerifier(bitstreamInfo = bitstreamWithUpdatedTitle)
 
-      val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
+        val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
-      val expectedReason = idsThatFailed
-        .map { failedId =>
-          s":alert-noflash-slow: Reconciliation Failure - Out of the *1* files expected to be ingested for `assetId` " +
-            "'*68b1c80b-36b8-4f0f-94d6-92589002d87e*' with `representationType` *Access*, " +
-            s"a _*checksum*_ and _*title*_ could not be matched with a file on Preservica for:\n1. $failedId"
-        }
-        .sorted
-        .mkString("\n")
-        .trim
+        val expectedReason = idsThatFailed
+          .map { failedId =>
+            s":alert-noflash-slow: Reconciliation Failure - Out of the *1* files expected to be ingested for `assetId` " +
+              "'*68b1c80b-36b8-4f0f-94d6-92589002d87e*' with `representationType` *Access*, " +
+              s"a _*checksum*_ and _*title*_ could not be matched with a file on Preservica for:\n1. $failedId"
+          }
+          .sorted
+          .mkString("\n")
+          .trim
 
-      stateOutput.wasReconciled should equal(false)
-      stateOutput.reason should equal(expectedReason)
+        stateOutput.wasReconciled should equal(false)
+        stateOutput.reason should equal(expectedReason)
 
-      stateOutput.reconciliationSnsMessage should equal(None)
+        stateOutput.reconciliationSnsMessage should equal(None)
 
-      argumentVerifier.verifyInvocationsAndArgumentsPassed()
-    }
+        argumentVerifier.verifyInvocationsAndArgumentsPassed()
+      }
   }
 
   "handler" should "return an error if COs could be reconciled but the lock table returns 0 results" in {
@@ -369,20 +368,20 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
   "handler" should "return an error if COs could be reconciled but the 'executionId' from the lock table does not match " +
     "the 'batchId' from the input" in {
-    stubGetRequest(dynamoGetResponse())
-    stubPostRequest(dynamoPostResponse)
-    stubLockTableGetRequest(dynamoLockTableGetResponse.replace(s"$batchId", "b13ea544-7452-4f53-9db9-c7510c684855"))
+      stubGetRequest(dynamoGetResponse())
+      stubPostRequest(dynamoPostResponse)
+      stubLockTableGetRequest(dynamoLockTableGetResponse.replace(s"$batchId", "b13ea544-7452-4f53-9db9-c7510c684855"))
 
-    val argumentVerifier = ArgumentVerifier()
-    val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+      val argumentVerifier = ArgumentVerifier()
+      val ex = intercept[Exception] {
+        new Lambda().handler(input, config, dependencies).unsafeRunSync()
+      }
+      ex.getMessage should equal(
+        "executionId 'b13ea544-7452-4f53-9db9-c7510c684855' belonging to ioId 'acdb2e57-923b-4caa-8fd9-a2f79f650c43' does not equal 'TEST-ID'"
+      )
+
+      argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
     }
-    ex.getMessage should equal(
-      "executionId 'b13ea544-7452-4f53-9db9-c7510c684855' belonging to ioId 'acdb2e57-923b-4caa-8fd9-a2f79f650c43' does not equal 'TEST-ID'"
-    )
-
-    argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
-  }
 
   "handler" should "return an error if the child count and the number of children don't match" in {
     stubGetRequest(dynamoGetResponse(3))
@@ -467,35 +466,35 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
   "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled, " +
     "even if one of the Asset's child's title, was not present in the table" in {
-    stubGetRequest(dynamoGetResponse())
+      stubGetRequest(dynamoGetResponse())
 
-    val updatedDynamoPostResponse = dynamoPostResponse.replace(
-      """      "title": {
+      val updatedDynamoPostResponse = dynamoPostResponse.replace(
+        """      "title": {
         |        "S": ""
         |      },
         |""".stripMargin,
-      ""
-    )
+        ""
+      )
 
-    stubPostRequest(updatedDynamoPostResponse)
-    stubLockTableGetRequest(dynamoLockTableGetResponse)
+      stubPostRequest(updatedDynamoPostResponse)
+      stubLockTableGetRequest(dynamoLockTableGetResponse)
 
-    val argumentVerifier = ArgumentVerifier()
+      val argumentVerifier = ArgumentVerifier()
 
-    val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
+      val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
-    stateOutput.wasReconciled should equal(true)
-    stateOutput.reason should equal("")
-    stateOutput.assetName should equal(assetName)
-    stateOutput.assetId should equal(assetId)
+      stateOutput.wasReconciled should equal(true)
+      stateOutput.reason should equal("")
+      stateOutput.assetName should equal(assetName)
+      stateOutput.assetId should equal(assetId)
 
-    val message = stateOutput.reconciliationSnsMessage.get
+      val message = stateOutput.reconciliationSnsMessage.get
 
-    message.properties.messageId should equal(newMessageId)
-    message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
-    message.properties.timestamp should equal(OffsetDateTime.parse("2024-06-01T00:00Z"))
-    message.parameters.assetId should equal(assetId)
+      message.properties.messageId should equal(newMessageId)
+      message.properties.parentMessageId should equal(UUID.fromString("787bf94b-efdc-4d4b-a93c-a0e537d089fd"))
+      message.properties.timestamp should equal(OffsetDateTime.parse("2024-06-01T00:00Z"))
+      message.parameters.assetId should equal(assetId)
 
-    argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
-  }
+      argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1, numOfLockTableGetRequests = 1)
+    }
 }
