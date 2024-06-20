@@ -289,7 +289,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
 
   val emptyLockTableGetResponse: String = """{"Responses": {"test-lock-table": []}}"""
 
-  val defaultEntity =
+  val defaultEntity: Entity =
     Entity(
       Some(InformationObject),
       UUID.fromString("354f47cf-3ca2-4a4e-8181-81b714334f00"),
@@ -301,7 +301,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
       Some(UUID.fromString("a9e1cae8-ea06-4157-8dd4-82d0525b031c"))
     )
 
-  val twoEntitiesWithSameDetails =
+  val twoEntitiesWithSameDetails: Seq[Entity] =
     Seq(defaultEntity, defaultEntity)
 
 
