@@ -232,6 +232,20 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
   }
 
+  "handler" should "return an error if more than one entity with the same asset name as SourceIdis" in {
+    stubGetRequest(dynamoGetResponse())
+    stubPostRequest(dynamoPostResponse)
+    val argumentVerifier = ArgumentVerifier(entitiesWithIdentifier = IO.pure(twoEntitiesWithSameDetails))
+
+    val ex = intercept[Exception] {
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    }
+    ex.getMessage should equal(s"More than one entity found using SourceID 'acdb2e57-923b-4caa-8fd9-a2f79f650c43'")
+
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
+  }
+
+
   "handler" should "return an error if no children are found for the asset" in {
     stubGetRequest(dynamoGetResponse(0))
     stubPostRequest(emptyDynamoPostResponse)

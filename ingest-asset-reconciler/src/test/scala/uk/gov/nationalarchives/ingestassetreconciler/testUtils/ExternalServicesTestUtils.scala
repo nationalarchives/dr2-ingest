@@ -289,6 +289,22 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
 
   val emptyLockTableGetResponse: String = """{"Responses": {"test-lock-table": []}}"""
 
+  val defaultEntity =
+    Entity(
+      Some(InformationObject),
+      UUID.fromString("354f47cf-3ca2-4a4e-8181-81b714334f00"),
+      None,
+      None,
+      false,
+      Some(InformationObject.entityPath),
+      None,
+      Some(UUID.fromString("a9e1cae8-ea06-4157-8dd4-82d0525b031c"))
+    )
+
+  val twoEntitiesWithSameDetails =
+    Seq(defaultEntity, defaultEntity)
+
+
   private val expectedFilesTableGetRequest =
     s"""{"RequestItems":{"test-table":{"Keys":[{"id":{"S":"$assetId"}}]}}}"""
   private val expectedFilesTableUpdateRequest =
@@ -302,18 +318,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
 
   private val defaultIoWithIdentifier =
     IO.pure(
-      Seq(
-        Entity(
-          Some(InformationObject),
-          UUID.fromString("354f47cf-3ca2-4a4e-8181-81b714334f00"),
-          None,
-          None,
-          false,
-          Some(InformationObject.entityPath),
-          None,
-          Some(UUID.fromString("a9e1cae8-ea06-4157-8dd4-82d0525b031c"))
-        )
-      )
+      Seq(defaultEntity)
     )
 
   private val defaultUrlToIoRep = IO.pure(
