@@ -242,7 +242,6 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
     ex.getMessage should equal(s"More than one entity found using SourceID 'acdb2e57-923b-4caa-8fd9-a2f79f650c43'")
-
     argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
   }
 
