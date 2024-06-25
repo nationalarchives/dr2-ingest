@@ -27,6 +27,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   }
 
   val testUtils = new ExternalServicesTestUtils(dynamoServer)
+
   import testUtils._
 
   private val defaultDocxChecksum = "f7523c5d03a2c850fa06b5bbfed4c216f6368826"
@@ -229,6 +230,18 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     }
     ex.getMessage should equal(s"No entity found using SourceID 'acdb2e57-923b-4caa-8fd9-a2f79f650c43'")
 
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
+  }
+
+  "handler" should "return an error if more than one entity has the same asset name as its SourceId" in {
+    stubGetRequest(dynamoGetResponse())
+    stubPostRequest(dynamoPostResponse)
+    val argumentVerifier = ArgumentVerifier(entitiesWithIdentifier = IO.pure(twoEntitiesWithSameDetails))
+
+    val ex = intercept[Exception] {
+      new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    }
+    ex.getMessage should equal(s"More than one entity found using SourceID 'acdb2e57-923b-4caa-8fd9-a2f79f650c43'")
     argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
   }
 
