@@ -75,7 +75,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     }
     val serveEvents = dynamoServer.getAllServeEvents.asScala
     serveEvents.size should equal(1)
-    serveEvents.head.getRequest.getBodyAsString should equal(s"""{"RequestItems":{"test-table":{"Keys":[{"id":{"S":"$assetId"}}]}}}""")
+    serveEvents.head.getRequest.getBodyAsString should equal(s"""{"RequestItems":{"test-table":{"Keys":[{"batchId":{"S":"TEST-ID"},"id":{"S":"$assetId"}}]}}}""")
   }
 
   "handler" should "pass the correct parameters to dynamo for the query request" in {

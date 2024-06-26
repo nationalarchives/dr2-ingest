@@ -117,9 +117,9 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
        |""".stripMargin
 
   private val expectedGetRequest =
-    s"""{"RequestItems":{"test-table":{"Keys":[{"id":{"S":"$assetId"}}]}}}"""
+    s"""{"RequestItems":{"test-table":{"Keys":[{"batchId":{"S":"$batchId"},"id":{"S":"$assetId"}}]}}}"""
   private val expectedUpdateRequest =
-    s"""{"TableName":"test-table","Key":{"id":{"S":"$assetId"}},"AttributeUpdates":{"skipIngest":{"Value":{"BOOL":true},"Action":"PUT"}}}"""
+    s"""{"TableName":"test-table","Key":{"id":{"S":"$assetId"},"batchId":{"S":"$batchId"}},"AttributeUpdates":{"skipIngest":{"Value":{"BOOL":true},"Action":"PUT"}}}"""
 
   override def beforeEach(): Unit = {
     dynamoServer.start()
@@ -175,6 +175,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       val serveEvents = dynamoServer.getAllServeEvents.asScala.toList
 
       serveEvents.size should equal(numOfDynamoGetRequests + numOfDynamoUpdateRequests)
+      val d = serveEvents.map(_.getRequest.getBodyAsString)
+      println(d)
       serveEvents.map(_.getRequest.getBodyAsString) should equal(
         List.fill(numOfDynamoUpdateRequests)(expectedUpdateRequest) ++ List.fill(numOfDynamoGetRequests)(expectedGetRequest)
       )

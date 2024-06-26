@@ -330,7 +330,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         tableNameCaptor.capture()
       )(using any[DynamoFormat[ArchiveFolderDynamoTable]], any[DynamoFormat[FilesTablePartitionKey]])
       attributesValuesCaptor.getValue.toArray.toList should be(
-        folderIdsAndRows.map { case (ids, _) => FilesTablePartitionKey(ids) }
+        folderIdsAndRows.map { case (ids, _) => FilesTablePartitionKey(ids, "TDD-2023-ABC") }
       )
 
       val entitiesByIdentifierIdentifierToGetCaptor = getIdentifierToGetCaptor

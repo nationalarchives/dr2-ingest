@@ -507,7 +507,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
   "filesTablePkFormat write" should "write the correct fields" in {
     val uuid = UUID.randomUUID()
-    val attributeValueMap = filesTablePkFormat.write(FilesTablePartitionKey(uuid)).toAttributeValue.m().asScala
+    val attributeValueMap = filesTablePkFormat.write(FilesTablePartitionKey(uuid, batchId)).toAttributeValue.m().asScala
     UUID.fromString(attributeValueMap(id).s()) should equal(uuid)
   }
 

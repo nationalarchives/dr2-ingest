@@ -30,7 +30,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     val dynamoClient = dependencies.dynamoClient
     val s3Client = dependencies.s3Client
     for {
-      assetItems <- dynamoClient.getItems[AssetDynamoTable, FilesTablePartitionKey](List(FilesTablePartitionKey(input.id)), config.dynamoTableName)
+      assetItems <- dynamoClient.getItems[AssetDynamoTable, FilesTablePartitionKey](List(FilesTablePartitionKey(input.id, input.batchId)), config.dynamoTableName)
       asset <- IO.fromOption(assetItems.headOption)(
         new Exception(s"No asset found for ${input.id} and ${input.batchId}")
       )

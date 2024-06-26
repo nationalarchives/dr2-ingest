@@ -199,7 +199,7 @@ object DynamoFormatters {
 
   case class Identifier(identifierName: String, value: String)
 
-  case class FilesTablePartitionKey(id: UUID)
+  case class FilesTablePartitionKey(id: UUID, batchId: String)
   case class LockTablePartitionKey(ioId: UUID)
 
   case class IngestLockTable(ioId: UUID, batchId: String, message: String)

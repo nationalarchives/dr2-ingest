@@ -125,7 +125,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     for {
       assetId <- IO.pure(input.assetId)
       assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, FilesTablePartitionKey](
-        List(FilesTablePartitionKey(assetId)),
+        List(FilesTablePartitionKey(assetId, input.batchId)),
         config.dynamoTableName
       )
 

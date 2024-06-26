@@ -32,7 +32,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     val logWithBatchRef = log(Map("batchRef" -> stepFnInput.batchId))(_)
 
     val folderIdPartitionKeysAndValues: List[FilesTablePartitionKey] =
-      stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(FilesTablePartitionKey.apply)
+      stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(id => FilesTablePartitionKey(id, stepFnInput.batchId))
 
     for {
       folderRowsSortedByParentPath <- getFolderRowsSortedByParentPath(
