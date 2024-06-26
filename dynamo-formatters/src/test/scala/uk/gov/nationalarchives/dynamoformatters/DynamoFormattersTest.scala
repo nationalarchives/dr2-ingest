@@ -338,7 +338,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     skipIngestPresentTrue.skipIngest should equal(true)
 
     val skipIngestMissing =
-      assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated.filter(_._1 != skipIngest))).value
+      assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated.filter { case (field, _) => field != skipIngest })).value
     skipIngestMissing.skipIngest should equal(false)
   }
 

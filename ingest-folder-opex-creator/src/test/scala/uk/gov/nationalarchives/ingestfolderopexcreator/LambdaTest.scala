@@ -69,7 +69,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
         .willReturn(ok().withBody(queryResponse))
     )
 
-  private def runAndGetBody(skipIngest: Boolean): String = {
+  private def getFolderOpexFromS3Request(skipIngest: Boolean): String = {
     stubBatchGetRequest(dynamoGetResponse())
     stubDynamoQueryRequest(dynamoQueryResponse(skipIngest))
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
@@ -341,7 +341,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
       </opex:Properties>
     </opex:OPEXMetadata>
 
-    val body = runAndGetBody(false)
+    val body = getFolderOpexFromS3Request(false)
 
     body should equal(Utility.trim(expectedResponseXML).toString)
   }
@@ -369,7 +369,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
           </opex:Identifiers>
         </opex:Properties>
       </opex:OPEXMetadata>
-    val body: String = runAndGetBody(true)
+    val body: String = getFolderOpexFromS3Request(true)
 
     body should equal(Utility.trim(expectedResponseXML).toString)
   }
