@@ -43,7 +43,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
     val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
 
-    ex.getMessage should equal("Secret id is not enabled for rotation")
+    ex.getMessage should equal("Secret id is not enabled for rotation.")
   }
 
   "handler" should "fail if there are no stages for the secret version" in {
@@ -55,7 +55,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
     val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
 
-    ex.getMessage should equal("Secret version token has no stage for rotation of secret id.")
+    ex.getMessage should equal("Secret version token has no stage set for rotation of secret id.")
   }
 
   "handler" should "fail if the version is already current" in {
@@ -68,7 +68,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
     val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
 
-    ex.getMessage should equal("Secret id is already at AWSCURRENT")
+    ex.getMessage should equal("Secret id is already at AWSCURRENT.")
   }
 
   "handler" should "fail if the version does not have a pending stage" in {

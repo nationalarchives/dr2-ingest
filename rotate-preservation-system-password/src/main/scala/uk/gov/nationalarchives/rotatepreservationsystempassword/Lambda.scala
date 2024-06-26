@@ -30,9 +30,9 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
       secretId = event.secretId
       describeSecretResponse <- client.describeSecret()
       versions <- versions(describeSecretResponse)
-      _ <- IO.raiseWhen(!describeSecretResponse.rotationEnabled())(new Exception(s"Secret $secretId is not enabled for rotation"))
-      _ <- IO.raiseWhen(!versions.contains(event.clientRequestToken))(new Exception(s"Secret version $token has no stage for rotation of secret $secretId."))
-      _ <- IO.raiseWhen(versions(token).contains(Current))(new Exception(s"Secret $secretId is already at AWSCURRENT"))
+      _ <- IO.raiseWhen(!describeSecretResponse.rotationEnabled())(new Exception(s"Secret $secretId is not enabled for rotation."))
+      _ <- IO.raiseWhen(!versions.contains(event.clientRequestToken))(new Exception(s"Secret version $token has no stage set for rotation of secret $secretId."))
+      _ <- IO.raiseWhen(versions(token).contains(Current))(new Exception(s"Secret $secretId is already at AWSCURRENT."))
       _ <- IO.raiseWhen(!versions(token).contains(Pending))(new Exception(s"Secret version $token not set as AWSPENDING for rotation of secret $secretId."))
       _ <- event.step match
         case CreateSecret => createSecret(client, token, config.apiUser)
