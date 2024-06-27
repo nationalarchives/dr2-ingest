@@ -18,7 +18,7 @@ import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{Config, Dependenc
 import java.net.URI
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
-import scala.xml.Elem
+import scala.xml.{Elem, Node, Utility, XML}
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val dynamoServer = new WireMockServer(9006)
@@ -69,6 +69,20 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
         .willReturn(ok().withBody(queryResponse))
     )
 
+  private def getFolderOpexFromS3Request(skipIngest: Boolean): String = {
+    stubBatchGetRequest(dynamoGetResponse())
+    stubDynamoQueryRequest(dynamoQueryResponse(skipIngest))
+    val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
+    stubPutRequest(opexPath)
+
+    new Lambda().handler(input, config, dependencies).unsafeRunSync()
+
+    val s3Events = s3Server.getAllServeEvents.asScala
+    val s3PutEvent = s3Events.filter(_.getRequest.getMethod == RequestMethod.PUT).head
+    val body = s3PutEvent.getRequest.getBodyAsString.split("\r\n")(1)
+    Utility.trim(XML.loadString(body)).toString
+  }
+
   val folderId: UUID = UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e")
   val assetId: UUID = UUID.fromString("5edc7a1b-e8c4-4961-a63b-75b2068b69ec")
   val folderParentPath: String = "a/parent/path"
@@ -80,7 +94,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
 
   val emptyDynamoGetResponse: String = s"""{"Responses": {"$tableName": []}}"""
   val emptyDynamoQueryResponse: String = """{"Count": 0, "Items": []}"""
-  val dynamoQueryResponse: String =
+  def dynamoQueryResponse(skipIngest: Boolean = false): String =
     s"""{
        |  "Count": 2,
        |  "Items": [
@@ -137,6 +151,9 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
        |      },
        |      "digitalAssetSubtype": {
        |        "S": "digitalAssetSubtype"
+       |      },
+       |      "skipIngest": {
+       |        "BOOL": $skipIngest
        |      },
        |      "originalFiles": {
        |        "L": [
@@ -237,7 +254,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
 
   "handler" should "return an error if the expected child count does not match" in {
     stubBatchGetRequest(dynamoGetResponse(3))
-    stubDynamoQueryRequest(dynamoQueryResponse)
+    stubDynamoQueryRequest(dynamoQueryResponse())
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
     stubPutRequest(opexPath)
 
@@ -289,7 +306,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
 
   "handler" should "upload the opex file to the correct path" in {
     stubBatchGetRequest(dynamoGetResponse())
-    stubDynamoQueryRequest(dynamoQueryResponse)
+    stubDynamoQueryRequest(dynamoQueryResponse())
     val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
     stubPutRequest(opexPath)
 
@@ -299,7 +316,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     s3CopyRequests.count(_.getRequest.getUrl == opexPath) should equal(1)
   }
 
-  "handler" should "upload the correct body to S3" in {
+  "handler" should "upload the correct body to S3 if skipIngest is false on the asset" in {
     val expectedResponseXML =
       <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
       <opex:Transfer>
@@ -323,18 +340,38 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
         </opex:Identifiers>
       </opex:Properties>
     </opex:OPEXMetadata>
-    stubBatchGetRequest(dynamoGetResponse())
-    stubDynamoQueryRequest(dynamoQueryResponse)
-    val opexPath = s"/opex/$executionName/$folderParentPath/$folderId/$folderId.opex"
-    stubPutRequest(opexPath)
 
-    new Lambda().handler(input, config, dependencies).unsafeRunSync()
+    val body = getFolderOpexFromS3Request(false)
 
-    val s3Events = s3Server.getAllServeEvents.asScala
-    val s3PutEvent = s3Events.filter(_.getRequest.getMethod == RequestMethod.PUT).head
-    val body = s3PutEvent.getRequest.getBodyAsString.split("\r\n")(1)
+    body should equal(Utility.trim(expectedResponseXML).toString)
+  }
 
-    body should equal(expectedResponseXML.toString)
+  "handler" should "upload the correct body to S3 if skipIngest is true on the asset" in {
+    val expectedResponseXML =
+      <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
+        <opex:Transfer>
+          <opex:SourceID>Test Name</opex:SourceID>
+          <opex:Manifest>
+            <opex:Files/>
+            <opex:Folders>
+              <opex:Folder>
+                {childId}
+              </opex:Folder>
+            </opex:Folders>
+          </opex:Manifest>
+        </opex:Transfer>
+        <opex:Properties>
+          <opex:Title>Test Name</opex:Title>
+          <opex:Description/>
+          <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+          <opex:Identifiers>
+            <opex:Identifier type="Code">Code</opex:Identifier>
+          </opex:Identifiers>
+        </opex:Properties>
+      </opex:OPEXMetadata>
+    val body: String = getFolderOpexFromS3Request(true)
+
+    body should equal(Utility.trim(expectedResponseXML).toString)
   }
 
   "handler" should "return an error if the Dynamo API is unavailable" in {
@@ -348,7 +385,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   "handler" should "return an error if the S3 API is unavailable" in {
     s3Server.stop()
     stubBatchGetRequest(dynamoGetResponse())
-    stubDynamoQueryRequest(dynamoQueryResponse)
+    stubDynamoQueryRequest(dynamoQueryResponse())
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }

@@ -19,6 +19,7 @@ lazy val root = (project in file("."))
     ingestUpsertArchiveFolders,
     ingestWorkflowMonitor,
     preservicaConfig,
+    rotatePreservationSystemPassword,
     startWorkflow
   )
 
@@ -170,6 +171,16 @@ lazy val ingestFindExistingAsset = (project in file("ingest-find-existing-asset"
     libraryDependencies ++= Seq(
       dynamoClient,
       preservicaClient
+    )
+  )
+
+lazy val rotatePreservationSystemPassword = (project in file("rotate-preservation-system-password"))
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(
+    libraryDependencies ++= Seq(
+      preservicaClient,
+      secretsManagerClient
     )
   )
 

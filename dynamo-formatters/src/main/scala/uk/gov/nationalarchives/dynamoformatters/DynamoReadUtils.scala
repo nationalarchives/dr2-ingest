@@ -15,6 +15,8 @@ import DynamoFormatters.Type.*
 import DynamoFormatters.FileRepresentationType.*
 import DynamoFormatters.*
 
+import java.lang
+
 class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
 
   private type InvalidProperty = (String, DynamoReadError)
@@ -64,7 +66,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     getNumber(representationSuffix, _.toInt),
     getPotentialStringValue(ingestedPreservica),
     identifiers,
-    getNumber(childCount, _.toInt)
+    getNumber(childCount, _.toInt),
+    getBoolean(skipIngest)
   )
 
   private def stringToType(potentialTypeString: Option[String]): ValidatedNel[InvalidProperty, Type] =
@@ -95,6 +98,22 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     name -> TypeCoercionError(
       new RuntimeException(s"Cannot parse $value for field $name into ${classTag[T].runtimeClass}")
     )
+
+  private def getBoolean(name: String): ValidatedNel[InvalidProperty, Boolean] = {
+    folderRowAsMap
+      .get(name)
+      .map { attributeValue =>
+        attributeValue.`type`() match {
+          case BOOL =>
+            Validated.Valid(attributeValue.bool().booleanValue()).toValidatedNel
+          case _ =>
+            (name, NoPropertyOfType("Boolean", DynamoValue.fromAttributeValue(attributeValue))).invalidNel
+        }
+      }
+      .getOrElse({
+        Validated.Valid(false).toValidatedNel
+      })
+  }
 
   private def getNumber[T: ClassTag](name: String, toNumberFunction: String => T): ValidatedNel[InvalidProperty, T] = {
     folderRowAsMap
@@ -233,7 +252,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableFields.originalFiles,
       allValidatedFileTableFields.originalMetadataFiles,
       allValidatedFileTableFields.`type`,
-      allValidatedFileTableFields.childCount
+      allValidatedFileTableFields.childCount,
+      allValidatedFileTableFields.skipIngest
     ).mapN {
       (
           batchId,
@@ -247,7 +267,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           originalFiles,
           originalMetadataFiles,
           rowType,
-          childCount
+          childCount,
+          skipIngest
       ) =>
         AssetDynamoTable(
           batchId,
@@ -266,7 +287,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           originalMetadataFiles,
           allValidatedFileTableFields.ingestedPreservica.contains("true"),
           allValidatedFileTableFields.identifiers,
-          childCount
+          childCount,
+          skipIngest
         )
     }.toEither
       .left

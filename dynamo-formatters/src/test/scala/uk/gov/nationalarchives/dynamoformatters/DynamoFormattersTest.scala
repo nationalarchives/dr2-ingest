@@ -7,8 +7,8 @@ import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor3}
 import org.scanamo.*
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue.{fromL, fromM, fromN, fromS}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{given, *}
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue.{fromBool, fromL, fromM, fromN, fromS}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.*
 
@@ -69,7 +69,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       description -> fromS("testDescription"),
       "id_Test" -> fromS("testIdentifier"),
       "id_Test2" -> fromS("testIdentifier2"),
-      childCount -> fromN("1")
+      childCount -> fromN("1"),
+      skipIngest -> fromBool(false)
     )
   }
 
@@ -123,6 +124,11 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
   def invalidNumericField(fieldName: String, rowType: Type): AttributeValue = {
     buildAttributeValue(populatedFields(rowType) + (fieldName -> fromS("1")))
   }
+
+  def invalidBooleanField(fieldName: String, rowType: Type): AttributeValue = {
+    buildAttributeValue(populatedFields(rowType) + (fieldName -> fromS("true")))
+  }
+
   def invalidNumericValue(fieldName: String, rowType: Type): AttributeValue = buildAttributeValue(
     populatedFields(rowType) + (fieldName -> fromN("NaN"))
   )
@@ -192,6 +198,11 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       invalidNumericField(childCount, File),
       "'childCount': not of type: 'Number' was 'DynString(1)'",
       File
+    ),
+    (
+      invalidBooleanField(skipIngest, Asset),
+      "'skipIngest': not of type: 'Boolean' was 'DynString(true)'",
+      Asset
     ),
     (
       invalidNumericValue(childCount, File),
@@ -317,6 +328,20 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     assetRowInvalidValue.ingestedPreservica should equal(false)
   }
 
+  "assetTableFormat read" should "return the value if skipIngest is present and false otherwise" in {
+    val skipIngestPresentFalse = assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
+    skipIngestPresentFalse.skipIngest should equal(false)
+
+    val skipIngestPresentTrue =
+      assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated + (skipIngest -> fromBool(true)))).value
+
+    skipIngestPresentTrue.skipIngest should equal(true)
+
+    val skipIngestMissing =
+      assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated.filter { case (field, _) => field != skipIngest })).value
+    skipIngestMissing.skipIngest should equal(false)
+  }
+
   "assetTableFormat read" should "return a valid object when all asset fields are populated" in {
     val assetRow = assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
 
@@ -388,6 +413,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(ingestedPreservica).s() should equal("true")
     resultMap("representationSuffix").n() should equal("1")
     resultMap("id_FileIdentifier1").s() should equal("FileIdentifier1Value")
+
   }
 
   "archiveFolderTableFormat read" should "return a valid object when all folder fields are populated" in {
@@ -438,7 +464,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       List(originalMetadataFilesUuid),
       true,
       Nil,
-      1
+      1,
+      false
     )
     val res = assetTableFormat.write(dynamoTable)
     val resultMap = res.toAttributeValue.m().asScala
@@ -454,8 +481,19 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(originalFiles).ss().asScala.toList should equal(List(originalFilesUuid.toString))
     resultMap(originalMetadataFiles).ss().asScala.toList should equal(List(originalMetadataFilesUuid.toString))
     resultMap(ingestedPreservica).s() should equal("true")
-    List(parentPath, title, description, sortOrder, fileSize, checksumSha256, fileExtension, "identifiers")
+    List(parentPath, title, description, sortOrder, fileSize, checksumSha256, fileExtension, "identifiers", skipIngest)
       .forall(resultMap.contains) should be(false)
+  }
+
+  "assetTableFormat write" should "write skipIngest if set to true and not write it otherwise" in {
+    def skipIngestValue(skipIngestValue: Boolean): Option[Boolean] = {
+      val res = assetTableFormat.write(generateAssetDynamoTable(skipIngest = skipIngestValue))
+      val resultMap = res.toAttributeValue.m().asScala
+      resultMap.get(skipIngest).map(_.bool().booleanValue())
+    }
+    skipIngestValue(false).isDefined should be(false)
+    skipIngestValue(true).contains(true) should be(true)
+
   }
 
   "contentFolderTableFormat read" should "return a valid object when all folder fields are populated" in {
@@ -585,7 +623,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       uuid: UUID = UUID.randomUUID(),
       originalFilesUuid: UUID = UUID.randomUUID(),
       originalMetadataFilesUuid: UUID = UUID.randomUUID(),
-      ingestedPreservica: Boolean = true
+      ingestedPreservica: Boolean = true,
+      skipIngest: Boolean = true
   ): AssetDynamoTable = {
 
     val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"))
@@ -606,7 +645,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       List(originalMetadataFilesUuid),
       ingestedPreservica,
       identifiers,
-      1
+      1,
+      skipIngest
     )
   }
 

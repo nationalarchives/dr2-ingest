@@ -26,7 +26,12 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def toFolderOrAssetTable[T <: DynamoTable](dynamoValue: DynamoValue)(using dynamoFormat: DynamoFormat[T]): Either[DynamoReadError, FolderOrAssetTable] =
     dynamoFormat.read(dynamoValue).map { table =>
-      FolderOrAssetTable(table.batchId, table.id, table.parentPath, table.name, table.`type`, table.title, table.description, table.identifiers)
+      {
+        val skipIngest = table match
+          case asset: AssetDynamoTable => asset.skipIngest
+          case _                       => false
+        FolderOrAssetTable(table.batchId, table.id, table.parentPath, table.name, table.`type`, table.title, table.description, table.identifiers, skipIngest)
+      }
     }
 
   given DynamoFormat[FolderOrAssetTable] = new DynamoFormat[FolderOrAssetTable] {
@@ -72,6 +77,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     dynamoClient
       .queryItems[FolderOrAssetTable](tableName, gsiName, "batchId" === asset.batchId and "parentPath" === childrenParentPath)
   }
+
   override def handler: (
       Input,
       Config,
@@ -93,13 +99,14 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- IO.raiseWhen(folder.childCount != children.length)(
         new Exception(s"Folder id ${folder.id}: has ${folder.childCount} children in the files table but found ${children.length} children in the Preservation system")
       )
+      childrenWithoutSkip <- IO(children.filterNot(_.skipIngest))
       _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
       _ <- log(s"Fetched ${children.length} children from Dynamo")
 
-      assetRows <- getAssetRowsWithFileSize(dependencies.s3Client, children, config.bucketName, input.executionName)
+      assetRows <- getAssetRowsWithFileSize(dependencies.s3Client, childrenWithoutSkip, config.bucketName, input.executionName)
       _ <- log("File sizes for assets fetched from S3")
 
-      folderRows <- IO.pure(children.filter(child => isFolder(child.`type`)))
+      folderRows <- IO.pure(childrenWithoutSkip.filter(child => isFolder(child.`type`)))
       folderOpex <- dependencies.xmlCreator.createFolderOpex(folder, assetRows, folderRows, folder.identifiers)
       _ <- xmlValidator(PreservicaSchema.OpexMetadataSchema).xmlStringIsValid("""<?xml version="1.0" encoding="UTF-8"?>""" + folderOpex)
       key = generateKey(input.executionName, folder)
@@ -130,7 +137,8 @@ object Lambda {
       `type`: Type,
       title: Option[String],
       description: Option[String],
-      identifiers: List[Identifier]
+      identifiers: List[Identifier],
+      skipIngest: Boolean = false
   )
 
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], s3Client: DAS3Client[IO], xmlCreator: XMLCreator)
