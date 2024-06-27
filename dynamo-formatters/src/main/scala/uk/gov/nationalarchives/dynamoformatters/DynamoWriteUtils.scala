@@ -46,7 +46,7 @@ object DynamoWriteUtils {
           "originalFiles" -> DynamoValue.fromStrings(assetDynamoTable.originalFiles.map(_.toString)),
           "originalMetadataFiles" -> DynamoValue.fromStrings(assetDynamoTable.originalMetadataFiles.map(_.toString)),
           ingestedPreservica -> DynamoValue.fromString(assetDynamoTable.ingestedPreservica.toString)
-        )
+        ) ++ (if (assetDynamoTable.skipIngest) Map("skipIngest" -> DynamoValue.fromBoolean(assetDynamoTable.skipIngest)) else Map())
     }.toDynamoValue
 
   def writeFileTable(fileDynamoTable: FileDynamoTable): DynamoValue =

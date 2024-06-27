@@ -81,6 +81,7 @@ object DynamoFormatters {
   val representationSuffix = "representationSuffix"
   val ingestedPreservica = "ingested_PS"
   val childCount = "childCount"
+  val skipIngest = "skipIngest"
 
   given filesTablePkFormat: Typeclass[FilesTablePartitionKey] = deriveDynamoFormat[FilesTablePartitionKey]
   given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
@@ -131,7 +132,8 @@ object DynamoFormatters {
       representationSuffix: ValidatedField[Int],
       ingestedPreservica: Option[String],
       identifiers: List[Identifier],
-      childCount: ValidatedField[Int]
+      childCount: ValidatedField[Int],
+      skipIngest: ValidatedField[Boolean]
   )
 
   case class ArchiveFolderDynamoTable(
@@ -175,7 +177,8 @@ object DynamoFormatters {
       originalMetadataFiles: List[UUID],
       ingestedPreservica: Boolean,
       identifiers: List[Identifier],
-      childCount: Int
+      childCount: Int,
+      skipIngest: Boolean
   ) extends DynamoTable
 
   case class FileDynamoTable(
