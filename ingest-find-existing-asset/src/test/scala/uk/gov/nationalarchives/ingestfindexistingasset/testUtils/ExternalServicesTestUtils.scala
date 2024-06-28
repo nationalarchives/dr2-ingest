@@ -175,8 +175,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       val serveEvents = dynamoServer.getAllServeEvents.asScala.toList
 
       serveEvents.size should equal(numOfDynamoGetRequests + numOfDynamoUpdateRequests)
-      val d = serveEvents.map(_.getRequest.getBodyAsString)
-      println(d)
       serveEvents.map(_.getRequest.getBodyAsString) should equal(
         List.fill(numOfDynamoUpdateRequests)(expectedUpdateRequest) ++ List.fill(numOfDynamoGetRequests)(expectedGetRequest)
       )
