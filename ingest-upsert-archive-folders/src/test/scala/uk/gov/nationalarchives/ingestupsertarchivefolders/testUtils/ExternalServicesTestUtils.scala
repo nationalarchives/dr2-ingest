@@ -14,7 +14,13 @@ import org.scalatestplus.mockito.MockitoSugar
 import org.scanamo.DynamoFormat
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoTable, FilesTablePartitionKey, Identifier => DynamoIdentifier}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{
+  ArchiveFolderDynamoTable,
+  FilesTablePartitionKey,
+  FilesTablePrimaryKey,
+  FilesTableSortKey,
+  Identifier as DynamoIdentifier
+}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.utils.ExternalUtils.DetailType
 import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda.{Dependencies, Detail, EntityWithUpdateEntityRequest}
@@ -272,17 +278,17 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
     val entityCaptor: ArgumentCaptor[Entity] = ArgumentCaptor.forClass(classOf[Entity])
 
-    def getPartitionKeysCaptor: ArgumentCaptor[List[FilesTablePartitionKey]] =
-      ArgumentCaptor.forClass(classOf[List[FilesTablePartitionKey]])
+    def getPartitionKeysCaptor: ArgumentCaptor[List[FilesTablePrimaryKey]] =
+      ArgumentCaptor.forClass(classOf[List[FilesTablePrimaryKey]])
     def getTableNameCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
 
     val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
     val mockDynamoDBClient: DADynamoDBClient[IO] = mock[DADynamoDBClient[IO]]
 
     when(
-      mockDynamoDBClient.getItems[ArchiveFolderDynamoTable, FilesTablePartitionKey](any[List[FilesTablePartitionKey]], any[String])(using
+      mockDynamoDBClient.getItems[ArchiveFolderDynamoTable, FilesTablePrimaryKey](any[List[FilesTablePrimaryKey]], any[String])(using
         any[DynamoFormat[ArchiveFolderDynamoTable]],
-        any[DynamoFormat[FilesTablePartitionKey]]
+        any[DynamoFormat[FilesTablePrimaryKey]]
       )
     ).thenReturn(
       getAttributeValuesReturnValue
@@ -325,12 +331,12 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     ): Unit = {
       val attributesValuesCaptor = getPartitionKeysCaptor
       val tableNameCaptor = getTableNameCaptor
-      verify(mockDynamoDBClient, times(1)).getItems[ArchiveFolderDynamoTable, FilesTablePartitionKey](
+      verify(mockDynamoDBClient, times(1)).getItems[ArchiveFolderDynamoTable, FilesTablePrimaryKey](
         attributesValuesCaptor.capture(),
         tableNameCaptor.capture()
-      )(using any[DynamoFormat[ArchiveFolderDynamoTable]], any[DynamoFormat[FilesTablePartitionKey]])
+      )(using any[DynamoFormat[ArchiveFolderDynamoTable]], any[DynamoFormat[FilesTablePrimaryKey]])
       attributesValuesCaptor.getValue.toArray.toList should be(
-        folderIdsAndRows.map { case (ids, _) => FilesTablePartitionKey(ids, "TDD-2023-ABC") }
+        folderIdsAndRows.map { case (ids, _) => FilesTablePrimaryKey(FilesTablePartitionKey(ids), FilesTableSortKey("TDD-2023-ABC")) }
       )
 
       val entitiesByIdentifierIdentifierToGetCaptor = getIdentifierToGetCaptor

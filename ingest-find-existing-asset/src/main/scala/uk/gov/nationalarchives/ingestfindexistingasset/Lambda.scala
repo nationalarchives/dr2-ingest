@@ -27,8 +27,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       Dependencies
   ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
-      assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, FilesTablePartitionKey](
-        List(FilesTablePartitionKey(input.id, input.batchId)),
+      assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](
+        List(FilesTablePrimaryKey(FilesTablePartitionKey(input.id), FilesTableSortKey(input.batchId))),
         config.dynamoTableName
       )
       asset <- IO.fromOption(assetItems.headOption)(
