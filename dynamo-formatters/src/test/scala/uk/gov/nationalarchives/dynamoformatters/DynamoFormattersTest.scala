@@ -549,6 +549,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val uuid = UUID.randomUUID()
     val attributeValueMap = filesTablePkFormat.write(FilesTablePrimaryKey(FilesTablePartitionKey(uuid), FilesTableSortKey(batchId))).toAttributeValue.m().asScala
     UUID.fromString(attributeValueMap(id).s()) should equal(uuid)
+    attributeValueMap(batchId).s() should equal(batchId)
   }
 
   "ingestLockTableFormat read" should "read the correct fields" in {
