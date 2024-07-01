@@ -10,7 +10,7 @@ import uk.gov.nationalarchives.ingestmapper.Lambda.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
 import uk.gov.nationalarchives.ingestmapper.testUtils.LambdaTestTestUtils
-import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.{DynamoRequestBody, DynamoTable}
+import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.{DynamoRequestBody, DynamoFilesTableItem}
 import upickle.default.*
 
 import java.util.UUID
@@ -63,15 +63,26 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
     tableRequestItems.length should equal(6)
     checkDynamoItems(
       tableRequestItems,
-      DynamoTable("TEST", UUID.fromString(uuids.head), "", "A", ArchiveFolder, "Test Title A", "TestDescriptionA with 0", Some("A"), 1, fixedTimeInSecs)
+      DynamoFilesTableItem("TEST", UUID.fromString(uuids.head), "", "A", ArchiveFolder, "Test Title A", "TestDescriptionA with 0", Some("A"), 1, fixedTimeInSecs)
     )
     checkDynamoItems(
       tableRequestItems,
-      DynamoTable("TEST", UUID.fromString(uuids.tail.head), uuids.head, "A 1", ArchiveFolder, "Test Title A 1", "TestDescriptionA 1 with 0", Some("A 1"), 1, fixedTimeInSecs)
+      DynamoFilesTableItem(
+        "TEST",
+        UUID.fromString(uuids.tail.head),
+        uuids.head,
+        "A 1",
+        ArchiveFolder,
+        "Test Title A 1",
+        "TestDescriptionA 1 with 0",
+        Some("A 1"),
+        1,
+        fixedTimeInSecs
+      )
     )
     checkDynamoItems(
       tableRequestItems,
-      DynamoTable(
+      DynamoFilesTableItem(
         "TEST",
         folderIdentifier,
         s"${uuids.head}/${uuids.tail.head}",
@@ -87,7 +98,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
     )
     checkDynamoItems(
       tableRequestItems,
-      DynamoTable(
+      DynamoFilesTableItem(
         "TEST",
         assetIdentifier,
         s"${uuids.head}/${uuids.tail.head}/$folderIdentifier",
@@ -106,7 +117,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
     )
     checkDynamoItems(
       tableRequestItems,
-      DynamoTable(
+      DynamoFilesTableItem(
         "TEST",
         docxIdentifier,
         s"${uuids.head}/${uuids.tail.head}/$folderIdentifier/$assetIdentifier",
@@ -123,7 +134,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
     )
     checkDynamoItems(
       tableRequestItems,
-      DynamoTable(
+      DynamoFilesTableItem(
         "TEST",
         metadataIdentifier,
         s"${uuids.head}/${uuids.tail.head}/$folderIdentifier/$assetIdentifier",

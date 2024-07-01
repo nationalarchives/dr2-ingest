@@ -63,7 +63,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         val hundredDaysFromNow: Instant = dependencies.time().plus(100, ChronoUnit.DAYS)
         Num(hundredDaysFromNow.getEpochSecond.toDouble)
       }
-      departmentAndSeries <- discoveryService.getDepartmentAndSeriesRows(input, hundredDaysFromNowInEpochSecs)
+      departmentAndSeries <- discoveryService.getDepartmentAndSeriesItems(input, hundredDaysFromNowInEpochSecs)
       _ <- log(s"Retrieved department and series ${departmentAndSeries.show}")
 
       bagManifests <- dependencies.metadataService.parseBagManifest(input)

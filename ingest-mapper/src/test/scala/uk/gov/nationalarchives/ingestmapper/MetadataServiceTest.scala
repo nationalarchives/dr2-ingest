@@ -39,24 +39,24 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
     s3
   }
 
-  private def checkTableRows(result: List[Obj], ids: List[UUID], expectedTable: DynamoTable) = {
-    val rows = result.filter(r => ids.contains(UUID.fromString(r("id").str)))
-    rows.size should equal(1)
-    rows.map { row =>
-      ids.contains(UUID.fromString(row("id").str)) should be(true)
-      row("name").str should equal(expectedTable.name)
-      row("title").str should equal(expectedTable.title)
-      row("parentPath").str should equal(expectedTable.parentPath)
-      row("batchId").str should equal(expectedTable.batchId)
-      row.value.get("description").map(_.str).getOrElse("") should equal(expectedTable.description)
-      row.value.get("fileSize").flatMap(_.numOpt).map(_.toLong) should equal(expectedTable.fileSize)
-      row("type").str should equal(expectedTable.`type`.toString)
-      row.value.get("checksumSha256").map(_.str) should equal(expectedTable.checksumSha256)
-      row.value.get("fileExtension").flatMap(_.strOpt) should equal(expectedTable.fileExtension)
-      row("ttl").num.toLong should equal(expectedTable.ttl)
-      row.value.get("customMetadataAttribute1").flatMap(_.strOpt) should equal(expectedTable.customMetadataAttribute1)
-      row.value.get("originalFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTable.originalFiles)
-      row.value.get("originalMetadataFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTable.originalMetadataFiles)
+  private def checkTableItems(result: List[Obj], ids: List[UUID], expectedTableItem: DynamoFilesTableItem) = {
+    val items = result.filter(i => ids.contains(UUID.fromString(i("id").str)))
+    items.size should equal(1)
+    items.map { item =>
+      ids.contains(UUID.fromString(item("id").str)) should be(true)
+      item("name").str should equal(expectedTableItem.name)
+      item("title").str should equal(expectedTableItem.title)
+      item("parentPath").str should equal(expectedTableItem.parentPath)
+      item("batchId").str should equal(expectedTableItem.batchId)
+      item.value.get("description").map(_.str).getOrElse("") should equal(expectedTableItem.description)
+      item.value.get("fileSize").flatMap(_.numOpt).map(_.toLong) should equal(expectedTableItem.fileSize)
+      item("type").str should equal(expectedTableItem.`type`.toString)
+      item.value.get("checksumSha256").map(_.str) should equal(expectedTableItem.checksumSha256)
+      item.value.get("fileExtension").flatMap(_.strOpt) should equal(expectedTableItem.fileExtension)
+      item("ttl").num.toLong should equal(expectedTableItem.ttl)
+      item.value.get("customMetadataAttribute1").flatMap(_.strOpt) should equal(expectedTableItem.customMetadataAttribute1)
+      item.value.get("originalFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTableItem.originalFiles)
+      item.value.get("originalMetadataFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTableItem.originalMetadataFiles)
     }
   }
 
@@ -101,7 +101,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
     forAll(departmentSeriesTable) { (departmentId, seriesIdOpt) =>
       "parseMetadataJson" should s"return a list of tables with the correct prefix for department $departmentId and series " +
         s"${seriesIdOpt.getOrElse("None")} and a 'fileExtension' of ${expectedExt.getOrElse("None")} if file name is $name" in {
-          def table(id: UUID, tableType: String, parentPath: String) =
+          def tableItem(id: UUID, tableType: String, parentPath: String) =
             Obj.from {
               Map(
                 "batchId" -> "batchId",
@@ -120,9 +120,9 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           val assetId = UUID.randomUUID()
           val fileIdOne = UUID.randomUUID()
           val fileIdTwo = UUID.randomUUID()
-          val departmentTable = table(departmentId, "department", "")
-          val seriesTable = seriesIdOpt.map(id => table(id, "series", departmentId.toString))
-          val departmentAndSeries = DepartmentAndSeriesTableData(departmentTable, seriesTable)
+          val departmentTableItem = tableItem(departmentId, "department", "")
+          val seriesTableItem = seriesIdOpt.map(id => tableItem(id, "series", departmentId.toString))
+          val departmentAndSeries = DepartmentAndSeriesTableItems(departmentTableItem, seriesTableItem)
 
           val expectedTimeInSecs = 1712707200
           val originalFileId = UUID.randomUUID()
@@ -143,23 +143,23 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           result.size should equal(5 + seriesIdOpt.size)
 
           val prefix = s"$departmentId${seriesIdOpt.map(id => s"/$id").getOrElse("")}"
-          checkTableRows(
+          checkTableItems(
             result,
             List(departmentId),
-            DynamoTable(batchId, departmentId, "", "department", ArchiveFolder, "department Title", "department Description", Some("department"), 1, expectedTimeInSecs)
+            DynamoFilesTableItem(batchId, departmentId, "", "department", ArchiveFolder, "department Title", "department Description", Some("department"), 1, expectedTimeInSecs)
           )
           seriesIdOpt.map(seriesId =>
-            checkTableRows(
+            checkTableItems(
               result,
               List(seriesId),
-              DynamoTable(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"), 1, expectedTimeInSecs)
+              DynamoFilesTableItem(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"), 1, expectedTimeInSecs)
             )
           )
-          checkTableRows(result, List(folderId), DynamoTable(batchId, folderId, prefix, "TestName", ArchiveFolder, "TestTitle", "", None, 1, expectedTimeInSecs))
-          checkTableRows(
+          checkTableItems(result, List(folderId), DynamoFilesTableItem(batchId, folderId, prefix, "TestName", ArchiveFolder, "TestTitle", "", None, 1, expectedTimeInSecs))
+          checkTableItems(
             result,
             List(assetId),
-            DynamoTable(
+            DynamoFilesTableItem(
               batchId,
               assetId,
               s"$prefix/$folderId",
@@ -175,10 +175,10 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               originalMetadataFiles = List(originalMetadataFileId.toString)
             )
           )
-          checkTableRows(
+          checkTableItems(
             result,
             List(fileIdOne),
-            DynamoTable(
+            DynamoFilesTableItem(
               batchId,
               assetId,
               s"$prefix/$folderId/$assetId",
@@ -194,10 +194,10 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               expectedExt
             )
           )
-          checkTableRows(
+          checkTableItems(
             result,
             List(fileIdTwo),
-            DynamoTable(
+            DynamoFilesTableItem(
               batchId,
               assetId,
               s"$prefix/$folderId/$assetId",

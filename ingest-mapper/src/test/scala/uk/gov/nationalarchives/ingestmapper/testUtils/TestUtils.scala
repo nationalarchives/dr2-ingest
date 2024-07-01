@@ -33,7 +33,7 @@ object TestUtils {
 
   case class DynamoNRequestField(N: Long) extends DynamoField
 
-  case class DynamoTable(
+  case class DynamoFilesTableItem(
       batchId: String,
       id: UUID,
       parentPath: String,

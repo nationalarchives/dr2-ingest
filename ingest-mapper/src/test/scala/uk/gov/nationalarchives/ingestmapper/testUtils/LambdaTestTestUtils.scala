@@ -14,8 +14,8 @@ import software.amazon.awssdk.services.s3.S3AsyncClient
 import sttp.client3.SttpBackend
 import ujson.{Num, Obj, Str}
 import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, Dependencies, Input}
-import uk.gov.nationalarchives.ingestmapper.MetadataService.DepartmentAndSeriesTableData
-import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.{DynamoLRequestField, DynamoNRequestField, DynamoSRequestField, DynamoTable, DynamoTableItem}
+import uk.gov.nationalarchives.ingestmapper.MetadataService.DepartmentAndSeriesTableItems
+import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.{DynamoLRequestField, DynamoNRequestField, DynamoSRequestField, DynamoFilesTableItem, DynamoTableItem}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.ingestmapper.{DiscoveryService, MetadataService}
@@ -105,7 +105,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     }
   }
 
-  def checkDynamoItems(tableRequestItems: List[DynamoTableItem], expectedTable: DynamoTable): Assertion = {
+  def checkDynamoItems(tableRequestItems: List[DynamoTableItem], expectedTable: DynamoFilesTableItem): Assertion = {
     val items = tableRequestItems
       .filter(_.PutRequest.Item.items("id").asInstanceOf[DynamoSRequestField].S == expectedTable.id.toString)
       .map(_.PutRequest.Item)
@@ -176,8 +176,8 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     private val seriesJsonMap = generateJsonMap("A 1")
     private val seriesTableData = seriesJsonMap ++ Map("parentPath" -> departmentJsonMap("id"), "id_Code" -> seriesJsonMap("name"))
 
-    override def getDepartmentAndSeriesRows(input: Input, hundredDaysFromNowInEpochSecs: Num): IO[DepartmentAndSeriesTableData] =
+    override def getDepartmentAndSeriesItems(input: Input, hundredDaysFromNowInEpochSecs: Num): IO[DepartmentAndSeriesTableItems] =
       if (discoveryServiceException) IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
-      else IO.pure(DepartmentAndSeriesTableData(Obj.from(departmentTableData), Some(Obj.from(seriesTableData))))
+      else IO.pure(DepartmentAndSeriesTableItems(Obj.from(departmentTableData), Some(Obj.from(seriesTableData))))
   }
 }
