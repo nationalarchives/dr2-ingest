@@ -65,6 +65,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     table("name").str should equal(collection)
     table("batchId").str should equal("testBatch")
     table("type").str should equal("ArchiveFolder")
+    table("ttl").num.toLong should equal(1712707200)
     !table.value.contains("fileSize") should be(true)
     table.value.get("parentPath").map(_.str) should equal(parentPath)
     if (collection != "Unknown") {
