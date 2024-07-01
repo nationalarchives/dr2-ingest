@@ -41,7 +41,13 @@ class MetadataService(s3: DAS3Client[IO]) {
     }
   }
 
-  def parseMetadataJson(input: Input, departmentAndSeries: DepartmentAndSeriesTableData, bagitManifests: List[BagitManifestRow], bagInfoJson: Obj): IO[List[Obj]] =
+  def parseMetadataJson(
+      input: Input,
+      departmentAndSeries: DepartmentAndSeriesTableData,
+      bagitManifests: List[BagitManifestRow],
+      bagInfoJson: Obj,
+      hundredDaysFromNowInEpochSecs: Num
+  ) =
     parseFileFromS3(
       input,
       "metadata.json",
@@ -54,6 +60,7 @@ class MetadataService(s3: DAS3Client[IO]) {
             .map(series => s"$departmentId/${series("id").str}")
             .getOrElse(departmentId)
           val parentPaths = getParentPaths(json)
+
           Stream.emits {
             val updatedJson = json.arr.toList.map { metadataEntry =>
               val id = UUID.fromString(metadataEntry("id").str)
@@ -74,8 +81,9 @@ class MetadataService(s3: DAS3Client[IO]) {
                 Map("batchId" -> Str(input.batchId), "parentPath" -> Str(path), "checksum_sha256" -> checksum, "fileExtension" -> fileExtension) ++ metadataEntry.obj.view
                   .filterKeys(_ != "parentId")
                   .toMap
-              Obj.from(metadataFromBagInfo.value ++ metadataMap)
+              Obj.from(metadataFromBagInfo.value ++ metadataMap ++ Map("ttl" -> hundredDaysFromNowInEpochSecs))
             } ++ departmentAndSeries.series.toList ++ List(departmentAndSeries.department)
+            print("\n\n\nupdatedJson", updatedJson)
             addChildCountAttributes(updatedJson)
           }
         }

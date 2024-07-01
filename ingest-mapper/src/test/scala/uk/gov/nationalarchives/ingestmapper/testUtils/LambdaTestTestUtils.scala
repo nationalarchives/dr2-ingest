@@ -3,7 +3,7 @@ package uk.gov.nationalarchives.ingestmapper.testUtils
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.*
-import org.mockito.Mockito._
+import org.mockito.Mockito.*
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -12,7 +12,7 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import sttp.client3.SttpBackend
-import ujson.{Obj, Str}
+import ujson.{Num, Obj, Str}
 import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, Dependencies, Input}
 import uk.gov.nationalarchives.ingestmapper.MetadataService.DepartmentAndSeriesTableData
 import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.{DynamoLRequestField, DynamoNRequestField, DynamoSRequestField, DynamoTable, DynamoTableItem}
@@ -22,6 +22,7 @@ import uk.gov.nationalarchives.ingestmapper.{DiscoveryService, MetadataService}
 import upickle.default.write
 
 import java.net.URI
+import java.time.Instant
 import java.util.UUID
 
 class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer, s3Prefix: String = "TEST/") extends TableDrivenPropertyChecks {
@@ -154,7 +155,8 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     val randomUuidGenerator: () => UUID = () => UUID.fromString(uuidsIterator.next())
     val mockBackend = mock[SttpBackend[IO, Fs2Streams[IO]]]()
     val discoveryService = MockDiscoveryService(config.discoveryApiUrl, mockBackend, randomUuidGenerator, discoveryServiceException)
-    Dependencies(metadataService, dynamo, IO.pure(discoveryService))
+    val fixedTime = () => Instant.parse("2024-01-01T00:00:00.00Z")
+    Dependencies(metadataService, dynamo, IO.pure(discoveryService), fixedTime)
   }
 
   case class MockDiscoveryService(discoveryApiUrl: String, backend: SttpBackend[IO, Fs2Streams[IO]], randomUuidGenerator: () => UUID, discoveryServiceException: Boolean)
@@ -165,7 +167,8 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
       "name" -> Str(s"$col"),
       "type" -> Str("ArchiveFolder"),
       "title" -> Str(s"Test Title $col"),
-      "description" -> Str(s"TestDescription$col with 0")
+      "description" -> Str(s"TestDescription$col with 0"),
+      "ttl" -> Num(1712707200)
     )
 
     private val departmentJsonMap = generateJsonMap("A")
@@ -173,7 +176,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     private val seriesJsonMap = generateJsonMap("A 1")
     private val seriesTableData = seriesJsonMap ++ Map("parentPath" -> departmentJsonMap("id"), "id_Code" -> seriesJsonMap("name"))
 
-    override def getDepartmentAndSeriesRows(input: Input): IO[DepartmentAndSeriesTableData] =
+    override def getDepartmentAndSeriesRows(input: Input, hundredDaysFromNowInEpochSecs: Num): IO[DepartmentAndSeriesTableData] =
       if (discoveryServiceException) IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
       else IO.pure(DepartmentAndSeriesTableData(Obj.from(departmentTableData), Some(Obj.from(seriesTableData))))
   }
