@@ -17,6 +17,9 @@ import io.circe.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.DADynamoDBClient
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   given Typeclass[Obj] = new Typeclass[Obj] {
@@ -56,12 +59,22 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       _ <- log(s"Processing batchRef ${input.batchId}")
 
       discoveryService <- dependencies.discoveryService
-      departmentAndSeries <- discoveryService.getDepartmentAndSeriesRows(input)
+      hundredDaysFromNowInEpochSecs <- IO {
+        val hundredDaysFromNow: Instant = dependencies.time().plus(100, ChronoUnit.DAYS)
+        Num(hundredDaysFromNow.getEpochSecond.toDouble)
+      }
+      departmentAndSeries <- discoveryService.getDepartmentAndSeriesRows(input, hundredDaysFromNowInEpochSecs)
       _ <- log(s"Retrieved department and series ${departmentAndSeries.show}")
 
       bagManifests <- dependencies.metadataService.parseBagManifest(input)
       bagInfoJson <- dependencies.metadataService.parseBagInfoJson(input)
-      metadataJson <- dependencies.metadataService.parseMetadataJson(input, departmentAndSeries, bagManifests, bagInfoJson.headOption.getOrElse(Obj()))
+      metadataJson <- dependencies.metadataService.parseMetadataJson(
+        input,
+        departmentAndSeries,
+        bagManifests,
+        bagInfoJson.headOption.getOrElse(Obj()),
+        hundredDaysFromNowInEpochSecs
+      )
       _ <- dependencies.dynamo.writeItems(config.dynamoTableName, metadataJson)
       _ <- log("Metadata written to dynamo db")
     } yield {
@@ -93,5 +106,5 @@ object Lambda {
   case class StateOutput(batchId: String, s3Bucket: String, s3Prefix: String, archiveHierarchyFolders: List[UUID], contentFolders: List[UUID], contentAssets: List[UUID])
   case class Input(batchId: String, s3Bucket: String, s3Prefix: String, department: Option[String], series: Option[String])
   case class Config(dynamoTableName: String, discoveryApiUrl: String) derives ConfigReader
-  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], discoveryService: IO[DiscoveryService])
+  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], discoveryService: IO[DiscoveryService], time: () => Instant = () => Instant.now())
 }

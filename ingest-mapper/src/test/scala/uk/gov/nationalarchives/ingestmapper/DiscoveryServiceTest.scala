@@ -10,7 +10,7 @@ import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3.UriContext
 import sttp.client3.impl.cats.CatsMonadError
 import sttp.client3.testing.SttpBackendStub
-import ujson.Obj
+import ujson.{Obj, Num}
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 
 import java.util.UUID
@@ -86,7 +86,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), Option("T TEST")))
+      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), Option("T TEST")), Num(1712707200))
       .unsafeRunSync()
 
     val department = result.department
@@ -104,7 +104,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("A"), Option("T TEST")))
+      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("A"), Option("T TEST")), Num(1712707200))
       .unsafeRunSync()
 
     val department = result.department
@@ -122,7 +122,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), Option("A TEST")))
+      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), Option("A TEST")), Num(1712707200))
       .unsafeRunSync()
 
     val department = result.department
@@ -138,7 +138,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
 
     val ex = intercept[Exception] {
       new DiscoveryService(baseUrl, backend, uuidIterator)
-        .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), Option("A TEST")))
+        .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), Option("A TEST")), Num(1712707200))
         .unsafeRunSync()
     }
     ex.getMessage should equal("statusCode: 500, response: Internal server error")
@@ -150,7 +150,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", None, Option("T TEST")))
+      .getDepartmentAndSeriesRows(Input("testBatch", "", "", None, Option("T TEST")), Num(1712707200))
       .unsafeRunSync()
 
     result.series.isDefined should equal(true)
@@ -167,7 +167,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), None))
+      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), None), Num(1712707200))
       .unsafeRunSync()
     result.series.isDefined should equal(false)
     val department = result.department
@@ -178,7 +178,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", None, None))
+      .getDepartmentAndSeriesRows(Input("testBatch", "", "", None, None), Num(1712707200))
       .unsafeRunSync()
     result.series.isDefined should equal(false)
     val department = result.department

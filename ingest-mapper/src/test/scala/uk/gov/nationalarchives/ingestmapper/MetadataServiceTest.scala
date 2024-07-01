@@ -53,6 +53,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
       row("type").str should equal(expectedTable.`type`.toString)
       row.value.get("checksumSha256").map(_.str) should equal(expectedTable.checksumSha256)
       row.value.get("fileExtension").flatMap(_.strOpt) should equal(expectedTable.fileExtension)
+      row("ttl").num.toLong should equal(expectedTable.ttl)
       row.value.get("customMetadataAttribute1").flatMap(_.strOpt) should equal(expectedTable.customMetadataAttribute1)
       row.value.get("originalFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTable.originalFiles)
       row.value.get("originalMetadataFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTable.originalMetadataFiles)
@@ -109,7 +110,8 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
                 "name" -> tableType,
                 "type" -> "ArchiveFolder",
                 "title" -> s"$tableType Title",
-                "description" -> s"$tableType Description"
+                "description" -> s"$tableType Description",
+                "ttl" -> 1712707200
               )
             }
 
@@ -121,6 +123,8 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           val departmentTable = table(departmentId, "department", "")
           val seriesTable = seriesIdOpt.map(id => table(id, "series", departmentId.toString))
           val departmentAndSeries = DepartmentAndSeriesTableData(departmentTable, seriesTable)
+
+          val expectedTimeInSecs = 1712707200
           val originalFileId = UUID.randomUUID()
           val originalMetadataFileId = UUID.randomUUID()
           val metadata =
@@ -134,7 +138,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           val bagInfoJson = Obj(("customMetadataAttribute1", Value(Str("customMetadataAttributeValue"))))
           val input = Input(batchId, "bucket", "prefix/", Option("department"), Option("series"))
           val result =
-            new MetadataService(s3).parseMetadataJson(input, departmentAndSeries, bagitManifests, bagInfoJson).unsafeRunSync()
+            new MetadataService(s3).parseMetadataJson(input, departmentAndSeries, bagitManifests, bagInfoJson, Num(1712707200)).unsafeRunSync()
 
           result.size should equal(5 + seriesIdOpt.size)
 
@@ -142,16 +146,16 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           checkTableRows(
             result,
             List(departmentId),
-            DynamoTable(batchId, departmentId, "", "department", ArchiveFolder, "department Title", "department Description", Some("department"), 1)
+            DynamoTable(batchId, departmentId, "", "department", ArchiveFolder, "department Title", "department Description", Some("department"), 1, expectedTimeInSecs)
           )
           seriesIdOpt.map(seriesId =>
             checkTableRows(
               result,
               List(seriesId),
-              DynamoTable(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"), 1)
+              DynamoTable(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"), 1, expectedTimeInSecs)
             )
           )
-          checkTableRows(result, List(folderId), DynamoTable(batchId, folderId, prefix, "TestName", ArchiveFolder, "TestTitle", "", None, 1))
+          checkTableRows(result, List(folderId), DynamoTable(batchId, folderId, prefix, "TestName", ArchiveFolder, "TestTitle", "", None, 1, expectedTimeInSecs))
           checkTableRows(
             result,
             List(assetId),
@@ -165,6 +169,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               "",
               None,
               1,
+              expectedTimeInSecs,
               customMetadataAttribute1 = Option("customMetadataAttributeValue"),
               originalFiles = List(originalFileId.toString),
               originalMetadataFiles = List(originalMetadataFileId.toString)
@@ -183,6 +188,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               "",
               Some(name),
               1,
+              expectedTimeInSecs,
               Option(1),
               Option(s"$name-checksum"),
               expectedExt
@@ -201,6 +207,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               "",
               Some("TEST-metadata.json"),
               1,
+              expectedTimeInSecs,
               Option(2),
               Option(s"metadata-checksum"),
               Option("json")
