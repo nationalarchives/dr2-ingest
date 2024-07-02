@@ -33,7 +33,7 @@ object TestUtils {
 
   case class DynamoNRequestField(N: Long) extends DynamoField
 
-  case class DynamoTable(
+  case class DynamoFilesTableItem(
       batchId: String,
       id: UUID,
       parentPath: String,
@@ -43,6 +43,7 @@ object TestUtils {
       description: String,
       id_Code: Option[String],
       childCount: Int,
+      ttl: Long,
       fileSize: Option[Long] = None,
       checksumSha256: Option[String] = None,
       fileExtension: Option[String] = None,

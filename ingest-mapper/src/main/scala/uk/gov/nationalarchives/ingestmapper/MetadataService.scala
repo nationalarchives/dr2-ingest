@@ -41,7 +41,13 @@ class MetadataService(s3: DAS3Client[IO]) {
     }
   }
 
-  def parseMetadataJson(input: Input, departmentAndSeries: DepartmentAndSeriesTableData, bagitManifests: List[BagitManifestRow], bagInfoJson: Obj): IO[List[Obj]] =
+  def parseMetadataJson(
+      input: Input,
+      departmentAndSeriesItems: DepartmentAndSeriesTableItems,
+      bagitManifests: List[BagitManifestRow],
+      bagInfoJson: Obj,
+      hundredDaysFromNowInEpochSecs: Num
+  ) =
     parseFileFromS3(
       input,
       "metadata.json",
@@ -49,11 +55,12 @@ class MetadataService(s3: DAS3Client[IO]) {
         s.flatMap { metadataJson =>
           val fileIdToChecksum: Map[UUID, String] = bagitManifests.map(bm => UUID.fromString(bm.filePath.stripPrefix("data/")) -> bm.checksum).toMap
           val json = read(metadataJson)
-          val departmentId = departmentAndSeries.department("id").str
-          val pathPrefix = departmentAndSeries.series
+          val departmentId = departmentAndSeriesItems.departmentItem("id").str
+          val pathPrefix = departmentAndSeriesItems.potentialSeriesItem
             .map(series => s"$departmentId/${series("id").str}")
             .getOrElse(departmentId)
           val parentPaths = getParentPaths(json)
+
           Stream.emits {
             val updatedJson = json.arr.toList.map { metadataEntry =>
               val id = UUID.fromString(metadataEntry("id").str)
@@ -74,8 +81,8 @@ class MetadataService(s3: DAS3Client[IO]) {
                 Map("batchId" -> Str(input.batchId), "parentPath" -> Str(path), "checksum_sha256" -> checksum, "fileExtension" -> fileExtension) ++ metadataEntry.obj.view
                   .filterKeys(_ != "parentId")
                   .toMap
-              Obj.from(metadataFromBagInfo.value ++ metadataMap)
-            } ++ departmentAndSeries.series.toList ++ List(departmentAndSeries.department)
+              Obj.from(metadataFromBagInfo.value ++ metadataMap ++ Map("ttl" -> hundredDaysFromNowInEpochSecs))
+            } ++ departmentAndSeriesItems.potentialSeriesItem.toList ++ List(departmentAndSeriesItems.departmentItem)
             addChildCountAttributes(updatedJson)
           }
         }
@@ -134,8 +141,8 @@ object MetadataService {
 
   case class BagitManifestRow(checksum: String, filePath: String)
 
-  case class DepartmentAndSeriesTableData(department: Obj, series: Option[Obj]) {
-    def show = s"Department: ${department.value.get("title").orNull} Series ${series.flatMap(_.value.get("title")).orNull}"
+  case class DepartmentAndSeriesTableItems(departmentItem: Obj, potentialSeriesItem: Option[Obj]) {
+    def show = s"Department: ${departmentItem.value.get("title").orNull} Series ${potentialSeriesItem.flatMap(_.value.get("title")).orNull}"
   }
 
   def apply(): MetadataService = {

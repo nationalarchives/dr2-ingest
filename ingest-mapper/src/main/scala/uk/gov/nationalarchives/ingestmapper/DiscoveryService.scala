@@ -61,15 +61,16 @@ class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Str
     } yield formattedAsset
   }
 
-  def getDepartmentAndSeriesRows(input: Input): IO[DepartmentAndSeriesTableData] = {
-    def generateTableEntry(asset: DiscoveryCollectionAsset): Map[String, Value] =
+  def getDepartmentAndSeriesItems(input: Input, hundredDaysFromNowInEpochSecs: Num): IO[DepartmentAndSeriesTableItems] = {
+    def generateTableItem(asset: DiscoveryCollectionAsset): Map[String, Value] =
       Map(
         "batchId" -> Str(input.batchId),
         "id" -> Str(randomUuidGenerator().toString),
         "name" -> Str(asset.citableReference),
         "type" -> Str(ArchiveFolder.toString),
         "title" -> Str(asset.title),
-        "description" -> Str(asset.scopeContent.description)
+        "description" -> Str(asset.scopeContent.description),
+        "ttl" -> hundredDaysFromNowInEpochSecs
       )
 
     for {
@@ -77,16 +78,24 @@ class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Str
       potentialSeriesDiscoveryAsset <- input.series.map(getAssetFromDiscoveryApi).sequence
     } yield {
       val departmentTableEntryMap = potentialDepartmentDiscoveryAsset
-        .map(generateTableEntry)
+        .map(generateTableItem)
         .map(jsonMap => jsonMap ++ Map("id_Code" -> jsonMap("name")))
-        .getOrElse(Map("batchId" -> Str(input.batchId), "id" -> Str(randomUuidGenerator().toString), "name" -> Str("Unknown"), "type" -> Str(ArchiveFolder.toString)))
+        .getOrElse(
+          Map(
+            "batchId" -> Str(input.batchId),
+            "id" -> Str(randomUuidGenerator().toString),
+            "name" -> Str("Unknown"),
+            "type" -> Str(ArchiveFolder.toString),
+            "ttl" -> hundredDaysFromNowInEpochSecs
+          )
+        )
 
       val seriesTableEntryOpt = potentialSeriesDiscoveryAsset
-        .map(generateTableEntry)
+        .map(generateTableItem)
         .map(jsonMap => jsonMap ++ Map("parentPath" -> departmentTableEntryMap("id"), "id_Code" -> jsonMap("name")))
         .map(Obj.from)
 
-      DepartmentAndSeriesTableData(Obj.from(departmentTableEntryMap), seriesTableEntryOpt)
+      DepartmentAndSeriesTableItems(Obj.from(departmentTableEntryMap), seriesTableEntryOpt)
     }
   }
 }

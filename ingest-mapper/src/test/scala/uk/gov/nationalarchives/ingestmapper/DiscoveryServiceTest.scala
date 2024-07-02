@@ -10,7 +10,7 @@ import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3.UriContext
 import sttp.client3.impl.cats.CatsMonadError
 import sttp.client3.testing.SttpBackendStub
-import ujson.Obj
+import ujson.{Obj, Num}
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 
 import java.util.UUID
@@ -65,6 +65,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     table("name").str should equal(collection)
     table("batchId").str should equal("testBatch")
     table("type").str should equal("ArchiveFolder")
+    table("ttl").num.toLong should equal(1712707200)
     !table.value.contains("fileSize") should be(true)
     table.value.get("parentPath").map(_.str) should equal(parentPath)
     if (collection != "Unknown") {
@@ -78,7 +79,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     }
   }
 
-  "getDepartmentAndSeriesRows" should "return the correct values for series and department" in {
+  "getDepartmentAndSeriesItems" should "return the correct values for series and department" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
       .thenRespond(bodyMap("T"))
@@ -86,17 +87,17 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), Option("T TEST")))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("T TEST")), Num(1712707200))
       .unsafeRunSync()
 
-    val department = result.department
-    val series = result.series.head
+    val departmentItem = result.departmentItem
+    val seriesItem = result.potentialSeriesItem.head
 
-    checkDynamoTable(department, "T", uuids.head, None)
-    checkDynamoTable(series, "T TEST", uuids.head, Option(uuids.head))
+    checkDynamoTable(departmentItem, "T", uuids.head, None)
+    checkDynamoTable(seriesItem, "T TEST", uuids.head, Option(uuids.head))
   }
 
-  "getDepartmentAndSeriesRows" should "set the citable ref as the title and description as '', if the department reference doesn't match the input" in {
+  "getDepartmentAndSeriesItems" should "set the citable ref as the title and description as '', if the department reference doesn't match the input" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/A"))
       .thenRespond(bodyMap("T"))
@@ -104,17 +105,17 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("A"), Option("T TEST")))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("A"), Option("T TEST")), Num(1712707200))
       .unsafeRunSync()
 
-    val department = result.department
-    val series = result.series.head
+    val departmentItem = result.departmentItem
+    val seriesItem = result.potentialSeriesItem.head
 
-    checkDynamoTable(department, "A", uuids.head, None, citableRefFound = false)
-    checkDynamoTable(series, "T TEST", uuids.head, Option(uuids.head))
+    checkDynamoTable(departmentItem, "A", uuids.head, None, citableRefFound = false)
+    checkDynamoTable(seriesItem, "T TEST", uuids.head, Option(uuids.head))
   }
 
-  "getDepartmentAndSeriesRows" should "set the citable ref as the title and description as '', if the series reference doesn't match the input" in {
+  "getDepartmentAndSeriesItems" should "set the citable ref as the title and description as '', if the series reference doesn't match the input" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
       .thenRespond(bodyMap("T"))
@@ -122,66 +123,66 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), Option("A TEST")))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("A TEST")), Num(1712707200))
       .unsafeRunSync()
 
-    val department = result.department
-    val series = result.series.head
+    val departmentItem = result.departmentItem
+    val seriesItem = result.potentialSeriesItem.head
 
-    checkDynamoTable(department, "T", uuids.head, None)
-    checkDynamoTable(series, "A TEST", uuids.head, Option(uuids.head), citableRefFound = false)
+    checkDynamoTable(departmentItem, "T", uuids.head, None)
+    checkDynamoTable(seriesItem, "A TEST", uuids.head, Option(uuids.head), citableRefFound = false)
   }
 
-  "getDepartmentAndSeriesRows" should "return an error if the discovery API returns an error" in {
+  "getDepartmentAndSeriesItems" should "return an error if the discovery API returns an error" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError()).whenAnyRequest
       .thenRespondServerError()
 
     val ex = intercept[Exception] {
       new DiscoveryService(baseUrl, backend, uuidIterator)
-        .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), Option("A TEST")))
+        .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("A TEST")), Num(1712707200))
         .unsafeRunSync()
     }
     ex.getMessage should equal("statusCode: 500, response: Internal server error")
   }
 
-  "getDepartmentAndSeriesRows" should "return an unknown department if the department is missing" in {
+  "getDepartmentAndSeriesItems" should "return an unknown department if the department is missing" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", None, Option("T TEST")))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", None, Option("T TEST")), Num(1712707200))
       .unsafeRunSync()
 
-    result.series.isDefined should equal(true)
-    val department = result.department
-    val series = result.series.head
+    result.potentialSeriesItem.isDefined should equal(true)
+    val departmentItem = result.departmentItem
+    val seriesItem = result.potentialSeriesItem.head
 
-    checkDynamoTable(department, "Unknown", uuids.head, None)
-    checkDynamoTable(series, "T TEST", uuids.head, Option(uuids.head))
+    checkDynamoTable(departmentItem, "Unknown", uuids.head, None)
+    checkDynamoTable(seriesItem, "T TEST", uuids.head, Option(uuids.head))
   }
 
-  "getDepartmentAndSeriesRows" should "return a department and an empty series if the series is missing" in {
+  "getDepartmentAndSeriesItems" should "return a department and an empty series if the series is missing" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
       .thenRespond(bodyMap("T"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", Option("T"), None))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), None), Num(1712707200))
       .unsafeRunSync()
-    result.series.isDefined should equal(false)
-    val department = result.department
-    checkDynamoTable(department, "T", uuids.head, None)
+    result.potentialSeriesItem.isDefined should equal(false)
+    val departmentItem = result.departmentItem
+    checkDynamoTable(departmentItem, "T", uuids.head, None)
   }
 
-  "getDepartmentAndSeriesRows" should "return an unknown department if the series and department are missing" in {
+  "getDepartmentAndSeriesItems" should "return an unknown department if the series and department are missing" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesRows(Input("testBatch", "", "", None, None))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", None, None), Num(1712707200))
       .unsafeRunSync()
-    result.series.isDefined should equal(false)
-    val department = result.department
-    checkDynamoTable(department, "Unknown", uuids.head, None)
+    result.potentialSeriesItem.isDefined should equal(false)
+    val departmentItem = result.departmentItem
+    checkDynamoTable(departmentItem, "Unknown", uuids.head, None)
   }
 }
