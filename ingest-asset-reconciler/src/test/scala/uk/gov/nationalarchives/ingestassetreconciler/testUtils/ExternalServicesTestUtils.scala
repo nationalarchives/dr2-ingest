@@ -306,7 +306,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
     Seq(defaultEntity, defaultEntity)
 
   private val expectedFilesTableGetRequest =
-    s"""{"RequestItems":{"test-table":{"Keys":[{"id":{"S":"$assetId"}}]}}}"""
+    s"""{"RequestItems":{"test-table":{"Keys":[{"batchId":{"S":"$batchId"},"id":{"S":"$assetId"}}]}}}"""
   private val expectedFilesTableUpdateRequest =
     s"""{"TableName":"test-table","IndexName":"",""" +
       """"KeyConditionExpression":"#A = :batchId AND #B = :parentPath",""" +
