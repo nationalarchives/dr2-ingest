@@ -61,7 +61,7 @@ class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Str
     } yield formattedAsset
   }
 
-  def getDepartmentAndSeriesItems(input: Input, hundredDaysFromNowInEpochSecs: Num): IO[DepartmentAndSeriesTableItems] = {
+  def getDepartmentAndSeriesItems(input: Input): IO[DepartmentAndSeriesTableItems] = {
     def generateTableItem(asset: DiscoveryCollectionAsset): Map[String, Value] =
       Map(
         "batchId" -> Str(input.batchId),
@@ -69,8 +69,7 @@ class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Str
         "name" -> Str(asset.citableReference),
         "type" -> Str(ArchiveFolder.toString),
         "title" -> Str(asset.title),
-        "description" -> Str(asset.scopeContent.description),
-        "ttl" -> hundredDaysFromNowInEpochSecs
+        "description" -> Str(asset.scopeContent.description)
       )
 
     for {
@@ -85,8 +84,7 @@ class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Str
             "batchId" -> Str(input.batchId),
             "id" -> Str(randomUuidGenerator().toString),
             "name" -> Str("Unknown"),
-            "type" -> Str(ArchiveFolder.toString),
-            "ttl" -> hundredDaysFromNowInEpochSecs
+            "type" -> Str(ArchiveFolder.toString)
           )
         )
 

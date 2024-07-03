@@ -53,7 +53,6 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
       item("type").str should equal(expectedTableItem.`type`.toString)
       item.value.get("checksumSha256").map(_.str) should equal(expectedTableItem.checksumSha256)
       item.value.get("fileExtension").flatMap(_.strOpt) should equal(expectedTableItem.fileExtension)
-      item("ttl").num.toLong should equal(expectedTableItem.ttl)
       item.value.get("customMetadataAttribute1").flatMap(_.strOpt) should equal(expectedTableItem.customMetadataAttribute1)
       item.value.get("originalFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTableItem.originalFiles)
       item.value.get("originalMetadataFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTableItem.originalMetadataFiles)
@@ -138,7 +137,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           val bagInfoJson = Obj(("customMetadataAttribute1", Value(Str("customMetadataAttributeValue"))))
           val input = Input(batchId, "bucket", "prefix/", Option("department"), Option("series"))
           val result =
-            new MetadataService(s3).parseMetadataJson(input, departmentAndSeries, bagitManifests, bagInfoJson, Num(1712707200)).unsafeRunSync()
+            new MetadataService(s3).parseMetadataJson(input, departmentAndSeries, bagitManifests, bagInfoJson).unsafeRunSync()
 
           result.size should equal(5 + seriesIdOpt.size)
 

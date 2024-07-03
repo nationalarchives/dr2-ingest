@@ -10,7 +10,7 @@ import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3.UriContext
 import sttp.client3.impl.cats.CatsMonadError
 import sttp.client3.testing.SttpBackendStub
-import ujson.{Obj, Num}
+import ujson.Obj
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 
 import java.util.UUID
@@ -65,7 +65,6 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     table("name").str should equal(collection)
     table("batchId").str should equal("testBatch")
     table("type").str should equal("ArchiveFolder")
-    table("ttl").num.toLong should equal(1712707200)
     !table.value.contains("fileSize") should be(true)
     table.value.get("parentPath").map(_.str) should equal(parentPath)
     if (collection != "Unknown") {
@@ -87,7 +86,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("T TEST")), Num(1712707200))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("T TEST")))
       .unsafeRunSync()
 
     val departmentItem = result.departmentItem
@@ -105,7 +104,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("A"), Option("T TEST")), Num(1712707200))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("A"), Option("T TEST")))
       .unsafeRunSync()
 
     val departmentItem = result.departmentItem
@@ -123,7 +122,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("A TEST")), Num(1712707200))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("A TEST")))
       .unsafeRunSync()
 
     val departmentItem = result.departmentItem
@@ -139,7 +138,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
 
     val ex = intercept[Exception] {
       new DiscoveryService(baseUrl, backend, uuidIterator)
-        .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("A TEST")), Num(1712707200))
+        .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("A TEST")))
         .unsafeRunSync()
     }
     ex.getMessage should equal("statusCode: 500, response: Internal server error")
@@ -151,7 +150,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", None, Option("T TEST")), Num(1712707200))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", None, Option("T TEST")))
       .unsafeRunSync()
 
     result.potentialSeriesItem.isDefined should equal(true)
@@ -168,7 +167,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), None), Num(1712707200))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), None))
       .unsafeRunSync()
     result.potentialSeriesItem.isDefined should equal(false)
     val departmentItem = result.departmentItem
@@ -179,7 +178,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", None, None), Num(1712707200))
+      .getDepartmentAndSeriesItems(Input("testBatch", "", "", None, None))
       .unsafeRunSync()
     result.potentialSeriesItem.isDefined should equal(false)
     val departmentItem = result.departmentItem
