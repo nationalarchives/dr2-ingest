@@ -6,7 +6,7 @@ import io.circe.generic.auto.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{DynamoTable, FilesTablePartitionKey, ArchiveFolderDynamoTable}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoTable, DynamoTable, FilesTablePartitionKey, FilesTablePrimaryKey, FilesTableSortKey}
 import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda.*
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
@@ -31,8 +31,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   ) => IO[Unit] = (stepFnInput, config, dependencies) => {
     val logWithBatchRef = log(Map("batchRef" -> stepFnInput.batchId))(_)
 
-    val folderIdPartitionKeysAndValues: List[FilesTablePartitionKey] =
-      stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(FilesTablePartitionKey.apply)
+    val folderIdPartitionKeysAndValues: List[FilesTablePrimaryKey] =
+      stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(id => FilesTablePrimaryKey(FilesTablePartitionKey(id), FilesTableSortKey(stepFnInput.batchId)))
 
     for {
       folderRowsSortedByParentPath <- getFolderRowsSortedByParentPath(
@@ -171,11 +171,11 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
 
   private def getFolderRowsSortedByParentPath(
       dADynamoDBClient: DADynamoDBClient[IO],
-      folderIdPartitionKeysAndValues: List[FilesTablePartitionKey],
+      folderIdPartitionKeysAndValues: List[FilesTablePrimaryKey],
       archiveFolderTableName: String
   ): IO[List[DynamoTable]] = {
     val getItemsResponse: IO[List[DynamoTable]] =
-      dADynamoDBClient.getItems[ArchiveFolderDynamoTable, FilesTablePartitionKey](
+      dADynamoDBClient.getItems[ArchiveFolderDynamoTable, FilesTablePrimaryKey](
         folderIdPartitionKeysAndValues,
         archiveFolderTableName
       )
