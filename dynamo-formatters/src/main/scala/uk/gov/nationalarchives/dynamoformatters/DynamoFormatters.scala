@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives.dynamoformatters
 
-import cats.data.ValidatedNel
+import cats.implicits.*
+import cats.data.*
 import org.scanamo.*
 import org.scanamo.generic.semiauto.{FieldName, Typeclass, deriveDynamoFormat}
 import uk.gov.nationalarchives.dynamoformatters.DynamoWriteUtils.*
@@ -83,7 +84,26 @@ object DynamoFormatters {
   val childCount = "childCount"
   val skipIngest = "skipIngest"
 
-  given filesTablePkFormat: Typeclass[FilesTablePartitionKey] = deriveDynamoFormat[FilesTablePartitionKey]
+  given filesTablePkFormat: Typeclass[FilesTablePrimaryKey] = new DynamoFormat[FilesTablePrimaryKey]:
+    override def read(av: DynamoValue): Either[DynamoReadError, FilesTablePrimaryKey] = {
+      val valueMap = av.toAttributeValue.m().asScala
+
+      def validateProperty(name: String) =
+        valueMap.get(name).map(_.s()).map(Validated.Valid.apply).getOrElse(Validated.Invalid(name -> MissingProperty)).toValidatedNel
+
+      (validateProperty(id), validateProperty(batchId))
+        .mapN { (id, batchId) =>
+          FilesTablePrimaryKey(FilesTablePartitionKey(UUID.fromString(id)), FilesTableSortKey(batchId))
+        }
+        .toEither
+        .left
+        .map(InvalidPropertiesError.apply)
+    }
+
+    override def write(t: FilesTablePrimaryKey): DynamoValue = {
+      DynamoValue.fromMap(Map(id -> DynamoValue.fromString(t.partitionKey.id.toString), batchId -> DynamoValue.fromString(t.sortKey.batchId)))
+    }
+
   given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
 
   enum Type:
@@ -203,6 +223,10 @@ object DynamoFormatters {
   case class Identifier(identifierName: String, value: String)
 
   case class FilesTablePartitionKey(id: UUID)
+
+  case class FilesTableSortKey(batchId: String)
+
+  case class FilesTablePrimaryKey(partitionKey: FilesTablePartitionKey, sortKey: FilesTableSortKey)
   case class LockTablePartitionKey(ioId: UUID)
 
   case class IngestLockTable(ioId: UUID, batchId: String, message: String)

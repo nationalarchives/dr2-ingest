@@ -271,7 +271,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     }
     val serveEvents = dynamoServer.getAllServeEvents.asScala
     serveEvents.size should equal(1)
-    serveEvents.head.getRequest.getBodyAsString should equal(s"""{"RequestItems":{"$tableName":{"Keys":[{"id":{"S":"$folderId"}}]}}}""")
+    serveEvents.head.getRequest.getBodyAsString should equal(s"""{"RequestItems":{"$tableName":{"Keys":[{"batchId":{"S":"$batchId"},"id":{"S":"$folderId"}}]}}}""")
   }
 
   "handler" should "pass the parent path with no prefixed slash to dynamo if the parent path is empty" in {

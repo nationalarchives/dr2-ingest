@@ -526,9 +526,11 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
   "filesTablePkFormat read" should "read the correct fields" in {
     val uuid = UUID.randomUUID()
-    val input = fromM(Map(id -> fromS(uuid.toString)).asJava)
+    val batchId = "batchId"
+    val input = fromM(Map(id -> fromS(uuid.toString), batchId -> fromS(batchId)).asJava)
     val res = filesTablePkFormat.read(input).value
-    res.id should equal(uuid)
+    res.partitionKey.id should equal(uuid)
+    res.sortKey.batchId should equal(batchId)
   }
 
   "filesTablePkFormat read" should "error if the field is missing" in {
@@ -545,8 +547,9 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
   "filesTablePkFormat write" should "write the correct fields" in {
     val uuid = UUID.randomUUID()
-    val attributeValueMap = filesTablePkFormat.write(FilesTablePartitionKey(uuid)).toAttributeValue.m().asScala
+    val attributeValueMap = filesTablePkFormat.write(FilesTablePrimaryKey(FilesTablePartitionKey(uuid), FilesTableSortKey(batchId))).toAttributeValue.m().asScala
     UUID.fromString(attributeValueMap(id).s()) should equal(uuid)
+    attributeValueMap(batchId).s() should equal(batchId)
   }
 
   "ingestLockTableFormat read" should "read the correct fields" in {
