@@ -176,7 +176,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     private val seriesJsonMap = generateJsonMap("A 1")
     private val seriesTableData = seriesJsonMap ++ Map("parentPath" -> departmentJsonMap("id"), "id_Code" -> seriesJsonMap("name"))
 
-    override def getDepartmentAndSeriesItems(input: Input, hundredDaysFromNowInEpochSecs: Num): IO[DepartmentAndSeriesTableItems] =
+    override def getDepartmentAndSeriesItems(input: Input): IO[DepartmentAndSeriesTableItems] =
       if (discoveryServiceException) IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
       else IO.pure(DepartmentAndSeriesTableItems(Obj.from(departmentTableData), Some(Obj.from(seriesTableData))))
   }

@@ -63,7 +63,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         val hundredDaysFromNow: Instant = dependencies.time().plus(100, ChronoUnit.DAYS)
         Num(hundredDaysFromNow.getEpochSecond.toDouble)
       }
-      departmentAndSeries <- discoveryService.getDepartmentAndSeriesItems(input, hundredDaysFromNowInEpochSecs)
+      departmentAndSeries <- discoveryService.getDepartmentAndSeriesItems(input)
       _ <- log(s"Retrieved department and series ${departmentAndSeries.show}")
 
       bagManifests <- dependencies.metadataService.parseBagManifest(input)
@@ -72,10 +72,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         input,
         departmentAndSeries,
         bagManifests,
-        bagInfoJson.headOption.getOrElse(Obj()),
-        hundredDaysFromNowInEpochSecs
+        bagInfoJson.headOption.getOrElse(Obj())
       )
-      _ <- dependencies.dynamo.writeItems(config.dynamoTableName, metadataJson)
+      metadataJsonWithTtl <- IO(metadataJson.map(obj => Obj.from(obj.value ++ Map("ttl" -> hundredDaysFromNowInEpochSecs))))
+      _ <- dependencies.dynamo.writeItems(config.dynamoTableName, metadataJsonWithTtl)
       _ <- log("Metadata written to dynamo db")
     } yield {
       val typeToId: Map[Type, List[UUID]] = metadataJson

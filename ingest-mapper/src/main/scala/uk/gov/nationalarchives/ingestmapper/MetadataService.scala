@@ -45,8 +45,7 @@ class MetadataService(s3: DAS3Client[IO]) {
       input: Input,
       departmentAndSeriesItems: DepartmentAndSeriesTableItems,
       bagitManifests: List[BagitManifestRow],
-      bagInfoJson: Obj,
-      hundredDaysFromNowInEpochSecs: Num
+      bagInfoJson: Obj
   ) =
     parseFileFromS3(
       input,
@@ -81,7 +80,7 @@ class MetadataService(s3: DAS3Client[IO]) {
                 Map("batchId" -> Str(input.batchId), "parentPath" -> Str(path), "checksum_sha256" -> checksum, "fileExtension" -> fileExtension) ++ metadataEntry.obj.view
                   .filterKeys(_ != "parentId")
                   .toMap
-              Obj.from(metadataFromBagInfo.value ++ metadataMap ++ Map("ttl" -> hundredDaysFromNowInEpochSecs))
+              Obj.from(metadataFromBagInfo.value ++ metadataMap)
             } ++ departmentAndSeriesItems.potentialSeriesItem.toList ++ List(departmentAndSeriesItems.departmentItem)
             addChildCountAttributes(updatedJson)
           }
