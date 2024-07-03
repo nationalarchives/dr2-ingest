@@ -127,6 +127,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     str("description") should equal(expectedTable.description)
     num("childCount").get should equal(expectedTable.childCount)
     num("fileSize") should equal(expectedTable.fileSize)
+    num("ttl").get should equal(expectedTable.ttl)
     str("type") should equal(expectedTable.`type`.toString)
     strOpt("customMetadataAttribute1") should equal(expectedTable.customMetadataAttribute1)
     strOpt("customMetadataAttribute2") should equal(expectedTable.customMetadataAttribute2)
