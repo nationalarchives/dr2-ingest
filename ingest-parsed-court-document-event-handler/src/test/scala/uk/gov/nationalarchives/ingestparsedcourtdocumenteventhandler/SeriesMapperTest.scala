@@ -15,6 +15,7 @@ class SeriesMapperTest extends AnyFlatSpec with MockitoSugar with TableDrivenPro
 
   val courtToSeries: TableFor2[String, String] = Table(
     ("court", "series"),
+    ("EAT", "LE 10"),
     ("EWCA", "J 347"),
     ("EWHC", "J 348"),
     ("EWCOP", "J 349"),
