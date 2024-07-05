@@ -29,6 +29,8 @@ class SeriesMapperTest extends AnyFlatSpec with MockitoSugar with TableDrivenPro
     ("UKIPTRIB", "HO 654")
   )
 
+  assert(courtToSeries.length == seriesMap.size)
+
   forAll(courtToSeries) { (court, series) =>
     "createOutput" should s"return $series for court $court" in {
       val seriesMapper = SeriesMapper()
