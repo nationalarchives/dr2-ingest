@@ -7,7 +7,7 @@ object Dependencies {
   private val sttpVersion = "3.9.7"
   private val circeVersion = "0.14.9"
   private val log4CatsVersion = "2.7.0"
-  private val awsLibraryVersion = "1.12.757"
+  private val awsLibraryVersion = "1.12.759"
   private lazy val scalaTestVersion = "3.2.18"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.30.0"
