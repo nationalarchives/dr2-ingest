@@ -51,6 +51,7 @@ object SeriesMapper {
     Court("UKUT", "LE", "LE 9"),
     Court("UKEAT", "LE", "LE 10"),
     Court("UKFTT", "LE", "LE 11"),
-    Court("UKET", "LE", "LE 12")
+    Court("UKET", "LE", "LE 12"),
+    Court("UKIPTRIB", "HO", "HO 654")
   )
 }

@@ -9,12 +9,13 @@ import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMappe
 
 class SeriesMapperTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
 
-  "seriesMap" should "have 10 entries" in {
-    seriesMap.size should equal(11)
+  "seriesMap" should "have 12 entries" in {
+    seriesMap.size should equal(12)
   }
 
   val courtToSeries: TableFor2[String, String] = Table(
     ("court", "series"),
+    ("EAT", "LE 10"),
     ("EWCA", "J 347"),
     ("EWHC", "J 348"),
     ("EWCOP", "J 349"),
@@ -24,8 +25,11 @@ class SeriesMapperTest extends AnyFlatSpec with MockitoSugar with TableDrivenPro
     ("UKUT", "LE 9"),
     ("UKEAT", "LE 10"),
     ("UKFTT", "LE 11"),
-    ("UKET", "LE 12")
+    ("UKET", "LE 12"),
+    ("UKIPTRIB", "HO 654")
   )
+
+  assert(courtToSeries.length == seriesMap.size)
 
   forAll(courtToSeries) { (court, series) =>
     "createOutput" should s"return $series for court $court" in {
