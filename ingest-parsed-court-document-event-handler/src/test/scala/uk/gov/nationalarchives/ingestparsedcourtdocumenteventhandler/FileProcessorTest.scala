@@ -348,7 +348,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               val fileId = UUID.randomUUID()
               val metadataId = UUID.randomUUID()
               val folderId = uuids.head
-              val assetId = uuids.last
+              val assetId = treMetadata.parameters.TDR.`UUID`
               val fileName = treFileName.split('.').dropRight(1).mkString(".")
               val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
               val folder =

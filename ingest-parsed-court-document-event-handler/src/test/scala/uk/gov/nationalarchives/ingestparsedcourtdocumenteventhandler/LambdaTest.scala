@@ -243,9 +243,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
   forAll(citeTable) { (potentialCite, idFields) =>
     "the lambda" should s"write the correct metadata files to S3 with a cite ${potentialCite.orNull}" in {
+      val tdrUuid = UUID.fromString("24190792-a2e5-43a0-a9e9-6a0580905d90")
       val metadataJson: String =
         s"""{"parameters":{"TDR": {"Document-Checksum-sha256": "abcde", "Source-Organization": "test-organisation",
-           | "Internal-Sender-Identifier": "test-identifier","Consignment-Export-Datetime": "2023-10-31T13:40:54Z", "UUID": "24190792-a2e5-43a0-a9e9-6a0580905d90"},
+           | "Internal-Sender-Identifier": "test-identifier","Consignment-Export-Datetime": "2023-10-31T13:40:54Z", "UUID": "$tdrUuid"},
            |"TRE":{"reference":"$reference","payload":{"filename":"Test.docx"}},
            |"PARSER":{"cite":${potentialCite.orNull},"uri":"https://example.com/id/court/2023/","court":"test","date":"2023-07-26","name":"test"}}}""".stripMargin
       stubAWSRequests(inputBucket, metadataJsonOpt = Option(metadataJson))
@@ -263,11 +264,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         .toList
 
       val folderId = UUID.fromString("4e6bac50-d80a-4c68-bd92-772ac9701f14")
-      val assetId = UUID.fromString("c2e7866e-5e94-4b4e-a49f-043ad937c18a")
       val fileId = UUID.fromString("c7e6b27f-5778-4da8-9b83-1b64bbccbd03")
       val metadataFileId = UUID.fromString("61ac0166-ccdf-48c4-800f-29e5fba2efda")
       val expectedAssetMetadata = BagitAssetMetadataObject(
-        assetId,
+        tdrUuid,
         Option(folderId),
         "Test.docx",
         "24190792-a2e5-43a0-a9e9-6a0580905d90",
@@ -288,10 +288,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           """"transferringBody":"test-organisation","transferCompleteDatetime":"2023-10-31T13:40:54Z",""" +
           """"upstreamSystem":"TRE: FCL Parser workflow","digitalAssetSource":"Born Digital","digitalAssetSubtype":"FCL"}"""
       val expectedFileMetadata = List(
-        BagitFileMetadataObject(fileId, Option(assetId), "Test", 1, "Test.docx", 15684, RepresentationType.Preservation, 1),
+        BagitFileMetadataObject(fileId, Option(tdrUuid), "Test", 1, "Test.docx", 15684, RepresentationType.Preservation, 1),
         BagitFileMetadataObject(
           metadataFileId,
-          Option(assetId),
+          Option(tdrUuid),
           "",
           2,
           "TRE-TEST-REFERENCE-metadata.json",
@@ -340,7 +340,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     ddbRequest.TableName should equal("test-table")
     ddbRequest.Item.ioId.S should equal("24190792-a2e5-43a0-a9e9-6a0580905d90")
     ddbRequest.Item.batchId.S should equal("TEST-REFERENCE")
-    ddbRequest.Item.message.S should equal("{\"messageId\":\"27a9a6bb-a023-4cab-8592-39b44761a30a\"}")
+    ddbRequest.Item.message.S should equal("{\"messageId\":\"c2e7866e-5e94-4b4e-a49f-043ad937c18a\"}")
     ddbRequest.ConditionExpression should equal("attribute_not_exists(ioId)")
   }
 

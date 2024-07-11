@@ -106,7 +106,7 @@ class FileProcessor(
     ).flatten
     val fileTitle = fileInfo.fileName.split('.').dropRight(1).mkString(".")
     val folderId = uuidGenerator()
-    val assetId = uuidGenerator()
+    val assetId = UUID.fromString(tdrUuid)
     val folderMetadataObject = BagitFolderMetadataObject(folderId, None, potentialFolderTitle, folderName, folderMetadataIdFields)
     val assetMetadataObject =
       BagitAssetMetadataObject(
