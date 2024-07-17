@@ -1,0 +1,22 @@
+name: DR2 Run Lambda Tests
+on:
+  push:
+    branches-ignore:
+      - main
+      - release-*
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  test:
+    uses: nationalarchives/dr2-github-actions/.github/workflows/dr2_test.yml@main
+    with:
+      repo-name: dr2-ingest-cc-notification-handler
+      test-command: |
+        export AWS_ACCESS_KEY_ID=test
+        export AWS_SECRET_ACCESS_KEY=test
+        export AWS_SESSION_TOKEN=test
+        pip install -r requirements.txt
+        python3 -m unittest
+    secrets:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
