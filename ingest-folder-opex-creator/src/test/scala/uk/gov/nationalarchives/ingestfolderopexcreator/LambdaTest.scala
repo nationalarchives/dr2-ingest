@@ -221,7 +221,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     .targetThroughputInGbps(20.0)
     .minimumPartSizeInBytes(10 * 1024 * 1024)
     .build()
-  private val dynamoClient: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
+  private val dynamoClient: DADynamoDBClient[IO] = DADynamoDBClient[IO](asyncDynamoClient)
   private val s3Client: DAS3Client[IO] = DAS3Client[IO](asyncS3Client)
 
   val dependencies: Dependencies = Dependencies(dynamoClient, s3Client, XMLCreator())

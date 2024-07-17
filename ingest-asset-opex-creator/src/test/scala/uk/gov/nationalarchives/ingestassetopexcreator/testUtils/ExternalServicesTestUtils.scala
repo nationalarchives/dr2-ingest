@@ -349,5 +349,5 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
     .minimumPartSizeInBytes(10 * 1024 * 1024)
     .build()
 
-  val dependencies: Dependencies = Dependencies(new DADynamoDBClient[IO](asyncDynamoClient), DAS3Client[IO](asyncS3Client), XMLCreator(OffsetDateTime.parse("2023-09-01T00:00Z")))
+  val dependencies: Dependencies = Dependencies(DADynamoDBClient[IO](asyncDynamoClient), DAS3Client[IO](asyncS3Client), XMLCreator(OffsetDateTime.parse("2023-09-01T00:00Z")))
 }

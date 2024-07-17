@@ -73,6 +73,16 @@ lazy val ingestMapper = (project in file("ingest-mapper"))
     )
   )
 
+lazy val ingestFilesChangeHandler = (project in file("ingest-files-change-handler"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      snsClient
+    )
+  )
+
 lazy val ingestParentFolderOpexCreator = (project in file("ingest-parent-folder-opex-creator"))
   .settings(commonSettings)
   .dependsOn(utils)
@@ -225,6 +235,9 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
 
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)
+  .settings(
+    libraryDependencies += scanamo
+  )
 
 lazy val dynamoFormatters = (project in file("dynamo-formatters"))
   .settings(

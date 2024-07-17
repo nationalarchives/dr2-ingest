@@ -152,6 +152,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     List(UUID.fromString("dec2b921-20e3-41e8-a299-f3cbc13131a2")),
     List(UUID.fromString("3f42e3f2-fffe-4fe9-87f7-262e95b86d75")),
     true,
+    true,
     List(Identifier("Test2", "testIdentifier2"), Identifier("Test", "testIdentifier"), Identifier("UpstreamSystemReference", "testSystemRef")),
     1,
     false
@@ -173,6 +174,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       s"ext$suffix",
       representationTypes(suffix)._1,
       representationTypes(suffix)._2,
+      true,
       true,
       List(Identifier("Test2", "testIdentifier4"), Identifier("Test", "testIdentifier3"), Identifier("UpstreamSystemReference", "testSystemRef2")),
       1

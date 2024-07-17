@@ -157,7 +157,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     .credentialsProvider(creds)
     .build()
 
-  val dynamoClient: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
+  val dynamoClient: DADynamoDBClient[IO] = DADynamoDBClient[IO](asyncDynamoClient)
 
   case class ArgumentVerifier(defaultEntityWithSourceIdReturnValue: IO[Seq[Entity]] = IO.pure(Nil)) {
     val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
