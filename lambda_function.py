@@ -7,9 +7,6 @@ from boto3 import resource
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
 
-http = urllib3.PoolManager()
-client = boto3.client('events', region_name="eu-west-2")
-
 
 def get_item_with_id(table, primary_key, primary_key_value):
     response = table.query(KeyConditionExpression=Key(primary_key).eq(primary_key_value))
