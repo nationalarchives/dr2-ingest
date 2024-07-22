@@ -59,7 +59,8 @@ object DynamoWriteUtils {
           fileExtension -> DynamoValue.fromString(fileDynamoTable.fileExtension),
           representationType -> DynamoValue.fromString(fileDynamoTable.representationType.toString),
           representationSuffix -> DynamoValue.fromNumber(fileDynamoTable.representationSuffix),
-          ingestedPreservica -> DynamoValue.fromString(fileDynamoTable.ingestedPreservica.toString)
+          ingestedPreservica -> DynamoValue.fromString(fileDynamoTable.ingestedPreservica.toString),
+          location -> DynamoValue.fromString(fileDynamoTable.location.toString)
         )
     }.toDynamoValue
 

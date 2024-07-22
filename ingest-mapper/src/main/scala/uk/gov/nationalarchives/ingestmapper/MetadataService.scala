@@ -11,6 +11,7 @@ import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.{Asset, File}
 
 import java.util.UUID
+import scala.util.Try
 
 class MetadataService(s3: DAS3Client[IO]) {
   lazy private val bufferSize = 1024 * 5
@@ -30,8 +31,6 @@ class MetadataService(s3: DAS3Client[IO]) {
     }
   }
 
-  def parseBagInfoJson(input: Input): IO[List[Obj]] = parseFileFromS3(input, "bag-info.json", _.map(bagInfoJson => Obj.from(read(bagInfoJson).obj)))
-
   private def addChildCountAttributes(metadataJson: List[Obj]): List[Obj] = {
     metadataJson.map { row =>
       val rowMap = row.value.toMap
@@ -43,16 +42,12 @@ class MetadataService(s3: DAS3Client[IO]) {
 
   def parseMetadataJson(
       input: Input,
-      departmentAndSeriesItems: DepartmentAndSeriesTableItems,
-      bagitManifests: List[BagitManifestRow],
-      bagInfoJson: Obj
-  ) =
+      departmentAndSeriesItems: DepartmentAndSeriesTableItems
+  ): IO[List[Obj]] =
     parseFileFromS3(
       input,
-      "metadata.json",
       s =>
         s.flatMap { metadataJson =>
-          val fileIdToChecksum: Map[UUID, String] = bagitManifests.map(bm => UUID.fromString(bm.filePath.stripPrefix("data/")) -> bm.checksum).toMap
           val json = read(metadataJson)
           val departmentId = departmentAndSeriesItems.departmentItem("id").str
           val pathPrefix = departmentAndSeriesItems.potentialSeriesItem
@@ -66,7 +61,10 @@ class MetadataService(s3: DAS3Client[IO]) {
               val name = metadataEntry("name").str
               val parentPath = parentPaths(id)
               val path = if (parentPath.isEmpty) pathPrefix else s"$pathPrefix/${parentPath.stripPrefix("/")}"
-              val checksum = fileIdToChecksum.get(id).map(Str.apply).getOrElse(Null)
+              val checksum: Value = Try(metadataEntry("checksum_sha256")).toOption
+                .map(_.str)
+                .map(Str.apply)
+                .getOrElse(Null)
               val entryType = metadataEntry("type").str
               val fileExtension =
                 if (entryType == File.toString)
@@ -75,42 +73,21 @@ class MetadataService(s3: DAS3Client[IO]) {
                     case _             => Null
                   }
                 else Null
-              val metadataFromBagInfo: Obj = if (entryType == Asset.toString) bagInfoJson else Obj()
-              val metadataMap =
+              val metadataMap: Map[String, Value] =
                 Map("batchId" -> Str(input.batchId), "parentPath" -> Str(path), "checksum_sha256" -> checksum, "fileExtension" -> fileExtension) ++ metadataEntry.obj.view
                   .filterKeys(_ != "parentId")
                   .toMap
-              Obj.from(metadataFromBagInfo.value ++ metadataMap)
+
+              Obj.from(metadataMap)
             } ++ departmentAndSeriesItems.potentialSeriesItem.toList ++ List(departmentAndSeriesItems.departmentItem)
             addChildCountAttributes(updatedJson)
           }
         }
     )
 
-  def parseBagManifest(input: Input): IO[List[BagitManifestRow]] =
-    parseFileFromS3(
-      input,
-      "manifest-sha256.txt",
-      _.flatMap { bagitManifestString =>
-        Stream.evalSeq {
-          bagitManifestString
-            .split('\n')
-            .map { rowAsString =>
-              val rowAsArray = rowAsString.split(' ')
-              if (rowAsArray.length != 2)
-                IO.raiseError(new Exception(s"Expecting 2 columns in manifest-sha256.txt, found ${rowAsArray.length}"))
-              else
-                IO.pure(BagitManifestRow(rowAsArray.head, rowAsArray.last))
-            }
-            .toList
-            .sequence
-        }
-      }
-    )
-
-  private def parseFileFromS3[T](input: Input, name: String, decoderPipe: Pipe[IO, String, T]): IO[List[T]] =
+  private def parseFileFromS3[T](input: Input, decoderPipe: Pipe[IO, String, T]): IO[List[T]] =
     for {
-      pub <- s3.download(input.s3Bucket, s"${input.s3Prefix}$name")
+      pub <- s3.download(input.packageMetadata.getHost, input.packageMetadata.getPath.drop(1))
       s3FileString <- pub
         .toStreamBuffered[IO](bufferSize)
         .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))

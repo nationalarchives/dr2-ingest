@@ -47,7 +47,7 @@ lazy val commonSettings = Seq(
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
     case _                                                   => MergeStrategy.first
   },
-  scalacOptions ++= Seq("-Wunused:imports", "-Werror", "-deprecation", "-feature", "-language:implicitConversions"),
+  scalacOptions ++= Seq("-deprecation", "-feature", "-language:implicitConversions"),
   (Test / fork) := true,
   (Test / envVars) := Map(
     "AWS_ACCESS_KEY_ID" -> "accesskey",

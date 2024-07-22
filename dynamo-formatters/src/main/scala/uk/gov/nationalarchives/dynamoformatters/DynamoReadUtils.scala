@@ -16,6 +16,7 @@ import DynamoFormatters.FileRepresentationType.*
 import DynamoFormatters.*
 
 import java.lang
+import java.net.URI
 
 class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
 
@@ -67,7 +68,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     getPotentialStringValue(ingestedPreservica),
     identifiers,
     getNumber(childCount, _.toInt),
-    getBoolean(skipIngest)
+    getBoolean(skipIngest),
+    stringToScalaType[URI](location, getPotentialStringValue(location), URI.create)
   )
 
   private def stringToType(potentialTypeString: Option[String]): ValidatedNel[InvalidProperty, Type] =
@@ -306,7 +308,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableFields.`type`,
       allValidatedFileTableFields.representationType,
       allValidatedFileTableFields.representationSuffix,
-      allValidatedFileTableFields.childCount
+      allValidatedFileTableFields.childCount,
+      allValidatedFileTableFields.location
     ).mapN {
       (
           batchId,
@@ -319,7 +322,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           rowType,
           representationType,
           representationSuffix,
-          childCount
+          childCount,
+          location
       ) =>
         FileDynamoTable(
           batchId,
@@ -337,7 +341,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           representationSuffix,
           allValidatedFileTableFields.ingestedPreservica.contains("true"),
           allValidatedFileTableFields.identifiers,
-          childCount
+          childCount,
+          location
         )
     }.toEither
       .left

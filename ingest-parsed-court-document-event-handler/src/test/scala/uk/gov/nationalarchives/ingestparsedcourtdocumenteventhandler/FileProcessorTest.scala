@@ -22,6 +22,7 @@ import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
 
+import java.net.URI
 import java.nio.ByteBuffer
 import java.time.OffsetDateTime
 import java.util.{Base64, HexFormat, UUID}
@@ -58,7 +59,8 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
 
   private val uuids: List[UUID] = List(
     UUID.fromString("6e827e19-6a33-46c3-8730-b242c203d8c1"),
-    UUID.fromString("49e4a726-6297-4f8e-8867-fb50bd5acd86")
+    UUID.fromString("49e4a726-6297-4f8e-8867-fb50bd5acd86"),
+    UUID.fromString("593cf06e-0832-49e0-a20f-d259c8192d70")
   )
 
   case class UUIDGenerator() {
@@ -88,25 +90,35 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val metadataCompletedUpload = completedUpload(Option("123456"))
 
     when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Long], any[Publisher[ByteBuffer]]))
       .thenReturn(IO(docxCompletedUpload))
     when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Long], any[Publisher[ByteBuffer]]))
       .thenReturn(IO(metadataCompletedUpload))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+      .thenReturn(IO(completedUpload(Option("bcdeff"))))
 
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, generator.uuidGenerator)
     val res = fileProcessor.copyFilesFromDownloadToUploadBucket("key").unsafeRunSync()
 
-    res.size should equal(2)
+    res.size should equal(3)
     val docx = res.get(s"$reference/Test.docx")
     val metadata = res.get(s"$reference/TRE-$reference-metadata.json")
+    val unusedTreFile = res.get(s"$reference/unused-tre-file")
     docx.isDefined should be(true)
     metadata.isDefined should be(true)
+    unusedTreFile.isDefined should be(true)
 
     val docxInfo = docx.get
-    docxInfo.id should equal(uuids.head)
+    docxInfo.id should equal(uuids(1))
     docxInfo.fileName should equal("Test.docx")
     docxInfo.fileSize should equal(15684)
     docxInfo.checksum should equal("abcdef")
+
+    val unusedTreFileInfo = unusedTreFile.get
+    unusedTreFileInfo.id should equal(uuids.head)
+    unusedTreFileInfo.fileName should equal("unused-tre-file")
+    unusedTreFileInfo.fileSize should equal(0)
+    unusedTreFileInfo.checksum should equal("bcdeff")
 
     val metadataInfo = metadata.get
     metadataInfo.id should equal(uuids.last)
@@ -164,10 +176,12 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val metadataCompletedUpload = completedUpload()
 
     when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Long], any[Publisher[ByteBuffer]]))
       .thenReturn(IO(docxCompletedUpload))
     when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Long], any[Publisher[ByteBuffer]]))
       .thenReturn(IO(metadataCompletedUpload))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+      .thenReturn(IO(completedUpload(Option("bcdeff"))))
 
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, generator.uuidGenerator)
     val res = fileProcessor.copyFilesFromDownloadToUploadBucket("key").unsafeRunSync()
@@ -352,9 +366,9 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               val fileName = treFileName.split('.').dropRight(1).mkString(".")
               val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
               val folder =
-                BagitFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)
+                FolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)
               val asset =
-                BagitAssetMetadataObject(
+                AssetMetadataObject(
                   assetId,
                   Option(folderId),
                   expectedAssetTitle,
@@ -371,19 +385,30 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                   ).flatten
                 )
               val files = List(
-                BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1),
-                BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, RepresentationType.Preservation, 1)
+                FileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1, URI.create("s3://bucket/key"), "fileChecksum"),
+                FileMetadataObject(
+                  metadataId,
+                  Option(assetId),
+                  "",
+                  2,
+                  "metadataFileName.txt",
+                  2,
+                  RepresentationType.Preservation,
+                  1,
+                  URI.create("s3://bucket/metadataKey"),
+                  "metadataChecksum"
+                )
               )
-              val expectedBagitMetadataObjects: List[BagitMetadataObject] = List(folder, asset) ++ files
+              val expectedBagitMetadataObjects: List[MetadataObject] = List(folder, asset) ++ files
 
               val fileProcessor =
                 new FileProcessor("download", "upload", "ref", mock[DAS3Client[IO]], UUIDGenerator().uuidGenerator)
-              val fileInfo = FileInfo(fileId, 1, treFileName, "fileChecksum")
-              val metadataFileInfo = FileInfo(metadataId, 2, "metadataFileName.txt", "metadataChecksum")
+              val fileInfo = FileInfo(fileId, 1, treFileName, "fileChecksum", URI.create("s3://bucket/key"))
+              val metadataFileInfo = FileInfo(metadataId, 2, "metadataFileName.txt", "metadataChecksum", URI.create("s3://bucket/metadataKey"))
 
               val bagitMetadataObjects =
                 fileProcessor
-                  .createBagitMetadataObjects(
+                  .createMetadata(
                     fileInfo,
                     metadataFileInfo,
                     parsedUri,
@@ -419,9 +444,9 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
             val fileName = treFileName.split('.').dropRight(1).mkString(".")
             val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
             val folder =
-              BagitFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)
+              FolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)
             val asset =
-              BagitAssetMetadataObject(
+              AssetMetadataObject(
                 assetId,
                 Option(folderId),
                 expectedAssetTitle,
@@ -436,10 +461,21 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                 ).flatten
               )
             val files = List(
-              BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1),
-              BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, RepresentationType.Preservation, 1)
+              FileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1, URI.create("s3://bucket/key"), "checksum"),
+              FileMetadataObject(
+                metadataId,
+                Option(assetId),
+                "",
+                2,
+                "metadataFileName.txt",
+                2,
+                RepresentationType.Preservation,
+                1,
+                URI.create("s3://bucket/metadataKey"),
+                "checksum"
+              )
             )
-            val metadataJsonList: List[BagitMetadataObject] = List(folder, asset) ++ files
+            val metadataJsonList: List[MetadataObject] = List(folder, asset) ++ files
             val metadataJsonString = metadataJsonList.asJson.printWith(Printer.noSpaces)
 
             val bagitTxtContent =
@@ -491,15 +527,13 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
             mockUpload(s3, "tagmanifest-sha256.txt", tagManifestString, tagManifestChecksum)
 
             val fileProcessor = new FileProcessor("download", "upload", "ref", s3, UUIDGenerator().uuidGenerator)
-            val fileInfo = FileInfo(fileId, 1, treFileName, "fileChecksum")
-            val metadataFileInfo = FileInfo(metadataId, 2, "metadataFileName.txt", "metadataChecksum")
+            val fileInfo = FileInfo(fileId, 1, treFileName, "fileChecksum", URI.create("s3://bucket/key"))
+            val metadataFileInfo = FileInfo(metadataId, 2, "metadataFileName.txt", "metadataChecksum", URI.create("s3://bucket/metadataKey"))
 
             val tagManifestChecksumResult =
               fileProcessor
-                .createBagitFiles(metadataJsonList, fileInfo, metadataFileInfo, treMetadata, department, series)
+                .createMetadataJson(metadataJsonList)
                 .unsafeRunSync()
-
-            tagManifestChecksumResult should equal(tagManifestChecksum)
           }
       }
     }
@@ -515,14 +549,14 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     )
 
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, UUIDGenerator().uuidGenerator)
-    val fileInfo = FileInfo(UUID.randomUUID(), 1, "fileName", "fileChecksum")
-    val metadataFileInfo = FileInfo(UUID.randomUUID(), 2, "metadataFileName", "metadataChecksum")
+    val fileInfo = FileInfo(UUID.randomUUID(), 1, "fileName", "fileChecksum", URI.create("s3://bucket/key"))
+    val metadataFileInfo = FileInfo(UUID.randomUUID(), 2, "metadataFileName", "metadataChecksum", URI.create("s3://bucket/metadataKey"))
 
     val ex = intercept[Exception] {
       fileProcessor
-        .createBagitFiles(
+        .createMetadataJson(
           List(
-            BagitFileMetadataObject(
+            FileMetadataObject(
               UUID.randomUUID(),
               Option(UUID.fromString("49e4a726-6297-4f8e-8867-fb50bd5acd86")),
               "",
@@ -530,14 +564,11 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               "metadataFileName.txt",
               2,
               RepresentationType.Preservation,
-              1
+              1,
+              URI.create("s3://bucket/key"),
+              "checksum"
             )
-          ),
-          fileInfo,
-          metadataFileInfo,
-          treMetadata,
-          Option("department"),
-          Option("series")
+          )
         )
         .unsafeRunSync()
     }

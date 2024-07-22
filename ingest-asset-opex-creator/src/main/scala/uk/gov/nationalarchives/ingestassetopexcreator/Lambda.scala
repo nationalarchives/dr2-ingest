@@ -49,7 +49,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
       _ <- log(s"${children.length} children found for asset ${asset.id}")
 
-      _ <- log(s"Starting copy from ${input.sourceBucket} to ${config.destinationBucket}")
+      _ <- log(s"Starting copy from ${children.map(_.location).mkString(" ")} to ${config.destinationBucket}")
       _ <- children.map(child => copyFromSourceToDestination(s3Client, input, config.destinationBucket, asset, child, xmlCreator)).sequence
       xip <- xmlCreator.createXip(asset, children.sortBy(_.sortOrder))
       _ <- ValidateXmlAgainstXsd[IO](XipXsdSchemaV7).xmlStringIsValid(xip)
@@ -77,8 +77,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       xmlCreator: XMLCreator
   ) = {
     s3Client.copy(
-      input.sourceBucket,
-      s"${input.batchId}/data/${child.id}",
+      child.location.getHost,
+      child.location.getPath.drop(1),
       destinationBucket,
       destinationPath(input, asset, child, xmlCreator)
     )
@@ -94,13 +94,13 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   private def childrenOfAsset(dynamoClient: DADynamoDBClient[IO], asset: AssetDynamoTable, tableName: String, gsiName: String): IO[List[FileDynamoTable]] = {
     val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
     dynamoClient
-      .queryItems[FileDynamoTable](tableName, gsiName, "batchId" === asset.batchId and "parentPath" === childrenParentPath)
+      .queryItems[FileDynamoTable](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
   }
 }
 
 object Lambda {
 
-  case class Input(id: UUID, batchId: String, executionName: String, sourceBucket: String)
+  case class Input(id: UUID, batchId: String, executionName: String)
 
   case class Config(dynamoTableName: String, dynamoGsiName: String, destinationBucket: String) derives ConfigReader
 

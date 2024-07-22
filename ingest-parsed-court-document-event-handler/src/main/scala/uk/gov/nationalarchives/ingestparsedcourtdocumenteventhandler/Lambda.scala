@@ -61,14 +61,14 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 
           _ <- IO.raiseWhen(fileInfo.fileSize == 0)(new Exception(s"File id '${fileInfo.id}' size is 0"))
           output <- dependencies.seriesMapper.createOutput(
-            config.outputBucket,
+            metadataFileInfo.location,
             batchRef,
             parsedUri.flatMap(_.potentialCourt),
             treInput.parameters.skipSeriesLookup
           )
           fileInfoWithUpdatedChecksum = fileInfo.copy(checksum = treMetadata.parameters.TDR.`Document-Checksum-sha256`)
           tdrUuid = treMetadata.parameters.TDR.`UUID`.toString
-          bagitMetadata = fileProcessor.createBagitMetadataObjects(
+          metadata = fileProcessor.createMetadata(
             fileInfoWithUpdatedChecksum,
             metadataFileInfo,
             parsedUri,
@@ -81,33 +81,23 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             output.series,
             tdrUuid
           )
-          _ <- fileProcessor.createBagitFiles(
-            bagitMetadata,
-            fileInfoWithUpdatedChecksum,
-            metadataFileInfo,
-            treMetadata,
-            output.department,
-            output.series
-          )
-          _ <- logWithFileRef(s"Copied bagit files to $outputBucket")
-
-          _ <- dependencies.s3.copy(outputBucket, fileInfo.id.toString, outputBucket, s"$batchRef/data/${fileInfo.id}")
-          _ <- logWithFileRef(s"Copied file with id ${fileInfo.id} to data directory")
-
-          _ <- dependencies.s3
-            .copy(outputBucket, metadataFileInfo.id.toString, outputBucket, s"$batchRef/data/${metadataFileInfo.id}")
-          _ <- logWithFileRef(s"Copied metadata file with id ${metadataFileInfo.id} to data directory")
-
-          _ <- dependencies.s3.deleteObjects(outputBucket, fileNameToFileInfo.values.map(_.id.toString).toList)
-          _ <- logWithFileRef("Deleted objects from the root of S3")
+          _ <- fileProcessor.createMetadataJson(metadata)
+          _ <- logWithFileRef(s"Copied metadata json to $outputBucket")
+          unusedFilesFromTre = fileNameToFileInfo.values
+            .filter(fi => !List(fileInfo, metadataFileInfo).contains(fi))
+            .map(_.id.toString)
+            .toList
+          _ <- IO.whenA(unusedFilesFromTre.nonEmpty) {
+            dependencies.s3.deleteObjects(outputBucket, unusedFilesFromTre) >> logWithFileRef("Deleted unused TRE objects from the root of S3")
+          }
 
           _ <- dependencies.dynamo.writeItem(
             DADynamoDbWriteItemRequest(
               config.dynamoLockTableName,
               Map(
-                s"$ioId" -> toDynamoString(tdrUuid),
-                s"$batchId" -> toDynamoString(batchRef),
-                s"$message" -> toDynamoString(s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""")
+                ioId -> toDynamoString(tdrUuid),
+                batchId -> toDynamoString(batchRef),
+                message -> toDynamoString(s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""")
               ),
               Some(s"attribute_not_exists($ioId)")
             )

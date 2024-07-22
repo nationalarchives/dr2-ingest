@@ -1,11 +1,13 @@
 package uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler
 
-import cats.effect._
-import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper._
+import cats.effect.*
+import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.*
+
+import java.net.URI
 
 class SeriesMapper(validCourts: Set[Court]) {
   def createOutput(
-      uploadBucket: String,
+      metadataPackageLocation: URI,
       batchId: String,
       potentialCourt: Option[String],
       skipSeriesLookup: Boolean
@@ -14,15 +16,15 @@ class SeriesMapper(validCourts: Set[Court]) {
       .map { court =>
         val potentiallyFoundCourt: Option[Court] = validCourts.find(_.code == court.toUpperCase)
         potentiallyFoundCourt match {
-          case None if skipSeriesLookup => IO.pure(Output(batchId, uploadBucket, s"$batchId/", None, None))
+          case None if skipSeriesLookup => IO.pure(Output(batchId, metadataPackageLocation, None, None))
           case None                     => IO.raiseError(new Exception(s"Cannot find series and department for court $court for batchId $batchId"))
           case _ =>
             IO.pure(
-              Output(batchId, uploadBucket, s"$batchId/", potentiallyFoundCourt.map(_.dept), potentiallyFoundCourt.map(_.series))
+              Output(batchId, metadataPackageLocation, potentiallyFoundCourt.map(_.dept), potentiallyFoundCourt.map(_.series))
             )
         }
       }
-      .getOrElse(IO.pure(Output(batchId, uploadBucket, s"$batchId/", None, None)))
+      .getOrElse(IO.pure(Output(batchId, metadataPackageLocation, None, None)))
 
   }
 }
@@ -30,8 +32,7 @@ class SeriesMapper(validCourts: Set[Court]) {
 object SeriesMapper {
   case class Output(
       batchId: String,
-      s3Bucket: String,
-      s3Prefix: String,
+      packageMetadata: URI,
       department: Option[String],
       series: Option[String]
   )

@@ -6,6 +6,7 @@ import org.scanamo.*
 import org.scanamo.generic.semiauto.{FieldName, Typeclass, deriveDynamoFormat}
 import uk.gov.nationalarchives.dynamoformatters.DynamoWriteUtils.*
 
+import java.net.URI
 import java.time.OffsetDateTime
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
@@ -83,6 +84,7 @@ object DynamoFormatters {
   val ingestedPreservica = "ingested_PS"
   val childCount = "childCount"
   val skipIngest = "skipIngest"
+  val location = "location"
 
   given filesTablePkFormat: Typeclass[FilesTablePrimaryKey] = new DynamoFormat[FilesTablePrimaryKey]:
     override def read(av: DynamoValue): Either[DynamoReadError, FilesTablePrimaryKey] = {
@@ -153,7 +155,8 @@ object DynamoFormatters {
       ingestedPreservica: Option[String],
       identifiers: List[Identifier],
       childCount: ValidatedField[Int],
-      skipIngest: ValidatedField[Boolean]
+      skipIngest: ValidatedField[Boolean],
+      location: ValidatedField[URI]
   )
 
   case class ArchiveFolderDynamoTable(
@@ -217,7 +220,8 @@ object DynamoFormatters {
       representationSuffix: Int,
       ingestedPreservica: Boolean,
       identifiers: List[Identifier],
-      childCount: Int
+      childCount: Int,
+      location: URI
   ) extends DynamoTable
 
   case class Identifier(identifierName: String, value: String)

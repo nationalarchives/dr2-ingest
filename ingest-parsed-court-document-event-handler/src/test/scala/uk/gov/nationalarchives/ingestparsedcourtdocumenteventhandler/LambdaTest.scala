@@ -48,14 +48,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     ("27a9a6bb-a023-4cab-8592-39b44761a30a", "B1")
   )
 
-  val metadataFilesAndChecksums: List[(String, String)] = List(
-    ("metadata.json", "01"),
-    ("bag-info.json", "31"),
-    ("bag-info.txt", "21"),
-    ("bagit.txt", "11"),
-    ("manifest-sha256.txt", "51"),
-    ("tagmanifest-sha256.txt", "61")
-  )
+  val metadataFilesAndChecksum: (String, String) = ("metadata.json", "01")
 
   override def beforeEach(): Unit = {
     sfnServer.resetAll()
@@ -79,8 +72,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   )
   val expectedDeleteRequestXml: String =
     """<?xml version="1.0" encoding="UTF-8"?><Delete xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-      |<Object><Key>c7e6b27f-5778-4da8-9b83-1b64bbccbd03</Key></Object>
-      |<Object><Key>61ac0166-ccdf-48c4-800f-29e5fba2efda</Key></Object></Delete>""".stripMargin.replaceAll("\\n", "")
+      |<Object><Key>c7e6b27f-5778-4da8-9b83-1b64bbccbd03</Key></Object></Delete>""".stripMargin.replaceAll("\\n", "")
 
   private def read[T](jsonString: String)(using enc: Decoder[T]): T =
     decode[T](jsonString).toOption.get
@@ -126,7 +118,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
     val s3: DAS3Client[IO] = DAS3Client[IO](s3AsyncClient)
     val sfn: DASFNClient[IO] = new DASFNClient(sfnAsyncClient)
-    val dynamo: DADynamoDBClient[IO] = new DADynamoDBClient[IO](dynamoAsyncClient)
+    val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO](dynamoAsyncClient)
     val seriesMapper: SeriesMapper = new SeriesMapper(Set(Court("COURT", "TEST", "TEST SERIES")))
     val uuidsIterator: Iterator[String] = uuidsAndChecksum.map(_._1).iterator
     Dependencies(s3, sfn, dynamo, () => UUID.fromString(uuidsIterator.next()), seriesMapper)
@@ -173,12 +165,11 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
          |"PARSER":{"cite":"cite","uri":"https://example.com/id/court/2023/","court":"test","date":"2023-07-26","name":"test"}}}""".stripMargin
     )
 
-    metadataFilesAndChecksums.foreach { case (file, checksum) =>
-      s3Server.stubFor(
-        put(urlEqualTo(s"/$testOutputBucket/$reference/$file"))
-          .willReturn(ok().withHeader("x-amz-checksum-sha256", convertChecksumToS3Format(checksum)))
-      )
-    }
+    val (file, checksum) = metadataFilesAndChecksum
+    s3Server.stubFor(
+      put(urlEqualTo(s"/$testOutputBucket/$reference/$file"))
+        .willReturn(ok().withHeader("x-amz-checksum-sha256", convertChecksumToS3Format(checksum)))
+    )
 
     uuidsAndChecksum.foreach { case (uuid, checksum) =>
       s3Server.stubFor(
@@ -186,7 +177,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           .willReturn(ok().withHeader("x-amz-checksum-sha256", convertChecksumToS3Format(checksum)))
       )
       s3Server.stubFor(
-        put(urlEqualTo(s"/$testOutputBucket/$reference/data/$uuid"))
+        put(urlEqualTo(s"/$testOutputBucket/$reference/$uuid"))
           .willReturn(ok())
       )
       s3Server.stubFor(
@@ -223,16 +214,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     serveEvents.count(e => e.getRequest.getUrl == s"/$inputBucket/test.tar.gz" && e.getRequest.getMethod == RequestMethod.GET) should equal(1)
   }
 
-  "the lambda" should "write the bagit package to the output bucket" in {
+  "the lambda" should "write the metadata and files to the output bucket" in {
     stubAWSRequests(inputBucket)
     new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     val serveEvents = s3Server.getAllServeEvents.asScala
 
     def countPutEvents(name: String) = serveEvents.count(e => e.getRequest.getUrl == s"/$testOutputBucket/$reference/$name" && e.getRequest.getMethod == RequestMethod.PUT)
 
-    metadataFilesAndChecksums.map(_._1).foreach(file => countPutEvents(file) should equal(1))
-    countPutEvents(s"data/${uuidsAndChecksum.head._1}") should equal(1)
-    countPutEvents(s"data/${uuidsAndChecksum(1)._1}") should equal(1)
+    countPutEvents(metadataFilesAndChecksum._1) should equal(1)
   }
 
   val citeTable: TableFor2[Option[String], List[IdField]] = Table(
@@ -263,10 +252,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         .map(_.getBodyAsString.split("\r\n")(1).trim)
         .toList
 
-      val folderId = UUID.fromString("4e6bac50-d80a-4c68-bd92-772ac9701f14")
-      val fileId = UUID.fromString("c7e6b27f-5778-4da8-9b83-1b64bbccbd03")
-      val metadataFileId = UUID.fromString("61ac0166-ccdf-48c4-800f-29e5fba2efda")
-      val expectedAssetMetadata = BagitAssetMetadataObject(
+      val folderId = UUID.fromString("c2e7866e-5e94-4b4e-a49f-043ad937c18a")
+      val fileId = UUID.fromString("61ac0166-ccdf-48c4-800f-29e5fba2efda")
+      val metadataFileId = UUID.fromString("4e6bac50-d80a-4c68-bd92-772ac9701f14")
+      val expectedAssetMetadata = AssetMetadataObject(
         tdrUuid,
         Option(folderId),
         "Test.docx",
@@ -281,15 +270,9 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           Option(IdField("RecordID", "24190792-a2e5-43a0-a9e9-6a0580905d90"))
         ).flatten
       )
-      val expectedBagitTxt = "BagIt-Version: 1.0\nTag-File-Character-Encoding: UTF-8"
-      val expectedBagInfo = "Department: TEST\nSeries: TEST SERIES"
-      val expectedBagInfoJson =
-        """{"id_ConsignmentReference":"test-identifier","id_UpstreamSystemReference":"TEST-REFERENCE",""" +
-          """"transferringBody":"test-organisation","transferCompleteDatetime":"2023-10-31T13:40:54Z",""" +
-          """"upstreamSystem":"TRE: FCL Parser workflow","digitalAssetSource":"Born Digital","digitalAssetSubtype":"FCL"}"""
       val expectedFileMetadata = List(
-        BagitFileMetadataObject(fileId, Option(tdrUuid), "Test", 1, "Test.docx", 15684, RepresentationType.Preservation, 1),
-        BagitFileMetadataObject(
+        FileMetadataObject(fileId, Option(tdrUuid), "Test", 1, "Test.docx", 15684, RepresentationType.Preservation, 1, URI.create(s"s3://$testOutputBucket/$fileId"), "checksum"),
+        FileMetadataObject(
           metadataFileId,
           Option(tdrUuid),
           "",
@@ -297,32 +280,26 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           "TRE-TEST-REFERENCE-metadata.json",
           215,
           RepresentationType.Preservation,
-          1
+          1,
+          URI.create(s"s3://$testOutputBucket/$metadataFileId"),
+          "checksum"
         )
       )
 
       val expectedFolderMetadata =
-        BagitFolderMetadataObject(
+        FolderMetadataObject(
           folderId,
           None,
           Option("test"),
           "https://example.com/id/court/2023/",
           if potentialCite.isDefined then idFields :+ IdField("URI", "https://example.com/id/court/2023/") else idFields
         )
-      val metadataList: List[BagitMetadataObject] =
+      val metadataList: List[MetadataObject] =
         List(expectedFolderMetadata, expectedAssetMetadata) ++ expectedFileMetadata
       val expectedMetadata = metadataList.asJson.printWith(Printer.noSpaces)
-      val expectedManifest = s"abcde data/$fileId\n81 data/$metadataFileId"
-      val expectedTagManifest =
-        "31 bag-info.json\n21 bag-info.txt\n11 bagit.txt\n51 manifest-sha256.txt\n01 metadata.json"
 
       val metadataFilePutEvents: List[String] = getContentOfAllMetadataFilePutEvents
       val expectedMetadataFileContents = ListMap(
-        "tagmanifest-sha256.txt" -> expectedTagManifest,
-        "bag-info.json" -> expectedBagInfoJson,
-        "bag-info.txt" -> expectedBagInfo,
-        "manifest-sha256.txt" -> expectedManifest,
-        "bagit.txt" -> expectedBagitTxt,
         "metadata.json" -> expectedMetadata
       )
       val expectedContentAndActual = metadataFilePutEvents.zip(expectedMetadataFileContents.values)
@@ -340,7 +317,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     ddbRequest.TableName should equal("test-table")
     ddbRequest.Item.ioId.S should equal("24190792-a2e5-43a0-a9e9-6a0580905d90")
     ddbRequest.Item.batchId.S should equal("TEST-REFERENCE")
-    ddbRequest.Item.message.S should equal("{\"messageId\":\"c2e7866e-5e94-4b4e-a49f-043ad937c18a\"}")
+    ddbRequest.Item.message.S should equal("{\"messageId\":\"27a9a6bb-a023-4cab-8592-39b44761a30a\"}")
     ddbRequest.ConditionExpression should equal("attribute_not_exists(ioId)")
   }
 
@@ -364,8 +341,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     input.series.get should equal("TEST SERIES")
     input.department.get should equal("TEST")
     input.batchId should equal("TEST-REFERENCE")
-    input.s3Prefix should equal("TEST-REFERENCE/")
-    input.s3Bucket should equal(testOutputBucket)
+    input.packageMetadata.toString should equal("s3://outputBucket/4e6bac50-d80a-4c68-bd92-772ac9701f14")
   }
 
   val citeAndUri: TableFor4[Option[String], Option[String], Option[String], Option[String]] = Table(
@@ -394,12 +370,11 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       input.series should equal(expectedSeries)
       input.department should equal(expectedDepartment)
       input.batchId should equal("TEST-REFERENCE")
-      input.s3Prefix should equal("TEST-REFERENCE/")
-      input.s3Bucket should equal(testOutputBucket)
+      input.packageMetadata.toString should equal("s3://outputBucket/4e6bac50-d80a-4c68-bd92-772ac9701f14")
     }
   }
 
-  "the lambda" should "send a request to delete the extracted files from the bucket root" in {
+  "the lambda" should "send a request to delete the unused tre file" in {
     stubAWSRequests(inputBucket)
     new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     val serveEvents = s3Server.getAllServeEvents.asScala
