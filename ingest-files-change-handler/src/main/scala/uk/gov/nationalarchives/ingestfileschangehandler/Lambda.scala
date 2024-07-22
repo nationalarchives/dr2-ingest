@@ -48,7 +48,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
       for {
         children <- dependencies.daDynamoDbClient
-          .queryItems[FileDynamoTable](config.dynamoDbTable, config.gsiName, "batchId" === asset.batchId and "parentPath" === childrenParentPath)
+          .queryItems[FileDynamoTable](config.dynamoDbTable, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.gsiName))
         _ <- IO.raiseWhen(children.length != asset.childCount)(
           new Exception(s"Asset id ${asset.id}: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
         )

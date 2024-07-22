@@ -105,21 +105,22 @@ object Utils {
 
       override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = IO(1)
 
-      override def queryItems[U](tableName: String, requestCondition: RequestCondition)(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] = ref.get.map { rows =>
-        (for {
-          values <- requestCondition.dynamoValues
-          map <- values.toMap[String].toOption
-        } yield
-          rows.filter(row => map.get("conditionAttributeValue0").contains(row.id.toString))
-          .map(_.createAsset().asInstanceOf[U])).getOrElse(Nil)
-      }
+      override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String] = None)(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] = ref.get.map { rows =>
+        if(potentialGsiName.isEmpty) {
+          (for {
+            values <- requestCondition.dynamoValues
+            map <- values.toMap[String].toOption
+          } yield
+            rows.filter(row => map.get("conditionAttributeValue0").contains(row.id.toString))
+              .map(_.createAsset().asInstanceOf[U])).getOrElse(Nil)
+        } else {
+          (for {
+            values <- requestCondition.dynamoValues
+            map <- values.toMap[String].toOption
+          } yield rows.filter(row => row.parentPath == map.get("parentPath") && map.get("batchId").contains(row.batchId))
+            .map(_.createFile().asInstanceOf[U])).getOrElse(Nil)
+        }
 
-      override def queryItems[U](tableName: String, gsiName: String, requestCondition: RequestCondition)(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] = ref.get.map { rows =>
-        (for {
-          values <- requestCondition.dynamoValues
-          map <- values.toMap[String].toOption
-        } yield rows.filter(row => row.parentPath == map.get("parentPath") && map.get("batchId").contains(row.batchId))
-          .map(_.createFile().asInstanceOf[U])).getOrElse(Nil)
       }
   }
 }

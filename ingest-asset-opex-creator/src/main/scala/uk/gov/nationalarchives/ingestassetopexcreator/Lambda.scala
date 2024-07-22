@@ -94,7 +94,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   private def childrenOfAsset(dynamoClient: DADynamoDBClient[IO], asset: AssetDynamoTable, tableName: String, gsiName: String): IO[List[FileDynamoTable]] = {
     val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
     dynamoClient
-      .queryItems[FileDynamoTable](tableName, gsiName, "batchId" === asset.batchId and "parentPath" === childrenParentPath)
+      .queryItems[FileDynamoTable](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
   }
 }
 
