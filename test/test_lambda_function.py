@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 from boto3 import resource, client
 from moto import mock_aws
-from lambda_function import (get_message_from_json_event, get_item_with_id, add_true_to_ingest_cc_attribute,
+from lambda_function import (get_messages_from_json_event, get_items_with_id, add_true_to_ingest_cc_attribute,
                              lambda_handler)
 
 from urllib3.exceptions import ConnectTimeoutError
@@ -51,41 +51,94 @@ class TestCcNotificationHandler(unittest.TestCase):
             Key=item
         )
 
-    def test_get_message_from_json_event_should_return_identifier_if_present(self):
+    def test_get_messages_from_json_event_should_return_messages_if_present(self):
         event = self.default_event
 
-        message = get_message_from_json_event(event)["tableItemIdentifier"]
+        messages_with_identifier = get_messages_from_json_event(event)
 
-        self.assertEqual(message, "identifier")
+        self.assertEqual(
+            messages_with_identifier,
+            [
+                {"tableItemIdentifier": "identifier"},
+                {"tableItemIdentifier": "identifier"},
+                {"tableItemIdentifier": "differentIdentifier"}
+            ]
+        )
 
-    def test_get_message_from_json_event_should_raise_error_if_message_not_present(self):
+    def test_get_messages_from_json_event_should_raise_error_if_message_not_present(self):
         event = {"Records": [{}]}
 
-        self.assertRaises(KeyError, get_message_from_json_event, event)
+        self.assertRaises(KeyError, get_messages_from_json_event, event)
 
-    def test_get_item_with_id_should_return_expected_item(self):
+    def test_get_items_with_id_should_return_expected_item(self):
         table = self.create_table()
         self.put_item_in_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
 
-        item_with_id = get_item_with_id(table, "id", "identifier")
+        items_with_id = get_items_with_id(table, "id", "identifier")
 
-        self.assertEqual(item_with_id, {"id": "identifier", "batchId": "batchIdValue"})
+        self.assertEqual(items_with_id, [{"id": "identifier", "batchId": "batchIdValue"}])
 
-    def test_get_item_with_id_should_raise_exception_if_item_not_in_table(self):
+    def test_get_items_with_id_should_return_an_empty_list__if_item_not_in_table(self):
         table = self.create_table()
 
-        self.assertRaises(Exception, get_item_with_id, table, "id", "wrongIdentifier")
+        items_with_id = get_items_with_id(table, "id", "wrongIdentifier")
 
-    def test_add_true_to_ingest_cc_attribute_should_write_true_to_ingest_cc_attr(self):
+        self.assertEqual(items_with_id, [])
+
+    def test_add_true_to_ingest_cc_attribute_should_add_ingest_cc_attr_with_true_value_if_it_does_not_exist(self):
         table = self.create_table()
         self.put_item_in_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
 
-        add_true_to_ingest_cc_attribute(table, "id", "batchId", {"id": "identifier", "batchId": "batchIdValue"})
+        add_true_to_ingest_cc_attribute(table, "id", "batchId", [{"id": "identifier", "batchId": "batchIdValue"}])
 
         item_response = self.get_item_from_table({"id": {"S": "identifier"}})
         new_ingested_cc_value = item_response["Item"]["ingested_CC"]
 
         self.assertEqual(new_ingested_cc_value, {"S": "true"})
+
+    def test_add_true_to_ingest_cc_attribute_should_not_add_ingest_cc_attr_with_true_value_if_it_already_exists(self):
+        self.create_table()
+        self.put_item_in_table(
+            {"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}, "ingested_CC": {"S": "true"}}
+        )
+
+        table = Mock()
+        table.update_item = Mock()
+
+        add_true_to_ingest_cc_attribute(table, "id", "batchId",
+                                        [{"id": "identifier", "batchId": "batchIdValue", "ingested_CC": "true"}])
+
+        table.update_item.assert_not_called()
+
+    def test_add_true_to_ingest_cc_attribute_should_add_ingest_cc_attr_with_true_value_if_current_value_is_not_true(
+        self):
+        table = self.create_table()
+        self.put_item_in_table(
+            {"id": {"S": "identifier1"}, "batchId": {"S": "batchIdValue"}, "ingested_CC": {"S": "false"}}
+        )
+        self.put_item_in_table(
+            {"id": {"S": "identifier2"}, "batchId": {"S": "batchIdValue"}, "ingested_CC": {"S": "tru"}}
+        )
+        self.put_item_in_table(
+            {"id": {"S": "identifier3"}, "batchId": {"S": "batchIdValue"}, "ingested_CC": {"S": "True"}}
+        )
+
+        add_true_to_ingest_cc_attribute(table, "id", "batchId", [
+            {"id": "identifier1", "batchId": "batchIdValue", "ingested_CC": "false"},
+            {"id": "identifier2", "batchId": "batchIdValue", "ingested_CC": "tru"},
+            {"id": "identifier3", "batchId": "batchIdValue", "ingested_CC": "True"}
+        ]
+        )
+
+        item_response1 = self.get_item_from_table({"id": {"S": "identifier1"}})
+        item_response2 = self.get_item_from_table({"id": {"S": "identifier2"}})
+        item_response3 = self.get_item_from_table({"id": {"S": "identifier3"}})
+
+        responses = [item_response1, item_response2, item_response3]
+
+        for response in responses:
+            attribute_value = response["Item"]["ingested_CC"]
+            self.assertEqual(attribute_value, {"S": "true"})
 
     def test_lambda_handler_should_write_true_to_ingest_cc_attr(self):
         os.environ["DYNAMO_TABLE_NAME"] = self.table_name
@@ -102,28 +155,19 @@ class TestCcNotificationHandler(unittest.TestCase):
     default_event = {
         "Records": [
             {
-                "Sns": {
-                    "SignatureVersion": "1",
-                    "Timestamp": "2019-01-02T12:45:07.000Z",
-                    "Signature": "tcc6faL2yUC6dgZdmrwh1Y4cGa/ebXEkAi6RibDsvpi+tE/1+82j...65r==",
-                    "SigningCertURL": "https://sns.us-east-1.amazonaws.com/SimpleNotificationService-ac565b8b1a6c5d002d285f9598aa1d9b.pem",
-                    "MessageId": "95df01b4-ee98-5cb9-9903-4c221d41eb5e",
-                    "Message": "{\"tableItemIdentifier\": \"identifier\"}",
-                    "MessageAttributes": {
-                        "Test": {
-                            "Type": "String",
-                            "Value": "TestString"
-                        },
-                        "TestBinary": {
-                            "Type": "Binary",
-                            "Value": "TestBinary"
-                        }
-                    },
-                    "Type": "Notification",
-                    "UnsubscribeURL": "https://sns.us-east-1.amazonaws.com/?Action=Unsubscribe&amp;SubscriptionArn=arn:aws:sns:us-east-1:123456789012:test-lambda:21be56ed-a058-49f5-8c98-aedd2564c486",
-                    "TopicArn": "arn:aws:sns:us-east-1:123456789012:sns-lambda",
-                    "Subject": "TestInvoke"
-                }
+                "messageId": "059f36b4-87a3-44ab-83d2-661975830a7d",
+                "receiptHandle": "AQEBwJnKyrHigUMZj6rYigCgxlaS3SLy0a...",
+                "body": "{\"tableItemIdentifier\": \"identifier\"}"
+            },
+            {
+                "messageId": "2e1424d4-f796-459a-8184-9c92662be6da",
+                "receiptHandle": "AQEBzWwaftRI0KuVm4tP+/7q1rGgNqicHq...",
+                "body": "{\"tableItemIdentifier\": \"identifier\"}"
+            },
+            {
+                "messageId": "2e1424d4-f796-459a-8184-9c92662be6da",
+                "receiptHandle": "AQEBzWwaftRI0KuVm4tP+/7q1rGgNqicHq...",
+                "body": "{\"tableItemIdentifier\": \"differentIdentifier\"}"
             }
         ]
     }
