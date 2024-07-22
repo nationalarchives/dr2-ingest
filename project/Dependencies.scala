@@ -7,7 +7,7 @@ object Dependencies {
   private val sttpVersion = "3.9.7"
   private val circeVersion = "0.14.9"
   private val log4CatsVersion = "2.7.0"
-  private val awsLibraryVersion = "1.12.761"
+  private val awsLibraryVersion = "1.12.762"
   private lazy val scalaTestVersion = "3.2.18"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.30.0"
@@ -32,7 +32,7 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % s"$scalaTestVersion.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.87"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.89"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.8"
@@ -48,6 +48,6 @@ object Dependencies {
   lazy val sttpClientFs2 = "com.softwaremill.sttp.client3" %% "fs2" % sttpVersion
   lazy val sttpCirce = "com.softwaremill.sttp.client3" %% "circe" % sttpVersion
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
-  lazy val upickle = "com.lihaoyi" %% "upickle" % "3.3.1"
+  lazy val upickle = "com.lihaoyi" %% "upickle" % "4.0.0"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock" % "3.0.1"
 }
