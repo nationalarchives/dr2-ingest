@@ -26,6 +26,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
 
 import java.net.URI
+import java.time.OffsetDateTime
 import java.util.{Base64, HexFormat, UUID}
 import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters.*
@@ -263,10 +264,17 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         List(fileId),
         List(metadataFileId),
         Some("test"),
+        "test-organisation",
+        OffsetDateTime.parse("2023-10-31T13:40:54Z"),
+        "TRE: FCL Parser workflow",
+        "Born Digital",
+        "FCL",
         List(
           Option(IdField("UpstreamSystemReference", reference)),
           Option(IdField("URI", "https://example.com/id/court/2023/")),
           potentialCite.map(_ => IdField("NeutralCitation", "cite")),
+          Option(IdField("ConsignmentReference", "test-identifier")),
+          Option(IdField("UpstreamSystemReference", "TEST-REFERENCE")),
           Option(IdField("RecordID", "24190792-a2e5-43a0-a9e9-6a0580905d90"))
         ).flatten
       )
@@ -341,7 +349,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     input.series.get should equal("TEST SERIES")
     input.department.get should equal("TEST")
     input.batchId should equal("TEST-REFERENCE")
-    input.packageMetadata.toString should equal("s3://outputBucket/4e6bac50-d80a-4c68-bd92-772ac9701f14")
+    input.packageMetadata.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
   }
 
   val citeAndUri: TableFor4[Option[String], Option[String], Option[String], Option[String]] = Table(
@@ -370,7 +378,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       input.series should equal(expectedSeries)
       input.department should equal(expectedDepartment)
       input.batchId should equal("TEST-REFERENCE")
-      input.packageMetadata.toString should equal("s3://outputBucket/4e6bac50-d80a-4c68-bd92-772ac9701f14")
+      input.packageMetadata.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
     }
   }
 

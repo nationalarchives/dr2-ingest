@@ -72,7 +72,7 @@ class FileProcessor(
       potentialCite: Option[String],
       potentialJudgmentName: Option[String],
       potentialUri: Option[String],
-      potentialFileReference: String,
+      treMetadata: TREMetadata,
       fileReference: Option[String],
       potentialDepartment: Option[String],
       potentialSeries: Option[String],
@@ -99,10 +99,12 @@ class FileProcessor(
       .getOrElse(Nil)
 
     val assetMetadataIdFields = List(
-      Option(IdField("UpstreamSystemReference", potentialFileReference)),
+      Option(IdField("UpstreamSystemReference", treMetadata.parameters.TRE.reference)),
       potentialUri.map(uri => IdField("URI", uri)),
       potentialCite.map(cite => IdField("NeutralCitation", cite)),
       fileReference.map(ref => IdField("BornDigitalRef", ref)),
+      Option(IdField("ConsignmentReference", treMetadata.parameters.TDR.`Internal-Sender-Identifier`)),
+      Option(IdField("UpstreamSystemReference", treMetadata.parameters.TRE.reference)),
       Option(IdField("RecordID", tdrUuid))
     ).flatten
     val fileTitle = fileInfo.fileName.split('.').dropRight(1).mkString(".")
@@ -118,6 +120,11 @@ class FileProcessor(
         List(fileInfo.id),
         List(metadataFileInfo.id),
         potentialJudgmentName,
+        treMetadata.parameters.TDR.`Source-Organization`,
+        treMetadata.parameters.TDR.`Consignment-Export-Datetime`,
+        "TRE: FCL Parser workflow",
+        "Born Digital",
+        "FCL",
         assetMetadataIdFields
       )
     val fileRowMetadataObject =
@@ -190,20 +197,19 @@ class FileProcessor(
       .flatMap(unarchiveAndUploadToS3)
   }
 
-  private def uploadAsFile(fileContent: String, key: String) = {
+  private def uploadAsFile(fileContent: String, s3Location: URI): IO[Unit] = {
     Stream
       .eval(IO.pure(fileContent))
       .map(s => ByteBuffer.wrap(s.getBytes()))
       .toPublisherResource
       .use { pub =>
-        s3.upload(uploadBucket, s"$consignmentRef/$key", fileContent.getBytes.length, FlowAdapters.toPublisher(pub))
+        s3.upload(s3Location.getHost, s3Location.getPath.drop(1), fileContent.getBytes.length, FlowAdapters.toPublisher(pub))
       }
-      .map(_.response().checksumSHA256())
-      .map(checksumToString)
+      .map(_ => ())
   }
 
-  def createMetadataJson(metadata: List[MetadataObject]): IO[String] =
-    uploadAsFile(metadata.asJson.printWith(Printer.noSpaces), "metadata.json")
+  def createMetadataJson(metadata: List[MetadataObject], s3Location: URI): IO[Unit] =
+    uploadAsFile(metadata.asJson.printWith(Printer.noSpaces), s3Location)
 
   private def checksumToString(checksum: String): String =
     Option(checksum)
@@ -240,6 +246,11 @@ object FileProcessor {
           originalFilesUuids,
           originalMetadataFilesUuids,
           description,
+          transferringBody,
+          transferCompleteDatetime,
+          upstreamSystem,
+          digitalAssetSource,
+          digitalAssetSubtype,
           assetMetadataIdFields
         ) =>
       val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) => fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
@@ -253,7 +264,12 @@ object FileProcessor {
             .obj(
               ("originalFiles", Json.fromValues(convertListOfUuidsToJsonStrArray(originalFilesUuids))),
               ("originalMetadataFiles", Json.fromValues(convertListOfUuidsToJsonStrArray(originalMetadataFilesUuids))),
-              ("description", description.map(Json.fromString).getOrElse(Null))
+              ("description", description.map(Json.fromString).getOrElse(Null)),
+              ("transferringBody", Json.fromString(transferringBody)),
+              ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
+              ("upstreamSystem", Json.fromString(upstreamSystem)),
+              ("digitalAssetSource", Json.fromString(digitalAssetSource)),
+              ("digitalAssetSubtype", Json.fromString(digitalAssetSubtype))
             )
             .deepDropNullValues
         }
@@ -269,18 +285,6 @@ object FileProcessor {
           ("checksum_sha256", Json.fromString(location.toString))
         )
         .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), Type.File, name))
-  }
-  given Encoder[BagInfo] = { case BagInfo(transferringBody, transferCompleteDatetime, upstreamSystem, digitalAssetSource, digitalAssetSubtype, idFields) =>
-    Json
-      .obj(
-        ("transferringBody", Json.fromString(transferringBody)),
-        ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
-        ("upstreamSystem", Json.fromString(upstreamSystem)),
-        ("digitalAssetSource", Json.fromString(digitalAssetSource)),
-        ("digitalAssetSubtype", Json.fromString(digitalAssetSubtype))
-      )
-      .deepDropNullValues
-      .deepMerge(Json.fromFields(convertIdFieldsToJson(idFields)))
   }
 
   private def jsonFromMetadataObject(
@@ -335,6 +339,11 @@ object FileProcessor {
       originalFiles: List[UUID],
       originalMetadataFiles: List[UUID],
       description: Option[String],
+      transferringBody: String,
+      transferCompleteDatetime: OffsetDateTime,
+      upstreamSystem: String,
+      digitalAssetSource: String,
+      digitalAssetSubtype: String,
       idFields: List[IdField] = Nil
   ) extends MetadataObject
 
@@ -350,15 +359,6 @@ object FileProcessor {
       location: URI,
       checksumSha256: String
   ) extends MetadataObject
-
-  case class BagInfo(
-      transferringBody: String,
-      transferCompleteDatetime: OffsetDateTime,
-      upstreamSystem: String,
-      digitalAssetSource: String,
-      digitalAssetSubtype: String,
-      idFields: List[IdField] = Nil
-  )
 
   case class FileInfo(id: UUID, fileSize: Long, fileName: String, checksum: String, location: URI)
 

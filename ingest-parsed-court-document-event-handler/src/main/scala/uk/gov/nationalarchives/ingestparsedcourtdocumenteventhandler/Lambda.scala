@@ -17,6 +17,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{batchId, ioId,
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 
+import java.net.URI
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
@@ -60,8 +61,9 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           )
 
           _ <- IO.raiseWhen(fileInfo.fileSize == 0)(new Exception(s"File id '${fileInfo.id}' size is 0"))
+          metadataUri = URI.create(s"s3://$outputBucket/$batchRef/metadata.json")
           output <- dependencies.seriesMapper.createOutput(
-            metadataFileInfo.location,
+            metadataUri,
             batchRef,
             parsedUri.flatMap(_.potentialCourt),
             treInput.parameters.skipSeriesLookup
@@ -75,13 +77,13 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             potentialCite,
             potentialJudgmentName,
             potentialUri,
-            treMetadata.parameters.TRE.reference,
+            treMetadata,
             fileReference,
             output.department,
             output.series,
             tdrUuid
           )
-          _ <- fileProcessor.createMetadataJson(metadata)
+          _ <- fileProcessor.createMetadataJson(metadata, metadataUri)
           _ <- logWithFileRef(s"Copied metadata json to $outputBucket")
           unusedFilesFromTre = fileNameToFileInfo.values
             .filter(fi => !List(fileInfo, metadataFileInfo).contains(fi))
