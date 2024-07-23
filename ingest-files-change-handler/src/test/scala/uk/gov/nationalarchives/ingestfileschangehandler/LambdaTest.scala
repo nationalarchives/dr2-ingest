@@ -2,6 +2,7 @@ package uk.gov.nationalarchives.ingestfileschangehandler
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
+import cats.implicits.*
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
@@ -197,7 +198,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   forAll(handlerOutputsTable) { (title, rowsInTable, newRowInput, expectedOutput) =>
     "handler" should s"given a new image with $title" in {
       val dynamoRow = if newRowInput.rowType == File then newRowInput.createFile() else newRowInput.createAsset()
-      val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(newRowInput.getPrimaryKey, dynamoRow))))
+      val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(newRowInput.getPrimaryKey.some, dynamoRow.some))))
       val messages = (for {
         rowsRef <- Ref[IO].of(rowsInTable)
         messagesRef <- Ref[IO].of[List[OutputMessage]](Nil)
@@ -212,7 +213,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   forAll(errorsTable) { (title, rowsInTable, newRowInput, expectedErrorMessage) =>
     "handler" should s"return $expectedErrorMessage if $title" in {
       val dynamoRow = if newRowInput.rowType == File then newRowInput.createFile() else newRowInput.createAsset()
-      val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(newRowInput.getPrimaryKey, dynamoRow))))
+      val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(newRowInput.getPrimaryKey.some, dynamoRow.some))))
       val errorMessage = (for {
         rowsRef <- Ref[IO].of(rowsInTable)
         messagesRef <- Ref[IO].of[List[OutputMessage]](Nil)

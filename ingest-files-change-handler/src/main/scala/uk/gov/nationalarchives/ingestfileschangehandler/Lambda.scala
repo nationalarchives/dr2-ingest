@@ -95,9 +95,12 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       .filter(_.eventName == EventName.MODIFY)
       .map { record =>
         record.dynamodb.newImage match
-          case assetRow: AssetDynamoTable => processAsset(assetRow)
-          case fileRow: FileDynamoTable   => processFile(fileRow)
-          case _                          => IO.unit
+          case Some(newImage) =>
+            newImage match
+              case assetRow: AssetDynamoTable => processAsset(assetRow)
+              case fileRow: FileDynamoTable   => processFile(fileRow)
+              case _                          => IO.unit
+          case None => IO.unit
       }
       .sequence
       .map(_ => ())
@@ -146,14 +149,17 @@ object Lambda:
       dynamoResponse.left.map(_ => DecodingFailure.fromThrowable(new Exception("Can't format case classes"), Nil))
 
   given Decoder[StreamRecord] = (c: HCursor) =>
-    for {
-      newImage <- c.downField("NewImage").as[DynamoObject]
-      key <- c.downField("Keys").as[DynamoObject]
-      tableRow: DynamoTable <- archiveFolderTableFormat.read(newImage.toDynamoValue).toCirceError
-      key <- filesTablePkFormat.read(key.toDynamoValue).toCirceError
-    } yield {
-      StreamRecord(key, tableRow)
-    }
+    {
+      for {
+        newImage <- c.downField("NewImage").as[DynamoObject]
+        key <- c.downField("Keys").as[DynamoObject]
+        rowType <- newImage.get("type").map(Type.valueOf).toCirceError
+        tableRow: DynamoTable <- rowType.formatter.read(newImage.toDynamoValue).toCirceError
+        key <- filesTablePkFormat.read(key.toDynamoValue).toCirceError
+      } yield {
+        StreamRecord(key.some, tableRow.some)
+      }
+    }.handleError(_ => StreamRecord(None, None))
 
   given Decoder[DynamodbStreamRecord] = (c: HCursor) =>
     for {
@@ -172,7 +178,7 @@ object Lambda:
 
   case class DynamodbStreamRecord(eventName: EventName, dynamodb: StreamRecord)
 
-  case class StreamRecord(keys: FilesTablePrimaryKey, newImage: DynamoTable)
+  case class StreamRecord(keys: Option[FilesTablePrimaryKey], newImage: Option[DynamoTable])
 
   enum MessageType:
     override def toString: String = this match
