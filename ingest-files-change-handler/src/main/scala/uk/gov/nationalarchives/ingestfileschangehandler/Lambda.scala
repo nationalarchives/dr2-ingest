@@ -36,11 +36,11 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         _ <- sendOutputMessage(asset, IngestComplete)
         childKeys <- IO.pure(children.map(getPrimaryKey))
         assetKeys <- IO.pure(List(asset).map(getPrimaryKey))
-        _ <- dependencies.daDynamoDbClient.deleteItems(config.dynamoDbTable, childKeys ++ assetKeys)
-        assetsSameId <- dependencies.daDynamoDbClient.queryItems[AssetDynamoTable](config.dynamoDbTable, "id" === asset.id.toString)
+        _ <- dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, childKeys ++ assetKeys)
+        assetsSameId <- dependencies.daDynamoDbClient.queryItems[AssetDynamoTable](config.dynamoTableName, "id" === asset.id.toString)
         completedAssets <- IO.pure(assetsSameId.filter(asset => asset.skipIngest && asset.ingestedPreservica))
         _ <- completedAssets.map(asset => sendOutputMessage(asset, IngestComplete)).sequence
-        _ <- dependencies.daDynamoDbClient.deleteItems(config.dynamoDbTable, completedAssets.map(getPrimaryKey))
+        _ <- dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, completedAssets.map(getPrimaryKey))
       } yield ()
     }
 
@@ -48,7 +48,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
       for {
         children <- dependencies.daDynamoDbClient
-          .queryItems[FileDynamoTable](config.dynamoDbTable, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.gsiName))
+          .queryItems[FileDynamoTable](config.dynamoTableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.dynamoGsiName))
         _ <- IO.raiseWhen(children.length != asset.childCount)(
           new Exception(s"Asset id ${asset.id}: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
         )
@@ -62,7 +62,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           .map(UUID.fromString)
       }(new Exception(s"Cannot find a direct parent for file ${fileRow.id}"))
       primaryKey <- IO.pure(FilesTablePrimaryKey(FilesTablePartitionKey(parentId), FilesTableSortKey(fileRow.batchId)))
-      parentAssetList <- dependencies.daDynamoDbClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](List(primaryKey), config.dynamoDbTable)
+      parentAssetList <- dependencies.daDynamoDbClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](List(primaryKey), config.dynamoTableName)
       _ <- IO.raiseWhen(parentAssetList.length != 1)(new Exception(s"Expected 1 parent asset, found ${parentAssetList.length} assets for file $parentId"))
       _ <- processAsset(parentAssetList.head)
     } yield ()
@@ -79,12 +79,12 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           children <- childrenOfAsset(asset)
           assetKey <- IO.pure(getPrimaryKey(asset))
           childKeys <- IO.pure(children.map(getPrimaryKey))
-          assetsSameId <- dependencies.daDynamoDbClient.queryItems[AssetDynamoTable](config.dynamoDbTable, "id" === asset.id.toString)
+          assetsSameId <- dependencies.daDynamoDbClient.queryItems[AssetDynamoTable](config.dynamoTableName, "id" === asset.id.toString)
           _ <- IO.whenA(assetsSameId.length == 1) {
-            dependencies.daDynamoDbClient.deleteItems(config.dynamoDbTable, assetKey :: childKeys) >> sendOutputMessage(asset, IngestComplete)
+            dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, assetKey :: childKeys) >> sendOutputMessage(asset, IngestComplete)
           }
           _ <- IO.whenA(assetsSameId.length > 1) {
-            dependencies.daDynamoDbClient.deleteItems(config.dynamoDbTable, childKeys) >> sendOutputMessage(asset, IngestUpdate)
+            dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, childKeys) >> sendOutputMessage(asset, IngestUpdate)
           }
         } yield ()
       else if asset.ingestedPreservica then
@@ -159,7 +159,7 @@ object Lambda:
 
   case class Dependencies(daDynamoDbClient: DADynamoDBClient[IO], daSnsClient: DASNSClient[IO], instantGenerator: () => Instant, uuidGenerator: () => UUID)
 
-  case class Config(dynamoDbTable: String, gsiName: String, topicArn: String) derives ConfigReader
+  case class Config(dynamoTableName: String, dynamoGsiName: String, topicArn: String) derives ConfigReader
 
   case class DynamodbEvent(Records: List[DynamodbStreamRecord])
 
