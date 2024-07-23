@@ -87,18 +87,20 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
             dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, childKeys) >> sendOutputMessage(asset, IngestUpdate)
           }
         } yield ()
-      else if asset.ingestedPreservica then
-        sendOutputMessage(asset, IngestUpdate)
-      else
-        IO.unit
+      else if asset.ingestedPreservica then sendOutputMessage(asset, IngestUpdate)
+      else IO.unit
     }
 
-    event.Records.filter(_.eventName == EventName.MODIFY).map { record =>
-      record.dynamodb.newImage match
-        case assetRow: AssetDynamoTable => processAsset(assetRow)
-        case fileRow: FileDynamoTable => processFile(fileRow)
-        case _ => IO.unit
-    }.sequence.map(_ => ())
+    event.Records
+      .filter(_.eventName == EventName.MODIFY)
+      .map { record =>
+        record.dynamodb.newImage match
+          case assetRow: AssetDynamoTable => processAsset(assetRow)
+          case fileRow: FileDynamoTable   => processFile(fileRow)
+          case _                          => IO.unit
+      }
+      .sequence
+      .map(_ => ())
   }
 
   override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DADynamoDBClient[IO](), DASNSClient[IO](), () => Instant.now, () => UUID.randomUUID))
@@ -115,44 +117,49 @@ object Lambda:
       } <+>
       json("M").flatMap(_.asObject).map { obj =>
         DynamoValue.fromMap {
-          obj.toMap.flatMap {
-            case (key, json) => json.asObject.map(j => key -> jsonToDynamoValue(j))
+          obj.toMap.flatMap { case (key, json) =>
+            json.asObject.map(j => key -> jsonToDynamoValue(j))
           }
         }
       }
   }.getOrElse(DynamoValue.nil)
 
-  given Decoder[DynamoObject] = (c: HCursor) => for {
-    keys <- c.keys.toRight(DecodingFailure.fromThrowable(new Exception("No keys found"), Nil))
-  } yield {
-    DynamoObject.fromIterable {
-      keys.map { key =>
-        key -> c.downField(key).as[Json]
-          .toOption
-          .flatMap(_.asObject)
-          .map(jsonToDynamoValue)
-          .getOrElse(DynamoValue.nil)
+  given Decoder[DynamoObject] = (c: HCursor) =>
+    for {
+      keys <- c.keys.toRight(DecodingFailure.fromThrowable(new Exception("No keys found"), Nil))
+    } yield {
+      DynamoObject.fromIterable {
+        keys.map { key =>
+          key -> c
+            .downField(key)
+            .as[Json]
+            .toOption
+            .flatMap(_.asObject)
+            .map(jsonToDynamoValue)
+            .getOrElse(DynamoValue.nil)
+        }
       }
     }
-  }
 
   extension [T](dynamoResponse: Either[DynamoReadError, T])
     private def toCirceError: Result[T] =
       dynamoResponse.left.map(_ => DecodingFailure.fromThrowable(new Exception("Can't format case classes"), Nil))
 
-  given Decoder[StreamRecord] = (c: HCursor) => for {
-    newImage <- c.downField("NewImage").as[DynamoObject]
-    key <- c.downField("Keys").as[DynamoObject]
-    tableRow: DynamoTable <- archiveFolderTableFormat.read(newImage.toDynamoValue).toCirceError
-    key <- filesTablePkFormat.read(key.toDynamoValue).toCirceError
-  } yield {
-    StreamRecord(key, tableRow)
-  }
+  given Decoder[StreamRecord] = (c: HCursor) =>
+    for {
+      newImage <- c.downField("NewImage").as[DynamoObject]
+      key <- c.downField("Keys").as[DynamoObject]
+      tableRow: DynamoTable <- archiveFolderTableFormat.read(newImage.toDynamoValue).toCirceError
+      key <- filesTablePkFormat.read(key.toDynamoValue).toCirceError
+    } yield {
+      StreamRecord(key, tableRow)
+    }
 
-  given Decoder[DynamodbStreamRecord] = (c: HCursor) => for {
-    eventName <- c.downField("eventName").as[String]
-    streamRecord <- c.downField("dynamodb").as[StreamRecord]
-  } yield DynamodbStreamRecord(EventName.valueOf(eventName), streamRecord)
+  given Decoder[DynamodbStreamRecord] = (c: HCursor) =>
+    for {
+      eventName <- c.downField("eventName").as[String]
+      streamRecord <- c.downField("dynamodb").as[StreamRecord]
+    } yield DynamodbStreamRecord(EventName.valueOf(eventName), streamRecord)
 
   enum EventName:
     case MODIFY, INSERT, DELETE
@@ -167,10 +174,9 @@ object Lambda:
 
   case class StreamRecord(keys: FilesTablePrimaryKey, newImage: DynamoTable)
 
-
   enum MessageType:
     override def toString: String = this match
-      case IngestUpdate => "preserve.digital.asset.ingest.update"
+      case IngestUpdate   => "preserve.digital.asset.ingest.update"
       case IngestComplete => "preserve.digital.asset.ingest.complete"
     case IngestUpdate, IngestComplete
 
@@ -182,4 +188,3 @@ object Lambda:
   case class OutputProperties(messageId: UUID, parentMessageId: Option[UUID], timestamp: Instant, `type`: MessageType)
   case class OutputParameters(assetId: UUID)
   case class OutputMessage(properties: OutputProperties, parameters: OutputParameters)
-

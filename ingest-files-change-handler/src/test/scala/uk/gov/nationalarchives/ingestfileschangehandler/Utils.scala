@@ -9,7 +9,19 @@ import software.amazon.awssdk.services.sns.model.PublishBatchResponse
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.PreservationRepresentationType
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.{Asset, File}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{AssetDynamoTable, FileDynamoTable, FilesTablePartitionKey, FilesTablePrimaryKey, FilesTableSortKey, Type, digitalAssetSource, digitalAssetSubtype, name, transferringBody, upstreamSystem}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{
+  AssetDynamoTable,
+  FileDynamoTable,
+  FilesTablePartitionKey,
+  FilesTablePrimaryKey,
+  FilesTableSortKey,
+  Type,
+  digitalAssetSource,
+  digitalAssetSubtype,
+  name,
+  transferringBody,
+  upstreamSystem
+}
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.OutputMessage
 
 import java.time.OffsetDateTime
@@ -63,12 +75,22 @@ object Utils {
       1
     )
 
-  case class DynamoRow(id: UUID, batchId: String, rowType: Type, parentPath: Option[String], ingestedPreservica: Boolean = false, ingestedCustodialCopy: Boolean = false, skipIngest: Boolean = false)
+  case class DynamoRow(
+      id: UUID,
+      batchId: String,
+      rowType: Type,
+      parentPath: Option[String],
+      ingestedPreservica: Boolean = false,
+      ingestedCustodialCopy: Boolean = false,
+      skipIngest: Boolean = false
+  )
 
   def createSnsClient(ref: Ref[IO, List[OutputMessage]]): DASNSClient[IO] = new DASNSClient[IO]() {
-    override def publish[T <: Product](topicArn: String)(messages: List[T])(using enc: Encoder[T]): IO[List[PublishBatchResponse]] = ref.update { messageList =>
-      messageList ++ messages.map(_.asInstanceOf[OutputMessage])
-    }.map(_ => Nil)
+    override def publish[T <: Product](topicArn: String)(messages: List[T])(using enc: Encoder[T]): IO[List[PublishBatchResponse]] = ref
+      .update { messageList =>
+        messageList ++ messages.map(_.asInstanceOf[OutputMessage])
+      }
+      .map(_ => Nil)
   }
 
   def createDynamoClient(ref: Ref[IO, List[DynamoRow]]): DADynamoDBClient[IO] = {
@@ -80,11 +102,13 @@ object Utils {
         override def write(t: String): DynamoValue = DynamoValue.fromString(t)
 
       override def deleteItems[T](tableName: String, primaryKeys: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = {
-        ref.update { r =>
-          r.filterNot { row =>
-            primaryKeys.contains(getPrimaryKey(row))
+        ref
+          .update { r =>
+            r.filterNot { row =>
+              primaryKeys.contains(getPrimaryKey(row))
+            }
           }
-        }.map(_ => Nil)
+          .map(_ => Nil)
       }
 
       override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = IO(1)
@@ -97,27 +121,30 @@ object Utils {
           .flatMap(row => {
             row.rowType match
               case Type.Asset => Option(row.createAsset().asInstanceOf[T])
-              case Type.File => Option(row.createFile().asInstanceOf[T])
-              case _ => None
+              case Type.File  => Option(row.createFile().asInstanceOf[T])
+              case _          => None
           })
 
       }
 
       override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = IO(1)
 
-      override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String] = None)(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] = ref.get.map { rows =>
-        if(potentialGsiName.isEmpty) {
+      override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String] = None)(using
+          returnTypeFormat: DynamoFormat[U]
+      ): IO[List[U]] = ref.get.map { rows =>
+        if (potentialGsiName.isEmpty) {
           (for {
             values <- requestCondition.dynamoValues
             map <- values.toMap[String].toOption
-          } yield
-            rows.filter(row => map.get("conditionAttributeValue0").contains(row.id.toString))
-              .map(_.createAsset().asInstanceOf[U])).getOrElse(Nil)
+          } yield rows
+            .filter(row => map.get("conditionAttributeValue0").contains(row.id.toString))
+            .map(_.createAsset().asInstanceOf[U])).getOrElse(Nil)
         } else {
           (for {
             values <- requestCondition.dynamoValues
             map <- values.toMap[String].toOption
-          } yield rows.filter(row => row.parentPath == map.get("parentPath") && map.get("batchId").contains(row.batchId))
+          } yield rows
+            .filter(row => row.parentPath == map.get("parentPath") && map.get("batchId").contains(row.batchId))
             .map(_.createFile().asInstanceOf[U])).getOrElse(Nil)
         }
 

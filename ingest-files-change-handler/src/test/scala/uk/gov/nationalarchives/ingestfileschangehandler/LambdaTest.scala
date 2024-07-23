@@ -32,28 +32,41 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
 
   val handlerOutputsTable: TableFor4[String, List[DynamoRow], DynamoRow, List[OutputMessage]] = Table(
     ("title", "rowsInTable", "newRowInput", "expectedOutput"),
-    ("ingested_PS for 1 item only sends an update message",
+    (
+      "ingested_PS for 1 item only sends an update message",
       List(
         folderA,
         assetA,
         fileAOne,
         fileATwo
-      ), assetA, List(outputBuilder(assetA.id, IngestUpdate))),
-    ("skipIngest for 1 item only sends no message",
+      ),
+      assetA,
+      List(outputBuilder(assetA.id, IngestUpdate))
+    ),
+    (
+      "skipIngest for 1 item only sends no message",
       List(
         folderA,
         assetA.copy(skipIngest = true, ingestedPreservica = false),
         fileAOne,
         fileATwo
-      ), assetA.copy(skipIngest = true, ingestedPreservica = false), Nil),
-    ("ingested_PS+skipIngest for 1 item only sends ingest complete message",
+      ),
+      assetA.copy(skipIngest = true, ingestedPreservica = false),
+      Nil
+    ),
+    (
+      "ingested_PS+skipIngest for 1 item only sends ingest complete message",
       List(
         folderA,
         assetA.copy(skipIngest = true, ingestedPreservica = true),
         fileAOne,
         fileATwo
-      ), assetA.copy(skipIngest = true, ingestedPreservica = true), List(outputBuilder(assetA.id, IngestComplete))),
-    ("ingested_PS+skipIngest for multiple items sends update message",
+      ),
+      assetA.copy(skipIngest = true, ingestedPreservica = true),
+      List(outputBuilder(assetA.id, IngestComplete))
+    ),
+    (
+      "ingested_PS+skipIngest for multiple items sends update message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true),
@@ -63,36 +76,56 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         assetB.copy(skipIngest = true, ingestedPreservica = true),
         fileBOne,
         fileBTwo
-      ), assetB.copy(skipIngest = true, ingestedPreservica = true), List(outputBuilder(assetB.id, IngestUpdate))),
-    ("ingested_PS+ingested_CC for 1 Asset only where all files are complete sends complete message",
+      ),
+      assetB.copy(skipIngest = true, ingestedPreservica = true),
+      List(outputBuilder(assetB.id, IngestUpdate))
+    ),
+    (
+      "ingested_PS+ingested_CC for 1 Asset only where all files are complete sends complete message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
         fileAOne.copy(ingestedCustodialCopy = true),
         fileATwo.copy(ingestedCustodialCopy = true)
-      ), assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true), List(outputBuilder(assetA.id, IngestComplete))),
-    ("ingested_PS+ingested_CC for 1 Asset only where all files are not complete sends no message",
+      ),
+      assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
+      List(outputBuilder(assetA.id, IngestComplete))
+    ),
+    (
+      "ingested_PS+ingested_CC for 1 Asset only where all files are not complete sends no message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
         fileAOne,
         fileATwo.copy(ingestedCustodialCopy = true)
-      ), assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true), Nil),
-    ("ingested_CC for 1 File only where not all files are complete sends no message",
+      ),
+      assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
+      Nil
+    ),
+    (
+      "ingested_CC for 1 File only where not all files are complete sends no message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
         fileAOne,
         fileATwo.copy(ingestedCustodialCopy = true)
-      ), fileATwo.copy(ingestedCustodialCopy = true), Nil),
-    ("ingested_CC for 1 File only where all files are complete sends complete message",
+      ),
+      fileATwo.copy(ingestedCustodialCopy = true),
+      Nil
+    ),
+    (
+      "ingested_CC for 1 File only where all files are complete sends complete message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
         fileAOne.copy(ingestedCustodialCopy = true),
         fileATwo.copy(ingestedCustodialCopy = true)
-      ), fileATwo.copy(ingestedCustodialCopy = true), List(outputBuilder(assetA.id, IngestComplete))),
-    ("ingested_PS+ingested_CC for an Asset where all files are complete, and the asset has been in multiple ingest batches sends two complete messages",
+      ),
+      fileATwo.copy(ingestedCustodialCopy = true),
+      List(outputBuilder(assetA.id, IngestComplete))
+    ),
+    (
+      "ingested_PS+ingested_CC for an Asset where all files are complete, and the asset has been in multiple ingest batches sends two complete messages",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
@@ -102,8 +135,12 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         assetB.copy(skipIngest = true, ingestedPreservica = true, ingestedCustodialCopy = true),
         fileBOne,
         fileBTwo
-      ), assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true), List(outputBuilder(assetA.id, IngestComplete), outputBuilder(assetB.id, IngestComplete))),
-    ("ingested_CC for a File where all files are complete, and the asset has been in multiple ingest batches sends two complete messages",
+      ),
+      assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
+      List(outputBuilder(assetA.id, IngestComplete), outputBuilder(assetB.id, IngestComplete))
+    ),
+    (
+      "ingested_CC for a File where all files are complete, and the asset has been in multiple ingest batches sends two complete messages",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
@@ -113,37 +150,48 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         assetB.copy(skipIngest = true, ingestedPreservica = true),
         fileBOne,
         fileBTwo
-      ), fileAOne.copy(ingestedCustodialCopy = true), List(outputBuilder(assetA.id, IngestComplete), outputBuilder(assetB.id, IngestComplete))),
+      ),
+      fileAOne.copy(ingestedCustodialCopy = true),
+      List(outputBuilder(assetA.id, IngestComplete), outputBuilder(assetB.id, IngestComplete))
+    )
   )
-
 
   val errorsTable: TableFor4[String, List[DynamoRow], DynamoRow, String] = Table(
     ("title", "rowsInTable", "newRowInput", "expectedErrorMessage"),
-    ("Multiple assets found for file parent",
+    (
+      "Multiple assets found for file parent",
       List(
         folderA,
         assetA,
         assetA,
         fileAOne,
         fileATwo
-      ), fileAOne,
-      s"Expected 1 parent asset, found 2 assets for file ${assetA.id}"),
-    ("Incorrect number of children for ingest_CC update",
+      ),
+      fileAOne,
+      s"Expected 1 parent asset, found 2 assets for file ${assetA.id}"
+    ),
+    (
+      "Incorrect number of children for ingest_CC update",
+      List(
+        folderA,
+        assetA,
+        fileAOne
+      ),
+      assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
+      s"Asset id ${assetA.id}: has 2 children in the files table but found 1 children in the Preservation system"
+    ),
+    (
+      "Incorrect number of children for skipIngest update",
       List(
         folderA,
         assetA,
         fileAOne,
-      ), assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
-      s"Asset id ${assetA.id}: has 2 children in the files table but found 1 children in the Preservation system"),
-    ("Incorrect number of children for skipIngest update",
-      List(
-        folderA,
-        assetA,
         fileAOne,
-        fileAOne,
-        fileATwo,
-      ), assetA.copy(ingestedPreservica = true, skipIngest = true),
-      s"Asset id ${assetA.id}: has 2 children in the files table but found 3 children in the Preservation system"),
+        fileATwo
+      ),
+      assetA.copy(ingestedPreservica = true, skipIngest = true),
+      s"Asset id ${assetA.id}: has 2 children in the files table but found 3 children in the Preservation system"
+    )
   )
 
   forAll(handlerOutputsTable) { (title, rowsInTable, newRowInput, expectedOutput) =>
