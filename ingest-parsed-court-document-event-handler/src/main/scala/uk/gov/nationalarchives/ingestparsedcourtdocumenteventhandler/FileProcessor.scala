@@ -282,7 +282,7 @@ object FileProcessor {
           ("representationType", Json.fromString(representationType.toString)),
           ("representationSuffix", Json.fromInt(representationSuffix)),
           ("location", Json.fromString(location.toString)),
-          ("checksum_sha256", Json.fromString(location.toString))
+          ("checksum_sha256", Json.fromString(checksumSha256))
         )
         .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), Type.File, name))
   }

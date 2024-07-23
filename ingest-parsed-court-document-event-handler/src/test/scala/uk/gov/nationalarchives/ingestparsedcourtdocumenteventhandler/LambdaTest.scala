@@ -279,7 +279,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         ).flatten
       )
       val expectedFileMetadata = List(
-        FileMetadataObject(fileId, Option(tdrUuid), "Test", 1, "Test.docx", 15684, RepresentationType.Preservation, 1, URI.create(s"s3://$testOutputBucket/$fileId"), "checksum"),
+        FileMetadataObject(fileId, Option(tdrUuid), "Test", 1, "Test.docx", 15684, RepresentationType.Preservation, 1, URI.create(s"s3://$testOutputBucket/$fileId"), "abcde"),
         FileMetadataObject(
           metadataFileId,
           Option(tdrUuid),
@@ -290,7 +290,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           RepresentationType.Preservation,
           1,
           URI.create(s"s3://$testOutputBucket/$metadataFileId"),
-          "checksum"
+          "91"
         )
       )
 
