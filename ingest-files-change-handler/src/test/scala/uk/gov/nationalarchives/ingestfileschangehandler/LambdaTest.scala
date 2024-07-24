@@ -34,7 +34,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   val handlerOutputsTable: TableFor4[String, List[DynamoRow], DynamoRow, List[OutputMessage]] = Table(
     ("title", "rowsInTable", "newRowInput", "expectedOutput"),
     (
-      "ingested_PS for 1 item only sends an update message",
+      "ingested_PS for 1 item, only sends an update message",
       List(
         folderA,
         assetA,
@@ -45,7 +45,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       List(outputBuilder(assetA.id, IngestUpdate))
     ),
     (
-      "skipIngest for 1 item only sends no message",
+      "skipIngest for 1 item, only sends no message",
       List(
         folderA,
         assetA.copy(skipIngest = true, ingestedPreservica = false),
@@ -56,7 +56,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       Nil
     ),
     (
-      "ingested_PS+skipIngest for 1 item only sends ingest complete message",
+      "ingested_PS and skipIngest for 1 item, only sends ingest complete message",
       List(
         folderA,
         assetA.copy(skipIngest = true, ingestedPreservica = true),
@@ -67,7 +67,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       List(outputBuilder(assetA.id, IngestComplete))
     ),
     (
-      "ingested_PS+skipIngest for multiple items sends update message",
+      "ingested_PS and skipIngest for multiple items, sends update message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true),
@@ -82,7 +82,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       List(outputBuilder(assetB.id, IngestUpdate))
     ),
     (
-      "ingested_PS+ingested_CC for 1 Asset only where all files are complete sends complete message",
+      "ingested_PS and ingested_CC for 1 Asset only where all files are complete, sends complete message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
@@ -93,7 +93,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       List(outputBuilder(assetA.id, IngestComplete))
     ),
     (
-      "ingested_PS+ingested_CC for 1 Asset only where all files are not complete sends no message",
+      "ingested_PS and ingested_CC for 1 Asset only where all files are not complete, sends no message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
@@ -104,7 +104,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       Nil
     ),
     (
-      "ingested_CC for 1 File only where not all files are complete sends no message",
+      "ingested_CC for 1 File only where not all files are complete, sends no message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
@@ -115,7 +115,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       Nil
     ),
     (
-      "ingested_CC for 1 File only where all files are complete sends complete message",
+      "ingested_CC for 1 File only where all files are complete, sends complete message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
@@ -126,7 +126,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       List(outputBuilder(assetA.id, IngestComplete))
     ),
     (
-      "ingested_PS+ingested_CC for an Asset where all files are complete, and the asset has been in multiple ingest batches sends two complete messages",
+      "ingested_PS and ingested_CC for an Asset where all files are complete, and the asset has been in multiple ingest batches, sends two complete messages",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
@@ -141,7 +141,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       List(outputBuilder(assetA.id, IngestComplete), outputBuilder(assetB.id, IngestComplete))
     ),
     (
-      "ingested_CC for a File where all files are complete, and the asset has been in multiple ingest batches sends two complete messages",
+      "ingested_CC for a File where all files are complete, and the asset has been in multiple ingest batches, sends two complete messages",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),

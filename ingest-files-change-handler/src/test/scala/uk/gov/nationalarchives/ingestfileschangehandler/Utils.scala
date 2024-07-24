@@ -111,43 +111,39 @@ object Utils {
           .map(_ => Nil)
       }
 
-      override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = IO(1)
+      override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = IO.pure(1)
 
-      override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = IO(Nil)
+      override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = IO.pure(Nil)
 
       override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] = ref.get.map { rows =>
         rows
           .filter(row => primaryKeys.contains(getPrimaryKey(row)))
-          .flatMap(row => {
+          .flatMap { row =>
             row.rowType match
               case Type.Asset => Option(row.createAsset().asInstanceOf[T])
               case Type.File  => Option(row.createFile().asInstanceOf[T])
               case _          => None
-          })
-
+          }
       }
 
-      override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = IO(1)
+      override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = IO.pure(1)
 
       override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String] = None)(using
           returnTypeFormat: DynamoFormat[U]
       ): IO[List[U]] = ref.get.map { rows =>
-        if (potentialGsiName.isEmpty) {
-          (for {
-            values <- requestCondition.dynamoValues
-            map <- values.toMap[String].toOption
-          } yield rows
-            .filter(row => map.get("conditionAttributeValue0").contains(row.id.toString))
-            .map(_.createAsset().asInstanceOf[U])).getOrElse(Nil)
-        } else {
-          (for {
-            values <- requestCondition.dynamoValues
-            map <- values.toMap[String].toOption
-          } yield rows
-            .filter(row => row.parentPath == map.get("parentPath") && map.get("batchId").contains(row.batchId))
-            .map(_.createFile().asInstanceOf[U])).getOrElse(Nil)
-        }
-
+        (for {
+          values <- requestCondition.dynamoValues
+          map <- values.toMap[String].toOption
+        } yield
+          if potentialGsiName.isEmpty then
+            rows
+              .filter(row => map.get("conditionAttributeValue0").contains(row.id.toString))
+              .map(_.createAsset().asInstanceOf[U])
+          else
+            rows
+              .filter(row => row.parentPath == map.get("parentPath") && map.get("batchId").contains(row.batchId))
+              .map(_.createFile().asInstanceOf[U])
+        ).getOrElse(Nil)
       }
   }
 }

@@ -108,7 +108,7 @@ object DynamoFormatters {
   given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
 
   given typeFormatter: DynamoFormat[Type] = new DynamoFormat[Type]:
-    override def read(av: DynamoValue): Either[DynamoReadError, Type] = av.as[String].map(Type.valueOf)
+    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, Type] = dynamoValue.as[String].map(Type.valueOf)
 
     override def write(t: Type): DynamoValue = DynamoValue.fromString(t.toString)
 

@@ -64,7 +64,7 @@ entries in Dynamo.
 | TOPIC_ARN         | The output SNS topic arn                                                  |
 
 ## Lambda logic
-The logic which determines whether to send a message and which message is described with this pseudocode
+The logic which determines whether to send a message and which message, is described with this pseudocode
 
 ```text
 if item.type == "File":

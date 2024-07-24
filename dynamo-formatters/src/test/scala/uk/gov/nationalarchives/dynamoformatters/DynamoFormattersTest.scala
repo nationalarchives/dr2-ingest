@@ -335,6 +335,9 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val assetRowIngested = assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
     assetRowIngested.ingestedCustodialCopy should equal(true)
 
+    val assetRowIngestedCCMissing = assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated.filter(_._1 != ingestedCustodialCopy))).value
+    assetRowIngestedCCMissing.ingestedCustodialCopy should equal(false)
+
     val assetRowNotIngested =
       assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedCustodialCopy -> fromS("false")))).value
     assetRowNotIngested.ingestedCustodialCopy should equal(false)
