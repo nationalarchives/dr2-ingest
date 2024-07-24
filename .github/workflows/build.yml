@@ -1,0 +1,34 @@
+name: DR2 Tag and pre deploy
+on:
+  push:
+    branches:
+      - main
+permissions:
+  id-token: write
+  contents: write
+jobs:
+  pre-deploy:
+    uses: nationalarchives/dr2-github-actions/.github/workflows/lambda_build.yml@main
+    with:
+      repo-name: dr2-ingest-cc-notification-handler
+      artifact-name: ingest_cc_notification_handler_lambda
+      artifact-file-type: zip
+      artifact-path: .
+      build-command: |
+        mkdir package
+        pip install --target ./package -r requirements-runtime.txt
+        cd package
+        zip -r ../ingest_cc_notification_handler_lambda.zip .
+        cd ..
+        zip ingest_cc_notification_handler_lambda.zip lambda_function.py
+    secrets:
+      MANAGEMENT_ACCOUNT: ${{ secrets.MANAGEMENT_ACCOUNT }}
+      WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+  deploy:
+    needs: pre-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=${{ needs.pre-deploy.outputs.next-version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
