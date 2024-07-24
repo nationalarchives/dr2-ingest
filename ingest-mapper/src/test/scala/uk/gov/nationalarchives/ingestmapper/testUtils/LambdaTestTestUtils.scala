@@ -152,7 +152,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
       .build()
     val uuidsIterator: Iterator[String] = uuids.iterator
     val metadataService: MetadataService = new MetadataService(DAS3Client[IO](asyncS3Client))
-    val dynamo: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
+    val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO](asyncDynamoClient)
     val randomUuidGenerator: () => UUID = () => UUID.fromString(uuidsIterator.next())
     val mockBackend = mock[SttpBackend[IO, Fs2Streams[IO]]]()
     val discoveryService = MockDiscoveryService(config.discoveryApiUrl, mockBackend, randomUuidGenerator, discoveryServiceException)

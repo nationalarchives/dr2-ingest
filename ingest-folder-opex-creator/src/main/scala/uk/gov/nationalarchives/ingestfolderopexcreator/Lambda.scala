@@ -75,7 +75,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   private def childrenOfFolder(dynamoClient: DADynamoDBClient[IO], asset: ArchiveFolderDynamoTable, tableName: String, gsiName: String): IO[List[FolderOrAssetTable]] = {
     val childrenParentPath = s"${asset.parentPath.getOrElse("")}/${asset.id}".stripPrefix("/")
     dynamoClient
-      .queryItems[FolderOrAssetTable](tableName, gsiName, "batchId" === asset.batchId and "parentPath" === childrenParentPath)
+      .queryItems[FolderOrAssetTable](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
   }
 
   override def handler: (

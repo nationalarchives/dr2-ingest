@@ -383,7 +383,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
     .credentialsProvider(creds)
     .build()
 
-  private val dADynamoDBClient: DADynamoDBClient[IO] = new DADynamoDBClient[IO](asyncDynamoClient)
+  private val dADynamoDBClient: DADynamoDBClient[IO] = DADynamoDBClient[IO](asyncDynamoClient)
 
   private val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
 

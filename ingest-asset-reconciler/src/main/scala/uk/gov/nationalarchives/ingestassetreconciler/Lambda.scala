@@ -39,8 +39,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     daDynamoDBClient
       .queryItems[FileDynamoTable](
         tableName,
-        gsiName,
-        "batchId" === asset.batchId and "parentPath" === childrenParentPath
+        "batchId" === asset.batchId and "parentPath" === childrenParentPath,
+        Option(gsiName)
       )
   }
 
