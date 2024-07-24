@@ -24,6 +24,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{
 }
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.OutputMessage
 
+import java.net.URI
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -72,7 +73,8 @@ object Utils {
       row.ingestedPreservica,
       row.ingestedCustodialCopy,
       Nil,
-      1
+      1,
+      URI.create("s3://bucket/key")
     )
 
   case class DynamoRow(
