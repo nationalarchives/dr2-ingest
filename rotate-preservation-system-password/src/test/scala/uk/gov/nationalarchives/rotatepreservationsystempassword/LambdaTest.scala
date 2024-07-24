@@ -35,11 +35,11 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
   "handler" should "fail if rotation is not enabled" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost", "secretName", "apiUser")
+    val config = Config("http://localhost")
     val userClient = mock[UserClient[IO]]
     val secretsManagerClient = mockSecretsManagerClient(rotationEnabled = false)
     when(secretsManagerClient.describeSecret()).thenReturn(IO(DescribeSecretResponse.builder.rotationEnabled(false).build))
-    val dependencies = Dependencies(userClient, secretId => secretsManagerClient)
+    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
 
     val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
 
@@ -48,10 +48,10 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
   "handler" should "fail if there are no stages for the secret version" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost", "secretName", "apiUser")
+    val config = Config("http://localhost")
     val userClient = mock[UserClient[IO]]
     val secretsManagerClient = mockSecretsManagerClient(Map("anotherToken" -> List("AWSCURRENT")))
-    val dependencies = Dependencies(userClient, secretId => secretsManagerClient)
+    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
 
     val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
 
@@ -60,11 +60,11 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
   "handler" should "fail if the version is already current" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost", "secretName", "apiUser")
+    val config = Config("http://localhost")
     val userClient = mock[UserClient[IO]]
     val secretsManagerClient = mockSecretsManagerClient(Map("token" -> List("AWSCURRENT")))
 
-    val dependencies = Dependencies(userClient, secretId => secretsManagerClient)
+    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
 
     val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
 
@@ -73,11 +73,11 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
   "handler" should "fail if the version does not have a pending stage" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost", "secretName", "apiUser")
+    val config = Config("http://localhost")
     val userClient = mock[UserClient[IO]]
     val secretsManagerClient = mockSecretsManagerClient(Map("token" -> Nil))
 
-    val dependencies = Dependencies(userClient, secretId => secretsManagerClient)
+    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
 
     val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
 
@@ -86,22 +86,22 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
   "handler createSecret" should "return an error if the current secret doesn't exist" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost", "secretName", "apiUser")
+    val config = Config("http://localhost")
     val userClient = mock[UserClient[IO]]
     val secretsManagerClient = mockSecretsManagerClient()
 
     when(secretsManagerClient.getSecretValue[String](any[Stage])(using any[Decoder[String]]))
       .thenReturn(IO.raiseError(new Exception("Cannot find secret id")))
-    val dependencies = Dependencies(userClient, secretId => secretsManagerClient)
+    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
 
     val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
 
     ex.getMessage should equal("Cannot find secret id")
   }
-
+  
   "handler createSecret" should "not call putSecretValue if a Pending value already exists" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost", "secretName", "apiUser")
+    val config = Config("http://localhost")
     val userClient = mock[UserClient[IO]]
     val secretsManagerClient = mockSecretsManagerClient()
 
@@ -109,7 +109,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
       .thenReturn(IO(Map("user" -> "secret")))
     when(secretsManagerClient.getSecretValue[Map[String, String]](any[String], any[Stage])(using any[Decoder[Map[String, String]]]))
       .thenReturn(IO(Map("user" -> "pendingSecret")))
-    val dependencies = Dependencies(userClient, secretId => secretsManagerClient)
+    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
 
     new Lambda().handler(rotationEvent, config, dependencies).unsafeRunSync()
 
@@ -118,7 +118,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
   "handler createSecret" should "putSecretValue if a Pending value does not already exist" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost", "secretName", "apiUser")
+    val config = Config("http://localhost")
     val userClient = mock[UserClient[IO]]
     val secretsManagerClient = mockSecretsManagerClient()
 
@@ -129,12 +129,12 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
     when(secretsManagerClient.generateRandomPassword(any[Int], any[String])).thenReturn(IO("newPassword"))
     when(secretsManagerClient.putSecretValue(any[String], any[Stage], any[Option[String]])(using any[Encoder[String]]))
       .thenReturn(IO(PutSecretValueResponse.builder.build))
-    val dependencies = Dependencies(userClient, secretId => secretsManagerClient)
+    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
 
     new Lambda().handler(rotationEvent, config, dependencies).unsafeRunSync()
 
     verify(secretsManagerClient, times(1)).putSecretValue[Map[String, String]](
-      ArgumentMatchers.eq(Map("apiUser" -> "newPassword")),
+      ArgumentMatchers.eq(Map("user" -> "newPassword")),
       argThat[Stage] {
         case Pending => true
         case _       => true
@@ -145,7 +145,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
   "handler setSecret" should "call reset password with the correct credentials" in {
     val rotationEvent = RotationEvent(SetSecret, "id", "token")
-    val config = Config("http://localhost", "secretName", "apiUser")
+    val config = Config("http://localhost")
     val userClient = mock[UserClient[IO]]
     val secretsManagerClient = mockSecretsManagerClient()
 
@@ -162,7 +162,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
       .thenReturn(IO(Map("apiUser" -> "newSecret")))
 
     when(userClient.resetPassword(resetPasswordCaptor.capture())).thenReturn(IO.unit)
-    val dependencies = Dependencies(userClient, secretId => secretsManagerClient)
+    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
 
     new Lambda().handler(rotationEvent, config, dependencies).unsafeRunSync()
 
@@ -172,12 +172,12 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
   "handler testSecret" should "call the testSecret method in UserClient" in {
     val rotationEvent = RotationEvent(TestSecret, "id", "token")
-    val config = Config("http://localhost", "secretName", "apiUser")
+    val config = Config("http://localhost")
     val userClient = mock[UserClient[IO]]
     val secretsManagerClient = mockSecretsManagerClient()
 
     when(userClient.testNewPassword()).thenReturn(IO.unit)
-    val dependencies = Dependencies(userClient, secretId => secretsManagerClient)
+    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
 
     new Lambda().handler(rotationEvent, config, dependencies).unsafeRunSync()
 
@@ -186,7 +186,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
   "handler finishSecret" should "return an error if the pending secret has no version" in {
     val rotationEvent = RotationEvent(FinishSecret, "id", "newVersion")
-    val config = Config("http://localhost", "secretName", "apiUser")
+    val config = Config("http://localhost")
     val userClient = mock[UserClient[IO]]
 
     val moveToCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
@@ -196,7 +196,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
     when(secretsManagerClient.updateSecretVersionStage(moveToCaptor.capture, moveFromCaptor.capture, any[Stage])).thenReturn(IO(UpdateSecretVersionStageResponse.builder.build))
 
-    val dependencies = Dependencies(userClient, secretId => secretsManagerClient)
+    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
 
     new Lambda().handler(rotationEvent, config, dependencies).unsafeRunSync()
 

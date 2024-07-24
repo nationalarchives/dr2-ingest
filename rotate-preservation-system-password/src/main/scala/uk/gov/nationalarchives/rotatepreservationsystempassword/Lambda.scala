@@ -19,13 +19,13 @@ import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
-  override def dependencies(config: Config): IO[Dependencies] = userClient(config.apiUrl, config.secretName).map { userClient =>
-    Dependencies(userClient, secretId => DASecretsManagerClient[IO](secretId))
-  }
+  override def dependencies(config: Config): IO[Dependencies] =
+    IO.pure(Dependencies(secretId => userClient(config.apiUrl, secretId), secretId => DASecretsManagerClient[IO](secretId)))
 
   override def handler: (RotationEvent, Config, Dependencies) => IO[Unit] = (event, config, dependencies) =>
     for {
       client <- IO.pure(dependencies.secretsManagerClient(event.secretId))
+      userClient <- dependencies.userClient(event.secretId)
       token = event.clientRequestToken
       secretId = event.secretId
       describeSecretResponse <- client.describeSecret()
@@ -35,11 +35,15 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
       _ <- IO.raiseWhen(versions(token).contains(Current))(new Exception(s"Secret $secretId is already at AWSCURRENT."))
       _ <- IO.raiseWhen(!versions(token).contains(Pending))(new Exception(s"Secret version $token not set as AWSPENDING for rotation of secret $secretId."))
       _ <- event.step match
-        case CreateSecret => createSecret(client, token, config.apiUser)
-        case SetSecret    => setSecret(client, dependencies.userClient, config.apiUser)
-        case TestSecret   => dependencies.userClient.testNewPassword()
+        case CreateSecret => createSecret(client, token)
+        case SetSecret    => setSecret(client, userClient)
+        case TestSecret   => userClient.testNewPassword()
         case FinishSecret => finishSecret(client, token)
     } yield ()
+
+  private def getAuthDetailsFromSecret(client: DASecretsManagerClient[IO], stage: Stage) = for {
+    currentSecret <- client.getSecretValue[Map[String, String]](stage)
+  } yield AuthDetails(currentSecret.head._1, currentSecret.head._2)
 
   private def finishSecret(client: DASecretsManagerClient[IO], token: String) = for {
     describeSecretResponse <- client.describeSecret()
@@ -52,30 +56,21 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
     _ <- client.updateSecretVersionStage(token, currentVersions.head)
   } yield ()
 
-  private def createSecret(client: DASecretsManagerClient[IO], token: String, apiUser: String) = for {
-    _ <- client.getSecretValue[Map[String, String]]()
+  private def createSecret(client: DASecretsManagerClient[IO], token: String) = for {
+    currentSecret <- getAuthDetailsFromSecret(client, Current)
     _ <- client.getSecretValue[Map[String, String]](token, Pending).recoverWith { _ =>
       for {
         password <- client.generateRandomPassword()
-        _ <- client.putSecretValue(Map(apiUser -> password), Pending, Option(token))
+        _ <- client.putSecretValue(Map(currentSecret.username -> password), Pending, Option(token))
       } yield ()
     }
   } yield ()
 
-  private def setSecret(client: DASecretsManagerClient[IO], userClient: UserClient[IO], apiUser: String) = for {
-    currentSecret <- client.getSecretValue[Map[String, String]]()
-    newSecret <- client.getSecretValue[Map[String, String]](Pending)
-    resetPasswordRequest <- resetPasswordRequest(apiUser, currentSecret, newSecret)
-    _ <- userClient.resetPassword(resetPasswordRequest)
+  private def setSecret(client: DASecretsManagerClient[IO], userClient: UserClient[IO]) = for {
+    currentSecret <- getAuthDetailsFromSecret(client, Current)
+    newSecret <- getAuthDetailsFromSecret(client, Pending)
+    _ <- userClient.resetPassword(ResetPasswordRequest(currentSecret.password, newSecret.password))
   } yield ()
-
-  private def getPassword(secret: Map[String, String], apiUser: String, stage: Stage) =
-    IO.fromOption(secret.get(apiUser))(new Exception(s"No $stage secret found for user $apiUser"))
-
-  private def resetPasswordRequest(apiUser: String, currentSecret: Map[String, String], newSecret: Map[String, String]) = for {
-    currentPassword <- getPassword(currentSecret, apiUser, Current)
-    newPassword <- getPassword(newSecret, apiUser, Pending)
-  } yield ResetPasswordRequest(currentPassword, newPassword)
 
   private def versions(describeSecretResponse: DescribeSecretResponse): IO[Map[String, List[Stage]]] = IO {
     describeSecretResponse.versionIdsToStages.asScala.view
@@ -94,6 +89,8 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
 object Lambda:
 
+  private case class AuthDetails(username: String, password: String)
+
   enum RotationStep:
     case CreateSecret, SetSecret, TestSecret, FinishSecret
 
@@ -106,6 +103,6 @@ object Lambda:
 
   case class RotationEvent(step: RotationStep, secretId: String, clientRequestToken: String)
 
-  case class Config(apiUrl: String, secretName: String, apiUser: String) derives ConfigReader
+  case class Config(apiUrl: String) derives ConfigReader
 
-  case class Dependencies(userClient: UserClient[IO], secretsManagerClient: String => DASecretsManagerClient[IO])
+  case class Dependencies(userClient: String => IO[UserClient[IO]], secretsManagerClient: String => DASecretsManagerClient[IO])
