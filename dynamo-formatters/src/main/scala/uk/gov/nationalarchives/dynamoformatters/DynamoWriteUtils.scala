@@ -45,7 +45,8 @@ object DynamoWriteUtils {
           "digitalAssetSubtype" -> DynamoValue.fromString(assetDynamoTable.digitalAssetSubtype),
           "originalFiles" -> DynamoValue.fromStrings(assetDynamoTable.originalFiles.map(_.toString)),
           "originalMetadataFiles" -> DynamoValue.fromStrings(assetDynamoTable.originalMetadataFiles.map(_.toString)),
-          ingestedPreservica -> DynamoValue.fromString(assetDynamoTable.ingestedPreservica.toString)
+          ingestedPreservica -> DynamoValue.fromString(assetDynamoTable.ingestedPreservica.toString),
+          ingestedCustodialCopy -> DynamoValue.fromString(assetDynamoTable.ingestedCustodialCopy.toString)
         ) ++ (if (assetDynamoTable.skipIngest) Map("skipIngest" -> DynamoValue.fromBoolean(assetDynamoTable.skipIngest)) else Map())
     }.toDynamoValue
 
@@ -60,7 +61,8 @@ object DynamoWriteUtils {
           representationType -> DynamoValue.fromString(fileDynamoTable.representationType.toString),
           representationSuffix -> DynamoValue.fromNumber(fileDynamoTable.representationSuffix),
           ingestedPreservica -> DynamoValue.fromString(fileDynamoTable.ingestedPreservica.toString),
-          location -> DynamoValue.fromString(fileDynamoTable.location.toString)
+          location -> DynamoValue.fromString(fileDynamoTable.location.toString),
+          ingestedCustodialCopy -> DynamoValue.fromString(fileDynamoTable.ingestedCustodialCopy.toString)
         )
     }.toDynamoValue
 

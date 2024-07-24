@@ -82,6 +82,7 @@ object DynamoFormatters {
   val representationType = "representationType"
   val representationSuffix = "representationSuffix"
   val ingestedPreservica = "ingested_PS"
+  val ingestedCustodialCopy = "ingested_CC"
   val childCount = "childCount"
   val skipIngest = "skipIngest"
   val location = "location"
@@ -108,7 +109,17 @@ object DynamoFormatters {
 
   given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
 
+  given typeFormatter: DynamoFormat[Type] = new DynamoFormat[Type]:
+    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, Type] = dynamoValue.as[String].map(Type.valueOf)
+
+    override def write(t: Type): DynamoValue = DynamoValue.fromString(t.toString)
+
   enum Type:
+    def formatter: DynamoFormat[? >: ArchiveFolderDynamoTable & ContentFolderDynamoTable & AssetDynamoTable & FileDynamoTable <: DynamoTable] = this match
+      case ArchiveFolder => archiveFolderTableFormat
+      case ContentFolder => contentFolderTableFormat
+      case Asset         => assetTableFormat
+      case File          => fileTableFormat
     case ArchiveFolder, ContentFolder, Asset, File
 
   sealed trait DynamoTable {
@@ -153,6 +164,7 @@ object DynamoFormatters {
       representationType: ValidatedField[FileRepresentationType],
       representationSuffix: ValidatedField[Int],
       ingestedPreservica: Option[String],
+      ingestedCustodialCopy: Option[String],
       identifiers: List[Identifier],
       childCount: ValidatedField[Int],
       skipIngest: ValidatedField[Boolean],
@@ -199,6 +211,7 @@ object DynamoFormatters {
       originalFiles: List[UUID],
       originalMetadataFiles: List[UUID],
       ingestedPreservica: Boolean,
+      ingestedCustodialCopy: Boolean,
       identifiers: List[Identifier],
       childCount: Int,
       skipIngest: Boolean
@@ -219,6 +232,7 @@ object DynamoFormatters {
       representationType: FileRepresentationType,
       representationSuffix: Int,
       ingestedPreservica: Boolean,
+      ingestedCustodialCopy: Boolean,
       identifiers: List[Identifier],
       childCount: Int,
       location: URI

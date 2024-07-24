@@ -11,9 +11,10 @@ lazy val root = (project in file("."))
     getLatestPreservicaVersion,
     ingestAssetOpexCreator,
     ingestAssetReconciler,
+    ingestFilesChangeHandler,
     ingestFindExistingAsset,
     ingestFolderOpexCreator,
-    ingestMapper,
+    ingestMapper, 
     ingestParentFolderOpexCreator,
     ingestParsedCourtDocumentEventHandler,
     ingestUpsertArchiveFolders,
@@ -70,6 +71,16 @@ lazy val ingestMapper = (project in file("ingest-mapper"))
       sttpCirce,
       upickle,
       reactorTest % Test
+    )
+  )
+
+lazy val ingestFilesChangeHandler = (project in file("ingest-files-change-handler"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      snsClient
     )
   )
 
@@ -225,6 +236,9 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
 
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)
+  .settings(
+    libraryDependencies += scanamo
+  )
 
 lazy val dynamoFormatters = (project in file("dynamo-formatters"))
   .settings(

@@ -66,6 +66,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     stringToRepresentationType(getPotentialStringValue(representationType)),
     getNumber(representationSuffix, _.toInt),
     getPotentialStringValue(ingestedPreservica),
+    getPotentialStringValue(ingestedCustodialCopy),
     identifiers,
     getNumber(childCount, _.toInt),
     getBoolean(skipIngest),
@@ -288,6 +289,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           originalFiles,
           originalMetadataFiles,
           allValidatedFileTableFields.ingestedPreservica.contains("true"),
+          allValidatedFileTableFields.ingestedCustodialCopy.contains("true"),
           allValidatedFileTableFields.identifiers,
           childCount,
           skipIngest
@@ -340,6 +342,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           representationType,
           representationSuffix,
           allValidatedFileTableFields.ingestedPreservica.contains("true"),
+          allValidatedFileTableFields.ingestedCustodialCopy.contains("true"),
           allValidatedFileTableFields.identifiers,
           childCount,
           location
