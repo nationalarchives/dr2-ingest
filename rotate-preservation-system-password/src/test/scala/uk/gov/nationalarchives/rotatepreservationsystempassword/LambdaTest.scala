@@ -98,7 +98,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
 
     ex.getMessage should equal("Cannot find secret id")
   }
-  
+
   "handler createSecret" should "not call putSecretValue if a Pending value already exists" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
     val config = Config("http://localhost")
