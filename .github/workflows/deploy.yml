@@ -22,8 +22,8 @@ jobs:
   deploy:
     uses: nationalarchives/dr2-github-actions/.github/workflows/lambda_deploy.yml@main
     with:
-      lambda-name: ${{ github.event.inputs.environment }}-ingest-cc-notification-handler
-      deployment-package: ingest_cc_notification_handler_lambda.zip
+      lambda-name: ${{ github.event.inputs.environment }}-ingest-cc-notifications
+      deployment-package: ingest_cc_notifications_lambda.zip
       environment: ${{ github.event.inputs.environment }}
       to-deploy: ${{ github.event.inputs.to-deploy }}
     secrets:
