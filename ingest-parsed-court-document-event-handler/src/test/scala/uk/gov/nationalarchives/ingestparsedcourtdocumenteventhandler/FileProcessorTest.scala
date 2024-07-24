@@ -22,6 +22,7 @@ import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
 
+import java.net.URI
 import java.nio.ByteBuffer
 import java.time.OffsetDateTime
 import java.util.{Base64, HexFormat, UUID}
@@ -58,7 +59,8 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
 
   private val uuids: List[UUID] = List(
     UUID.fromString("6e827e19-6a33-46c3-8730-b242c203d8c1"),
-    UUID.fromString("49e4a726-6297-4f8e-8867-fb50bd5acd86")
+    UUID.fromString("49e4a726-6297-4f8e-8867-fb50bd5acd86"),
+    UUID.fromString("593cf06e-0832-49e0-a20f-d259c8192d70")
   )
 
   case class UUIDGenerator() {
@@ -88,25 +90,35 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val metadataCompletedUpload = completedUpload(Option("123456"))
 
     when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Long], any[Publisher[ByteBuffer]]))
       .thenReturn(IO(docxCompletedUpload))
     when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Long], any[Publisher[ByteBuffer]]))
       .thenReturn(IO(metadataCompletedUpload))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+      .thenReturn(IO(completedUpload(Option("bcdeff"))))
 
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, generator.uuidGenerator)
     val res = fileProcessor.copyFilesFromDownloadToUploadBucket("key").unsafeRunSync()
 
-    res.size should equal(2)
+    res.size should equal(3)
     val docx = res.get(s"$reference/Test.docx")
     val metadata = res.get(s"$reference/TRE-$reference-metadata.json")
+    val unusedTreFile = res.get(s"$reference/unused-tre-file")
     docx.isDefined should be(true)
     metadata.isDefined should be(true)
+    unusedTreFile.isDefined should be(true)
 
     val docxInfo = docx.get
-    docxInfo.id should equal(uuids.head)
+    docxInfo.id should equal(uuids(1))
     docxInfo.fileName should equal("Test.docx")
     docxInfo.fileSize should equal(15684)
     docxInfo.checksum should equal("abcdef")
+
+    val unusedTreFileInfo = unusedTreFile.get
+    unusedTreFileInfo.id should equal(uuids.head)
+    unusedTreFileInfo.fileName should equal("unused-tre-file")
+    unusedTreFileInfo.fileSize should equal(0)
+    unusedTreFileInfo.checksum should equal("bcdeff")
 
     val metadataInfo = metadata.get
     metadataInfo.id should equal(uuids.last)
@@ -164,10 +176,12 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val metadataCompletedUpload = completedUpload()
 
     when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Long], any[Publisher[ByteBuffer]]))
       .thenReturn(IO(docxCompletedUpload))
     when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Long], any[Publisher[ByteBuffer]]))
       .thenReturn(IO(metadataCompletedUpload))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+      .thenReturn(IO(completedUpload(Option("bcdeff"))))
 
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, generator.uuidGenerator)
     val res = fileProcessor.copyFilesFromDownloadToUploadBucket("key").unsafeRunSync()
@@ -343,7 +357,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
             else if (potentialCite.isEmpty && expectedFolderName == trimmedUri) List(IdField("URI", trimmedUri))
             else idFields
 
-          "createBagitMetadataObjects" should s"generate the correct bagit Metadata with $potentialCite, $potentialFileReference, " +
+          "createMetadata" should s"generate the correct Metadata with $potentialCite, $potentialFileReference, " +
             s"$expectedFolderTitle, $expectedAssetTitle and $updatedIdFields for $department, $series, $parsedUri and TRE name $treName" in {
               val fileId = UUID.randomUUID()
               val metadataId = UUID.randomUUID()
@@ -352,9 +366,9 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               val fileName = treFileName.split('.').dropRight(1).mkString(".")
               val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
               val folder =
-                BagitFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)
+                FolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)
               val asset =
-                BagitAssetMetadataObject(
+                AssetMetadataObject(
                   assetId,
                   Option(folderId),
                   expectedAssetTitle,
@@ -362,186 +376,64 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                   List(fileId),
                   List(metadataId),
                   treName,
+                  "test-organisation",
+                  OffsetDateTime.parse("2023-10-31T13:40:54Z"),
+                  "TRE: FCL Parser workflow",
+                  "Born Digital",
+                  "FCL",
                   List(
                     Option(IdField("UpstreamSystemReference", reference)),
                     potentialUri.map(uri => IdField("URI", uri)),
                     potentialCite.map(cite => IdField("NeutralCitation", cite)),
                     potentialFileReference.map(fileReference => IdField("BornDigitalRef", fileReference)),
+                    Option(IdField("ConsignmentReference", "test-identifier")),
+                    Option(IdField("UpstreamSystemReference", "TEST-REFERENCE")),
                     Option(IdField("RecordID", tdrUuid))
                   ).flatten
                 )
               val files = List(
-                BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1),
-                BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, RepresentationType.Preservation, 1)
+                FileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1, URI.create("s3://bucket/key"), "fileChecksum"),
+                FileMetadataObject(
+                  metadataId,
+                  Option(assetId),
+                  "",
+                  2,
+                  "metadataFileName.txt",
+                  2,
+                  RepresentationType.Preservation,
+                  1,
+                  URI.create("s3://bucket/metadataKey"),
+                  "metadataChecksum"
+                )
               )
-              val expectedBagitMetadataObjects: List[BagitMetadataObject] = List(folder, asset) ++ files
+              val expectedMetadataObjects: List[MetadataObject] = List(folder, asset) ++ files
 
               val fileProcessor =
                 new FileProcessor("download", "upload", "ref", mock[DAS3Client[IO]], UUIDGenerator().uuidGenerator)
-              val fileInfo = FileInfo(fileId, 1, treFileName, "fileChecksum")
-              val metadataFileInfo = FileInfo(metadataId, 2, "metadataFileName.txt", "metadataChecksum")
+              val fileInfo = FileInfo(fileId, 1, treFileName, "fileChecksum", URI.create("s3://bucket/key"))
+              val metadataFileInfo = FileInfo(metadataId, 2, "metadataFileName.txt", "metadataChecksum", URI.create("s3://bucket/metadataKey"))
 
-              val bagitMetadataObjects =
+              val metadataObjects =
                 fileProcessor
-                  .createBagitMetadataObjects(
+                  .createMetadata(
                     fileInfo,
                     metadataFileInfo,
                     parsedUri,
                     potentialCite,
                     treName,
                     potentialUri,
-                    reference,
+                    treMetadata,
                     potentialFileReference,
                     department,
                     series,
                     tdrUuid
                   )
 
-              bagitMetadataObjects should equal(expectedBagitMetadataObjects)
+              metadataObjects should equal(expectedMetadataObjects)
             }
         }
       }
     }
-  }
-
-  forAll(citeTable) { (potentialCite, idFields) =>
-    forAll(treNameTable) { (treName, treFileName, expectedFolderTitle, expectedAssetTitle) =>
-      forAll(urlDepartmentAndSeriesTable) { (department, series, includeBagInfo, parsedUri, expectedFolderName, titleExpected) =>
-        val updatedIdFields =
-          if potentialCite.isDefined && expectedFolderName == trimmedUri then idFields :+ IdField("URI", trimmedUri) else idFields
-        "createBagitFiles" should s"upload the correct bagit files with $expectedFolderTitle, $expectedAssetTitle and $updatedIdFields" +
-          s"for $department, $series, $parsedUri and TRE name $treName" in {
-            val fileId = UUID.randomUUID()
-            val metadataId = UUID.randomUUID()
-            val s3 = mock[DAS3Client[IO]]
-            val folderId = uuids.head
-            val assetId = uuids.last
-            val fileName = treFileName.split('.').dropRight(1).mkString(".")
-            val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
-            val folder =
-              BagitFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, updatedIdFields)
-            val asset =
-              BagitAssetMetadataObject(
-                assetId,
-                Option(folderId),
-                expectedAssetTitle,
-                expectedAssetTitle,
-                List(fileId),
-                List(metadataId),
-                treName,
-                List(
-                  Option(IdField("id_UpstreamSystemReference", reference)),
-                  potentialUri.map(uri => IdField("id_URI", uri)),
-                  potentialCite.map(cite => IdField("id_NeutralCitation", cite))
-                ).flatten
-              )
-            val files = List(
-              BagitFileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1),
-              BagitFileMetadataObject(metadataId, Option(assetId), "", 2, "metadataFileName.txt", 2, RepresentationType.Preservation, 1)
-            )
-            val metadataJsonList: List[BagitMetadataObject] = List(folder, asset) ++ files
-            val metadataJsonString = metadataJsonList.asJson.printWith(Printer.noSpaces)
-
-            val bagitTxtContent =
-              """BagIt-Version: 1.0
-              |Tag-File-Character-Encoding: UTF-8""".stripMargin
-
-            val manifestString =
-              s"""fileChecksum data/$fileId
-               |metadataChecksum data/$metadataId""".stripMargin
-
-            val bagInfoJson = BagInfo(
-              treMetadata.parameters.TDR.`Source-Organization`,
-              treMetadata.parameters.TDR.`Consignment-Export-Datetime`,
-              "TRE: FCL Parser workflow",
-              "Born Digital",
-              "FCL",
-              List(
-                IdField("ConsignmentReference", treMetadata.parameters.TDR.`Internal-Sender-Identifier`),
-                IdField("UpstreamSystemReference", treMetadata.parameters.TRE.reference)
-              )
-            )
-            val bagInfoString = bagInfoJson.asJson.printWith(Printer.noSpaces)
-
-            val metadataChecksum = "989681"
-            val bagitChecksum = "989683"
-            val manifestChecksum = "989684"
-            val bagInfoChecksum = "989685"
-            val bagInfoJsonChecksum = "989686"
-            val tagManifestChecksum = "989687"
-
-            val tagManifest = List(
-              s"$bagInfoJsonChecksum bag-info.json",
-              s"$bagitChecksum bagit.txt",
-              s"$manifestChecksum manifest-sha256.txt",
-              s"$metadataChecksum metadata.json"
-            )
-            val tagManifestString = (
-              if includeBagInfo then List(tagManifest.head, s"$bagInfoChecksum bag-info.txt") ++ tagManifest.tail else tagManifest
-            ).mkString("\n")
-
-            mockUpload(s3, "metadata.json", metadataJsonString, metadataChecksum)
-            mockUpload(s3, "bagit.txt", bagitTxtContent, bagitChecksum)
-            mockUpload(s3, "manifest-sha256.txt", manifestString, manifestChecksum)
-            mockUpload(s3, "bag-info.json", bagInfoString, bagInfoJsonChecksum)
-            if (includeBagInfo) {
-              val bagInfoString = s"Department: ${department.get}\nSeries: ${series.get}"
-              mockUpload(s3, "bag-info.txt", bagInfoString, bagInfoChecksum)
-            }
-            mockUpload(s3, "tagmanifest-sha256.txt", tagManifestString, tagManifestChecksum)
-
-            val fileProcessor = new FileProcessor("download", "upload", "ref", s3, UUIDGenerator().uuidGenerator)
-            val fileInfo = FileInfo(fileId, 1, treFileName, "fileChecksum")
-            val metadataFileInfo = FileInfo(metadataId, 2, "metadataFileName.txt", "metadataChecksum")
-
-            val tagManifestChecksumResult =
-              fileProcessor
-                .createBagitFiles(metadataJsonList, fileInfo, metadataFileInfo, treMetadata, department, series)
-                .unsafeRunSync()
-
-            tagManifestChecksumResult should equal(tagManifestChecksum)
-          }
-      }
-    }
-  }
-
-  "createBagitFiles" should "throw an error if there is an error uploading to s3" in {
-    val s3 = mock[DAS3Client[IO]]
-
-    when(s3.upload(any[String], any[String], any[Long], any[Publisher[ByteBuffer]])).thenThrow(
-      new RuntimeException(
-        "Upload failed"
-      )
-    )
-
-    val fileProcessor = new FileProcessor("download", "upload", "ref", s3, UUIDGenerator().uuidGenerator)
-    val fileInfo = FileInfo(UUID.randomUUID(), 1, "fileName", "fileChecksum")
-    val metadataFileInfo = FileInfo(UUID.randomUUID(), 2, "metadataFileName", "metadataChecksum")
-
-    val ex = intercept[Exception] {
-      fileProcessor
-        .createBagitFiles(
-          List(
-            BagitFileMetadataObject(
-              UUID.randomUUID(),
-              Option(UUID.fromString("49e4a726-6297-4f8e-8867-fb50bd5acd86")),
-              "",
-              2,
-              "metadataFileName.txt",
-              2,
-              RepresentationType.Preservation,
-              1
-            )
-          ),
-          fileInfo,
-          metadataFileInfo,
-          treMetadata,
-          Option("department"),
-          Option("series")
-        )
-        .unsafeRunSync()
-    }
-    ex.getMessage should equal("Upload failed")
   }
 
   private def mockUpload(

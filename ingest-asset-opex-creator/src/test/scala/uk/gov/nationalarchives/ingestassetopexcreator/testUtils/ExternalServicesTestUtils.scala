@@ -41,7 +41,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
   def stubDocxCopyRequest(): (String, String) = stubCopyRequest(childIdDocx, "docx")
 
   def stubCopyRequest(childId: UUID, suffix: String): (String, String) = {
-    val sourceName = s"/$batchId/data/$childId"
+    val sourceName = s"/$batchId/$childId"
     val destinationName = s"/opex/$executionName/$assetParentPath/$assetId.pax/Representation_Preservation/$childId/Generation_1/$childId.$suffix"
     val response =
       <CopyObjectResult>
@@ -133,7 +133,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
   val batchId: String = "TEST-ID"
   val executionName = "test-execution"
 
-  val input: Input = Input(assetId, batchId, executionName, "test-source-bucket")
+  val input: Input = Input(assetId, batchId, executionName)
 
   def outputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
 
@@ -173,6 +173,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      },
        |      "batchId": {
        |        "S": "$batchId"
+       |      },
+       |      "location": {
+       |        "S": "s3://test-source-bucket/$batchId/$childIdDocx"
        |      },
        |      "transferringBody": {
        |        "S": "Test Transferring Body"
@@ -238,6 +241,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      },
        |      "batchId": {
        |        "S": "$batchId"
+       |      },
+       |      "location": {
+       |        "S": "s3://test-source-bucket/$batchId/$childIdJson"
        |      },
        |      "transferringBody": {
        |        "S": "Test Transferring Body"

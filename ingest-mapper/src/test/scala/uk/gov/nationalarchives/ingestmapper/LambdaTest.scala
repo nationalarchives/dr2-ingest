@@ -92,8 +92,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         "",
         None,
         1,
-        fixedTimeInSecs,
-        customMetadataAttribute2 = Option("customMetadataValue2")
+        fixedTimeInSecs
       )
     )
     checkDynamoItems(
@@ -109,8 +108,6 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         None,
         2,
         fixedTimeInSecs,
-        customMetadataAttribute2 = Option("customMetadataValueFromBagInfo"),
-        attributeUniqueToBagInfo = Option("bagInfoAttributeValue"),
         originalFiles = originalFiles,
         originalMetadataFiles = originalMetadataFiles
       )

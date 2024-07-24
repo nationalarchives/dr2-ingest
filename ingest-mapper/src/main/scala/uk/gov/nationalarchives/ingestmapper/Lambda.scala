@@ -17,6 +17,7 @@ import io.circe.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.DADynamoDBClient
 
+import java.net.URI
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -66,13 +67,9 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       departmentAndSeries <- discoveryService.getDepartmentAndSeriesItems(input)
       _ <- log(s"Retrieved department and series ${departmentAndSeries.show}")
 
-      bagManifests <- dependencies.metadataService.parseBagManifest(input)
-      bagInfoJson <- dependencies.metadataService.parseBagInfoJson(input)
       metadataJson <- dependencies.metadataService.parseMetadataJson(
         input,
-        departmentAndSeries,
-        bagManifests,
-        bagInfoJson.headOption.getOrElse(Obj())
+        departmentAndSeries
       )
       metadataJsonWithTtl <- IO(metadataJson.map(obj => Obj.from(obj.value ++ Map("ttl" -> hundredDaysFromNowInEpochSecs))))
       _ <- dependencies.dynamo.writeItems(config.dynamoTableName, metadataJsonWithTtl)
@@ -86,8 +83,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
       StateOutput(
         input.batchId,
-        input.s3Bucket,
-        input.s3Prefix,
+        input.metadataPackage,
         typeToId.getOrElse(ArchiveFolder, Nil),
         typeToId.getOrElse(ContentFolder, Nil),
         typeToId.getOrElse(Asset, Nil)
@@ -103,8 +99,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   }
 }
 object Lambda {
-  case class StateOutput(batchId: String, s3Bucket: String, s3Prefix: String, archiveHierarchyFolders: List[UUID], contentFolders: List[UUID], contentAssets: List[UUID])
-  case class Input(batchId: String, s3Bucket: String, s3Prefix: String, department: Option[String], series: Option[String])
+  case class StateOutput(batchId: String, metadataPackage: URI, archiveHierarchyFolders: List[UUID], contentFolders: List[UUID], contentAssets: List[UUID])
+  case class Input(batchId: String, metadataPackage: URI, department: Option[String], series: Option[String])
   case class Config(dynamoTableName: String, discoveryApiUrl: String) derives ConfigReader
   case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], discoveryService: IO[DiscoveryService], time: () => Instant = () => Instant.now())
 }

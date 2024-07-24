@@ -22,6 +22,7 @@ import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcess
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
 
 import java.io.{BufferedInputStream, InputStream}
+import java.net.URI
 import java.nio.ByteBuffer
 import java.time.OffsetDateTime
 import java.util.{Base64, UUID}
@@ -64,19 +65,19 @@ class FileProcessor(
     } yield parsedJson
   }
 
-  def createBagitMetadataObjects(
+  def createMetadata(
       fileInfo: FileInfo,
       metadataFileInfo: FileInfo,
       parsedUri: Option[ParsedUri],
       potentialCite: Option[String],
       potentialJudgmentName: Option[String],
       potentialUri: Option[String],
-      potentialFileReference: String,
+      treMetadata: TREMetadata,
       fileReference: Option[String],
       potentialDepartment: Option[String],
       potentialSeries: Option[String],
       tdrUuid: String
-  ): List[BagitMetadataObject] = {
+  ): List[MetadataObject] = {
     val potentialCourtFromUri = parsedUri.flatMap(_.potentialCourt)
     val (folderName, potentialFolderTitle, uriIdField) =
       if (potentialDepartment.flatMap(_ => potentialSeries).isEmpty && potentialCourtFromUri.isDefined)
@@ -98,18 +99,20 @@ class FileProcessor(
       .getOrElse(Nil)
 
     val assetMetadataIdFields = List(
-      Option(IdField("UpstreamSystemReference", potentialFileReference)),
+      Option(IdField("UpstreamSystemReference", treMetadata.parameters.TRE.reference)),
       potentialUri.map(uri => IdField("URI", uri)),
       potentialCite.map(cite => IdField("NeutralCitation", cite)),
       fileReference.map(ref => IdField("BornDigitalRef", ref)),
+      Option(IdField("ConsignmentReference", treMetadata.parameters.TDR.`Internal-Sender-Identifier`)),
+      Option(IdField("UpstreamSystemReference", treMetadata.parameters.TRE.reference)),
       Option(IdField("RecordID", tdrUuid))
     ).flatten
     val fileTitle = fileInfo.fileName.split('.').dropRight(1).mkString(".")
     val folderId = uuidGenerator()
     val assetId = UUID.fromString(tdrUuid)
-    val folderMetadataObject = BagitFolderMetadataObject(folderId, None, potentialFolderTitle, folderName, folderMetadataIdFields)
+    val folderMetadataObject = FolderMetadataObject(folderId, None, potentialFolderTitle, folderName, folderMetadataIdFields)
     val assetMetadataObject =
-      BagitAssetMetadataObject(
+      AssetMetadataObject(
         assetId,
         Option(folderId),
         fileInfo.fileName,
@@ -117,10 +120,15 @@ class FileProcessor(
         List(fileInfo.id),
         List(metadataFileInfo.id),
         potentialJudgmentName,
+        treMetadata.parameters.TDR.`Source-Organization`,
+        treMetadata.parameters.TDR.`Consignment-Export-Datetime`,
+        "TRE: FCL Parser workflow",
+        "Born Digital",
+        "FCL",
         assetMetadataIdFields
       )
     val fileRowMetadataObject =
-      BagitFileMetadataObject(
+      FileMetadataObject(
         fileInfo.id,
         Option(assetId),
         fileTitle,
@@ -128,9 +136,11 @@ class FileProcessor(
         fileInfo.fileName,
         fileInfo.fileSize,
         RepresentationType.Preservation,
-        1
+        1,
+        fileInfo.location,
+        fileInfo.checksum
       )
-    val fileMetadataObject = BagitFileMetadataObject(
+    val fileMetadataObject = FileMetadataObject(
       metadataFileInfo.id,
       Option(assetId),
       "",
@@ -138,63 +148,11 @@ class FileProcessor(
       metadataFileInfo.fileName,
       metadataFileInfo.fileSize,
       RepresentationType.Preservation,
-      1
+      1,
+      metadataFileInfo.location,
+      metadataFileInfo.checksum
     )
     List(folderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
-  }
-
-  def createBagitFiles(
-      bagitMetadata: List[BagitMetadataObject],
-      fileInfo: FileInfo,
-      metadataFileInfo: FileInfo,
-      treMetadata: TREMetadata,
-      department: Option[String],
-      series: Option[String]
-  ): IO[String] = {
-    for {
-      metadataChecksum <- createMetadataJson(bagitMetadata)
-      bagitString = "BagIt-Version: 1.0\nTag-File-Character-Encoding: UTF-8"
-      bagitTxtChecksum <- uploadAsFile(bagitString, "bagit.txt")
-      manifestString =
-        s"${fileInfo.checksum} data/${fileInfo.id}\n${metadataFileInfo.checksum} data/${metadataFileInfo.id}"
-      manifestSha256Checksum <- uploadAsFile(manifestString, "manifest-sha256.txt")
-      bagInfoChecksum <- createBagInfo(department, series)
-      bagInfoJsonChecksum <- createBagInfoJson(treMetadata)
-      tagManifest <- createTagManifest(
-        metadataChecksum,
-        bagitTxtChecksum,
-        manifestSha256Checksum,
-        bagInfoChecksum,
-        bagInfoJsonChecksum
-      )
-    } yield tagManifest
-  }
-
-  private def createBagInfo(departmentOpt: Option[String], seriesOpt: Option[String]): IO[Option[String]] = {
-    for {
-      department <- departmentOpt
-      series <- seriesOpt
-    } yield {
-      val bagInfoString = s"Department: $department\nSeries: $series"
-      uploadAsFile(bagInfoString, "bag-info.txt")
-    }
-  }.sequence
-
-  private def createBagInfoJson(treMetadata: TREMetadata): IO[String] = {
-    val bagInfoIdFields =
-      List(
-        IdField("ConsignmentReference", treMetadata.parameters.TDR.`Internal-Sender-Identifier`),
-        IdField("UpstreamSystemReference", treMetadata.parameters.TRE.reference)
-      )
-    val bagInfo = BagInfo(
-      treMetadata.parameters.TDR.`Source-Organization`,
-      treMetadata.parameters.TDR.`Consignment-Export-Datetime`,
-      "TRE: FCL Parser workflow",
-      "Born Digital",
-      "FCL",
-      bagInfoIdFields
-    )
-    uploadAsFile(bagInfo.asJson.printWith(Printer.noSpaces), "bag-info.json")
   }
 
   private def extractMetadataFromJson(str: Stream[IO, Byte]): Stream[IO, TREMetadata] = {
@@ -222,7 +180,7 @@ class FileProcessor(
                   .use(pub => s3.upload(uploadBucket, id.toString, tarEntry.getSize, FlowAdapters.toPublisher(pub)))
                   .map { res =>
                     val checksum = checksumToString(res.response().checksumSHA256())
-                    tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, checksum)
+                    tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
                   }
               )
             } else Stream.empty
@@ -239,48 +197,25 @@ class FileProcessor(
       .flatMap(unarchiveAndUploadToS3)
   }
 
-  private def uploadAsFile(fileContent: String, key: String) = {
+  private def uploadAsFile(fileContent: String, s3Location: URI): IO[Unit] = {
     Stream
       .eval(IO.pure(fileContent))
       .map(s => ByteBuffer.wrap(s.getBytes()))
       .toPublisherResource
       .use { pub =>
-        s3.upload(uploadBucket, s"$consignmentRef/$key", fileContent.getBytes.length, FlowAdapters.toPublisher(pub))
+        s3.upload(s3Location.getHost, s3Location.getPath.drop(1), fileContent.getBytes.length, FlowAdapters.toPublisher(pub))
       }
-      .map(_.response().checksumSHA256())
-      .map(checksumToString)
+      .map(_ => ())
   }
 
-  private def createMetadataJson(metadata: List[BagitMetadataObject]): IO[String] =
-    uploadAsFile(metadata.asJson.printWith(Printer.noSpaces), "metadata.json")
+  def createMetadataJson(metadata: List[MetadataObject], s3Location: URI): IO[Unit] =
+    uploadAsFile(metadata.asJson.printWith(Printer.noSpaces), s3Location)
 
   private def checksumToString(checksum: String): String =
     Option(checksum)
       .map(c => Hex.encodeHex(Base64.getDecoder.decode(c.getBytes())).mkString)
       .getOrElse("")
 
-  private def createTagManifest(
-      metadataChecksum: String,
-      bagitTxtChecksum: String,
-      manifestSha256Checksum: String,
-      potentialBagInfoChecksum: Option[String],
-      bagInfoJsonChecksum: String
-  ): IO[String] = {
-    val tagManifestMap = Map(
-      "metadata.json" -> metadataChecksum,
-      "bagit.txt" -> bagitTxtChecksum,
-      "manifest-sha256.txt" -> manifestSha256Checksum,
-      "bag-info.json" -> bagInfoJsonChecksum
-    )
-    val tagManifest = potentialBagInfoChecksum
-      .map(cs => tagManifestMap + ("bag-info.txt" -> cs))
-      .getOrElse(tagManifestMap)
-      .toSeq
-      .sortBy(_._1)
-      .map { case (file, checksum) => s"$checksum $file" }
-      .mkString("\n")
-    uploadAsFile(tagManifest, "tagmanifest-sha256.txt")
-  }
 }
 
 object FileProcessor {
@@ -298,12 +233,12 @@ object FileProcessor {
       s3Key <- c.downField("s3Key").as[String]
       skipSeriesLookup <- c.getOrElse("skipSeriesLookup")(false)
     } yield TREInputParameters(status, reference, skipSeriesLookup, s3Bucket, s3Key)
-  given Encoder[BagitMetadataObject] = {
-    case BagitFolderMetadataObject(id, parentId, title, name, folderMetadataIdFields) =>
+  given Encoder[MetadataObject] = {
+    case FolderMetadataObject(id, parentId, title, name, folderMetadataIdFields) =>
       jsonFromMetadataObject(id, parentId, title, Type.ArchiveFolder, name).deepMerge {
         Json.fromFields(convertIdFieldsToJson(folderMetadataIdFields))
       }
-    case BagitAssetMetadataObject(
+    case AssetMetadataObject(
           id,
           parentId,
           title,
@@ -311,6 +246,11 @@ object FileProcessor {
           originalFilesUuids,
           originalMetadataFilesUuids,
           description,
+          transferringBody,
+          transferCompleteDatetime,
+          upstreamSystem,
+          digitalAssetSource,
+          digitalAssetSubtype,
           assetMetadataIdFields
         ) =>
       val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) => fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
@@ -324,32 +264,27 @@ object FileProcessor {
             .obj(
               ("originalFiles", Json.fromValues(convertListOfUuidsToJsonStrArray(originalFilesUuids))),
               ("originalMetadataFiles", Json.fromValues(convertListOfUuidsToJsonStrArray(originalMetadataFilesUuids))),
-              ("description", description.map(Json.fromString).getOrElse(Null))
+              ("description", description.map(Json.fromString).getOrElse(Null)),
+              ("transferringBody", Json.fromString(transferringBody)),
+              ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
+              ("upstreamSystem", Json.fromString(upstreamSystem)),
+              ("digitalAssetSource", Json.fromString(digitalAssetSource)),
+              ("digitalAssetSubtype", Json.fromString(digitalAssetSubtype))
             )
             .deepDropNullValues
         }
 
-    case BagitFileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix) =>
+    case FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksumSha256) =>
       Json
         .obj(
           ("sortOrder", Json.fromInt(sortOrder)),
           ("fileSize", Json.fromLong(fileSize)),
           ("representationType", Json.fromString(representationType.toString)),
-          ("representationSuffix", Json.fromInt(representationSuffix))
+          ("representationSuffix", Json.fromInt(representationSuffix)),
+          ("location", Json.fromString(location.toString)),
+          ("checksum_sha256", Json.fromString(checksumSha256))
         )
         .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), Type.File, name))
-  }
-  given Encoder[BagInfo] = { case BagInfo(transferringBody, transferCompleteDatetime, upstreamSystem, digitalAssetSource, digitalAssetSubtype, idFields) =>
-    Json
-      .obj(
-        ("transferringBody", Json.fromString(transferringBody)),
-        ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
-        ("upstreamSystem", Json.fromString(upstreamSystem)),
-        ("digitalAssetSource", Json.fromString(digitalAssetSource)),
-        ("digitalAssetSubtype", Json.fromString(digitalAssetSubtype))
-      )
-      .deepDropNullValues
-      .deepMerge(Json.fromFields(convertIdFieldsToJson(idFields)))
   }
 
   private def jsonFromMetadataObject(
@@ -381,22 +316,22 @@ object FileProcessor {
     case ArchiveFolder, Asset, File
 
   case class AdditionalMetadata(key: String, value: String)
-  sealed trait BagitMetadataObject {
+  sealed trait MetadataObject {
     def id: UUID
     def parentId: Option[UUID]
   }
 
   case class IdField(name: String, value: String)
 
-  case class BagitFolderMetadataObject(
+  case class FolderMetadataObject(
       id: UUID,
       parentId: Option[UUID],
       title: Option[String],
       name: String,
       idFields: List[IdField] = Nil
-  ) extends BagitMetadataObject
+  ) extends MetadataObject
 
-  case class BagitAssetMetadataObject(
+  case class AssetMetadataObject(
       id: UUID,
       parentId: Option[UUID],
       title: String,
@@ -404,10 +339,15 @@ object FileProcessor {
       originalFiles: List[UUID],
       originalMetadataFiles: List[UUID],
       description: Option[String],
+      transferringBody: String,
+      transferCompleteDatetime: OffsetDateTime,
+      upstreamSystem: String,
+      digitalAssetSource: String,
+      digitalAssetSubtype: String,
       idFields: List[IdField] = Nil
-  ) extends BagitMetadataObject
+  ) extends MetadataObject
 
-  case class BagitFileMetadataObject(
+  case class FileMetadataObject(
       id: UUID,
       parentId: Option[UUID],
       title: String,
@@ -415,19 +355,12 @@ object FileProcessor {
       name: String,
       fileSize: Long,
       representationType: RepresentationType,
-      representationSuffix: Int
-  ) extends BagitMetadataObject
+      representationSuffix: Int,
+      location: URI,
+      checksumSha256: String
+  ) extends MetadataObject
 
-  case class BagInfo(
-      transferringBody: String,
-      transferCompleteDatetime: OffsetDateTime,
-      upstreamSystem: String,
-      digitalAssetSource: String,
-      digitalAssetSubtype: String,
-      idFields: List[IdField] = Nil
-  )
-
-  case class FileInfo(id: UUID, fileSize: Long, fileName: String, checksum: String)
+  case class FileInfo(id: UUID, fileSize: Long, fileName: String, checksum: String, location: URI)
 
   case class TREInputParameters(status: String, reference: String, skipSeriesLookup: Boolean, s3Bucket: String, s3Key: String)
 
