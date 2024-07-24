@@ -61,9 +61,9 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           )
 
           _ <- IO.raiseWhen(fileInfo.fileSize == 0)(new Exception(s"File id '${fileInfo.id}' size is 0"))
-          metadataUri = URI.create(s"s3://$outputBucket/$batchRef/metadata.json")
+          metadataPackage = URI.create(s"s3://$outputBucket/$batchRef/metadata.json")
           output <- dependencies.seriesMapper.createOutput(
-            metadataUri,
+            metadataPackage,
             batchRef,
             parsedUri.flatMap(_.potentialCourt),
             treInput.parameters.skipSeriesLookup
@@ -83,14 +83,13 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             output.series,
             tdrUuid
           )
-          _ <- fileProcessor.createMetadataJson(metadata, metadataUri)
-          _ <- logWithFileRef(s"Copied metadata json to $outputBucket")
-          unusedFilesFromTre = fileNameToFileInfo.values
-            .filter(fi => !List(fileInfo, metadataFileInfo).contains(fi))
-            .map(_.id.toString)
-            .toList
-          _ <- IO.whenA(unusedFilesFromTre.nonEmpty) {
-            dependencies.s3.deleteObjects(outputBucket, unusedFilesFromTre) >> logWithFileRef("Deleted unused TRE objects from the root of S3")
+          _ <- fileProcessor.createMetadataJson(metadata, metadataPackage)
+          _ <- logWithFileRef(s"Copied metadata.json to bucket $outputBucket")
+          irrelevantFilesFromTre = fileNameToFileInfo.values.collect {
+            case fi if !List(fileInfo, metadataFileInfo).contains(fi) => fi.id.toString
+          }.toList
+          _ <- IO.whenA(irrelevantFilesFromTre.nonEmpty) {
+            dependencies.s3.deleteObjects(outputBucket, irrelevantFilesFromTre) >> logWithFileRef("Deleted unused TRE objects from the root of S3")
           }
 
           _ <- dependencies.dynamo.writeItem(

@@ -49,7 +49,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
       _ <- log(s"${children.length} children found for asset ${asset.id}")
 
-      _ <- log(s"Starting copy from ${children.map(_.location).mkString(" ")} to ${config.destinationBucket}")
+      _ <- log(s"Starting copy from ${children.map(_.location).mkString(", ")} to ${config.destinationBucket}")
       _ <- children.map(child => copyFromSourceToDestination(s3Client, input, config.destinationBucket, asset, child, xmlCreator)).sequence
       xip <- xmlCreator.createXip(asset, children.sortBy(_.sortOrder))
       _ <- ValidateXmlAgainstXsd[IO](XipXsdSchemaV7).xmlStringIsValid(xip)
