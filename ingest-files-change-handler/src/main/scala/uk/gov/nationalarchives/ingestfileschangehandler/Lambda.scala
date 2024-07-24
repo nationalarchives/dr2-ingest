@@ -168,7 +168,7 @@ object Lambda:
     } yield DynamodbStreamRecord(EventName.valueOf(eventName), streamRecord)
 
   enum EventName:
-    case MODIFY, INSERT, DELETE
+    case MODIFY, INSERT, REMOVE
 
   case class Dependencies(daDynamoDbClient: DADynamoDBClient[IO], daSnsClient: DASNSClient[IO], instantGenerator: () => Instant, uuidGenerator: () => UUID)
 
