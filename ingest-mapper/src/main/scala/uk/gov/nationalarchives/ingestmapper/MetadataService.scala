@@ -87,7 +87,7 @@ class MetadataService(s3: DAS3Client[IO]) {
 
   private def parseFileFromS3[T](input: Input, decoderPipe: Pipe[IO, String, T]): IO[List[T]] =
     for {
-      pub <- s3.download(input.packageMetadata.getHost, input.packageMetadata.getPath.drop(1))
+      pub <- s3.download(input.metadataPackage.getHost, input.metadataPackage.getPath.drop(1))
       s3FileString <- pub
         .toStreamBuffered[IO](bufferSize)
         .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))

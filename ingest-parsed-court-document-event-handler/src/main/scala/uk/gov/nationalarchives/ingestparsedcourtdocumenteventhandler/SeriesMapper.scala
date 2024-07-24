@@ -32,7 +32,7 @@ class SeriesMapper(validCourts: Set[Court]) {
 object SeriesMapper {
   case class Output(
       batchId: String,
-      packageMetadata: URI,
+      metadataPackage: URI,
       department: Option[String],
       series: Option[String]
   )

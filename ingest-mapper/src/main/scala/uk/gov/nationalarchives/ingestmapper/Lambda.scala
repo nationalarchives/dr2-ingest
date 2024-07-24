@@ -83,7 +83,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
       StateOutput(
         input.batchId,
-        input.packageMetadata,
+        input.metadataPackage,
         typeToId.getOrElse(ArchiveFolder, Nil),
         typeToId.getOrElse(ContentFolder, Nil),
         typeToId.getOrElse(Asset, Nil)
@@ -99,8 +99,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   }
 }
 object Lambda {
-  case class StateOutput(batchId: String, packageMetadata: URI, archiveHierarchyFolders: List[UUID], contentFolders: List[UUID], contentAssets: List[UUID])
-  case class Input(batchId: String, packageMetadata: URI, department: Option[String], series: Option[String])
+  case class StateOutput(batchId: String, metadataPackage: URI, archiveHierarchyFolders: List[UUID], contentFolders: List[UUID], contentAssets: List[UUID])
+  case class Input(batchId: String, metadataPackage: URI, department: Option[String], series: Option[String])
   case class Config(dynamoTableName: String, discoveryApiUrl: String) derives ConfigReader
   case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], discoveryService: IO[DiscoveryService], time: () => Instant = () => Instant.now())
 }

@@ -349,7 +349,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     input.series.get should equal("TEST SERIES")
     input.department.get should equal("TEST")
     input.batchId should equal("TEST-REFERENCE")
-    input.packageMetadata.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
+    input.metadataPackage.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
   }
 
   val citeAndUri: TableFor4[Option[String], Option[String], Option[String], Option[String]] = Table(
@@ -378,7 +378,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       input.series should equal(expectedSeries)
       input.department should equal(expectedDepartment)
       input.batchId should equal("TEST-REFERENCE")
-      input.packageMetadata.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
+      input.metadataPackage.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
     }
   }
 
