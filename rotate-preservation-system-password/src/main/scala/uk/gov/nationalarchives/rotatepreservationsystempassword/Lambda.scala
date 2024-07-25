@@ -20,7 +20,7 @@ import scala.jdk.CollectionConverters.*
 class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
   override def dependencies(config: Config): IO[Dependencies] =
-    IO.pure(Dependencies(secretId => userClient(config.apiUrl, secretId), secretId => DASecretsManagerClient[IO](secretId)))
+    IO(Dependencies(secretId => userClient(config.apiUrl, secretId), secretId => DASecretsManagerClient[IO](secretId)))
 
   override def handler: (RotationEvent, Config, Dependencies) => IO[Unit] = (event, config, dependencies) =>
     for {
@@ -42,8 +42,8 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
     } yield ()
 
   private def getAuthDetailsFromSecret(client: DASecretsManagerClient[IO], stage: Stage) = for {
-    currentSecret <- client.getSecretValue[Map[String, String]](stage)
-  } yield AuthDetails(currentSecret.head._1, currentSecret.head._2)
+    (username, password) <- client.getSecretValue[Map[String, String]](stage).map(_.head)
+  } yield AuthDetails(username, password)
 
   private def finishSecret(client: DASecretsManagerClient[IO], token: String) = for {
     describeSecretResponse <- client.describeSecret()
