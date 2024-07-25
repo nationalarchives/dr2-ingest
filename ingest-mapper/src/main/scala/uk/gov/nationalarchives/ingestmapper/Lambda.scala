@@ -59,18 +59,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       log <- IO(log(Map("batchRef" -> input.batchId)))
       _ <- log(s"Processing batchRef ${input.batchId}")
 
-      discoveryService <- dependencies.discoveryService
       hundredDaysFromNowInEpochSecs <- IO {
         val hundredDaysFromNow: Instant = dependencies.time().plus(100, ChronoUnit.DAYS)
         Num(hundredDaysFromNow.getEpochSecond.toDouble)
       }
-      departmentAndSeries <- discoveryService.getDepartmentAndSeriesItems(input)
-      _ <- log(s"Retrieved department and series ${departmentAndSeries.show}")
 
-      metadataJson <- dependencies.metadataService.parseMetadataJson(
-        input,
-        departmentAndSeries
-      )
+      metadataJson <- dependencies.metadataService.parseMetadataJson(input)
       metadataJsonWithTtl <- IO(metadataJson.map(obj => Obj.from(obj.value ++ Map("ttl" -> hundredDaysFromNowInEpochSecs))))
       _ <- dependencies.dynamo.writeItems(config.dynamoTableName, metadataJsonWithTtl)
       _ <- log("Metadata written to dynamo db")
@@ -91,16 +85,17 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     }
 
   override def dependencies(config: Config): IO[Dependencies] = {
-    val metadataService: MetadataService = MetadataService()
-    val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
     val randomUuidGenerator: () => UUID = () => UUID.randomUUID()
-    val discoveryService = DiscoveryService(config.discoveryApiUrl, randomUuidGenerator)
-    IO(Dependencies(metadataService, dynamo, discoveryService))
+    DiscoveryService(config.discoveryApiUrl, randomUuidGenerator).map { discoveryService =>
+      val metadataService: MetadataService = MetadataService(discoveryService)
+      val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
+      Dependencies(metadataService, dynamo)
+    }
   }
 }
 object Lambda {
   case class StateOutput(batchId: String, metadataPackage: URI, archiveHierarchyFolders: List[UUID], contentFolders: List[UUID], contentAssets: List[UUID])
-  case class Input(batchId: String, metadataPackage: URI, department: Option[String], series: Option[String])
+  case class Input(batchId: String, metadataPackage: URI)
   case class Config(dynamoTableName: String, discoveryApiUrl: String) derives ConfigReader
-  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], discoveryService: IO[DiscoveryService], time: () => Instant = () => Instant.now())
+  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], time: () => Instant = () => Instant.now())
 }

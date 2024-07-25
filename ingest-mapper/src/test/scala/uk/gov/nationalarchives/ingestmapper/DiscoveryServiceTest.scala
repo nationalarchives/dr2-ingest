@@ -11,7 +11,7 @@ import sttp.client3.UriContext
 import sttp.client3.impl.cats.CatsMonadError
 import sttp.client3.testing.SttpBackendStub
 import ujson.Obj
-import uk.gov.nationalarchives.ingestmapper.Lambda.Input
+import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
 
 import java.net.URI
 import java.util.UUID
@@ -35,6 +35,9 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   }
 
   val baseUrl = "http://localhost"
+  val assetMap: Map[String, Option[DiscoveryCollectionAsset]] = List("T", "T TEST").map { col =>
+    col -> Option(DiscoveryCollectionAsset(col, DiscoveryScopeContent(s"TestDescription $col 1          \nTestDescription $col 2"), s"Test Title $col"))
+  }.toMap
   val bodyMap: Map[String, String] = List("T", "T TEST").map { col =>
     val description = <scopecontent>
         <head>Head</head>
@@ -81,7 +84,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     }
   }
 
-  "getDepartmentAndSeriesItems" should "return the correct values for series and department" in {
+  "getDiscoveryCollectionAssets" should "return the correct values for series and department" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
       .thenRespond(bodyMap("T"))
@@ -89,74 +92,122 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, Option("T"), Option("T TEST")))
+      .getDiscoveryCollectionAssets(Option("T TEST"))
       .unsafeRunSync()
 
-    val departmentItem = result.departmentItem
-    val seriesItem = result.potentialSeriesItem.head
-
-    checkDynamoTable(departmentItem, "T", uuids.head, None)
-    checkDynamoTable(seriesItem, "T TEST", uuids.head, Option(uuids.head))
+    val departmentCollectionAsset = result.potentialDepartmentCollectionAsset.get
+    val seriesCollectionAsset = result.potentialSeriesCollectionAsset.get
+    def checkAsset(asset: DiscoveryCollectionAsset, suffix: String) = {
+      asset.title should equal(s"Test Title $suffix")
+      asset.scopeContent.description should equal(s"TestDescription $suffix 1          \nTestDescription $suffix 2")
+      asset.citableReference should equal(suffix)
+    }
+    checkAsset(departmentCollectionAsset, "T")
+    checkAsset(seriesCollectionAsset, "T TEST")
   }
 
-  "getDepartmentAndSeriesItems" should "set the citable ref as the title and description as '', if the department reference doesn't match the input" in {
-    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/A"))
-      .thenRespond(bodyMap("T"))
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
-      .thenRespond(bodyMap("T TEST"))
-
-    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, Option("A"), Option("T TEST")))
-      .unsafeRunSync()
-
-    val departmentItem = result.departmentItem
-    val seriesItem = result.potentialSeriesItem.head
-
-    checkDynamoTable(departmentItem, "A", uuids.head, None, citableRefFound = false)
-    checkDynamoTable(seriesItem, "T TEST", uuids.head, Option(uuids.head))
-  }
-
-  "getDepartmentAndSeriesItems" should "set the citable ref as the title and description as '', if the series reference doesn't match the input" in {
-    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
-      .thenRespond(bodyMap("T"))
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/A TEST"))
-      .thenRespond(bodyMap("T TEST"))
-
-    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, Option("T"), Option("A TEST")))
-      .unsafeRunSync()
-
-    val departmentItem = result.departmentItem
-    val seriesItem = result.potentialSeriesItem.head
-
-    checkDynamoTable(departmentItem, "T", uuids.head, None)
-    checkDynamoTable(seriesItem, "A TEST", uuids.head, Option(uuids.head), citableRefFound = false)
-  }
-
-  "getDepartmentAndSeriesItems" should "return an error if the discovery API returns an error" in {
+  "getDiscoveryCollectionAssets" should "return an error if the discovery API returns an error" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError()).whenAnyRequest
       .thenRespondServerError()
 
     val ex = intercept[Exception] {
       new DiscoveryService(baseUrl, backend, uuidIterator)
-        .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, Option("T"), Option("A TEST")))
+        .getDiscoveryCollectionAssets(Option("A TEST"))
         .unsafeRunSync()
     }
     ex.getMessage should equal("statusCode: 500, response: Internal server error")
   }
 
-  "getDepartmentAndSeriesItems" should "return an unknown department if the department is missing" in {
+  "getDiscoveryCollectionAssets" should "set the citable ref as the title and description as '', if the series reference doesn't match the response" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/A"))
+      .thenRespond(bodyMap("T"))
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/A TEST"))
+      .thenRespond(bodyMap("T TEST"))
+
+    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+      .getDiscoveryCollectionAssets(Option("A TEST"))
+      .unsafeRunSync()
+
+    val departmentItem = result.potentialDepartmentCollectionAsset.get
+    val seriesItem = result.potentialSeriesCollectionAsset.get
+
+    def checkAsset(asset: DiscoveryCollectionAsset, suffix: String) = {
+      asset.title should equal(suffix)
+      asset.scopeContent.description should equal("")
+      asset.citableReference should equal(suffix)
+    }
+  }
+
+  "getDiscoveryCollectionAssets" should "set the citable ref as the title and description as '', if the department call returns an empty asset" in {
+    val emptyResponse: String = """{"assets": []}"""
+
+    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
+      .thenRespond(emptyResponse)
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, None, Option("T TEST")))
+      .getDiscoveryCollectionAssets(Option("T TEST"))
       .unsafeRunSync()
 
-    result.potentialSeriesItem.isDefined should equal(true)
+    result.potentialSeriesCollectionAsset.isDefined should equal(true)
+    val departmentItem = result.potentialDepartmentCollectionAsset.get
+    val seriesItem = result.potentialSeriesCollectionAsset.get
+
+    departmentItem.title should equal("T")
+    departmentItem.scopeContent.description should equal("")
+    departmentItem.citableReference should equal("T")
+    seriesItem.title should equal("Test Title T TEST")
+    seriesItem.scopeContent.description should equal("TestDescription T TEST 1          \nTestDescription T TEST 2")
+    seriesItem.citableReference should equal("T TEST")
+  }
+
+  "getDiscoveryCollectionAssets" should "set the citable ref as the title and description as '', if the series call returns an empty asset" in {
+    val emptyResponse: String = """{"assets": []}"""
+
+    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
+      .thenRespond(bodyMap("T"))
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
+      .thenRespond(emptyResponse)
+
+    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+      .getDiscoveryCollectionAssets(Option("T TEST"))
+      .unsafeRunSync()
+
+    result.potentialSeriesCollectionAsset.isDefined should equal(true)
+    val departmentItem = result.potentialDepartmentCollectionAsset.get
+    val seriesItem = result.potentialSeriesCollectionAsset.get
+
+    departmentItem.title should equal("Test Title T")
+    departmentItem.scopeContent.description should equal("TestDescription T 1          \nTestDescription T 2")
+    departmentItem.citableReference should equal("T")
+    seriesItem.title should equal("T TEST")
+    seriesItem.scopeContent.description should equal("")
+    seriesItem.citableReference should equal("T TEST")
+  }
+
+  "getDepartmentAndSeriesItems" should "return the correct values for series and department" in {
+    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+
+    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+      .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(assetMap("T"), assetMap("T TEST")))
+
+    val departmentItem = result.departmentItem
+    val seriesItem = result.potentialSeriesItem.head
+
+    checkDynamoTable(departmentItem, "T", uuids.head, None)
+    checkDynamoTable(seriesItem, "T TEST", uuids.head, Option(uuids.head))
+  }
+
+  "getDepartmentAndSeriesItems" should "return unknown for the department if the department is missing" in {
+    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+
+    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+      .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(None, assetMap("T TEST")))
+
     val departmentItem = result.departmentItem
     val seriesItem = result.potentialSeriesItem.head
 
@@ -164,27 +215,29 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     checkDynamoTable(seriesItem, "T TEST", uuids.head, Option(uuids.head))
   }
 
-  "getDepartmentAndSeriesItems" should "return a department and an empty series if the series is missing" in {
+  "getDepartmentAndSeriesItems" should "return an empty series if the series is missing" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
-      .thenRespond(bodyMap("T"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, Option("T"), None))
-      .unsafeRunSync()
-    result.potentialSeriesItem.isDefined should equal(false)
+      .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(assetMap("T"), None))
+
     val departmentItem = result.departmentItem
+    val seriesItem = result.potentialSeriesItem
+
+    seriesItem.isEmpty should be(true)
     checkDynamoTable(departmentItem, "T", uuids.head, None)
+
   }
 
   "getDepartmentAndSeriesItems" should "return an unknown department if the series and department are missing" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, None, None))
-      .unsafeRunSync()
+      .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(None, None))
+
     result.potentialSeriesItem.isDefined should equal(false)
     val departmentItem = result.departmentItem
     checkDynamoTable(departmentItem, "Unknown", uuids.head, None)
   }
+
 }

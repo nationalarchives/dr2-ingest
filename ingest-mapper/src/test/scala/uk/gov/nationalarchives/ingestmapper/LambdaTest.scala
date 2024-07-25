@@ -36,117 +36,142 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   "handler" should "return the correct values from the lambda" in {
     val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
     import testUtils._
-    val (folderIdentifier, assetIdentifier, _, _, _, _) = stubValidNetworkRequests()
+    val ((folderIdentifierOne, assetIdentifierOne, _, _, _, _), (folderIdentifierTwo, assetIdentifierTwo, _, _, _, _)) = stubValidNetworkRequests()
 
     val stateData = new Lambda().handler(input, config, dependencies()).unsafeRunSync()
     val archiveFolders = stateData.archiveHierarchyFolders
-    archiveFolders.size should be(3)
-    archiveFolders.contains(folderIdentifier) should be(true)
-    List(folderIdentifier, UUID.fromString(uuids.tail.head), UUID.fromString(uuids.head)).equals(archiveFolders) should be(true)
+    archiveFolders.size should be(6)
+    archiveFolders.contains(folderIdentifierOne) should be(true)
+    val expectedArchiveFolders =
+      List(folderIdentifierOne, folderIdentifierTwo, UUID.fromString(uuids(1)), UUID.fromString(uuids.head), UUID.fromString(uuids(2)), UUID.fromString(uuids(3)))
+    expectedArchiveFolders.sorted.equals(archiveFolders.sorted) should be(true)
 
     stateData.contentFolders.isEmpty should be(true)
 
-    stateData.contentAssets.size should be(1)
-    stateData.contentAssets.head should equal(assetIdentifier)
+    stateData.contentAssets.size should be(2)
+    stateData.contentAssets.head should equal(assetIdentifierOne)
+    stateData.contentAssets.last should equal(assetIdentifierTwo)
   }
 
   "handler" should "write the correct values to dynamo" in {
     val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
     val fixedTimeInSecs = 1712707200
     import testUtils._
-    val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalFiles, originalMetadataFiles) = stubValidNetworkRequests()
+    val (responseOne, responseTwo) = stubValidNetworkRequests()
     new Lambda().handler(input, config, dependencies()).unsafeRunSync()
     val dynamoRequestBodies = dynamoServer.getAllServeEvents.asScala.map(e => read[DynamoRequestBody](e.getRequest.getBodyAsString))
     dynamoRequestBodies.length should equal(1)
     val tableRequestItems = dynamoRequestBodies.head.RequestItems.test
 
-    tableRequestItems.length should equal(6)
-    checkDynamoItems(
-      tableRequestItems,
-      DynamoFilesTableItem("TEST", UUID.fromString(uuids.head), "", "A", ArchiveFolder, "Test Title A", "TestDescriptionA with 0", Some("A"), 1, fixedTimeInSecs)
-    )
-    checkDynamoItems(
-      tableRequestItems,
-      DynamoFilesTableItem(
-        "TEST",
-        UUID.fromString(uuids.tail.head),
-        uuids.head,
-        "A 1",
-        ArchiveFolder,
-        "Test Title A 1",
-        "TestDescriptionA 1 with 0",
-        Some("A 1"),
-        1,
-        fixedTimeInSecs
+    tableRequestItems.length should equal(12)
+    case class TestResponses(response: NetworkResponse, uuidIndices: List[Int], series: String)
+    List(
+      TestResponses(responseOne, List(2, 3), "A 1"),
+      TestResponses(responseTwo, List(0, 1), "B 2")
+    ).foreach { testResponse =>
+      val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalFiles, originalMetadataFiles) = testResponse.response
+      val departmentUuid = UUID.fromString(uuids(testResponse.uuidIndices.head))
+      val seriesUuid = UUID.fromString(uuids(testResponse.uuidIndices.last))
+      val expectedDepartment = testResponse.series.split(" ").head
+      checkDynamoItems(
+        tableRequestItems,
+        DynamoFilesTableItem(
+          "TEST",
+          departmentUuid,
+          "",
+          expectedDepartment,
+          ArchiveFolder,
+          s"Test Title $expectedDepartment",
+          s"TestDescription$expectedDepartment with 0",
+          Some(expectedDepartment),
+          1,
+          fixedTimeInSecs
+        )
       )
-    )
-    checkDynamoItems(
-      tableRequestItems,
-      DynamoFilesTableItem(
-        "TEST",
-        folderIdentifier,
-        s"${uuids.head}/${uuids.tail.head}",
-        "TestName",
-        ArchiveFolder,
-        "TestTitle",
-        "",
-        None,
-        1,
-        fixedTimeInSecs
+      checkDynamoItems(
+        tableRequestItems,
+        DynamoFilesTableItem(
+          "TEST",
+          seriesUuid,
+          departmentUuid.toString,
+          testResponse.series,
+          ArchiveFolder,
+          s"Test Title ${testResponse.series}",
+          s"TestDescription${testResponse.series} with 0",
+          Some(testResponse.series),
+          1,
+          fixedTimeInSecs
+        )
       )
-    )
-    checkDynamoItems(
-      tableRequestItems,
-      DynamoFilesTableItem(
-        "TEST",
-        assetIdentifier,
-        s"${uuids.head}/${uuids.tail.head}/$folderIdentifier",
-        "TestAssetName",
-        Asset,
-        "TestAssetTitle",
-        "",
-        None,
-        2,
-        fixedTimeInSecs,
-        originalFiles = originalFiles,
-        originalMetadataFiles = originalMetadataFiles
+      checkDynamoItems(
+        tableRequestItems,
+        DynamoFilesTableItem(
+          "TEST",
+          folderIdentifier,
+          s"$departmentUuid/$seriesUuid",
+          "TestName",
+          ArchiveFolder,
+          "TestTitle",
+          "",
+          None,
+          1,
+          fixedTimeInSecs
+        )
       )
-    )
-    checkDynamoItems(
-      tableRequestItems,
-      DynamoFilesTableItem(
-        "TEST",
-        docxIdentifier,
-        s"${uuids.head}/${uuids.tail.head}/$folderIdentifier/$assetIdentifier",
-        "Test.docx",
-        File,
-        "Test",
-        "",
-        None,
-        0,
-        fixedTimeInSecs,
-        Option(1),
-        customMetadataAttribute1 = Option("customMetadataValue1")
+      checkDynamoItems(
+        tableRequestItems,
+        DynamoFilesTableItem(
+          "TEST",
+          assetIdentifier,
+          s"$departmentUuid/$seriesUuid/$folderIdentifier",
+          "TestAssetName",
+          Asset,
+          "TestAssetTitle",
+          "",
+          None,
+          2,
+          fixedTimeInSecs,
+          originalFiles = originalFiles,
+          originalMetadataFiles = originalMetadataFiles
+        )
       )
-    )
-    checkDynamoItems(
-      tableRequestItems,
-      DynamoFilesTableItem(
-        "TEST",
-        metadataIdentifier,
-        s"${uuids.head}/${uuids.tail.head}/$folderIdentifier/$assetIdentifier",
-        "TEST-metadata.json",
-        File,
-        "",
-        "",
-        None,
-        0,
-        fixedTimeInSecs,
-        Option(2),
-        Option("checksum"),
-        Option("txt")
+      checkDynamoItems(
+        tableRequestItems,
+        DynamoFilesTableItem(
+          "TEST",
+          docxIdentifier,
+          s"$departmentUuid/$seriesUuid/$folderIdentifier/$assetIdentifier",
+          "Test.docx",
+          File,
+          "Test",
+          "",
+          None,
+          0,
+          fixedTimeInSecs,
+          Option(1),
+          customMetadataAttribute1 = Option("customMetadataValue1")
+        )
       )
-    )
+      checkDynamoItems(
+        tableRequestItems,
+        DynamoFilesTableItem(
+          "TEST",
+          metadataIdentifier,
+          s"$departmentUuid/$seriesUuid/$folderIdentifier/$assetIdentifier",
+          "TEST-metadata.json",
+          File,
+          "",
+          "",
+          None,
+          0,
+          fixedTimeInSecs,
+          Option(2),
+          Option("checksum"),
+          Option("txt")
+        )
+      )
+    }
+
   }
 
   "handler" should "return an error if the discovery api is unavailable" in {

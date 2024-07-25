@@ -4,21 +4,19 @@ import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.*
 import org.mockito.Mockito.*
-import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
-import sttp.client3.SttpBackend
-import ujson.{Num, Obj, Str}
-import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, Dependencies, Input}
-import uk.gov.nationalarchives.ingestmapper.MetadataService.DepartmentAndSeriesTableItems
-import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.{DynamoFilesTableItem, DynamoLRequestField, DynamoNRequestField, DynamoSRequestField, DynamoTableItem}
-import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import sttp.capabilities.fs2.Fs2Streams
+import sttp.client3.SttpBackend
+import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
+import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, Dependencies, Input}
+import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.*
 import uk.gov.nationalarchives.ingestmapper.{DiscoveryService, MetadataService}
+import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import upickle.default.write
 
 import java.net.URI
@@ -29,37 +27,64 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
   val inputBucket = "input"
   val uuids: List[String] = List(
     "c7e6b27f-5778-4da8-9b83-1b64bbccbd03",
-    "61ac0166-ccdf-48c4-800f-29e5fba2efda"
+    "61ac0166-ccdf-48c4-800f-29e5fba2efda",
+    "5364b309-aa11-4660-b518-f47b5b96a588",
+    "0dcc4151-b1d0-44ac-a4a1-5415d7d50d65"
   )
   val config: Config = Config("test", "http://localhost:9015")
-  val input: Input = Input("TEST", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"), Option("A"), Option("A 1"))
+  val input: Input = Input("TEST", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"))
 
-  def stubValidNetworkRequests(dynamoTable: String = "test"): (UUID, UUID, UUID, UUID, List[String], List[String]) = {
-    val folderIdentifier = UUID.randomUUID()
-    val assetIdentifier = UUID.randomUUID()
-    val docxIdentifier = UUID.randomUUID()
-    val metadataFileIdentifier = UUID.randomUUID()
-    val originalFiles = List(UUID.randomUUID(), UUID.randomUUID()).map(_.toString)
-    val originalMetadataFiles = List(UUID.randomUUID(), UUID.randomUUID()).map(_.toString)
+  type NetworkResponse = (UUID, UUID, UUID, UUID, List[String], List[String])
+
+  def stubValidNetworkRequests(dynamoTable: String = "test"): (NetworkResponse, NetworkResponse) = {
+    val folderIdentifierOne = UUID.randomUUID()
+    val folderIdentifierTwo = UUID.randomUUID()
+    val assetIdentifierOne = UUID.randomUUID()
+    val assetIdentifierTwo = UUID.randomUUID()
+    val docxIdentifierOne = UUID.randomUUID()
+    val docxIdentifierTwo = UUID.randomUUID()
+    val metadataFileIdentifierOne = UUID.randomUUID()
+    val metadataFileIdentifierTwo = UUID.randomUUID()
+    val originalFilesOne = List(UUID.randomUUID(), UUID.randomUUID()).map(_.toString)
+    val originalFilesTwo = List(UUID.randomUUID(), UUID.randomUUID()).map(_.toString)
+    val originalMetadataFilesOne = List(UUID.randomUUID(), UUID.randomUUID()).map(_.toString)
+    val originalMetadataFilesTwo = List(UUID.randomUUID(), UUID.randomUUID()).map(_.toString)
 
     val metadata =
-      s"""[{"id":"$folderIdentifier","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "customMetadataAttribute2": "customMetadataValue2"},
+      s"""[
+         |{"id":"$folderIdentifierOne","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "customMetadataAttribute2": "customMetadataValue2", "series": "A 1"},
+         |{"id":"$folderIdentifierTwo","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "customMetadataAttribute2": "customMetadataValue2", "series": "B 2"},
          |{
-         | "id":"$assetIdentifier",
-         | "parentId":"$folderIdentifier",
+         | "id":"$assetIdentifierOne",
+         | "parentId":"$folderIdentifierOne",
          | "title":"TestAssetTitle",
          | "type":"Asset",
          | "name":"TestAssetName",
          | "fileSize":null,
-         | "originalFiles": ${write(originalFiles)},
-         | "originalMetadataFiles": ${write(originalMetadataFiles)}
+         | "originalFiles": ${write(originalFilesOne)},
+         | "originalMetadataFiles": ${write(originalMetadataFilesOne)}
          |},
-         |{"id":"$docxIdentifier","parentId":"$assetIdentifier","title":"Test","type":"File","name":"Test.docx","fileSize":1, "customMetadataAttribute1": "customMetadataValue1"},
-         |{"id":"$metadataFileIdentifier","parentId":"$assetIdentifier","title":"","type":"File","name":"TEST-metadata.json","fileSize":2}]
+         |{
+         | "id":"$assetIdentifierTwo",
+         | "parentId":"$folderIdentifierTwo",
+         | "title":"TestAssetTitle",
+         | "type":"Asset",
+         | "name":"TestAssetName",
+         | "fileSize":null,
+         | "originalFiles": ${write(originalFilesTwo)},
+         | "originalMetadataFiles": ${write(originalMetadataFilesTwo)}
+         |},
+         |{"id":"$docxIdentifierOne","parentId":"$assetIdentifierOne","title":"Test","type":"File","name":"Test.docx","fileSize":1, "customMetadataAttribute1": "customMetadataValue1"},
+         |{"id":"$metadataFileIdentifierOne","parentId":"$assetIdentifierOne","title":"","type":"File","name":"TEST-metadata.json","fileSize":2},
+         |{"id":"$docxIdentifierTwo","parentId":"$assetIdentifierTwo","title":"Test","type":"File","name":"Test.docx","fileSize":1, "customMetadataAttribute1": "customMetadataValue1"},
+         |{"id":"$metadataFileIdentifierTwo","parentId":"$assetIdentifierTwo","title":"","type":"File","name":"TEST-metadata.json","fileSize":2}]
          |""".stripMargin.replaceAll("\n", "")
 
     stubNetworkRequests(dynamoTable, metadata)
-    (folderIdentifier, assetIdentifier, docxIdentifier, metadataFileIdentifier, originalFiles, originalMetadataFiles)
+    (
+      (folderIdentifierOne, assetIdentifierOne, docxIdentifierOne, metadataFileIdentifierOne, originalFilesOne, originalMetadataFilesOne),
+      (folderIdentifierTwo, assetIdentifierTwo, docxIdentifierTwo, metadataFileIdentifierTwo, originalFilesTwo, originalMetadataFilesTwo)
+    )
   }
 
   def stubInvalidNetworkRequests(dynamoTable: String = "test"): Unit = {
@@ -95,7 +120,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     }
   }
 
-  def checkDynamoItems(tableRequestItems: List[DynamoTableItem], expectedTable: DynamoFilesTableItem): Assertion = {
+  def checkDynamoItems(tableRequestItems: List[DynamoTableItem], expectedTable: DynamoFilesTableItem): Unit = {
     val items = tableRequestItems
       .filter(_.PutRequest.Item.items("id").asInstanceOf[DynamoSRequestField].S == expectedTable.id.toString)
       .map(_.PutRequest.Item)
@@ -139,34 +164,26 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
       .credentialsProvider(creds)
       .build()
     val uuidsIterator: Iterator[String] = uuids.iterator
-    val metadataService: MetadataService = new MetadataService(DAS3Client[IO](asyncS3Client))
-    val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO](asyncDynamoClient)
     val randomUuidGenerator: () => UUID = () => UUID.fromString(uuidsIterator.next())
     val mockBackend = mock[SttpBackend[IO, Fs2Streams[IO]]]()
     val discoveryService = MockDiscoveryService(config.discoveryApiUrl, mockBackend, randomUuidGenerator, discoveryServiceException)
+    val metadataService: MetadataService = new MetadataService(DAS3Client[IO](asyncS3Client), discoveryService)
+    val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO](asyncDynamoClient)
     val fixedTime = () => Instant.parse("2024-01-01T00:00:00.00Z")
-    Dependencies(metadataService, dynamo, IO.pure(discoveryService), fixedTime)
+    Dependencies(metadataService, dynamo, fixedTime)
   }
 
   case class MockDiscoveryService(discoveryApiUrl: String, backend: SttpBackend[IO, Fs2Streams[IO]], randomUuidGenerator: () => UUID, discoveryServiceException: Boolean)
       extends DiscoveryService(discoveryApiUrl, backend, randomUuidGenerator) {
-    private def generateJsonMap(col: String) = Map(
-      "batchId" -> Str(input.batchId),
-      "id" -> Str(randomUuidGenerator().toString),
-      "name" -> Str(s"$col"),
-      "type" -> Str("ArchiveFolder"),
-      "title" -> Str(s"Test Title $col"),
-      "description" -> Str(s"TestDescription$col with 0"),
-      "ttl" -> Num(1712707200)
-    )
 
-    private val departmentJsonMap = generateJsonMap("A")
-    private val departmentTableData = departmentJsonMap ++ Map("id_Code" -> departmentJsonMap("name"))
-    private val seriesJsonMap = generateJsonMap("A 1")
-    private val seriesTableData = seriesJsonMap ++ Map("parentPath" -> departmentJsonMap("id"), "id_Code" -> seriesJsonMap("name"))
+    def generateDiscoveryCollectionAsset(col: String): DiscoveryCollectionAsset =
+      DiscoveryCollectionAsset(col, DiscoveryScopeContent(s"TestDescription$col with 0"), s"Test Title $col")
 
-    override def getDepartmentAndSeriesItems(input: Input): IO[DepartmentAndSeriesTableItems] =
-      if (discoveryServiceException) IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
-      else IO.pure(DepartmentAndSeriesTableItems(Obj.from(departmentTableData), Some(Obj.from(seriesTableData))))
+    override def getDiscoveryCollectionAssets(series: Option[String]): IO[DepartmentAndSeriesCollectionAssets] =
+      if discoveryServiceException then IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
+      else if series.isEmpty then IO.pure(DepartmentAndSeriesCollectionAssets(None, None))
+      else
+        val department = series.get.split(" ").head
+        IO.pure(DepartmentAndSeriesCollectionAssets(Option(generateDiscoveryCollectionAsset(department)), Option(generateDiscoveryCollectionAsset(series.get))))
   }
 }

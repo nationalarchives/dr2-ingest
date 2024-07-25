@@ -3,8 +3,8 @@ package uk.gov.nationalarchives.ingestmapper
 import cats.effect.IO
 import cats.implicits.*
 import fs2.interop.reactivestreams.*
-import ujson.*
 import fs2.{Chunk, Pipe, Stream, text}
+import ujson.*
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
@@ -13,21 +13,33 @@ import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.{Asset, File}
 import java.util.UUID
 import scala.util.Try
 
-class MetadataService(s3: DAS3Client[IO]) {
+class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
   lazy private val bufferSize = 1024 * 5
 
-  private def getParentPaths(json: Value.Value): Map[UUID, String] = {
+  private def getParentPaths(json: Value.Value, departmentSeriesMap: Map[UUID, DepartmentAndSeriesTableItems]): Map[UUID, String] = {
     val idToParentId = json.arr.toList.map { eachEntry =>
-      UUID.fromString(eachEntry("id").str) -> eachEntry("parentId").strOpt.map(UUID.fromString)
+      eachEntry.id -> eachEntry.parentId
     }.toMap
 
-    def searchParentIds(parentIdOpt: Option[UUID]): String = {
+    def getPathPrefix(id: UUID): String = departmentSeriesMap
+      .get(id)
+      .map { departmentAndSeriesItems =>
+        val departmentId = departmentAndSeriesItems.departmentItem.id
+        departmentAndSeriesItems.potentialSeriesItem
+          .map(series => s"$departmentId/${series("id").str}")
+          .getOrElse(departmentId.toString)
+      }
+      .getOrElse("")
+
+    def searchParentIds(id: UUID): String = {
+      val parentIdOpt = idToParentId.get(id).flatten
       val parentId = parentIdOpt.map(_.toString).getOrElse("")
-      val parentIdOfParent = parentIdOpt.flatMap(idToParentId.get).flatten
-      if (parentIdOfParent.isEmpty) parentId else s"${searchParentIds(parentIdOfParent)}/$parentId"
+      val pathPrefix = getPathPrefix(id)
+      if parentIdOpt.isEmpty then s"$pathPrefix$parentId"
+      else s"${searchParentIds(parentIdOpt.get)}/$parentId"
     }
-    idToParentId.map { case (id, parentIdOpt) =>
-      id -> searchParentIds(parentIdOpt)
+    idToParentId.map { case (id, _) =>
+      id -> searchParentIds(id)
     }
   }
 
@@ -40,48 +52,63 @@ class MetadataService(s3: DAS3Client[IO]) {
     }
   }
 
+  extension (value: Value)
+    def parentId: Option[UUID] = value("parentId").strOpt.map(UUID.fromString)
+    def series: Option[String] = Try(value("series")).toOption.map(_.str)
+    def id: UUID = UUID.fromString(value("id").str)
+
   def parseMetadataJson(
-      input: Input,
-      departmentAndSeriesItems: DepartmentAndSeriesTableItems
+      input: Input
   ): IO[List[Obj]] =
     parseFileFromS3(
       input,
       s =>
         s.flatMap { metadataJson =>
           val json = read(metadataJson)
-          val departmentId = departmentAndSeriesItems.departmentItem("id").str
-          val pathPrefix = departmentAndSeriesItems.potentialSeriesItem
-            .map(series => s"$departmentId/${series("id").str}")
-            .getOrElse(departmentId)
-          val parentPaths = getParentPaths(json)
-
-          Stream.emits {
-            val updatedJson = json.arr.toList.map { metadataEntry =>
-              val id = UUID.fromString(metadataEntry("id").str)
-              val name = metadataEntry("name").str
-              val parentPath = parentPaths(id)
-              val path = if (parentPath.isEmpty) pathPrefix else s"$pathPrefix/${parentPath.stripPrefix("/")}"
-              val checksum: Value = Try(metadataEntry("checksum_sha256")).toOption
-                .map(_.str)
-                .map(Str.apply)
-                .getOrElse(Null)
-              val entryType = metadataEntry("type").str
-              val fileExtension =
-                if (entryType == File.toString)
-                  name.split('.').toList.reverse match {
-                    case ext :: _ :: _ => Str(ext)
-                    case _             => Null
-                  }
-                else Null
-              val metadataMap: Map[String, Value] =
-                Map("batchId" -> Str(input.batchId), "parentPath" -> Str(path), "checksum_sha256" -> checksum, "fileExtension" -> fileExtension) ++ metadataEntry.obj.view
-                  .filterKeys(_ != "parentId")
-                  .toMap
-
-              Obj.from(metadataMap)
-            } ++ departmentAndSeriesItems.potentialSeriesItem.toList ++ List(departmentAndSeriesItems.departmentItem)
-            addChildCountAttributes(updatedJson)
+          val jsonArr = json.arr.toList
+          val topLevelObjects = jsonArr.filter(_.parentId.isEmpty)
+          val topLevelItemToDepartmentSeries: IO[Map[UUID, DepartmentAndSeriesTableItems]] = topLevelObjects
+            .groupBy(_.series)
+            .view
+            .mapValues(_.map(_.id))
+            .toMap
+            .map { case (series, parentIds) =>
+              discoveryService.getDiscoveryCollectionAssets(series).map { assets =>
+                parentIds.map(parentId => parentId -> discoveryService.getDepartmentAndSeriesItems(input.batchId, assets))
+              }
+            }
+            .toList
+            .sequence
+            .map(_.flatten.toMap)
+          Stream.evals {
+            topLevelItemToDepartmentSeries.map { itemToDepartmentSeries =>
+              val parentPaths = getParentPaths(json, itemToDepartmentSeries)
+              val updatedJson = json.arr.toList.map { metadataEntry =>
+                val id = UUID.fromString(metadataEntry("id").str)
+                val name = metadataEntry("name").str
+                val parentPath = parentPaths(id)
+                val checksum: Value = Try(metadataEntry("checksum_sha256")).toOption
+                  .map(_.str)
+                  .map(Str.apply)
+                  .getOrElse(Null)
+                val entryType = metadataEntry("type").str
+                val fileExtension =
+                  if (entryType == File.toString)
+                    name.split('.').toList.reverse match {
+                      case ext :: _ :: _ => Str(ext)
+                      case _             => Null
+                    }
+                  else Null
+                val metadataMap: Map[String, Value] =
+                  Map("batchId" -> Str(input.batchId), "parentPath" -> Str(parentPath), "checksum_sha256" -> checksum, "fileExtension" -> fileExtension) ++ metadataEntry.obj.view
+                    .filterKeys(_ != "parentId")
+                    .toMap
+                Obj.from(metadataMap)
+              } ++ itemToDepartmentSeries.values.toList.flatMap(_.potentialSeriesItem) ++ itemToDepartmentSeries.values.toList.map(_.departmentItem)
+              addChildCountAttributes(updatedJson)
+            }
           }
+
         }
     )
 
@@ -121,8 +148,8 @@ object MetadataService {
     def show = s"Department: ${departmentItem.value.get("title").orNull} Series ${potentialSeriesItem.flatMap(_.value.get("title")).orNull}"
   }
 
-  def apply(): MetadataService = {
+  def apply(discoveryService: DiscoveryService): MetadataService = {
     val s3 = DAS3Client[IO]()
-    new MetadataService(s3)
+    new MetadataService(s3, discoveryService)
   }
 }
