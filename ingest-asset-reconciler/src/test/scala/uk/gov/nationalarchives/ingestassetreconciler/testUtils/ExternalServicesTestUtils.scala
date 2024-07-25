@@ -106,6 +106,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |      "batchId": {
        |        "S": "$batchId"
        |      },
+       |      "location": {
+       |        "S": "s3://bucket/key"
+       |      },
        |      "transferringBody": {
        |        "S": "Test Transferring Body"
        |      },
@@ -173,6 +176,9 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |      },
        |      "batchId": {
        |        "S": "$batchId"
+       |      },
+       |      "location": {
+       |        "S": "s3://bucket/key"
        |      },
        |      "transferringBody": {
        |        "S": "Test Transferring Body"

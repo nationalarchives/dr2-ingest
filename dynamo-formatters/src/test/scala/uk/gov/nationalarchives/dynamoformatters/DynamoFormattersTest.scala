@@ -12,6 +12,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.*
 
+import java.net.URI
 import java.time.OffsetDateTime
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
@@ -49,7 +50,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       ingestedCustodialCopy -> fromS("true"),
       representationSuffix -> fromN("1"),
       "id_Test" -> fromS("testIdentifier"),
-      childCount -> fromN("1")
+      childCount -> fromN("1"),
+      location -> fromS("s3://bucket/key")
     )
   val allAssetFieldsPopulated: Map[String, AttributeValue] = {
     Map(
@@ -107,7 +109,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
           (checksumSha256, "checksum"),
           (sortOrder, "2"),
           (representationType, representationTypeValue),
-          (representationSuffix, "1")
+          (representationSuffix, "1"),
+          (location, "s3://bucket/key")
         ) ++ baseFields
       case _ => Nil
     }
@@ -181,6 +184,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     (missingFieldsAttributeValue(ArchiveFolder, batchId), "'batchId': missing", ArchiveFolder),
     (missingFieldsAttributeValue(ArchiveFolder, name), "'name': missing", ArchiveFolder),
     (missingFieldsAttributeValue(ArchiveFolder, typeField), "'type': missing", ArchiveFolder),
+    (missingFieldsAttributeValue(File, location), "'location': missing", File),
     (
       missingFieldsAttributeValue(ArchiveFolder, typeField, batchId, name),
       "'batchId': missing, 'name': missing, 'type': missing",
@@ -238,7 +242,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     ),
     (
       invalidTypeAttributeValue,
-      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'checksum_sha256': missing, 'fileExtension': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing",
+      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'checksum_sha256': missing, 'fileExtension': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing, 'location': missing",
       File
     ),
     (
@@ -410,6 +414,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     fileRow.sortOrder should equal(2)
     fileRow.checksumSha256 should equal("testChecksumSha256")
     fileRow.fileExtension should equal("testFileExtension")
+    fileRow.location.toString should equal("s3://bucket/key")
   }
 
   "fileTableFormat write" should "write all mandatory fields and ignore any optional ones" in {
@@ -433,7 +438,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(ingestedCustodialCopy).s() should equal("true")
     resultMap("representationSuffix").n() should equal("1")
     resultMap("id_FileIdentifier1").s() should equal("FileIdentifier1Value")
-
+    resultMap(location).s() should equal("s3://bucket/key")
   }
 
   "archiveFolderTableFormat read" should "return a valid object when all folder fields are populated" in {
@@ -697,7 +702,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       ingestedPreservica,
       true,
       List(Identifier("FileIdentifier1", "FileIdentifier1Value")),
-      1
+      1,
+      URI.create("s3://bucket/key")
     )
   }
 

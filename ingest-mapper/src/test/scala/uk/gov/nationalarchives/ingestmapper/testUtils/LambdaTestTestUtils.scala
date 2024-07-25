@@ -15,7 +15,7 @@ import sttp.client3.SttpBackend
 import ujson.{Num, Obj, Str}
 import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, Dependencies, Input}
 import uk.gov.nationalarchives.ingestmapper.MetadataService.DepartmentAndSeriesTableItems
-import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.{DynamoLRequestField, DynamoNRequestField, DynamoSRequestField, DynamoFilesTableItem, DynamoTableItem}
+import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.{DynamoFilesTableItem, DynamoLRequestField, DynamoNRequestField, DynamoSRequestField, DynamoTableItem}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.ingestmapper.{DiscoveryService, MetadataService}
@@ -32,7 +32,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     "61ac0166-ccdf-48c4-800f-29e5fba2efda"
   )
   val config: Config = Config("test", "http://localhost:9015")
-  val input: Input = Input("TEST", inputBucket, s3Prefix, Option("A"), Option("A 1"))
+  val input: Input = Input("TEST", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"), Option("A"), Option("A 1"))
 
   def stubValidNetworkRequests(dynamoTable: String = "test"): (UUID, UUID, UUID, UUID, List[String], List[String]) = {
     val folderIdentifier = UUID.randomUUID()
@@ -58,15 +58,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
          |{"id":"$metadataFileIdentifier","parentId":"$assetIdentifier","title":"","type":"File","name":"TEST-metadata.json","fileSize":2}]
          |""".stripMargin.replaceAll("\n", "")
 
-    val bagInfoMetadata =
-      """{"customMetadataAttribute2": "customMetadataValueFromBagInfo","attributeUniqueToBagInfo": "bagInfoAttributeValue"}"""
-
-    val manifestData: String =
-      s"""checksumdocx data/$docxIdentifier
-         |checksummetadata data/$metadataFileIdentifier
-         |""".stripMargin
-
-    stubNetworkRequests(dynamoTable, metadata, manifestData, bagInfoMetadata)
+    stubNetworkRequests(dynamoTable, metadata)
     (folderIdentifier, assetIdentifier, docxIdentifier, metadataFileIdentifier, originalFiles, originalMetadataFiles)
   }
 
@@ -75,10 +67,10 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
 
     val manifestData: String = ""
 
-    stubNetworkRequests(dynamoTable, metadata, manifestData, "{}")
+    stubNetworkRequests(dynamoTable, metadata)
   }
 
-  private def stubNetworkRequests(dynamoTableName: String = "test", metadata: String, manifestData: String, bagInfoMetadata: String): Unit = {
+  private def stubNetworkRequests(dynamoTableName: String = "test", metadata: String): Unit = {
     dynamoServer.stubFor(
       post(urlEqualTo("/"))
         .withRequestBody(matchingJsonPath("$.RequestItems", containing(dynamoTableName)))
@@ -86,9 +78,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     )
 
     List(
-      ("metadata.json", metadata),
-      ("bag-info.json", bagInfoMetadata),
-      ("manifest-sha256.txt", manifestData)
+      ("metadata.json", metadata)
     ).map { case (name, responseCsv) =>
       s3Server.stubFor(
         head(urlEqualTo(s"/TEST/$name"))
@@ -130,8 +120,6 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     num("ttl").get should equal(expectedTable.ttl)
     str("type") should equal(expectedTable.`type`.toString)
     strOpt("customMetadataAttribute1") should equal(expectedTable.customMetadataAttribute1)
-    strOpt("customMetadataAttribute2") should equal(expectedTable.customMetadataAttribute2)
-    strOpt("attributeUniqueToBagInfo") should equal(expectedTable.attributeUniqueToBagInfo)
     list("originalFiles") should equal(expectedTable.originalFiles)
     list("originalMetadataFiles") should equal(expectedTable.originalMetadataFiles)
   }

@@ -7,6 +7,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 
+import java.net.URI
 import scala.xml.{Utility, XML}
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -177,7 +178,8 @@ class XMLCreatorTest extends AnyFlatSpec {
       true,
       true,
       List(Identifier("Test2", "testIdentifier4"), Identifier("Test", "testIdentifier3"), Identifier("UpstreamSystemReference", "testSystemRef2")),
-      1
+      1,
+      URI.create("s3://bucket/key")
     )
   }
 

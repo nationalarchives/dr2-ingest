@@ -5,7 +5,7 @@ import cats.effect.IO.asyncForIO
 import cats.effect.unsafe.implicits.global
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3.UriContext
 import sttp.client3.impl.cats.CatsMonadError
@@ -13,6 +13,7 @@ import sttp.client3.testing.SttpBackendStub
 import ujson.Obj
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 
+import java.net.URI
 import java.util.UUID
 
 class DiscoveryServiceTest extends AnyFlatSpec {
@@ -25,6 +26,8 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     "a504d58d-2f7d-4f29-b5b8-173b558970db",
     "41c5604d-70b3-44d1-aa1f-d9ffe18b33cb"
   )
+
+  lazy val s3Uri: URI = URI.create("s3://bucket/key")
 
   val uuidIterator: () => UUID = () => {
     val uuidsIterator: Iterator[String] = uuids.iterator
@@ -86,7 +89,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("T TEST")))
+      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, Option("T"), Option("T TEST")))
       .unsafeRunSync()
 
     val departmentItem = result.departmentItem
@@ -104,7 +107,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("A"), Option("T TEST")))
+      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, Option("A"), Option("T TEST")))
       .unsafeRunSync()
 
     val departmentItem = result.departmentItem
@@ -122,7 +125,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("A TEST")))
+      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, Option("T"), Option("A TEST")))
       .unsafeRunSync()
 
     val departmentItem = result.departmentItem
@@ -138,7 +141,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
 
     val ex = intercept[Exception] {
       new DiscoveryService(baseUrl, backend, uuidIterator)
-        .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), Option("A TEST")))
+        .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, Option("T"), Option("A TEST")))
         .unsafeRunSync()
     }
     ex.getMessage should equal("statusCode: 500, response: Internal server error")
@@ -150,7 +153,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", None, Option("T TEST")))
+      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, None, Option("T TEST")))
       .unsafeRunSync()
 
     result.potentialSeriesItem.isDefined should equal(true)
@@ -167,7 +170,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T"))
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", Option("T"), None))
+      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, Option("T"), None))
       .unsafeRunSync()
     result.potentialSeriesItem.isDefined should equal(false)
     val departmentItem = result.departmentItem
@@ -178,7 +181,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
     val result = new DiscoveryService(baseUrl, backend, uuidIterator)
-      .getDepartmentAndSeriesItems(Input("testBatch", "", "", None, None))
+      .getDepartmentAndSeriesItems(Input("testBatch", s3Uri, None, None))
       .unsafeRunSync()
     result.potentialSeriesItem.isDefined should equal(false)
     val departmentItem = result.departmentItem

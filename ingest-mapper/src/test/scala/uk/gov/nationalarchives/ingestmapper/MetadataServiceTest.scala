@@ -17,6 +17,7 @@ import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
 import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.*
 
+import java.net.URI
 import java.nio.ByteBuffer
 import java.util.UUID
 
@@ -29,13 +30,10 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
   val invalidTestCsvWithHeaders = "invalid,header\ninvalidName,invalidValue"
   val invalidTestCsvWithoutHeaders = "invalidValue"
 
-  def mockS3(responseText: String, name: String, returnError: Boolean = false): DAS3Client[IO] = {
+  def mockS3(responseText: String): DAS3Client[IO] = {
     val s3 = mock[DAS3Client[IO]]
-    val stub = when(s3.download(ArgumentMatchers.eq("bucket"), ArgumentMatchers.eq(s"prefix/$name")))
-    if (returnError)
-      stub.thenThrow(new Exception("Key not found"))
-    else
-      stub.thenReturn(IO(Flux.just(ByteBuffer.wrap(responseText.getBytes))))
+    when(s3.download(ArgumentMatchers.eq("bucket"), ArgumentMatchers.eq("prefix/metadata.json")))
+      .thenReturn(IO(Flux.just(ByteBuffer.wrap(responseText.getBytes))))
     s3
   }
 
@@ -57,30 +55,6 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
       item.value.get("originalFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTableItem.originalFiles)
       item.value.get("originalMetadataFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTableItem.originalMetadataFiles)
     }
-  }
-
-  s"parseBagManifest" should "return the correct row values" in {
-    val input = Input("testBatch", "bucket", "prefix/", Option("T"), Option("T TEST"))
-    val id = UUID.randomUUID()
-    val validBagitManifestRow = s"checksum $id"
-    val s3 = mockS3(validBagitManifestRow, "manifest-sha256.txt")
-    val result: List[BagitManifestRow] = new MetadataService(s3).parseBagManifest(input).unsafeRunSync()
-
-    result.size should equal(1)
-    result.head.checksum should equal("checksum")
-    result.head.filePath should equal(id.toString)
-  }
-
-  s"parseBagManifest" should "return an error if there is only one column" in {
-    val input = Input("testBatch", "bucket", "prefix/", Option("T"), Option("T TEST"))
-    val invalidBagitManifestRow = "onlyOneColumn"
-    val s3 = mockS3(invalidBagitManifestRow, "manifest-sha256.txt")
-
-    val ex = intercept[Exception] {
-      new MetadataService(s3).parseBagManifest(input).unsafeRunSync()
-    }
-
-    ex.getMessage should equal("Expecting 2 columns in manifest-sha256.txt, found 1")
   }
 
   val departmentSeriesTable: TableFor2[UUID, Option[UUID]] = Table(
@@ -128,16 +102,14 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           val originalMetadataFileId = UUID.randomUUID()
           val metadata =
             s"""[{"id":"$folderId","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null},
-           |{"id":"$assetId","parentId":"$folderId","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalFiles" : ["$originalFileId"], "originalMetadataFiles": ["$originalMetadataFileId"]},
+           |{"id":"$assetId","parentId":"$folderId","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalFiles" : ["$originalFileId"], "originalMetadataFiles": ["$originalMetadataFileId"], "customMetadataAttribute1": "customMetadataAttributeValue"},
            |{"id":"$fileIdOne","parentId":"$assetId","title":"Test","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
            |{"id":"$fileIdTwo","parentId":"$assetId","title":"","type":"File","name":"TEST-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"}]
            |""".stripMargin.replaceAll("\n", "")
-          val bagitManifests: List[BagitManifestRow] = List(BagitManifestRow("checksum-docx", fileIdOne.toString), BagitManifestRow("checksum-metadata", fileIdTwo.toString))
-          val s3 = mockS3(metadata, "metadata.json")
-          val bagInfoJson = Obj(("customMetadataAttribute1", Value(Str("customMetadataAttributeValue"))))
-          val input = Input(batchId, "bucket", "prefix/", Option("department"), Option("series"))
+          val s3 = mockS3(metadata)
+          val input = Input(batchId, URI.create("s3://bucket/prefix/metadata.json"), Option("department"), Option("series"))
           val result =
-            new MetadataService(s3).parseMetadataJson(input, departmentAndSeries, bagitManifests, bagInfoJson).unsafeRunSync()
+            new MetadataService(s3).parseMetadataJson(input, departmentAndSeries).unsafeRunSync()
 
           result.size should equal(5 + seriesIdOpt.size)
 
