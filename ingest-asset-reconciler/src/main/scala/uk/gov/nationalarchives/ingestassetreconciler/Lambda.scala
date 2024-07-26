@@ -3,7 +3,6 @@ package uk.gov.nationalarchives.ingestassetreconciler
 import cats.effect.*
 import cats.implicits.*
 import io.circe.generic.auto.*
-import io.circe.parser.decode
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
@@ -95,28 +94,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       )
   }
 
-  private def generateSnsMessage(dependencies: Dependencies, assetName: UUID, lockTableName: String, batchId: String) =
-    for {
-      items <- dependencies.dynamoDbClient.getItems[IngestLockTable, LockTablePartitionKey](
-        List(LockTablePartitionKey(assetName)),
-        lockTableName
-      )
-
-      attributes <- IO.fromOption(items.headOption)(
-        new Exception(s"No items found for ioId '$assetName' from batchId '$batchId'")
-      )
-
-      message <- IO.fromEither(decode[AssetMessage](attributes.message.replace('\'', '\"')))
-      executionIdNotSameAsBatchId = message.executionId.exists(_ != batchId)
-
-      _ <- IO.raiseWhen(executionIdNotSameAsBatchId) {
-        new Exception(s"executionId '${message.executionId.get}' belonging to ioId '$assetName' does not equal '$batchId'")
-      }
-    } yield ReconciliationSnsMessage(
-      NewMessageProperties(dependencies.newMessageId, message.messageId, dependencies.datetime()),
-      NewMessageParameters(assetName)
-    )
-
   override def handler: (
       Input,
       Config,
@@ -192,15 +169,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         .toList
         .sequence
       allReconciled = stateOutputs.forall(_.wasReconciled)
-      combinedOutputs = StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim, assetName, assetId)
-
-      finalOutput <-
-        if (allReconciled)
-          generateSnsMessage(dependencies, assetName, config.dynamoLockTableName, batchId).map { message =>
-            combinedOutputs.copy(reconciliationSnsMessage = Some(message))
-          }
-        else IO.pure(combinedOutputs)
-    } yield finalOutput
+    } yield StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim, assetName, assetId)
 
   override def dependencies(config: Config): IO[Dependencies] =
     Fs2Client
@@ -214,15 +183,9 @@ object Lambda {
 
   case class AssetMessage(messageId: UUID, parentMessageId: Option[UUID] = None, executionId: Option[String])
 
-  case class NewMessageProperties(messageId: UUID, parentMessageId: UUID, timestamp: OffsetDateTime)
-
-  case class NewMessageParameters(assetName: UUID)
-
-  case class ReconciliationSnsMessage(properties: NewMessageProperties, parameters: NewMessageParameters)
-
-  case class StateOutput(wasReconciled: Boolean, reason: String, assetName: UUID, assetId: UUID, reconciliationSnsMessage: Option[ReconciliationSnsMessage] = None)
+  case class StateOutput(wasReconciled: Boolean, reason: String, assetName: UUID, assetId: UUID)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO], newMessageId: UUID, datetime: () => OffsetDateTime)
 
-  case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String, dynamoLockTableName: String) derives ConfigReader
+  case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String) derives ConfigReader
 }
