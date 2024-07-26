@@ -70,7 +70,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     identifiers,
     getNumber(childCount, _.toInt),
     getBoolean(skipIngest),
-    stringToScalaType[URI](location, getPotentialStringValue(location), URI.create)
+    stringToScalaType[URI](location, getPotentialStringValue(location), URI.create),
+    getPotentialStringValue(correlationId)
   )
 
   private def stringToType(potentialTypeString: Option[String]): ValidatedNel[InvalidProperty, Type] =
@@ -292,7 +293,8 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           allValidatedFileTableFields.ingestedCustodialCopy.contains("true"),
           allValidatedFileTableFields.identifiers,
           childCount,
-          skipIngest
+          skipIngest,
+          allValidatedFileTableFields.correlationId
         )
     }.toEither
       .left
