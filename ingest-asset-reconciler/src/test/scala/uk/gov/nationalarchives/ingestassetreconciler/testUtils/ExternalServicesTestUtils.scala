@@ -432,15 +432,13 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
         numOfGetContentObjectsFromRepresentationRequests: Int = 2,
         numOfGetBitstreamInfoRequests: Int = 2,
         numOfFileTableGetRequests: Int = 1,
-        numOfFileTableUpdateRequests: Int = 1,
-        numOfLockTableGetRequests: Int = 0
+        numOfFileTableUpdateRequests: Int = 1
     ): Unit = {
       val serveEvents = dynamoServer.getAllServeEvents.asScala.toList
 
-      serveEvents.size should equal(numOfFileTableGetRequests + numOfFileTableUpdateRequests + numOfLockTableGetRequests)
+      serveEvents.size should equal(numOfFileTableGetRequests + numOfFileTableUpdateRequests)
       serveEvents.map(_.getRequest.getBodyAsString) should equal(
-        List.fill(numOfLockTableGetRequests)(expectedLockTableGetRequest) ++
-          List.fill(numOfFileTableUpdateRequests)(expectedFilesTableUpdateRequest) ++
+        List.fill(numOfFileTableUpdateRequests)(expectedFilesTableUpdateRequest) ++
           List.fill(numOfFileTableGetRequests)(expectedFilesTableGetRequest)
       )
 
