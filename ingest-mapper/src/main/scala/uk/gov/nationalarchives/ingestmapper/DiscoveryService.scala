@@ -8,7 +8,6 @@ import sttp.client3.{SttpBackend, UriContext, basicRequest}
 import sttp.client3.circe.*
 import sttp.client3.*
 import uk.gov.nationalarchives.ingestmapper.DiscoveryService._
-import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 import uk.gov.nationalarchives.ingestmapper.MetadataService._
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type._
 import io.circe.generic.auto._
@@ -61,10 +60,17 @@ class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Str
     } yield formattedAsset
   }
 
-  def getDepartmentAndSeriesItems(input: Input): IO[DepartmentAndSeriesTableItems] = {
+  def getDiscoveryCollectionAssets(potentialSeries: Option[String]): IO[DepartmentAndSeriesCollectionAssets] = {
+    val potentialDepartment = potentialSeries.flatMap(_.split(" ").headOption)
+    for {
+      potentialDepartmentDiscoveryAsset <- potentialDepartment.traverse(getAssetFromDiscoveryApi)
+      potentialSeriesDiscoveryAsset <- potentialSeries.traverse(getAssetFromDiscoveryApi)
+    } yield DepartmentAndSeriesCollectionAssets(potentialDepartmentDiscoveryAsset, potentialSeriesDiscoveryAsset)
+  }
+  def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems = {
     def generateTableItem(asset: DiscoveryCollectionAsset): Map[String, Value] =
       Map(
-        "batchId" -> Str(input.batchId),
+        "batchId" -> Str(batchId),
         "id" -> Str(randomUuidGenerator().toString),
         "name" -> Str(asset.citableReference),
         "type" -> Str(ArchiveFolder.toString),
@@ -72,35 +78,35 @@ class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Str
         "description" -> Str(asset.scopeContent.description)
       )
 
-    for {
-      potentialDepartmentDiscoveryAsset <- input.department.map(getAssetFromDiscoveryApi).sequence
-      potentialSeriesDiscoveryAsset <- input.series.map(getAssetFromDiscoveryApi).sequence
-    } yield {
-      val departmentTableEntryMap = potentialDepartmentDiscoveryAsset
-        .map(generateTableItem)
-        .map(jsonMap => jsonMap ++ Map("id_Code" -> jsonMap("name")))
-        .getOrElse(
-          Map(
-            "batchId" -> Str(input.batchId),
-            "id" -> Str(randomUuidGenerator().toString),
-            "name" -> Str("Unknown"),
-            "type" -> Str(ArchiveFolder.toString)
-          )
+    val departmentTableEntryMap = departmentAndSeriesAssets.potentialDepartmentCollectionAsset
+      .map(generateTableItem)
+      .map(jsonMap => jsonMap ++ Map("id_Code" -> jsonMap("name")))
+      .getOrElse(
+        Map(
+          "batchId" -> Str(batchId),
+          "id" -> Str(randomUuidGenerator().toString),
+          "name" -> Str("Unknown"),
+          "type" -> Str(ArchiveFolder.toString)
         )
+      )
 
-      val seriesTableEntryOpt = potentialSeriesDiscoveryAsset
-        .map(generateTableItem)
-        .map(jsonMap => jsonMap ++ Map("parentPath" -> departmentTableEntryMap("id"), "id_Code" -> jsonMap("name")))
-        .map(Obj.from)
+    val seriesTableEntryOpt = departmentAndSeriesAssets.potentialSeriesCollectionAsset
+      .map(generateTableItem)
+      .map(jsonMap => jsonMap ++ Map("parentPath" -> departmentTableEntryMap("id"), "id_Code" -> jsonMap("name")))
+      .map(Obj.from)
 
-      DepartmentAndSeriesTableItems(Obj.from(departmentTableEntryMap), seriesTableEntryOpt)
-    }
+    DepartmentAndSeriesTableItems(Obj.from(departmentTableEntryMap), seriesTableEntryOpt)
+
   }
 }
 object DiscoveryService {
   case class DiscoveryScopeContent(description: String)
   case class DiscoveryCollectionAsset(citableReference: String, scopeContent: DiscoveryScopeContent, title: String)
   case class DiscoveryCollectionAssetResponse(assets: List[DiscoveryCollectionAsset])
+  case class DepartmentAndSeriesCollectionAssets(
+      potentialDepartmentCollectionAsset: Option[DiscoveryCollectionAsset],
+      potentialSeriesCollectionAsset: Option[DiscoveryCollectionAsset]
+  )
 
   def apply(discoveryUrl: String, randomUuidGenerator: () => UUID): IO[DiscoveryService] = HttpClientFs2Backend.resource[IO]().use { backend =>
     IO.pure(new DiscoveryService(discoveryUrl, backend, randomUuidGenerator))

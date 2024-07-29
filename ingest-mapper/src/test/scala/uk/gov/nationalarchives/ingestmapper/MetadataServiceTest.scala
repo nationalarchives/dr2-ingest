@@ -4,6 +4,7 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.implicits.*
 import org.mockito.ArgumentMatchers
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
@@ -12,6 +13,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import reactor.core.publisher.Flux
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
+import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
@@ -107,9 +109,16 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
            |{"id":"$fileIdTwo","parentId":"$assetId","title":"","type":"File","name":"TEST-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"}]
            |""".stripMargin.replaceAll("\n", "")
           val s3 = mockS3(metadata)
-          val input = Input(batchId, URI.create("s3://bucket/prefix/metadata.json"), Option("department"), Option("series"))
+          val input = Input(batchId, URI.create("s3://bucket/prefix/metadata.json"))
+          val discoveryService = mock[DiscoveryService]
+          def createCollectionAsset(obj: Obj) =
+            Option(DiscoveryCollectionAsset(obj("name").str, DiscoveryScopeContent(obj("description").str), obj("title").str))
+          when(discoveryService.getDepartmentAndSeriesItems(any[String], any[DepartmentAndSeriesCollectionAssets]))
+            .thenReturn(departmentAndSeries)
+          when(discoveryService.getDiscoveryCollectionAssets(any[Option[String]]))
+            .thenReturn(IO(DepartmentAndSeriesCollectionAssets(createCollectionAsset(departmentTableItem), seriesTableItem.flatMap(createCollectionAsset))))
           val result =
-            new MetadataService(s3).parseMetadataJson(input, departmentAndSeries).unsafeRunSync()
+            new MetadataService(s3, discoveryService).parseMetadataJson(input).unsafeRunSync()
 
           result.size should equal(5 + seriesIdOpt.size)
 
