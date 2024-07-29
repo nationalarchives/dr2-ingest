@@ -2,15 +2,15 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.23.1"
   lazy val pureConfigVersion = "0.17.7"
-  lazy val daAwsClientsVersion = "0.1.74"
+  lazy val daAwsClientsVersion = "0.1.75"
   private val fs2Version = "3.10.2"
   private val sttpVersion = "3.9.7"
   private val circeVersion = "0.14.9"
   private val log4CatsVersion = "2.7.0"
-  private val awsLibraryVersion = "1.12.762"
+  private val awsLibraryVersion = "1.12.765"
   private lazy val scalaTestVersion = "3.2.18"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.30.0"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.30.3"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val awsSecretsManager = "com.amazonaws" % "aws-java-sdk-secretsmanager" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.4"
@@ -36,7 +36,7 @@ object Dependencies {
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.8"
-  lazy val scanamo = "org.scanamo" %% "scanamo" % "1.1.1"
+  lazy val scanamo = "org.scanamo" %% "scanamo" % "2.0.0"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
