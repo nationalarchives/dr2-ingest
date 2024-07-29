@@ -29,7 +29,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   val fileBOne: DynamoRow = DynamoRow(UUID.randomUUID, "B", File, Option(s"${folderB.id}/${assetB.id}"))
   val fileBTwo: DynamoRow = DynamoRow(UUID.randomUUID, "B", File, Option(s"${folderB.id}/${assetB.id}"))
 
-  def outputBuilder(id: UUID, messageType: MessageType): OutputMessage = OutputMessage(OutputProperties(messageId, None, instant, messageType), OutputParameters(id))
+  def outputBuilder(id: UUID, messageType: MessageType): OutputMessage =
+    OutputMessage(OutputProperties(messageId, Option("correlationId"), instant, messageType), OutputParameters(id))
 
   val handlerOutputsTable: TableFor4[String, List[DynamoRow], DynamoRow, List[OutputMessage]] = Table(
     ("title", "rowsInTable", "newRowInput", "expectedOutput"),

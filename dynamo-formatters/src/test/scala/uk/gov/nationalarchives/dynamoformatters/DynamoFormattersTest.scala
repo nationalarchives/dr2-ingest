@@ -74,7 +74,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       "id_Test" -> fromS("testIdentifier"),
       "id_Test2" -> fromS("testIdentifier2"),
       childCount -> fromN("1"),
-      skipIngest -> fromBool(false)
+      skipIngest -> fromBool(false),
+      correlationId -> fromS("correlationId")
     )
   }
 
@@ -382,6 +383,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     assetRow.originalMetadataFiles should equal(List(UUID.fromString("3f42e3f2-fffe-4fe9-87f7-262e95b86d75")))
     assetRow.title.get should equal("testTitle")
     assetRow.description.get should equal("testDescription")
+    assetRow.correlationId.get should equal("correlationId")
     assetRow.identifiers.sortBy(_.identifierName) should equal(
       List(Identifier("Test2", "testIdentifier2"), Identifier("Test", "testIdentifier")).sortBy(_.identifierName)
     )
@@ -491,7 +493,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       true,
       Nil,
       1,
-      false
+      false,
+      None
     )
     val res = assetTableFormat.write(dynamoTable)
     val resultMap = res.toAttributeValue.m().asScala
@@ -508,7 +511,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(originalMetadataFiles).ss().asScala.toList should equal(List(originalMetadataFilesUuid.toString))
     resultMap(ingestedPreservica).s() should equal("true")
     resultMap(ingestedCustodialCopy).s() should equal("true")
-    List(parentPath, title, description, sortOrder, fileSize, checksumSha256, fileExtension, "identifiers", skipIngest)
+    List(parentPath, title, description, sortOrder, fileSize, checksumSha256, fileExtension, "identifiers", skipIngest, correlationId)
       .forall(resultMap.contains) should be(false)
   }
 
@@ -677,7 +680,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       true,
       identifiers,
       1,
-      skipIngest
+      skipIngest,
+      Option("correlationId")
     )
   }
 
