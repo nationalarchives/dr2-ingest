@@ -67,7 +67,7 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
           val json = read(metadataJson)
           val jsonArr = json.arr.toList
           val topLevelObjects = jsonArr.filter(_.parentId.isEmpty)
-          val topLevelItemToDepartmentSeries: IO[Map[UUID, DepartmentAndSeriesTableItems]] = topLevelObjects
+          val topLevelIdsToDepartmentSeries: IO[Map[UUID, DepartmentAndSeriesTableItems]] = topLevelObjects
             .groupBy(_.series)
             .view
             .mapValues(_.map(_.id))
@@ -81,9 +81,9 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
             .sequence
             .map(_.flatten.toMap)
           Stream.evals {
-            topLevelItemToDepartmentSeries.map { itemToDepartmentSeries =>
+            topLevelIdsToDepartmentSeries.map { itemToDepartmentSeries =>
               val parentPaths = getParentPaths(json, itemToDepartmentSeries)
-              val updatedJson = json.arr.toList.map { metadataEntry =>
+              val updatedJson = jsonArr.map { metadataEntry =>
                 val id = UUID.fromString(metadataEntry("id").str)
                 val name = metadataEntry("name").str
                 val parentPath = parentPaths(id)

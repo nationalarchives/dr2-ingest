@@ -60,14 +60,12 @@ class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Str
     } yield formattedAsset
   }
 
-  def getDiscoveryCollectionAssets(series: Option[String]): IO[DepartmentAndSeriesCollectionAssets] = {
-    val department = series.flatMap(_.split(" ").headOption)
+  def getDiscoveryCollectionAssets(potentialSeries: Option[String]): IO[DepartmentAndSeriesCollectionAssets] = {
+    val potentialDepartment = potentialSeries.flatMap(_.split(" ").headOption)
     for {
-      potentialDepartmentDiscoveryAsset <- department.map(getAssetFromDiscoveryApi).sequence
-      potentialSeriesDiscoveryAsset <- series.map(getAssetFromDiscoveryApi).sequence
-    } yield {
-      DepartmentAndSeriesCollectionAssets(potentialDepartmentDiscoveryAsset, potentialSeriesDiscoveryAsset)
-    }
+      potentialDepartmentDiscoveryAsset <- potentialDepartment.traverse(getAssetFromDiscoveryApi)
+      potentialSeriesDiscoveryAsset <- potentialSeries.traverse(getAssetFromDiscoveryApi)
+    } yield DepartmentAndSeriesCollectionAssets(potentialDepartmentDiscoveryAsset, potentialSeriesDiscoveryAsset)
   }
   def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems = {
     def generateTableItem(asset: DiscoveryCollectionAsset): Map[String, Value] =
