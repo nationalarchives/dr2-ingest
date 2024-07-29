@@ -14,7 +14,7 @@ lazy val root = (project in file("."))
     ingestFilesChangeHandler,
     ingestFindExistingAsset,
     ingestFolderOpexCreator,
-    ingestMapper, 
+    ingestMapper,
     ingestParentFolderOpexCreator,
     ingestParsedCourtDocumentEventHandler,
     ingestUpsertArchiveFolders,
