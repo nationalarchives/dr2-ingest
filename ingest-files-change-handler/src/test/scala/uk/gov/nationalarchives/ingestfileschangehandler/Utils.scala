@@ -53,7 +53,8 @@ object Utils {
       row.ingestedCustodialCopy,
       Nil,
       2,
-      row.skipIngest
+      row.skipIngest,
+      Option("correlationId")
     )
 
     def createFile(): FileDynamoTable = FileDynamoTable(
