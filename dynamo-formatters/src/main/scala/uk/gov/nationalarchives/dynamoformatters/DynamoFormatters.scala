@@ -86,6 +86,7 @@ object DynamoFormatters {
   val childCount = "childCount"
   val skipIngest = "skipIngest"
   val location = "location"
+  val correlationId = "correlationId"
 
   given filesTablePkFormat: Typeclass[FilesTablePrimaryKey] = new DynamoFormat[FilesTablePrimaryKey]:
     override def read(av: DynamoValue): Either[DynamoReadError, FilesTablePrimaryKey] = {
@@ -168,7 +169,8 @@ object DynamoFormatters {
       identifiers: List[Identifier],
       childCount: ValidatedField[Int],
       skipIngest: ValidatedField[Boolean],
-      location: ValidatedField[URI]
+      location: ValidatedField[URI],
+      correlationId: Option[String]
   )
 
   case class ArchiveFolderDynamoTable(
@@ -214,7 +216,8 @@ object DynamoFormatters {
       ingestedCustodialCopy: Boolean,
       identifiers: List[Identifier],
       childCount: Int,
-      skipIngest: Boolean
+      skipIngest: Boolean,
+      correlationId: Option[String]
   ) extends DynamoTable
 
   case class FileDynamoTable(

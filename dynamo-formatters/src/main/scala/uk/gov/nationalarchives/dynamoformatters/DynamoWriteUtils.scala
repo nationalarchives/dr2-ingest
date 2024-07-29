@@ -48,6 +48,7 @@ object DynamoWriteUtils {
           ingestedPreservica -> DynamoValue.fromString(assetDynamoTable.ingestedPreservica.toString),
           ingestedCustodialCopy -> DynamoValue.fromString(assetDynamoTable.ingestedCustodialCopy.toString)
         ) ++ (if (assetDynamoTable.skipIngest) Map("skipIngest" -> DynamoValue.fromBoolean(assetDynamoTable.skipIngest)) else Map())
+        ++ assetDynamoTable.correlationId.map(id => Map(correlationId -> DynamoValue.fromString(id))).getOrElse(Map())
     }.toDynamoValue
 
   def writeFileTable(fileDynamoTable: FileDynamoTable): DynamoValue =
