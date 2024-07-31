@@ -36,38 +36,38 @@ class SeriesMapperTest extends AnyFlatSpec with MockitoSugar with TableDrivenPro
   assert(courtToSeries.length == seriesMap.size)
 
   forAll(courtToSeries) { (court, series) =>
-    "createOutput" should s"return $series for court $court" in {
+    "createDepartmentSeries" should s"return $series for court $court" in {
       val seriesMapper = SeriesMapper()
       val output =
-        seriesMapper.createOutput(s3Uri, "batch", Option(court), skipSeriesLookup = false).unsafeRunSync()
-      output.department.get should equal(series.split(' ').head)
-      output.series.get should equal(series)
+        seriesMapper.createDepartmentSeries(Option(court), skipSeriesLookup = false).unsafeRunSync()
+      output.potentialDepartment.get should equal(series.split(' ').head)
+      output.potentialSeries.get should equal(series)
     }
   }
 
-  "createOutput" should "return an error if a court does not yield a series and 'skipSeriesLookup' is set to false" in {
+  "createDepartmentSeries" should "return an error if a court does not yield a series and 'skipSeriesLookup' is set to false" in {
     val seriesMapper = SeriesMapper()
     val ex = intercept[Exception] {
-      seriesMapper.createOutput(s3Uri, "batch", Option("invalidCourt"), skipSeriesLookup = false).unsafeRunSync()
+      seriesMapper.createDepartmentSeries(Option("invalidCourt"), skipSeriesLookup = false).unsafeRunSync()
     }
-    val expectedMessage = s"Cannot find series and department for court invalidCourt for batchId batch"
+    val expectedMessage = s"Cannot find series and department for court invalidCourt"
     ex.getMessage should equal(expectedMessage)
   }
 
-  "createOutput" should "return an empty department and series if a court does not yield a series but 'skipSeriesLookup' is set to true" in {
+  "createDepartmentSeries" should "return an empty department and series if a court does not yield a series but 'skipSeriesLookup' is set to true" in {
     val seriesMapper = SeriesMapper()
     val output =
-      seriesMapper.createOutput(s3Uri, "batch", Option("invalidCourt"), skipSeriesLookup = true).unsafeRunSync()
+      seriesMapper.createDepartmentSeries(Option("invalidCourt"), skipSeriesLookup = true).unsafeRunSync()
 
-    output.series should equal(None)
-    output.department should equal(None)
+    output.potentialSeries should equal(None)
+    output.potentialDepartment should equal(None)
   }
 
-  "createOutput" should "return an empty department and series if the court is missing" in {
+  "createDepartmentSeries" should "return an empty department and series if the court is missing" in {
     val seriesMapper = SeriesMapper()
-    val output = seriesMapper.createOutput(s3Uri, "batch", None, skipSeriesLookup = false).unsafeRunSync()
+    val output = seriesMapper.createDepartmentSeries(None, skipSeriesLookup = false).unsafeRunSync()
 
-    output.series should equal(None)
-    output.department should equal(None)
+    output.potentialSeries should equal(None)
+    output.potentialDepartment should equal(None)
   }
 }
