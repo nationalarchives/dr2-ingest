@@ -40,10 +40,10 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
 
     val stateData = new Lambda().handler(input, config, dependencies()).unsafeRunSync()
     val archiveFolders = stateData.archiveHierarchyFolders
-    archiveFolders.size should be(6)
+    archiveFolders.size should be(5)
     archiveFolders.contains(folderIdentifierOne) should be(true)
     val expectedArchiveFolders =
-      List(folderIdentifierOne, folderIdentifierTwo, UUID.fromString(uuids(1)), UUID.fromString(uuids.head), UUID.fromString(uuids(2)), UUID.fromString(uuids(3)))
+      List(folderIdentifierOne, folderIdentifierTwo, UUID.fromString(uuids(1)), UUID.fromString(uuids.head), UUID.fromString(uuids(2)))
     expectedArchiveFolders.sorted.equals(archiveFolders.sorted) should be(true)
 
     stateData.contentFolders.isEmpty should be(true)
@@ -63,16 +63,21 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
     dynamoRequestBodies.length should equal(1)
     val tableRequestItems = dynamoRequestBodies.head.RequestItems.test
 
-    tableRequestItems.length should equal(12)
+    tableRequestItems.length should equal(11)
     case class TestResponses(response: NetworkResponse, uuidIndices: List[Int], series: String)
     List(
-      TestResponses(responseOne, List(2, 3), "A 1"),
-      TestResponses(responseTwo, List(0, 1), "B 2")
+      TestResponses(responseTwo, List(2, 3), "Unknown"),
+      TestResponses(responseOne, List(0, 1), "A 1")
     ).foreach { testResponse =>
       val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalFiles, originalMetadataFiles) = testResponse.response
       val departmentUuid = UUID.fromString(uuids(testResponse.uuidIndices.head))
       val seriesUuid = UUID.fromString(uuids(testResponse.uuidIndices.last))
       val expectedDepartment = testResponse.series.split(" ").head
+      val expectedTitle = if testResponse.series == "Unknown" then "" else s"Test Title $expectedDepartment"
+      val expectedIdCode = if testResponse.series == "Unknown" then "" else expectedDepartment
+      val expectedDescription = if testResponse.series == "Unknown" then "" else s"TestDescription$expectedDepartment with 0"
+      val topFolderPath = if testResponse.series == "Unknown" then departmentUuid.toString else s"$departmentUuid/$seriesUuid"
+
       checkDynamoItems(
         tableRequestItems,
         DynamoFilesTableItem(
@@ -81,34 +86,35 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
           "",
           expectedDepartment,
           ArchiveFolder,
-          s"Test Title $expectedDepartment",
-          s"TestDescription$expectedDepartment with 0",
-          Some(expectedDepartment),
+          expectedTitle,
+          expectedDescription,
+          Some(expectedIdCode),
           1,
           fixedTimeInSecs
         )
       )
-      checkDynamoItems(
-        tableRequestItems,
-        DynamoFilesTableItem(
-          "TEST",
-          seriesUuid,
-          departmentUuid.toString,
-          testResponse.series,
-          ArchiveFolder,
-          s"Test Title ${testResponse.series}",
-          s"TestDescription${testResponse.series} with 0",
-          Some(testResponse.series),
-          1,
-          fixedTimeInSecs
+      if testResponse.series != "Unknown" then
+        checkDynamoItems(
+          tableRequestItems,
+          DynamoFilesTableItem(
+            "TEST",
+            seriesUuid,
+            departmentUuid.toString,
+            testResponse.series,
+            ArchiveFolder,
+            s"Test Title ${testResponse.series}",
+            s"TestDescription${testResponse.series} with 0",
+            Some(testResponse.series),
+            1,
+            fixedTimeInSecs
+          )
         )
-      )
       checkDynamoItems(
         tableRequestItems,
         DynamoFilesTableItem(
           "TEST",
           folderIdentifier,
-          s"$departmentUuid/$seriesUuid",
+          topFolderPath,
           "TestName",
           ArchiveFolder,
           "TestTitle",
@@ -123,7 +129,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         DynamoFilesTableItem(
           "TEST",
           assetIdentifier,
-          s"$departmentUuid/$seriesUuid/$folderIdentifier",
+          s"$topFolderPath/$folderIdentifier",
           "TestAssetName",
           Asset,
           "TestAssetTitle",
@@ -140,7 +146,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         DynamoFilesTableItem(
           "TEST",
           docxIdentifier,
-          s"$departmentUuid/$seriesUuid/$folderIdentifier/$assetIdentifier",
+          s"$topFolderPath/$folderIdentifier/$assetIdentifier",
           "Test.docx",
           File,
           "Test",
@@ -157,7 +163,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         DynamoFilesTableItem(
           "TEST",
           metadataIdentifier,
-          s"$departmentUuid/$seriesUuid/$folderIdentifier/$assetIdentifier",
+          s"$topFolderPath/$folderIdentifier/$assetIdentifier",
           "TEST-metadata.json",
           File,
           "",

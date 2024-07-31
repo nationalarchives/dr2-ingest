@@ -86,7 +86,8 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
                 "type" -> "ArchiveFolder",
                 "title" -> s"$tableType Title",
                 "description" -> s"$tableType Description",
-                "ttl" -> 1712707200
+                "ttl" -> 1712707200,
+                "series" -> seriesIdOpt.map(_.toString).getOrElse("Unknown")
               )
             }
 
@@ -103,7 +104,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           val originalFileId = UUID.randomUUID()
           val originalMetadataFileId = UUID.randomUUID()
           val metadata =
-            s"""[{"id":"$folderId","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null},
+            s"""[{"id":"$folderId","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "series": null},
            |{"id":"$assetId","parentId":"$folderId","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalFiles" : ["$originalFileId"], "originalMetadataFiles": ["$originalMetadataFileId"], "customMetadataAttribute1": "customMetadataAttributeValue"},
            |{"id":"$fileIdOne","parentId":"$assetId","title":"Test","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
            |{"id":"$fileIdTwo","parentId":"$assetId","title":"","type":"File","name":"TEST-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"}]

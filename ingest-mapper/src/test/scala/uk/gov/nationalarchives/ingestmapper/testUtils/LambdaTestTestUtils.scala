@@ -53,7 +53,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     val metadata =
       s"""[
          |{"id":"$folderIdentifierOne","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "customMetadataAttribute2": "customMetadataValue2", "series": "A 1"},
-         |{"id":"$folderIdentifierTwo","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "customMetadataAttribute2": "customMetadataValue2", "series": "B 2"},
+         |{"id":"$folderIdentifierTwo","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "customMetadataAttribute2": "customMetadataValue2", "series": null},
          |{
          | "id":"$assetIdentifierOne",
          | "parentId":"$folderIdentifierOne",

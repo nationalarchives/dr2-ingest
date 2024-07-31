@@ -6,6 +6,7 @@ import fs2.interop.reactivestreams.*
 import fs2.{Chunk, Pipe, Stream, text}
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
+import uk.gov.nationalarchives.ingestmapper.DiscoveryService.DepartmentAndSeriesCollectionAssets
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.{Asset, File}
@@ -54,7 +55,7 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
 
   extension (value: Value)
     def parentId: Option[UUID] = value("parentId").strOpt.map(UUID.fromString)
-    def series: Option[String] = Try(value("series")).toOption.map(_.str)
+    def series: Option[String] = value("series").strOpt
     def id: UUID = UUID.fromString(value("id").str)
 
   def parseMetadataJson(
@@ -73,7 +74,10 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
             .mapValues(_.map(_.id))
             .toMap
             .map { case (series, parentIds) =>
-              discoveryService.getDiscoveryCollectionAssets(series).map { assets =>
+              val collectionAssets =
+                if series.contains("Unknown") then IO.pure(DepartmentAndSeriesCollectionAssets(None, None))
+                else discoveryService.getDiscoveryCollectionAssets(series)
+              collectionAssets.map { assets =>
                 parentIds.map(parentId => parentId -> discoveryService.getDepartmentAndSeriesItems(input.batchId, assets))
               }
             }
