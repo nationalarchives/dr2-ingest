@@ -15,10 +15,6 @@ jobs:
       artifact-file-type: zip
       artifact-path: .
       build-command: |
-        mkdir package
-        cd package
-        zip -r ../ingest_cc_notification_handler_lambda.zip .
-        cd ..
         zip ingest_cc_notification_handler_lambda.zip lambda_function.py
     secrets:
       MANAGEMENT_ACCOUNT: ${{ secrets.MANAGEMENT_ACCOUNT }}
