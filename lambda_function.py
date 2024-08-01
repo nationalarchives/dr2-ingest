@@ -44,7 +44,10 @@ def add_true_to_ingest_cc_attribute(client, table_name, primary_key, sort_key, i
 def get_messages_from_json_event(event) -> list[dict]:
     sqs_records = event["Records"]
     messages = [json.loads(sqs_record["body"]) for sqs_record in sqs_records]
-    return messages
+    non_deleted_messages = [message
+                            for message in messages
+                            if message["status"] is not "Deleted" and message["tableItemIdentifier"] is not ""]
+    return non_deleted_messages
 
 
 def lambda_handler(event, context):

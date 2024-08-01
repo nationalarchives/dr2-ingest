@@ -49,7 +49,8 @@ class TestCcNotificationHandler(unittest.TestCase):
             Key=item
         )
 
-    def test_get_messages_from_json_event_should_return_messages_if_present(self):
+    def test_get_messages_from_json_event_should_return_all_messages_except_those_that_have_an_empty_identifier_and_are_deleted(
+        self):
         event = self.default_event
 
         messages_with_identifier = get_messages_from_json_event(event)
@@ -57,9 +58,9 @@ class TestCcNotificationHandler(unittest.TestCase):
         self.assertEqual(
             messages_with_identifier,
             [
-                {"tableItemIdentifier": "identifier"},
-                {"tableItemIdentifier": "identifier"},
-                {"tableItemIdentifier": "differentIdentifier"}
+                {"tableItemIdentifier": "identifier", "status": "Created"},
+                {"tableItemIdentifier": "identifier", "status": "Deleted"},
+                {"tableItemIdentifier": "differentIdentifier", "status": "Updated"}
             ]
         )
 
@@ -148,17 +149,22 @@ class TestCcNotificationHandler(unittest.TestCase):
             {
                 "messageId": "059f36b4-87a3-44ab-83d2-661975830a7d",
                 "receiptHandle": "AQEBwJnKyrHigUMZj6rYigCgxlaS3SLy0a...",
-                "body": "{\"tableItemIdentifier\": \"identifier\"}"
+                "body": "{\"tableItemIdentifier\": \"identifier\", \"status\":\"Created\"}"
             },
             {
                 "messageId": "2e1424d4-f796-459a-8184-9c92662be6da",
                 "receiptHandle": "AQEBzWwaftRI0KuVm4tP+/7q1rGgNqicHq...",
-                "body": "{\"tableItemIdentifier\": \"identifier\"}"
+                "body": "{\"tableItemIdentifier\": \"identifier\", \"status\":\"Deleted\"}"
+            },
+            {
+                "messageId": "d17dbe4d-8336-4db8-b2df-b7f3000dd7ed",
+                "receiptHandle": "AQEBzWwaftRI0KuVm4tP+/7q1rGgNqicHq...",
+                "body": "{\"tableItemIdentifier\": \"\", \"status\":\"Deleted\"}"
             },
             {
                 "messageId": "2e1424d4-f796-459a-8184-9c92662be6da",
                 "receiptHandle": "AQEBzWwaftRI0KuVm4tP+/7q1rGgNqicHq...",
-                "body": "{\"tableItemIdentifier\": \"differentIdentifier\"}"
+                "body": "{\"tableItemIdentifier\": \"differentIdentifier\", \"status\":\"Updated\"}"
             }
         ]
     }
