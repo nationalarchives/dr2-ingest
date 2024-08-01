@@ -49,13 +49,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
     def childrenOfAsset(asset: AssetDynamoTable): IO[List[FileDynamoTable]] = {
       val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
-      for {
-        children <- dependencies.daDynamoDbClient
-          .queryItems[FileDynamoTable](config.dynamoTableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.dynamoGsiName))
-        _ <- IO.raiseWhen(children.length != asset.childCount)(
-          new Exception(s"Asset id ${asset.id}: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
-        )
-      } yield children
+      dependencies.daDynamoDbClient
+        .queryItems[FileDynamoTable](config.dynamoTableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.dynamoGsiName))
     }
 
     def getParentAsset(fileRow: FileDynamoTable): IO[AssetDynamoTable] = for {
@@ -148,7 +143,10 @@ object Lambda:
 
   extension [T](dynamoResponse: Either[DynamoReadError, T])
     private def toCirceError: Result[T] =
-      dynamoResponse.left.map(_ => DecodingFailure.fromThrowable(new Exception("Can't format case classes"), Nil))
+      dynamoResponse.left.map(err => {
+        println(err)
+        DecodingFailure.fromThrowable(new Exception("Can't format case classes"), Nil)
+      })
 
   given Decoder[StreamRecord] = (c: HCursor) =>
     {
@@ -159,7 +157,9 @@ object Lambda:
         tableRow: DynamoTable <- rowType.formatter.read(newImage.toDynamoValue).toCirceError
         key <- filesTablePkFormat.read(key.toDynamoValue).toCirceError
       } yield StreamRecord(key.some, tableRow.some)
-    }.handleError(_ => StreamRecord(None, None))
+    }.handleError(err => {
+      StreamRecord(None, None)
+    })
 
   given Decoder[DynamodbStreamRecord] = (c: HCursor) =>
     for {
