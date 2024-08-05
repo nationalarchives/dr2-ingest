@@ -13,6 +13,7 @@ import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.utils.EventDecoders.given
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
+import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{batchId, ioId, message}
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
@@ -62,9 +63,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 
           _ <- IO.raiseWhen(fileInfo.fileSize == 0)(new Exception(s"File id '${fileInfo.id}' size is 0"))
           metadataPackage = URI.create(s"s3://$outputBucket/$batchRef/metadata.json")
-          output <- dependencies.seriesMapper.createOutput(
-            metadataPackage,
-            batchRef,
+          departmentAndSeries <- dependencies.seriesMapper.createDepartmentAndSeries(
             parsedUri.flatMap(_.potentialCourt),
             treInput.parameters.skipSeriesLookup
           )
@@ -79,8 +78,8 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             potentialUri,
             treMetadata,
             fileReference,
-            output.department,
-            output.series,
+            departmentAndSeries.potentialDepartment,
+            departmentAndSeries.potentialSeries,
             tdrUuid
           )
           _ <- fileProcessor.createMetadataJson(metadata, metadataPackage)
@@ -105,7 +104,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           )
           _ <- logWithFileRef("Written asset to lock table")
 
-          _ <- dependencies.sfn.startExecution(config.sfnArn, output, Option(batchRef))
+          _ <- dependencies.sfn.startExecution(config.sfnArn, Output(batchRef, metadataPackage), Option(batchRef))
           _ <- logWithFileRef("Started step function execution")
         } yield ()
       }
