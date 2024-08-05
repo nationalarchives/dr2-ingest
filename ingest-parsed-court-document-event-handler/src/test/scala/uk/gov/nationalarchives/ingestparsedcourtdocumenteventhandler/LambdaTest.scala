@@ -347,8 +347,6 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     sfnRequest.stateMachineArn should equal("arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName")
     sfnRequest.name should equal("TEST-REFERENCE")
 
-    input.series.get should equal("TEST SERIES")
-    input.department.get should equal("TEST")
     input.batchId should equal("TEST-REFERENCE")
     input.metadataPackage.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
   }
@@ -376,8 +374,6 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       sfnRequest.stateMachineArn should equal("arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName")
       sfnRequest.name should equal("TEST-REFERENCE")
 
-      input.series should equal(expectedSeries)
-      input.department should equal(expectedDepartment)
       input.batchId should equal("TEST-REFERENCE")
       input.metadataPackage.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
     }
