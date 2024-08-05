@@ -7,16 +7,13 @@ The lambda:
 ```json
 {
   "batchId": "batch",
-  "s3Bucket": "bucket",
-  "s3Prefix": "prefix/",
-  "department": "department",
-  "series": "series"
+  "metadataPackage": "s3://metadata-bucket/metadata.json"
 }
 ```
-* Gets the title and description for department and series from Discovery. This is run through the XSLT in `src/main/resources/transform.xsl` to replace the EAD tags with newlines.
-* Parses the metadata json file
-* Parses the manifest file
-* Converts these into ujson Obj classes. This is because we will eventually have to handle fields we don't know about in advance.
+* Downloads the metadata file from the `metadataPackage` location and parses it.
+* Gets a list of series names from the metadata json. Do `series.split(" ").head` to get the department.
+* For each series and department pair, get the title and description for department and series from Discovery. This is run through the XSLT in `src/main/resources/transform.xsl` to replace the EAD tags with newlines.
+* Creates a ujson Obj with the department and series output and the metadata json. We use a generic `Obj` because we will eventually have to handle fields we don't know about in advance.
 * Updates dynamo with the values
 * Writes the state data for the next step function step with this format:
 ```json
