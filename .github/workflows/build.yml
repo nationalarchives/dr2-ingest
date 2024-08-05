@@ -3,6 +3,11 @@ on:
   push:
     branches:
       - main
+      - DR2-1838-copy-files-from-tdr
+    paths:
+      - scala/lambdas/**
+      - python/lambdas/**
+      - build.sbt
 permissions:
   id-token: write
   contents: write
@@ -26,7 +31,9 @@ jobs:
       - run: |
           rm -rf target/outputs
           mkdir -p target/outputs
-          sbt assembly
+          sbt ingestLambdasRoot/assembly
+          zip -jA copy-files-from-tdr python/lambdas/copy-files-from-tdr/lambda_function.py
+          cp copy-files-from-tdr target/outputs/
           cd target/outputs
           aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
           git tag ${{ steps.next-tag.outputs.next-version }}
