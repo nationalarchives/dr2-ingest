@@ -6,23 +6,23 @@ import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMappe
 import java.net.URI
 
 class SeriesMapper(validCourts: Set[Court]) {
-  def createDepartmentSeries(
+  def createDepartmentAndSeries(
       potentialCourt: Option[String],
       skipSeriesLookup: Boolean
-  ): IO[DepartmentSeries] = {
+  ): IO[DepartmentAndSeries] = {
     potentialCourt
       .map { court =>
         val potentiallyFoundCourt: Option[Court] = validCourts.find(_.code == court.toUpperCase)
         potentiallyFoundCourt match {
-          case None if skipSeriesLookup => IO.pure(DepartmentSeries(None, None))
+          case None if skipSeriesLookup => IO.pure(DepartmentAndSeries(None, None))
           case None                     => IO.raiseError(new Exception(s"Cannot find series and department for court $court"))
           case _ =>
             IO.pure(
-              DepartmentSeries(potentiallyFoundCourt.map(_.dept), potentiallyFoundCourt.map(_.series))
+              DepartmentAndSeries(potentiallyFoundCourt.map(_.dept), potentiallyFoundCourt.map(_.series))
             )
         }
       }
-      .getOrElse(IO.pure(DepartmentSeries(None, None)))
+      .getOrElse(IO.pure(DepartmentAndSeries(None, None)))
 
   }
 }
@@ -33,7 +33,7 @@ object SeriesMapper {
       metadataPackage: URI
   )
 
-  case class DepartmentSeries(potentialDepartment: Option[String], potentialSeries: Option[String])
+  case class DepartmentAndSeries(potentialDepartment: Option[String], potentialSeries: Option[String])
   case class Court(code: String, dept: String, series: String)
 
   def apply(): SeriesMapper = new SeriesMapper(seriesMap)

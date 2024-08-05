@@ -63,7 +63,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 
           _ <- IO.raiseWhen(fileInfo.fileSize == 0)(new Exception(s"File id '${fileInfo.id}' size is 0"))
           metadataPackage = URI.create(s"s3://$outputBucket/$batchRef/metadata.json")
-          departmentSeries <- dependencies.seriesMapper.createDepartmentSeries(
+          departmentAndSeries <- dependencies.seriesMapper.createDepartmentAndSeries(
             parsedUri.flatMap(_.potentialCourt),
             treInput.parameters.skipSeriesLookup
           )
@@ -78,8 +78,8 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             potentialUri,
             treMetadata,
             fileReference,
-            departmentSeries.potentialDepartment,
-            departmentSeries.potentialSeries,
+            departmentAndSeries.potentialDepartment,
+            departmentAndSeries.potentialSeries,
             tdrUuid
           )
           _ <- fileProcessor.createMetadataJson(metadata, metadataPackage)
