@@ -34,9 +34,9 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
   val config: Config = Config("test", "http://localhost:9015")
   val input: Input = Input("TEST", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"))
 
-  type NetworkResponse = (UUID, UUID, UUID, UUID, List[String], List[String])
+  type DynamoResponse = (UUID, UUID, UUID, UUID, List[String], List[String])
 
-  def stubValidNetworkRequests(dynamoTable: String = "test"): (NetworkResponse, NetworkResponse) = {
+  def stubValidNetworkRequests(dynamoTable: String = "test"): (DynamoResponse, DynamoResponse) = {
     val folderIdentifierOne = UUID.randomUUID()
     val folderIdentifierTwo = UUID.randomUUID()
     val assetIdentifierOne = UUID.randomUUID()

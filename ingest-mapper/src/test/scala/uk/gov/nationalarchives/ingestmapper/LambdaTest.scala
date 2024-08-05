@@ -64,19 +64,20 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
     val tableRequestItems = dynamoRequestBodies.head.RequestItems.test
 
     tableRequestItems.length should equal(11)
-    case class TestResponses(response: NetworkResponse, uuidIndices: List[Int], series: String)
+    case class TestResponses(dynamoResponse: DynamoResponse, uuidIndices: List[Int], series: String)
     List(
       TestResponses(responseTwo, List(2, 3), "Unknown"),
       TestResponses(responseOne, List(0, 1), "A 1")
     ).foreach { testResponse =>
-      val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalFiles, originalMetadataFiles) = testResponse.response
+      val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalFiles, originalMetadataFiles) = testResponse.dynamoResponse
       val departmentUuid = UUID.fromString(uuids(testResponse.uuidIndices.head))
       val seriesUuid = UUID.fromString(uuids(testResponse.uuidIndices.last))
       val expectedDepartment = testResponse.series.split(" ").head
-      val expectedTitle = if testResponse.series == "Unknown" then "" else s"Test Title $expectedDepartment"
-      val expectedIdCode = if testResponse.series == "Unknown" then "" else expectedDepartment
-      val expectedDescription = if testResponse.series == "Unknown" then "" else s"TestDescription$expectedDepartment with 0"
-      val topFolderPath = if testResponse.series == "Unknown" then departmentUuid.toString else s"$departmentUuid/$seriesUuid"
+      val seriesUnknown = testResponse.series == "Unknown"
+      val expectedTitle = if seriesUnknown then "" else s"Test Title $expectedDepartment"
+      val expectedIdCode = if seriesUnknown then "" else expectedDepartment
+      val expectedDescription = if seriesUnknown then "" else s"TestDescription$expectedDepartment with 0"
+      val topFolderPath = if seriesUnknown then departmentUuid.toString else s"$departmentUuid/$seriesUuid"
 
       checkDynamoItems(
         tableRequestItems,

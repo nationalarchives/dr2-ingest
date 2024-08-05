@@ -73,10 +73,10 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
             .view
             .mapValues(_.map(_.id))
             .toMap
-            .map { case (series, parentIds) =>
+            .map { case (potentialSeries, parentIds) =>
               val collectionAssets =
-                if series.contains("Unknown") then IO.pure(DepartmentAndSeriesCollectionAssets(None, None))
-                else discoveryService.getDiscoveryCollectionAssets(series)
+                if potentialSeries.contains("Unknown") then IO.pure(DepartmentAndSeriesCollectionAssets(None, None))
+                else discoveryService.getDiscoveryCollectionAssets(potentialSeries)
               collectionAssets.map { assets =>
                 parentIds.map(parentId => parentId -> discoveryService.getDepartmentAndSeriesItems(input.batchId, assets))
               }
