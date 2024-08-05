@@ -57,6 +57,7 @@ The lambda doesn't produce an output. It writes files and metadata to S3/
 ```json
 [
   {
+    "series": "ABC 123",
     "id_Code": "cite",
     "id_Cite": "cite",
     "id_URI": "https://example.com/id/court/2023/",
