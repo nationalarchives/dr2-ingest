@@ -13,7 +13,7 @@ import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.utils.EventDecoders.given
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{batchId, ioId, message}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{groupId, assetId, message}
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 
@@ -96,11 +96,11 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             DADynamoDbWriteItemRequest(
               config.dynamoLockTableName,
               Map(
-                ioId -> toDynamoString(tdrUuid),
-                batchId -> toDynamoString(batchRef),
+                assetId -> toDynamoString(tdrUuid),
+                groupId -> toDynamoString(batchRef),
                 message -> toDynamoString(s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""")
               ),
-              Some(s"attribute_not_exists($ioId)")
+              Some(s"attribute_not_exists($assetId)")
             )
           )
           _ <- logWithFileRef("Written asset to lock table")
