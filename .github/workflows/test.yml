@@ -13,7 +13,7 @@ jobs:
       repo-name: dr2-ingest-parsed-court-document-event-handler
       test-command: |
         find . -name requirements.txt -exec pip install -r {} +
-        pytest
+        AWS_DEFAULT_REGION=eu-west-2 pytest
         sbt scalafmtCheckAll test
     secrets:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
