@@ -300,7 +300,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           None,
           Option("test"),
           "https://example.com/id/court/2023/",
-          Option("TEST SERIES"),
+          "TEST SERIES",
           if potentialCite.isDefined then idFields :+ IdField("URI", "https://example.com/id/court/2023/") else idFields
         )
       val metadataList: List[MetadataObject] =

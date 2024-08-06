@@ -110,7 +110,7 @@ class FileProcessor(
     val fileTitle = fileInfo.fileName.split('.').dropRight(1).mkString(".")
     val folderId = uuidGenerator()
     val assetId = UUID.fromString(tdrUuid)
-    val folderMetadataObject = FolderMetadataObject(folderId, None, potentialFolderTitle, folderName, potentialSeries, folderMetadataIdFields)
+    val folderMetadataObject = FolderMetadataObject(folderId, None, potentialFolderTitle, folderName, potentialSeries.getOrElse("Unknown"), folderMetadataIdFields)
     val assetMetadataObject =
       AssetMetadataObject(
         assetId,
@@ -234,7 +234,7 @@ object FileProcessor {
       skipSeriesLookup <- c.getOrElse("skipSeriesLookup")(false)
     } yield TREInputParameters(status, reference, skipSeriesLookup, s3Bucket, s3Key)
   given Encoder[MetadataObject] = {
-    case FolderMetadataObject(id, parentId, title, name, potentialSeries, folderMetadataIdFields) =>
+    case FolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields) =>
       jsonFromMetadataObject(id, parentId, title, Type.ArchiveFolder, name)
         .deepMerge {
           Json.fromFields(convertIdFieldsToJson(folderMetadataIdFields))
@@ -242,7 +242,7 @@ object FileProcessor {
         .deepMerge {
           Json
             .obj(
-              ("series", potentialSeries.map(Json.fromString).getOrElse(Json.Null))
+              ("series", Json.fromString(series))
             )
         }
     case AssetMetadataObject(
@@ -335,7 +335,7 @@ object FileProcessor {
       parentId: Option[UUID],
       title: Option[String],
       name: String,
-      potentialSeries: Option[String],
+      series: String,
       idFields: List[IdField] = Nil
   ) extends MetadataObject
 
