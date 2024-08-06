@@ -7,6 +7,7 @@ import lambda_function
 
 @patch.dict('os.environ', {'DESTINATION_BUCKET': 'destination-bucket'})
 @patch.dict('os.environ', {'DESTINATION_QUEUE': 'destination-queue'})
+@patch.dict('os.environ', {'AWS_REGION': 'eu-west-2'})
 class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.copy_object')
