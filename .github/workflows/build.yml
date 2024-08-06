@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - scala/lambdas/**
+      - build.sbt
 permissions:
   id-token: write
   contents: write
@@ -26,7 +29,7 @@ jobs:
       - run: |
           rm -rf target/outputs
           mkdir -p target/outputs
-          sbt assembly
+          sbt ingestLambdasRoot/assembly
           cd target/outputs
           aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
           git tag ${{ steps.next-tag.outputs.next-version }}
