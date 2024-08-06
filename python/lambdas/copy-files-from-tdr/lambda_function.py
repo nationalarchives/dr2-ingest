@@ -82,9 +82,3 @@ def multipart_copy(source_bucket, destination_bucket, s3_key, file_size):
         # If there is an error, abort the multipart upload
         s3_client.abort_multipart_upload(Bucket=destination_bucket, Key=s3_key, UploadId=upload_id)
         raise e
-
-
-input_event = {'Records': [
-    {'body': '{"bucket": "intg-dr2-ingest-raw-cache","fileId":"2af916d4-c297-451b-ba54-a316da421ed8"}'}
-]}
-# lambda_handler(input_event, None)
