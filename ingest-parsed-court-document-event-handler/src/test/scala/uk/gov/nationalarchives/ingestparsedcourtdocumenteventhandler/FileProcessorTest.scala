@@ -366,7 +366,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               val fileName = treFileName.split('.').dropRight(1).mkString(".")
               val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
               val folder =
-                FolderMetadataObject(folderId, None, folderTitle, expectedFolderName, series, updatedIdFields)
+                FolderMetadataObject(folderId, None, folderTitle, expectedFolderName, series.getOrElse("Unknown"), updatedIdFields)
               val asset =
                 AssetMetadataObject(
                   assetId,
