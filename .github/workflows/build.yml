@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - main
-      - DR2-1838-copy-files-from-tdr
     paths:
       - scala/lambdas/**
       - python/lambdas/**

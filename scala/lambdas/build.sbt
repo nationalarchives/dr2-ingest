@@ -2,7 +2,6 @@ import Dependencies.*
 import uk.gov.nationalarchives.sbt.Log4j2MergePlugin.log4j2MergeStrategy
 
 ThisBuild / organization := "uk.gov.nationalarchives"
-ThisBuild / scalaVersion := "3.4.2"
 name := "lambdas"
 
 lazy val ingestLambdasRoot = (project in file("."))
