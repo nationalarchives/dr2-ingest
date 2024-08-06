@@ -50,7 +50,7 @@ We can also replay the message with the `skipSeriesLookup` parameter
 }
 ```
 
-The lambda doesn't produce an output. It writes files and metadata to S3/
+The lambda doesn't produce an output. It writes files and metadata to S3.
 
 #### metadata.json
 
@@ -112,6 +112,8 @@ The lambda doesn't produce an output. It writes files and metadata to S3/
   }
 ]
 ```
+
+If `skipSeriesLookup` is sent and the series can't be found, the value of `series` in the top level `ArchiveFolder` will be `Unknown` 
 
 [Link to the infrastructure code](https://github.com/nationalarchives/dp-terraform-environments/blob/main/ingest_parsed_court_document_event_handler.tf)
 

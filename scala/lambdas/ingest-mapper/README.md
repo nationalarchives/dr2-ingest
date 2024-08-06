@@ -13,6 +13,7 @@ The lambda:
 * Downloads the metadata file from the `metadataPackage` location and parses it.
 * Gets a list of series names from the metadata json. Do `series.split(" ").head` to get the department.
 * For each series and department pair, get the title and description for department and series from Discovery. This is run through the XSLT in `src/main/resources/transform.xsl` to replace the EAD tags with newlines.
+* If the series is `Unknown`, it will create a hierarchy of `Unknown/Court Documents (court unknown)` or `Unknown/Court Documents (court not matched)` depending on the title of the top level folder.
 * Creates a ujson Obj with the department and series output and the metadata json. We use a generic `Obj` because we will eventually have to handle fields we don't know about in advance.
 * Updates dynamo with the values
 * Writes the state data for the next step function step with this format:
