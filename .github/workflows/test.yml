@@ -12,8 +12,8 @@ jobs:
     with:
       repo-name: dr2-ingest-parsed-court-document-event-handler
       test-command: |
-        sbt scalafmtCheckAll test
         find . -name requirements.txt -exec pip install -r {} +
         pytest
+        sbt scalafmtCheckAll test
     secrets:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
