@@ -46,7 +46,7 @@ def get_messages_from_json_event(event) -> list[dict]:
     messages = [json.loads(sqs_record["body"]) for sqs_record in sqs_records]
     non_deleted_messages = [message
                             for message in messages
-                            if message["status"] is not "Deleted" and message["tableItemIdentifier"] is not ""]
+                            if message["status"] != "Deleted" and message["tableItemIdentifier"] != ""]
     return non_deleted_messages
 
 
