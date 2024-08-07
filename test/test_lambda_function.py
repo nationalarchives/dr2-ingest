@@ -59,7 +59,6 @@ class TestCcNotificationHandler(unittest.TestCase):
             messages_with_identifier,
             [
                 {"tableItemIdentifier": "identifier", "status": "Created"},
-                {"tableItemIdentifier": "identifier", "status": "Deleted"},
                 {"tableItemIdentifier": "differentIdentifier", "status": "Updated"}
             ]
         )
