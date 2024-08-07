@@ -12,7 +12,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.s3_client.copy_object')
     @patch('lambda_function.sqs_client.send_message')
     def test_standard_copy(self, mock_send_message, mock_copy_object, mock_head_object):
-        mock_head_object.return_value = {'ContentLength': 1024}  # 1 KB
+        mock_head_object.return_value = {'ContentLength': (5 * 1024 * 1024) - 1}
         event = {
             'Records': [
                 {'body': '{"bucket": "source-bucket","fileId":"test-file"}'}
@@ -22,9 +22,9 @@ class TestLambdaFunction(unittest.TestCase):
         lambda_function.lambda_handler(event, context)
 
         def assert_copy_object_arguments(idx, key):
-            expected_response = \
+            expected_request = \
                 {'Bucket': 'destination-bucket', 'CopySource': {'Bucket': 'source-bucket', 'Key': key}, 'Key': key}
-            self.assertEqual(mock_copy_object.call_args_list[idx][1], expected_response)
+            self.assertEqual(mock_copy_object.call_args_list[idx][1], expected_request)
 
         expected_sqs_args = \
             {'MessageBody': '{"location": "s3://destination-bucket/test-file"}', 'QueueUrl': 'destination-queue'}
@@ -43,9 +43,9 @@ class TestLambdaFunction(unittest.TestCase):
     def test_multipart_copy(self, mock_send_message, mock_complete_multipart_upload, mock_upload_part_copy,
                             mock_create_multipart_upload,
                             mock_head_object):
-        content_length = 6 * 1024 * 1024 * 1024
-        part_size = 5 * 1024 * 1024
-        mock_head_object.return_value = {'ContentLength': 6 * 1024 * 1024 * 1024}
+        content_length = 5 * 1024 * 1024 * 1024
+        part_size = int(content_length / 100)
+        mock_head_object.return_value = {'ContentLength': content_length}
         mock_create_multipart_upload.return_value = {'UploadId': 'test-upload-id'}
 
         event = {
@@ -67,7 +67,7 @@ class TestLambdaFunction(unittest.TestCase):
 
         assert_create_multipart_arguments(0, "test-file")
         assert_create_multipart_arguments(1, "test-file.metadata")
-        self.assertEqual(mock_upload_part_copy.call_count, math.ceil(content_length / part_size * 2))
+        self.assertEqual(mock_upload_part_copy.call_count, math.floor(content_length / part_size * 2) + 2)
         self.assertEqual(mock_complete_multipart_upload.call_count, 2)
         self.assertEqual(mock_send_message.call_args_list[0][1], expected_sqs_args)
 
@@ -105,9 +105,9 @@ class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.s3_client.upload_part_copy')
     @patch('lambda_function.s3_client.complete_multipart_upload')
     @patch('lambda_function.s3_client.abort_multipart_upload')
-    def test_multipart_upload_failure(self, _, __,
+    def test_multipart_upload_failure(self, abort_multipart_upload, __,
                                       mock_upload_part_copy, mock_create_multipart_upload, mock_head_object):
-        mock_head_object.return_value = {'ContentLength': 6 * 1024 * 1024 * 1024}  # 6 GB
+        mock_head_object.return_value = {'ContentLength': 5 * 1024 * 1024 * 1024}
         mock_create_multipart_upload.return_value = {'UploadId': 'test-upload-id'}
 
         mock_upload_part_copy.side_effect = Exception("S3 upload_part_copy failed")
@@ -121,15 +121,17 @@ class TestLambdaFunction(unittest.TestCase):
         with self.assertRaises(Exception) as cm:
             lambda_function.lambda_handler(event, context)
         self.assertEqual(str(cm.exception), "S3 upload_part_copy failed")
+        expected_abort_call = {'Bucket': 'destination-bucket', 'Key': 'test-file', 'UploadId': 'test-upload-id'}
+        self.assertEqual(abort_multipart_upload.call_args_list[0][1], expected_abort_call)
 
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.create_multipart_upload')
     @patch('lambda_function.s3_client.upload_part_copy')
     @patch('lambda_function.s3_client.complete_multipart_upload')
     @patch('lambda_function.s3_client.abort_multipart_upload')
-    def test_complete_multipart_upload_failure(self, _, mock_complete_multipart_upload,
+    def test_complete_multipart_upload_failure(self, abort_multipart_upload, mock_complete_multipart_upload,
                                                mock_upload_part_copy, mock_create_multipart_upload, mock_head_object):
-        mock_head_object.return_value = {'ContentLength': 6 * 1024 * 1024 * 1024}  # 6 GB
+        mock_head_object.return_value = {'ContentLength': 5 * 1024 * 1024 * 1024}
         mock_create_multipart_upload.return_value = {'UploadId': 'test-upload-id'}
         mock_upload_part_copy.return_value = {'CopyPartResult': {'ETag': 'etag'}}
 
@@ -144,6 +146,8 @@ class TestLambdaFunction(unittest.TestCase):
         with self.assertRaises(Exception) as cm:
             lambda_function.lambda_handler(event, context)
         self.assertEqual(str(cm.exception), "S3 complete_multipart_upload failed")
+        expected_abort_call = {'Bucket': 'destination-bucket', 'Key': 'test-file', 'UploadId': 'test-upload-id'}
+        self.assertEqual(abort_multipart_upload.call_args_list[0][1], expected_abort_call)
 
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.copy_object')

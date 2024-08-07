@@ -13,24 +13,25 @@ def lambda_handler(event, context):
         body = json.loads(record['body'])
         file_id = body['fileId']
         source_bucket = body['bucket']
-        file_location = copy_object(destination_bucket, file_id, source_bucket)
-        copy_object(destination_bucket, f"{file_id}.metadata", source_bucket)
+        file_location = copy_object_to_s3(destination_bucket, file_id, source_bucket)
+        copy_object_to_s3(destination_bucket, f"{file_id}.metadata", source_bucket)
 
         sqs_client.send_message(QueueUrl=destination_queue, MessageBody=json.dumps({'location': file_location}))
 
 
-def copy_object(destination_bucket, s3_key, source_bucket):
+def copy_object_to_s3(destination_bucket, s3_key, source_bucket):
     try:
         response = s3_client.head_object(Bucket=source_bucket, Key=s3_key)
         file_size = response['ContentLength']
 
-        if file_size > 5 * 1024 * 1024 * 1024:
-            return multipart_copy(source_bucket, destination_bucket, s3_key, file_size)
+        if file_size >= 5 * 1024 * 1024 * 1024:
+            multipart_copy(source_bucket, destination_bucket, s3_key, file_size)
         else:
-            return standard_copy(source_bucket, destination_bucket, s3_key)
+            standard_copy(source_bucket, destination_bucket, s3_key)
 
+        return f"s3://{destination_bucket}/{s3_key}"
     except Exception as e:
-        print(f"Error processing file {s3_key} from bucket {source_bucket}: {str(e)}")
+        print(f"Error processing file {s3_key} from bucket {source_bucket}: {e}")
         raise e
 
 
@@ -39,19 +40,17 @@ def standard_copy(source_bucket, destination_bucket, s3_key):
         copy_source = {'Bucket': source_bucket, 'Key': s3_key}
         s3_client.copy_object(CopySource=copy_source, Bucket=destination_bucket, Key=s3_key)
         print(f"Standard copy of {s3_key} completed successfully.")
-        return f"s3://{destination_bucket}/{s3_key}"
     except Exception as e:
-        print(f"Error during standard copy of {s3_key}: {str(e)}")
+        print(f"Error during standard copy of {s3_key}: {e}")
         raise e
 
 
 def multipart_copy(source_bucket, destination_bucket, s3_key, file_size):
+    multipart_upload = s3_client.create_multipart_upload(Bucket=destination_bucket, Key=s3_key)
+    upload_id = multipart_upload['UploadId']
     try:
         copy_source = {'Bucket': source_bucket, 'Key': s3_key}
-        multipart_upload = s3_client.create_multipart_upload(Bucket=destination_bucket, Key=s3_key)
-        upload_id = multipart_upload['UploadId']
-
-        part_size = 5 * 1024 * 1024
+        part_size = int(file_size / 100)
         part_number = 1
         parts = []
 
@@ -76,9 +75,8 @@ def multipart_copy(source_bucket, destination_bucket, s3_key, file_size):
             MultipartUpload={'Parts': parts}
         )
         print(f"Multipart copy of {s3_key} completed successfully.")
-        return f"s3://{destination_bucket}/{s3_key}"
     except Exception as e:
-        print(f"Error during multipart copy of {s3_key}: {str(e)}")
+        print(f"Error during multipart copy of {s3_key}: {e}")
         # If there is an error, abort the multipart upload
         s3_client.abort_multipart_upload(Bucket=destination_bucket, Key=s3_key, UploadId=upload_id)
         raise e
