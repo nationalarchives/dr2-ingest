@@ -6,3 +6,9 @@ updates:
     schedule:
       # Check for updates to GitHub Actions every week
       interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/python"
+    schedule:
+      # Check for updates to python packages every week
+      interval: "weekly"
+
