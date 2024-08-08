@@ -49,13 +49,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
     def childrenOfAsset(asset: AssetDynamoTable): IO[List[FileDynamoTable]] = {
       val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
-      for {
-        children <- dependencies.daDynamoDbClient
-          .queryItems[FileDynamoTable](config.dynamoTableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.dynamoGsiName))
-        _ <- IO.raiseWhen(children.length != asset.childCount)(
-          new Exception(s"Asset id ${asset.id}: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
-        )
-      } yield children
+      dependencies.daDynamoDbClient
+        .queryItems[FileDynamoTable](config.dynamoTableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.dynamoGsiName))
     }
 
     def getParentAsset(fileRow: FileDynamoTable): IO[AssetDynamoTable] = for {
@@ -99,8 +94,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         record.dynamodb.newImage match
           case Some(newImage) =>
             newImage match
-              case assetRow: AssetDynamoTable => processAsset(assetRow)
-              case fileRow: FileDynamoTable   => getParentAsset(fileRow).flatMap(processAsset)
+              case assetRow: AssetDynamoTable => logger.info(s"Processing asset ${assetRow.id}") >> processAsset(assetRow)
+              case fileRow: FileDynamoTable   => logger.info(s"Processing file ${fileRow.id}") >> getParentAsset(fileRow).flatMap(processAsset)
               case _                          => IO.unit
           case None => IO.unit
       }

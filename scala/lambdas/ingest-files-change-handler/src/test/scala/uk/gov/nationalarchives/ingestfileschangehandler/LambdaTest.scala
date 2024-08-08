@@ -171,28 +171,6 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       ),
       fileAOne,
       s"Expected 1 parent asset, found 2 assets for file ${assetA.id}"
-    ),
-    (
-      "Incorrect number of children for ingest_CC update",
-      List(
-        folderA,
-        assetA,
-        fileAOne
-      ),
-      assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
-      s"Asset id ${assetA.id}: has 2 children in the files table but found 1 children in the Preservation system"
-    ),
-    (
-      "Incorrect number of children for skipIngest update",
-      List(
-        folderA,
-        assetA,
-        fileAOne,
-        fileAOne,
-        fileATwo
-      ),
-      assetA.copy(ingestedPreservica = true, skipIngest = true),
-      s"Asset id ${assetA.id}: has 2 children in the files table but found 3 children in the Preservation system"
     )
   )
 
