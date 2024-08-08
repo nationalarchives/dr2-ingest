@@ -12,7 +12,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.s3_client.copy_object')
     @patch('lambda_function.sqs_client.send_message')
     def test_standard_copy(self, mock_send_message, mock_copy_object, mock_head_object):
-        mock_head_object.return_value = {'ContentLength': (5 * 1024 * 1024) - 1}
+        mock_head_object.return_value = {'ContentLength': (5 * 1024 * 1024 * 1024) - 1}
         event = {
             'Records': [
                 {'body': '{"bucket": "source-bucket","fileId":"test-file"}'}
