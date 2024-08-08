@@ -46,7 +46,7 @@ def get_messages_from_json_event(event) -> list[dict]:
     messages = [json.loads(sqs_record["body"]) for sqs_record in sqs_records]
     non_deleted_messages = [message
                             for message in messages
-                            if message["status"] is not "Deleted" and message["tableItemIdentifier"] is not ""]
+                            if message["status"] != "Deleted"]
     return non_deleted_messages
 
 
@@ -60,5 +60,7 @@ def lambda_handler(event, context):
 
     for message_json_as_dict in message_jsons_as_dicts:
         primary_key_value = message_json_as_dict["tableItemIdentifier"]
+        if primary_key_value == "":
+            raise ValueError(f"Table identifier is missing for message {message_json_as_dict}")
         items_with_id = get_items_with_id(client, table_name, primary_key, primary_key_value)
         add_true_to_ingest_cc_attribute(client, table_name, primary_key, sort_key, items_with_id)

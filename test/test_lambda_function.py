@@ -50,7 +50,7 @@ class TestCcNotificationHandler(unittest.TestCase):
         )
 
     def test_get_messages_from_json_event_should_return_all_messages_except_those_that_have_an_empty_identifier_and_are_deleted(
-        self):
+            self):
         event = self.default_event
 
         messages_with_identifier = get_messages_from_json_event(event)
@@ -59,8 +59,7 @@ class TestCcNotificationHandler(unittest.TestCase):
             messages_with_identifier,
             [
                 {"tableItemIdentifier": "identifier", "status": "Created"},
-                {"tableItemIdentifier": "identifier", "status": "Deleted"},
-                {"tableItemIdentifier": "differentIdentifier", "status": "Updated"}
+                {"tableItemIdentifier": "differentIdentifier", "status": "Updated"},
             ]
         )
 
@@ -109,7 +108,7 @@ class TestCcNotificationHandler(unittest.TestCase):
         table.update_item.assert_not_called()
 
     def test_add_true_to_ingest_cc_attribute_should_add_ingest_cc_attr_with_true_value_if_current_value_is_not_true(
-        self):
+            self):
         self.create_table()
         identifier1 = {"id": {"S": "identifier1"}, "batchId": {"S": "batchIdValue"}, "ingested_CC": {"S": "false"}}
         identifier2 = {"id": {"S": "identifier2"}, "batchId": {"S": "batchIdValue"}, "ingested_CC": {"S": "tru"}}
@@ -143,6 +142,27 @@ class TestCcNotificationHandler(unittest.TestCase):
         new_ingested_cc_value = item_response["Item"]["ingested_CC"]
 
         self.assertEqual(new_ingested_cc_value, {"S": "true"})
+
+    def test_lambda_handler_should_raise_error_if_table_identifier_empty(self):
+        os.environ["DYNAMO_TABLE_NAME"] = self.table_name
+        self.create_table()
+        self.put_item_in_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
+
+        with self.assertRaises(ValueError) as context:
+            lambda_handler(self.empty_table_identifier_event, None)
+
+        expected_error = "Table identifier is missing for message {'tableItemIdentifier': '', 'status': 'Updated'}"
+        self.assertEqual(expected_error, str(context.exception))
+
+    empty_table_identifier_event = {
+        "Records": [
+            {
+                "messageId": "dfef2ac4-7b37-437e-bf65-56e687784975",
+                "receiptHandle": "AQEBzWwaftRI0KuVm4tP+/7q1rGgNqicHq...",
+                "body": "{\"tableItemIdentifier\": \"\", \"status\":\"Updated\"}"
+            }
+        ]
+    }
 
     default_event = {
         "Records": [
