@@ -38,7 +38,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   case class DDBItem(assetId: DDBValue, groupId: DDBValue, message: DDBValue)
   case class DDBValue(S: String)
 
-  val config: Config = Config("", "", "")
+  val config: Config = Config("outputBucket", "arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName", "test-table")
 
   val reference = "TEST-REFERENCE"
   val uuidsAndChecksum: List[(String, String)] = List(

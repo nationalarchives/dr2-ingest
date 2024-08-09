@@ -10,7 +10,10 @@ jobs:
   test:
     uses: nationalarchives/dr2-github-actions/.github/workflows/dr2_test.yml@main
     with:
-      repo-name: dr2-ingest-parsed-court-document-event-handler
-      test-command: sbt scalafmtCheckAll test
+      repo-name: dr2-ingest
+      test-command: |
+        find . -name requirements.txt -exec pip install -r {} +
+        AWS_DEFAULT_REGION=eu-west-2 pytest
+        sbt scalafmtCheckAll test
     secrets:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

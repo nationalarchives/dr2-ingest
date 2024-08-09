@@ -6,8 +6,6 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import io.circe.Decoder
 import io.circe.generic.auto.*
 import io.circe.parser.decode
-import pureconfig.*
-import pureconfig.module.catseffect.syntax.*
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.utils.EventDecoders.given
@@ -27,7 +25,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
       SQSEvent,
       Config,
       Dependencies
-  ) => IO[Unit] = (input, _, dependencies) => {
+  ) => IO[Unit] = (input, config, dependencies) => {
     input.getRecords.asScala.toList
       .map { record =>
         for {
@@ -36,7 +34,6 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           logCtx = Map("batchRef" -> batchRef)
           _ <- log(logCtx)(s"Processing batchRef $batchRef")
 
-          config <- ConfigSource.default.loadF[IO, Config]()
           outputBucket = config.outputBucket
           fileProcessor = new FileProcessor(treInput.parameters.s3Bucket, outputBucket, batchRef, dependencies.s3, dependencies.randomUuidGenerator)
           fileNameToFileInfo <- fileProcessor.copyFilesFromDownloadToUploadBucket(treInput.parameters.s3Key)
