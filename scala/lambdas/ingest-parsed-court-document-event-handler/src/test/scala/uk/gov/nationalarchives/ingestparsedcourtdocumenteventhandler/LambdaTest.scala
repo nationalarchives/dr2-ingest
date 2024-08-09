@@ -35,7 +35,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   case class SFNRequest(stateMachineArn: String, name: String, input: String)
 
   case class DDBRequest(TableName: String, Item: DDBItem, ConditionExpression: String)
-  case class DDBItem(ioId: DDBValue, batchId: DDBValue, message: DDBValue)
+  case class DDBItem(assetId: DDBValue, groupId: DDBValue, message: DDBValue)
   case class DDBValue(S: String)
 
   val config: Config = Config("outputBucket", "arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName", "test-table")
@@ -324,10 +324,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val ddbRequest = runLambdaAndReturnDynamoDbRequest()
 
     ddbRequest.TableName should equal("test-table")
-    ddbRequest.Item.ioId.S should equal("24190792-a2e5-43a0-a9e9-6a0580905d90")
-    ddbRequest.Item.batchId.S should equal("TEST-REFERENCE")
+    ddbRequest.Item.assetId.S should equal("24190792-a2e5-43a0-a9e9-6a0580905d90")
+    ddbRequest.Item.groupId.S should equal("TEST-REFERENCE")
     ddbRequest.Item.message.S should equal("{\"messageId\":\"27a9a6bb-a023-4cab-8592-39b44761a30a\"}")
-    ddbRequest.ConditionExpression should equal("attribute_not_exists(ioId)")
+    ddbRequest.ConditionExpression should equal("attribute_not_exists(assetId)")
   }
 
   "handler" should "return an error if the Dynamo API is unavailable" in {
