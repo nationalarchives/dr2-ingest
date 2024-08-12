@@ -26,6 +26,10 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     case (name, value) if name.startsWith("id_") => Identifier(name.drop(3), value.s())
   }.toList
 
+  val checksums: List[Checksum] = folderRowAsMap.collect {
+    case (name, value) if name.startsWith("checksum_") => Checksum(name.drop(9), value.s())
+  }.toList
+
   private val allValidatedLockTableFields: LockTableValidatedFields = LockTableValidatedFields(
     stringToScalaType[UUID](
       ioId,
@@ -61,7 +65,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     getPotentialListOfValues(originalMetadataFiles, convertListOfStringsToT(UUID.fromString)),
     getNumber(sortOrder, _.toInt),
     getNumber(fileSize, _.toLong),
-    getValidatedMandatoryFieldAsString(checksumSha256),
+    checksums,
     getValidatedMandatoryFieldAsString(fileExtension),
     stringToRepresentationType(getPotentialStringValue(representationType)),
     getNumber(representationSuffix, _.toInt),
@@ -307,7 +311,6 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableFields.name,
       allValidatedFileTableFields.sortOrder,
       allValidatedFileTableFields.fileSize,
-      allValidatedFileTableFields.checksumSha256,
       allValidatedFileTableFields.fileExtension,
       allValidatedFileTableFields.`type`,
       allValidatedFileTableFields.representationType,
@@ -321,7 +324,6 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           name,
           sortOrder,
           fileSize,
-          checksumSha256,
           fileExtension,
           rowType,
           representationType,
@@ -339,7 +341,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           allValidatedFileTableFields.description,
           sortOrder,
           fileSize,
-          checksumSha256,
+          checksums,
           fileExtension,
           representationType,
           representationSuffix,

@@ -43,7 +43,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       description -> fromS("testDescription"),
       sortOrder -> fromN("2"),
       fileSize -> fromN("1"),
-      checksumSha256 -> fromS("testChecksumSha256"),
+      "checksum_Algorithm1" -> fromS("testChecksumAlgo1"),
       fileExtension -> fromS("testFileExtension"),
       representationType -> fromS("Preservation"),
       ingestedPreservica -> fromS("true"),
@@ -107,7 +107,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
         List(
           (fileSize, "1"),
           (fileExtension, "testFileExtension"),
-          (checksumSha256, "checksum"),
+          ("checksum_sha256", "checksum"),
           (sortOrder, "2"),
           (representationType, representationTypeValue),
           (representationSuffix, "1"),
@@ -243,7 +243,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     ),
     (
       invalidTypeAttributeValue,
-      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'checksum_sha256': missing, 'fileExtension': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing, 'location': missing",
+      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'fileExtension': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing, 'location': missing",
       File
     ),
     (
@@ -308,7 +308,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       val dynamoTableFields = tableElementNames.toList
       val dynamoTableFieldsMapped = dynamoTableFields.map {
         case "identifiers"           => "id_Test"
-        case "checksumSha256"        => "checksum_sha256"
+        case "checksums"             => "checksum_Algorithm1"
         case "ingestedPreservica"    => "ingested_PS"
         case "ingestedCustodialCopy" => "ingested_CC"
         case theRest                 => theRest
@@ -414,7 +414,28 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     fileRow.description.get should equal("testDescription")
     fileRow.fileSize should equal(1)
     fileRow.sortOrder should equal(2)
-    fileRow.checksumSha256 should equal("testChecksumSha256")
+    fileRow.checksums.head.fingerprint should equal("testChecksumAlgo1")
+    fileRow.fileExtension should equal("testFileExtension")
+    fileRow.location.toString should equal("s3://bucket/key")
+  }
+
+  "fileTableFormat read" should "return a valid object when more than one checksum is provided in the file fields" in {
+
+    val mapWithAdditionalChecksum = allFileFieldsPopulated + ("checksum_Algorithm2" -> fromS("testChecksumAlgo2"))
+    val fileRow = fileTableFormat.read(buildAttributeValue(mapWithAdditionalChecksum)).value
+
+    fileRow.batchId should equal("testBatchId")
+    fileRow.id should equal(UUID.fromString(allFileFieldsPopulated(id).s()))
+    fileRow.parentPath.get should equal("testParentPath")
+    fileRow.name should equal("testName")
+    fileRow.`type` should equal(File)
+    fileRow.title.get should equal("testTitle")
+    fileRow.description.get should equal("testDescription")
+    fileRow.fileSize should equal(1)
+    fileRow.sortOrder should equal(2)
+    fileRow.checksums.size should equal(2)
+    fileRow.checksums.find(_.algorithm.equals("Algorithm1")).get.fingerprint should equal("testChecksumAlgo1")
+    fileRow.checksums.find(_.algorithm.equals("Algorithm2")).get.fingerprint should equal("testChecksumAlgo2")
     fileRow.fileExtension should equal("testFileExtension")
     fileRow.location.toString should equal("s3://bucket/key")
   }
@@ -433,7 +454,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(description).s() should equal("description")
     resultMap(sortOrder).n() should equal("1")
     resultMap(fileSize).n() should equal("2")
-    resultMap(checksumSha256).s() should equal("checksum")
+    resultMap("checksum_Algorithm1").s() should equal("testChecksumAlgo1")
     resultMap(fileExtension).s() should equal("ext")
     resultMap("representationType").s() should equal("Preservation")
     resultMap(ingestedPreservica).s() should equal("true")
@@ -511,7 +532,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(originalMetadataFiles).ss().asScala.toList should equal(List(originalMetadataFilesUuid.toString))
     resultMap(ingestedPreservica).s() should equal("true")
     resultMap(ingestedCustodialCopy).s() should equal("true")
-    List(parentPath, title, description, sortOrder, fileSize, checksumSha256, fileExtension, "identifiers", skipIngest, correlationId)
+    List(parentPath, title, description, sortOrder, fileSize, "checksums", fileExtension, "identifiers", skipIngest, correlationId)
       .forall(resultMap.contains) should be(false)
   }
 
@@ -699,7 +720,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       Option(description),
       1,
       2,
-      "checksum",
+      List(Checksum("Algorithm1", "testChecksumAlgo1")),
       "ext",
       PreservationRepresentationType,
       1,
