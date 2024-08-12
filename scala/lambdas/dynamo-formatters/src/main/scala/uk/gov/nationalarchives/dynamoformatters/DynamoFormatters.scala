@@ -60,7 +60,8 @@ object DynamoFormatters {
   }
 
   val batchId = "batchId"
-  val ioId = "ioId"
+  val groupId = "groupId"
+  val assetId = "assetId"
   val id = "id"
   val message = "message"
   val name = "name"
@@ -139,7 +140,7 @@ object DynamoFormatters {
 
   case class LockTableValidatedFields(
       assetId: ValidatedField[UUID],
-      batchId: ValidatedField[String],
+      groupId: ValidatedField[String],
       message: ValidatedField[String]
   )
 
@@ -248,9 +249,9 @@ object DynamoFormatters {
   case class FilesTableSortKey(batchId: String)
 
   case class FilesTablePrimaryKey(partitionKey: FilesTablePartitionKey, sortKey: FilesTableSortKey)
-  case class LockTablePartitionKey(ioId: UUID)
+  case class LockTablePartitionKey(assetId: UUID)
 
-  case class IngestLockTable(ioId: UUID, batchId: String, message: String)
+  case class IngestLockTable(assetId: UUID, groupId: String, message: String)
 
   enum FileRepresentationType:
     override def toString: String = this match

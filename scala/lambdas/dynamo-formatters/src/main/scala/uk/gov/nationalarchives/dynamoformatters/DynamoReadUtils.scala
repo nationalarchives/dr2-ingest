@@ -28,11 +28,11 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
 
   private val allValidatedLockTableFields: LockTableValidatedFields = LockTableValidatedFields(
     stringToScalaType[UUID](
-      ioId,
-      getPotentialStringValue(ioId),
+      assetId,
+      getPotentialStringValue(assetId),
       UUID.fromString
     ),
-    getValidatedMandatoryFieldAsString(batchId),
+    getValidatedMandatoryFieldAsString(groupId),
     getValidatedMandatoryFieldAsString(message)
   )
 
@@ -189,10 +189,10 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
   def readLockTableRow: Either[InvalidPropertiesError, IngestLockTable] =
     (
       allValidatedLockTableFields.assetId,
-      allValidatedLockTableFields.batchId,
+      allValidatedLockTableFields.groupId,
       allValidatedLockTableFields.message
-    ).mapN { (assetId, batchId, message) =>
-      IngestLockTable(assetId, batchId, message)
+    ).mapN { (assetId, groupId, message) =>
+      IngestLockTable(assetId, groupId, message)
     }.toEither
       .left
       .map(InvalidPropertiesError.apply)
