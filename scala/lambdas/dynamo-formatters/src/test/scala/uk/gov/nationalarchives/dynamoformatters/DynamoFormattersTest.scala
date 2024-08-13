@@ -107,7 +107,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
         List(
           (fileSize, "1"),
           (fileExtension, "testFileExtension"),
-          ("checksum_sha256", "checksum"),
+          ("checksum_SHA256", "checksum"),
           (sortOrder, "2"),
           (representationType, representationTypeValue),
           (representationSuffix, "1"),

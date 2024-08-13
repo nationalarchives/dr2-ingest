@@ -154,13 +154,13 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
         <PhysicalLocation>{bitstreamPath(child)}</PhysicalLocation>
         <Fixities>
           {
-            child.checksums.sortBy(_.algorithm).map(eachChecksum =>
-              <Fixity>
+                child.checksums
+                  .sortBy(_.algorithm)
+                  .map(eachChecksum => <Fixity>
               <FixityAlgorithmRef>{eachChecksum.algorithm}</FixityAlgorithmRef>
               <FixityValue>{eachChecksum.fingerprint}</FixityValue>
-            </Fixity>
-            )
-          }
+            </Fixity>)
+              }
         </Fixities>
       </Bitstream>
             List(if index == 0 then "" else "\n      ", contentElement, "\n      ", generationElement, "\n      ", bitstreamElement)

@@ -59,7 +59,7 @@ object DynamoFormatters {
     override def write(ingestLockTable: IngestLockTable): DynamoValue = writeLockTable(ingestLockTable)
   }
 
-  //Attribute names as defined in the dynamo table
+  // Attribute names as defined in the dynamo table
   val batchId = "batchId"
   val groupId = "groupId"
   val assetId = "assetId"
@@ -260,5 +260,5 @@ object DynamoFormatters {
 
     case PreservationRepresentationType, AccessRepresentationType
 
-  case class Checksum (algorithm: String, fingerprint: String)
+  case class Checksum(algorithm: String, fingerprint: String)
 }

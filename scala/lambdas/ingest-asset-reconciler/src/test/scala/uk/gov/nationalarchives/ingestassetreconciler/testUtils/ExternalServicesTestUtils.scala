@@ -73,7 +73,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |  "Count": 2,
        |  "Items": [
        |    {
-       |      "checksum_sha256": {
+       |      "checksum_SHA256": {
        |        "S": "f7523c5d03a2c850fa06b5bbfed4c216f6368826"
        |      },
        |      "title": {
@@ -144,7 +144,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |      }
        |    },
        |    {
-       |      "checksum_sha256": {
+       |      "checksum_SHA256": {
        |        "S": "a8cfe9e6b5c10a26046c849cd3776734626e74a2"
        |      },
        |      "title": {
