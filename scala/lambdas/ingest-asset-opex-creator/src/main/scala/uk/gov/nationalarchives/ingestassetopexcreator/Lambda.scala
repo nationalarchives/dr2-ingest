@@ -2,30 +2,47 @@ package uk.gov.nationalarchives.ingestassetopexcreator
 
 import cats.effect.*
 import cats.implicits.*
+import feral.lambda.{Context, IOLambda}
 import fs2.Stream
 import io.circe.generic.auto.*
 import org.reactivestreams.FlowAdapters
-import org.scanamo.syntax.*
-import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
+import org.typelevel.log4cats.SelfAwareStructuredLogger
+import org.typelevel.log4cats.slf4j.Slf4jFactory
+import pureconfig.generic.semiauto.deriveReader
+import pureconfig.{ConfigReader, ConfigSource}
+import software.amazon.awssdk.services.s3.model.PutObjectResponse
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
-import uk.gov.nationalarchives.DADynamoDBClient.{*, given}
+import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd.PreservicaSchema.{OpexMetadataSchema, XipXsdSchemaV7}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{given_Schema_AssetDynamoTable, given_Schema_FilesTablePrimaryKey, *}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.*
-import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
 import java.time.OffsetDateTime
 import java.util.UUID
 
-class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
+object Lambda extends IOLambda.Simple[Input, Unit]  {
 
-  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DADynamoDBClient[IO](), DAS3Client[IO](), XMLCreator(OffsetDateTime.now())))
+  case class LambdaInit(config: Config, dependencies: Dependencies)
 
-  override def handler: (Input, Config, Dependencies) => IO[Unit] = { (input, config, dependencies) =>
+  override type Init = LambdaInit
+  given ConfigReader[Config] = deriveReader[Config]
+  val logger: SelfAwareStructuredLogger[IO] = Slf4jFactory.create[IO].getLogger
+
+  override def init: Resource[IO, LambdaInit] = Resource.eval {
+    for {
+      config <- IO.fromEither(ConfigSource.default.load[Config].left.map(err => new Exception(err.prettyPrint())))
+    } yield {
+      val dependencies = Dependencies(DADynamoDBClient[IO](), DAS3Client[IO](), XMLCreator(OffsetDateTime.now()))
+      LambdaInit(config, dependencies)
+    }
+  }
+
+  override def apply(input: Input, context: Context[IO], init: LambdaInit): IO[Option[Unit]] = {
+    val dependencies = init.dependencies
+    val config = init.config
     val xmlCreator = dependencies.xmlCreator
     val dynamoClient = dependencies.dynamoClient
     val s3Client = dependencies.s3Client
@@ -34,6 +51,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         List(FilesTablePrimaryKey(FilesTablePartitionKey(input.id), FilesTableSortKey(input.batchId))),
         config.dynamoTableName
       )
+      assetItems <- IO(List[AssetDynamoTable]())
       asset <- IO.fromOption(assetItems.headOption)(
         new Exception(s"No asset found for ${input.id} and ${input.batchId}")
       )
@@ -60,22 +78,22 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- ValidateXmlAgainstXsd[IO](OpexMetadataSchema).xmlStringIsValid(opex)
       _ <- uploadXMLToS3(s3Client, opex, config.destinationBucket, s"${parentPath(input, asset)}/${asset.id}.pax.opex")
       _ <- log(s"OPEX ${parentPath(input, asset)}/${asset.id}.pax.opex uploaded to ${config.destinationBucket}")
-    } yield ()
+    } yield Option(())
   }
 
-  private def uploadXMLToS3(s3Client: DAS3Client[IO], xmlString: String, destinationBucket: String, key: String): IO[CompletedUpload] =
-    Stream.emits[IO, Byte](xmlString.getBytes).chunks.map(_.toByteBuffer).toPublisherResource.use { publisher =>
-      s3Client.upload(destinationBucket, key, xmlString.getBytes.length, FlowAdapters.toPublisher(publisher))
-    }
+  private def uploadXMLToS3(s3Client: DAS3Client[IO], xmlString: String, destinationBucket: String, key: String): IO[Unit] =
+    Stream.emits[IO, Byte](xmlString.getBytes).through(fs2.io.toInputStream).map { is =>
+      s3Client.upload(destinationBucket, key, xmlString.getBytes.length, is)
+    }.compile.drain
 
   private def copyFromSourceToDestination(
-      s3Client: DAS3Client[IO],
-      input: Input,
-      destinationBucket: String,
-      asset: AssetDynamoTable,
-      child: FileDynamoTable,
-      xmlCreator: XMLCreator
-  ) = {
+                                           s3Client: DAS3Client[IO],
+                                           input: Input,
+                                           destinationBucket: String,
+                                           asset: AssetDynamoTable,
+                                           child: FileDynamoTable,
+                                           xmlCreator: XMLCreator
+                                         ) = {
     s3Client.copy(
       child.location.getHost,
       child.location.getPath.drop(1),
@@ -93,16 +111,14 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def childrenOfAsset(dynamoClient: DADynamoDBClient[IO], asset: AssetDynamoTable, tableName: String, gsiName: String): IO[List[FileDynamoTable]] = {
     val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
-    dynamoClient
-      .queryItems[FileDynamoTable](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
+    IO(Nil)
   }
-}
-
-object Lambda {
 
   case class Input(id: UUID, batchId: String, executionName: String)
 
-  case class Config(dynamoTableName: String, dynamoGsiName: String, destinationBucket: String) derives ConfigReader
+  case class Config(dynamoTableName: String, dynamoGsiName: String, destinationBucket: String)
 
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], s3Client: DAS3Client[IO], xmlCreator: XMLCreator)
 }
+
+

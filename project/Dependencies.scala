@@ -1,9 +1,11 @@
 import sbt._
+import org.portablescala.sbtplatformdeps.PlatformDepsPlugin.autoImport._
+
 object Dependencies {
   lazy val logbackVersion = "2.23.1"
   lazy val pureConfigVersion = "0.17.7"
   lazy val daAwsClientsVersion = "0.1.76"
-  private val fs2Version = "3.10.2"
+  val fs2Version = "3.10.2"
   private val sttpVersion = "3.9.7"
   private val circeVersion = "0.14.9"
   private val log4CatsVersion = "2.7.0"
@@ -18,8 +20,9 @@ object Dependencies {
   lazy val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.26.2"
-  lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
+  lazy val dynamoClient = Def.setting("uk.gov.nationalarchives" %%% "da-dynamodb-client" % "0.1.77-SNAPSHOT")
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
+  lazy val feral = "org.typelevel" %% "feral-lambda" % "1.0.0-M4"
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
   lazy val fs2IO = "co.fs2" %% "fs2-io" % fs2Version
   lazy val fs2Reactive = "co.fs2" %% "fs2-reactive-streams" % fs2Version
@@ -33,14 +36,15 @@ object Dependencies {
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % s"$scalaTestVersion.0"
   lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.94"
-  lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
+  lazy val pureConfigGeneric = "com.github.pureconfig" %% "pureconfig-generic-scala3" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.8"
-  lazy val scanamo = "org.scanamo" %% "scanamo" % "2.0.0"
-  lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
+  lazy val awsDynamoDb = "software.amazon.awssdk" % "dynamodb" % "2.25.35"
+  lazy val dynosaur = Def.setting("org.systemfw" %%% "dynosaur-core" % "0.7.0")
+  lazy val s3Client = Def.setting("uk.gov.nationalarchives" %%% "da-s3-client" % "0.1.77-SNAPSHOT")
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
-  lazy val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "2.3.0"
+  lazy val scalaXml = Def.setting("org.scala-lang.modules" %%% "scala-xml" % "2.3.0")
   lazy val sfnClient = "uk.gov.nationalarchives" %% "da-sfn-client" % daAwsClientsVersion
   lazy val snsClient = "uk.gov.nationalarchives" %% "da-sns-client" % daAwsClientsVersion
   lazy val secretsManagerClient = "uk.gov.nationalarchives" %% "da-secretsmanager-client" % daAwsClientsVersion

@@ -1,3 +1,6 @@
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "2.2.0")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")
 addSbtPlugin("uk.gov.nationalarchives" % "sbt-assembly-log4j2" % "0.0.4")
+addSbtPlugin("org.typelevel" %% "sbt-feral-lambda" % "1.0.0-M4")
+addSbtPlugin("org.scala-js"       % "sbt-scalajs"                   % "1.16.0")
+addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject"      % "1.3.2")

@@ -1,63 +1,44 @@
 package uk.gov.nationalarchives.dynamoformatters
 
 import cats.implicits.*
+import cats.syntax.all.*
 import cats.data.*
-import org.scanamo.*
-import org.scanamo.generic.semiauto.{FieldName, Typeclass, deriveDynamoFormat}
+import dynosaur.*
+import dynosaur.Schema.{ReadError, WriteError}
 import uk.gov.nationalarchives.dynamoformatters.DynamoWriteUtils.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoReadError.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoReadError.given
 
 import java.net.URI
 import java.time.OffsetDateTime
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
+import scala.util.Try
 
 object DynamoFormatters {
 
-  private def createReadDynamoUtils(dynamoValue: DynamoValue) = {
-    val folderRowAsMap = dynamoValue.toAttributeValue.m().asScala.toMap
-    new DynamoReadUtils(folderRowAsMap)
-  }
-
-  given archiveFolderTableFormat: DynamoFormat[ArchiveFolderDynamoTable] =
-    new DynamoFormat[ArchiveFolderDynamoTable] {
-      override def read(dynamoValue: DynamoValue): Either[DynamoReadError, ArchiveFolderDynamoTable] =
-        createReadDynamoUtils(dynamoValue).readArchiveFolderRow
-
-      override def write(table: ArchiveFolderDynamoTable): DynamoValue =
-        writeArchiveFolderTable(table)
+  given Schema[UUID] = Schema[String].imap(UUID.fromString)(_.toString)
+  
+  given Schema[FilesTablePrimaryKey] = Schema.record[FilesTablePrimaryKey] { field =>
+    (
+      field("id", _.partitionKey.id),
+      field("batchId", _.sortKey.batchId)
+    ).mapN { (id, batchId) =>
+      FilesTablePrimaryKey(FilesTablePartitionKey(id), FilesTableSortKey(batchId))
     }
+  }
 
-  given contentFolderTableFormat: DynamoFormat[ContentFolderDynamoTable] =
-    new DynamoFormat[ContentFolderDynamoTable] {
-      override def read(dynamoValue: DynamoValue): Either[DynamoReadError, ContentFolderDynamoTable] =
-        createReadDynamoUtils(dynamoValue).readContentFolderRow
-
-      override def write(table: ContentFolderDynamoTable): DynamoValue =
-        writeContentFolderTable(table)
+  given Schema[AssetDynamoTable] = Schema[DynamoValue].xmap { value =>
+    val rowAsMap = value.m.getOrElse(Map()).view.mapValues(_.value).toMap
+    val utils = new DynamoReadUtils(rowAsMap)
+    utils.readAssetRow.left.map { err =>
+      val errorMessage = err.errors.map {
+        case (key, error) => s"'$key': ${error.show}"
+      }.toList.mkString("\n")
+      ReadError(errorMessage)
     }
+  }(asset => Try(writeAssetTable(asset)).toEither.left.map(err => WriteError(err.getMessage)))
 
-  given assetTableFormat: DynamoFormat[AssetDynamoTable] = new DynamoFormat[AssetDynamoTable] {
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, AssetDynamoTable] =
-      createReadDynamoUtils(dynamoValue).readAssetRow
-
-    override def write(table: AssetDynamoTable): DynamoValue =
-      writeAssetTable(table)
-  }
-
-  given fileTableFormat: DynamoFormat[FileDynamoTable] = new DynamoFormat[FileDynamoTable] {
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, FileDynamoTable] =
-      createReadDynamoUtils(dynamoValue).readFileRow
-
-    override def write(table: FileDynamoTable): DynamoValue =
-      writeFileTable(table)
-  }
-
-  given ingestLockTableFormat: DynamoFormat[IngestLockTable] = new DynamoFormat[IngestLockTable] {
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, IngestLockTable] =
-      createReadDynamoUtils(dynamoValue).readLockTableRow
-
-    override def write(ingestLockTable: IngestLockTable): DynamoValue = writeLockTable(ingestLockTable)
-  }
 
   val batchId = "batchId"
   val groupId = "groupId"
@@ -89,39 +70,15 @@ object DynamoFormatters {
   val location = "location"
   val correlationId = "correlationId"
 
-  given filesTablePkFormat: Typeclass[FilesTablePrimaryKey] = new DynamoFormat[FilesTablePrimaryKey]:
-    override def read(av: DynamoValue): Either[DynamoReadError, FilesTablePrimaryKey] = {
-      val valueMap = av.toAttributeValue.m().asScala
 
-      def validateProperty(name: String) =
-        valueMap.get(name).map(_.s()).map(Validated.Valid.apply).getOrElse(Validated.Invalid(name -> MissingProperty)).toValidatedNel
 
-      (validateProperty(id), validateProperty(batchId))
-        .mapN { (id, batchId) =>
-          FilesTablePrimaryKey(FilesTablePartitionKey(UUID.fromString(id)), FilesTableSortKey(batchId))
-        }
-        .toEither
-        .left
-        .map(InvalidPropertiesError.apply)
-    }
-
-    override def write(t: FilesTablePrimaryKey): DynamoValue = {
-      DynamoValue.fromMap(Map(id -> DynamoValue.fromString(t.partitionKey.id.toString), batchId -> DynamoValue.fromString(t.sortKey.batchId)))
-    }
-
-  given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
-
-  given typeFormatter: DynamoFormat[Type] = new DynamoFormat[Type]:
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, Type] = dynamoValue.as[String].map(Type.valueOf)
-
-    override def write(t: Type): DynamoValue = DynamoValue.fromString(t.toString)
 
   enum Type:
-    def formatter: DynamoFormat[? >: ArchiveFolderDynamoTable & ContentFolderDynamoTable & AssetDynamoTable & FileDynamoTable <: DynamoTable] = this match
-      case ArchiveFolder => archiveFolderTableFormat
-      case ContentFolder => contentFolderTableFormat
-      case Asset         => assetTableFormat
-      case File          => fileTableFormat
+//    def formatter: DynamoFormat[? >: ArchiveFolderDynamoTable & ContentFolderDynamoTable & AssetDynamoTable & FileDynamoTable <: DynamoTable] = this match
+//      case ArchiveFolder => archiveFolderTableFormat
+//      case ContentFolder => contentFolderTableFormat
+//      case Asset         => assetTableFormat
+//      case File          => fileTableFormat
     case ArchiveFolder, ContentFolder, Asset, File
 
   sealed trait DynamoTable {
@@ -136,7 +93,7 @@ object DynamoFormatters {
     def childCount: Int
   }
 
-  private type ValidatedField[T] = ValidatedNel[(FieldName, DynamoReadError), T]
+  private type ValidatedField[T] = ValidatedNel[(String, DynamoReadError), T]
 
   case class LockTableValidatedFields(
       assetId: ValidatedField[UUID],

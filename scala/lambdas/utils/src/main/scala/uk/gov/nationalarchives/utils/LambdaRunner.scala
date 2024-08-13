@@ -9,7 +9,7 @@ import io.circe.syntax.EncoderOps
 import org.typelevel.log4cats.{LoggerName, SelfAwareStructuredLogger}
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import pureconfig._
-import pureconfig.module.catseffect.syntax._
+
 
 import java.io.{InputStream, OutputStream}
 import scala.reflect.ClassTag
@@ -36,7 +36,7 @@ abstract class LambdaRunner[Event, Result, Config, Dependencies](using
       .use { is =>
         IO(is.readAllBytes().map(_.toChar).mkString)
       }
-    config <- ConfigSource.default.loadF[IO, Config]()
+    config <- IO.fromEither(ConfigSource.default.load[Config]().left.map(err => new Exception(err.prettyPrint())))
     event <- IO.fromEither(decode[Event](inputString))
     deps <- dependencies(config)
     response <- handler(event, config, deps)
