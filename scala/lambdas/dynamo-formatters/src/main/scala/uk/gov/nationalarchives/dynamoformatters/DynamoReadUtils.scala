@@ -20,6 +20,8 @@ import java.net.URI
 
 class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
 
+  private val ChecksumPrefix = "checksum_"
+
   private type InvalidProperty = (String, DynamoReadError)
 
   val identifiers: List[Identifier] = folderRowAsMap.collect {
@@ -27,7 +29,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
   }.toList
 
   val checksums: List[Checksum] = folderRowAsMap.collect {
-    case (name, value) if name.startsWith("checksum_") => Checksum(name.drop(9), value.s())
+    case (name, value) if name.startsWith(ChecksumPrefix) => Checksum(name.drop(ChecksumPrefix.length), value.s())
   }.toList
 
   private val allValidatedLockTableFields: LockTableValidatedFields = LockTableValidatedFields(
