@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "contains": {
+        "title": "File",
+        "description": "JSON must contain at least one object with all and only these properties, one of which is 'type': 'File'",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "const": "File"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minLength": 1
+          },
+          "fileSize": {
+            "type": "integer",
+            "minLength": 1
+          },
+          "representationType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "representationSuffix": {
+            "type": "integer",
+            "minLength": 1
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checksum_sha256": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "title",
+          "type",
+          "name",
+          "sortOrder",
+          "fileSize",
+          "representationType",
+          "representationSuffix",
+          "location",
+          "checksum_sha256"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "contains": {
+        "title": "Asset",
+        "description": "JSON must contain exactly one object with all and only these properties, one of which is 'type': 'Asset'",
+        "properties": {
+          "originalFiles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "originalMetadataFiles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "transferringBody": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transferCompleteDatetime": {
+            "type": "string",
+            "minLength": 1
+          },
+          "upstreamSystem": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digitalAssetSource": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digitalAssetSubtype": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id_BornDigitalRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id_ConsignmentReference": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id_RecordID": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "const": "Asset"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "originalFiles",
+          "originalMetadataFiles",
+          "transferringBody",
+          "transferCompleteDatetime",
+          "upstreamSystem",
+          "digitalAssetSource",
+          "digitalAssetSubtype",
+          "id_BornDigitalRef",
+          "id_ConsignmentReference",
+          "id_RecordID",
+          "id",
+          "parentId",
+          "title",
+          "type",
+          "name"
+        ],
+        "additionalProperties": true
+      },
+      "maxContains": 1
+    }
+  ],
+  "items": {
+    "title": "What items can appear in JSON",
+    "description": "JSON can only contain objects that fit these descriptions; these objects represent the types: 'File', 'Asset', 'ContentFolder' and 'AssetFolder'",
+    "anyOf": [
+      {
+        "properties": {
+          "series": {
+            "type": "string",
+            "pattern": "^[A-Z]{1,4} [1-9][0-9]{0,3}|Unknown$",
+            "minLength": 1
+          },
+          "id_Code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id_URI": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "ArchiveFolder",
+              "ContentFolder"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "series",
+          "id_Code",
+          "id_URI",
+          "id",
+          "parentId",
+          "title",
+          "type",
+          "name"
+        ],
+        "additionalProperties": true
+      },
+      {
+        "properties": {
+          "originalFiles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "originalMetadataFiles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "transferringBody": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transferCompleteDatetime": {
+            "type": "string",
+            "minLength": 1
+          },
+          "upstreamSystem": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digitalAssetSource": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digitalAssetSubtype": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id_BornDigitalRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id_ConsignmentReference": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id_RecordID": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "const": "Asset"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "originalFiles",
+          "originalMetadataFiles",
+          "transferringBody",
+          "transferCompleteDatetime",
+          "upstreamSystem",
+          "digitalAssetSource",
+          "digitalAssetSubtype",
+          "id_BornDigitalRef",
+          "id_ConsignmentReference",
+          "id_RecordID",
+          "id",
+          "parentId",
+          "title",
+          "type",
+          "name"
+        ],
+        "additionalProperties": true
+      },
+      {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "const": "File"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minLength": 1
+          },
+          "fileSize": {
+            "type": "integer",
+            "minLength": 1
+          },
+          "representationType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "representationSuffix": {
+            "type": "integer",
+            "minLength": 1
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checksum_sha256": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "title",
+          "type",
+          "name",
+          "sortOrder",
+          "fileSize",
+          "representationType",
+          "representationSuffix",
+          "location",
+          "checksum_sha256"
+        ],
+        "additionalProperties": true
+      }
+    ]
+  }
+}
