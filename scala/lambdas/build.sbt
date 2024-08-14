@@ -11,6 +11,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     getLatestPreservicaVersion,
     ingestAssetOpexCreator,
     ingestAssetReconciler,
+    ingestEventAggregator,
     ingestFilesChangeHandler,
     ingestFindExistingAsset,
     ingestFolderOpexCreator,
@@ -231,6 +232,16 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
       s3Client,
       sfnClient,
       reactorTest % Test
+    )
+  )
+
+lazy val ingestEventAggregator = (project in file("ingest-event-aggregator"))
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      sfnClient
     )
   )
 
