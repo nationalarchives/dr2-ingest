@@ -65,12 +65,9 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       titleOfCoWithoutExtension == assetChildTitleOrFileNameWithoutExtension
     }
 
-  private def doesChecksumMatchFixity(table: DynamoFormatters.FileDynamoTable, fixity: Client.Fixity): Boolean = {
-    val comparisonFixity = table.checksums.filter(_.algorithm.equals(fixity.algorithm))
-    if (comparisonFixity.isEmpty) {
-      false
-    } else {
-      comparisonFixity.head.fingerprint.equals(fixity.value)
+  private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoTable, fixity: Client.Fixity): Boolean = {
+    item.checksums.exists { checksum =>
+      checksum.algorithm == fixity.algorithm && checksum.fingerprint == fixity.value
     }
   }
 

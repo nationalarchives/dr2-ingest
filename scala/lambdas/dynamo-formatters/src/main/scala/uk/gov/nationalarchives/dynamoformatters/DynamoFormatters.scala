@@ -13,6 +13,8 @@ import scala.jdk.CollectionConverters.*
 
 object DynamoFormatters {
 
+  final val ChecksumPrefix = "checksum_"
+
   private def createReadDynamoUtils(dynamoValue: DynamoValue) = {
     val folderRowAsMap = dynamoValue.toAttributeValue.m().asScala.toMap
     new DynamoReadUtils(folderRowAsMap)
@@ -161,7 +163,7 @@ object DynamoFormatters {
       originalMetadataFiles: ValidatedField[List[UUID]],
       sortOrder: ValidatedField[Int],
       fileSize: ValidatedField[Long],
-      checksums: List[Checksum],
+      checksums: ValidatedField[List[Checksum]],
       fileExtension: ValidatedField[String],
       representationType: ValidatedField[FileRepresentationType],
       representationSuffix: ValidatedField[Int],

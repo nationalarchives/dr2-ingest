@@ -181,6 +181,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
   val invalidDynamoAttributeValues: TableFor3[AttributeValue, String, Type] = Table(
     ("attributeValue", "expectedErrorMessage", "rowType"),
+    (missingFieldsAttributeValue(File, "checksum_SHA256"), "'checksum': missing", File),
     (missingFieldsAttributeValue(ArchiveFolder, id), "'id': missing", ArchiveFolder),
     (missingFieldsAttributeValue(ArchiveFolder, batchId), "'batchId': missing", ArchiveFolder),
     (missingFieldsAttributeValue(ArchiveFolder, name), "'name': missing", ArchiveFolder),
@@ -243,7 +244,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     ),
     (
       invalidTypeAttributeValue,
-      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'fileExtension': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing, 'location': missing",
+      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'checksum': missing, 'fileExtension': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing, 'location': missing",
       File
     ),
     (
@@ -303,12 +304,14 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
         case ArchiveFolder => generateFolderDynamoTable().productElementNames
         case ContentFolder => generateFolderDynamoTable().productElementNames
         case Asset         => generateAssetDynamoTable().productElementNames
-        case File          => generateFileDynamoTable().productElementNames
+        case File =>
+          val fileDynamoTable = generateFileDynamoTable()
+          fileDynamoTable.productElementNames.filterNot(_ == "checksums") ++
+            fileDynamoTable.checksums.map(ChecksumPrefix + _.algorithm)
       }
       val dynamoTableFields = tableElementNames.toList
       val dynamoTableFieldsMapped = dynamoTableFields.map {
         case "identifiers"           => "id_Test"
-        case "checksums"             => "checksum_Algorithm1"
         case "ingestedPreservica"    => "ingested_PS"
         case "ingestedCustodialCopy" => "ingested_CC"
         case theRest                 => theRest
