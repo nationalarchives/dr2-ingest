@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "items": {
+    "title": "Content/Archive Folder validation",
+    "description": "All Content/Archive folders that are checked by this schema must have these properties",
+    "properties": {
+      "series": {
+        "type": "string",
+        "pattern": "^[A-Z]{1,4} [1-9][0-9]{0,3}|Unknown$",
+        "minLength": 1
+      },
+      "id_Code": {
+        "type": "string",
+        "minLength": 1
+      },
+      "id_URI": {
+        "type": "string",
+        "minLength": 1
+      },
+      "id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "parentId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "minLength": 1
+      },
+      "title": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "minLength": 1
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "ArchiveFolder",
+          "ContentFolder"
+        ]
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "series",
+      "id_Code",
+      "id_URI",
+      "id",
+      "parentId",
+      "title",
+      "type",
+      "name"
+    ],
+    "additionalProperties": true
+  }
+}

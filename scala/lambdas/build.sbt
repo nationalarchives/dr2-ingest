@@ -237,7 +237,7 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
 
 lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-generic-ingest-inputs"))
   .settings(commonSettings)
-  .dependsOn(utils)
+  .dependsOn(utils, dynamoFormatters)
   .settings(
     libraryDependencies ++= Seq(
       awsCrt,
