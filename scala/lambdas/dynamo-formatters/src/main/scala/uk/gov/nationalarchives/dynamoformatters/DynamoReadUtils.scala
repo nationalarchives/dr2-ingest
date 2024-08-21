@@ -27,7 +27,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
   }.toList
 
   val checksums: List[Checksum] = folderRowAsMap.collect {
-    case (name, value) if name.startsWith(ChecksumPrefix) => Checksum(name.drop(ChecksumPrefix.length), value.s())
+    case (name, value) if name.startsWith(checksumPrefix) => Checksum(name.drop(checksumPrefix.length), value.s())
   }.toList
 
   private val allValidatedLockTableFields: LockTableValidatedFields = LockTableValidatedFields(

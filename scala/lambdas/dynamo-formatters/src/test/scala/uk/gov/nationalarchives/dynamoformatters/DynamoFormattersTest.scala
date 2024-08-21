@@ -307,7 +307,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
         case File =>
           val fileDynamoTable = generateFileDynamoTable()
           fileDynamoTable.productElementNames.filterNot(_ == "checksums") ++
-            fileDynamoTable.checksums.map(ChecksumPrefix + _.algorithm)
+            fileDynamoTable.checksums.map(checksumPrefix + _.algorithm)
       }
       val dynamoTableFields = tableElementNames.toList
       val dynamoTableFieldsMapped = dynamoTableFields.map {

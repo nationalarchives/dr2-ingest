@@ -13,7 +13,7 @@ import scala.jdk.CollectionConverters.*
 
 object DynamoFormatters {
 
-  final val ChecksumPrefix = "checksum_"
+  final val checksumPrefix = "checksum_"
 
   private def createReadDynamoUtils(dynamoValue: DynamoValue) = {
     val folderRowAsMap = dynamoValue.toAttributeValue.m().asScala.toMap
