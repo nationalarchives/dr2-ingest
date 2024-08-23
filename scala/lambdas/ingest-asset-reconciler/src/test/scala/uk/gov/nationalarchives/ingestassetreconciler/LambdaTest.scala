@@ -362,8 +362,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
     val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
-    stateOutput.wasReconciled should equal(true)
     stateOutput.reason should equal("")
+    stateOutput.wasReconciled should equal(true)
     stateOutput.assetName should equal(assetName)
     stateOutput.assetId should equal(assetId)
 
@@ -386,8 +386,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
       val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
-      stateOutput.wasReconciled should equal(true)
       stateOutput.reason should equal("")
+      stateOutput.wasReconciled should equal(true)
       stateOutput.assetName should equal(assetName)
       stateOutput.assetId should equal(assetId)
 
@@ -414,8 +414,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
       val stateOutput = new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
-      stateOutput.wasReconciled should equal(true)
       stateOutput.reason should equal("")
+      stateOutput.wasReconciled should equal(true)
       stateOutput.assetName should equal(assetName)
       stateOutput.assetId should equal(assetId)
 

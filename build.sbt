@@ -8,4 +8,3 @@ lazy val root = (project in file("."))
   )
 
 lazy val ingestLambdasRoot = project in file("./scala/lambdas")
-

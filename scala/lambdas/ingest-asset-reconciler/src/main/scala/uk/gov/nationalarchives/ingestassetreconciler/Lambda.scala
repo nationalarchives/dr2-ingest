@@ -65,9 +65,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       titleOfCoWithoutExtension == assetChildTitleOrFileNameWithoutExtension
     }
 
-  private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoTable, fixity: Client.Fixity): Boolean = {
-    item.checksums.exists { checksum =>
-      checksum.algorithm == fixity.algorithm && checksum.fingerprint == fixity.value
+  private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoTable, fixities: List[Client.Fixity]): Boolean = {
+    val sortedItems = item.checksums.sortBy(_.algorithm)
+    val sortedFixities = fixities.sortBy(_.value)
+
+    sortedItems.zip(sortedFixities).forall { case (dynamoItem, fixity) =>
+      dynamoItem.algorithm == fixity.algorithm && dynamoItem.fingerprint == fixity.value
     }
   }
 
@@ -81,7 +84,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     val childrenThatDidNotMatchOnChecksum =
       childrenForRepresentationType.filter { assetChild =>
         val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
-          doesChecksumMatchFixity(assetChild, bitstreamInfoForCo.fixity) &&
+          doesChecksumMatchFixity(assetChild, bitstreamInfoForCo.fixities) &&
           coTitleMatchesAssetChildTitle(bitstreamInfoForCo.potentialCoTitle, assetChild)
         }
 
