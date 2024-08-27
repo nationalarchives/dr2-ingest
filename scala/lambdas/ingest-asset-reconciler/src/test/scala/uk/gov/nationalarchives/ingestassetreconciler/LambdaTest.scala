@@ -10,8 +10,6 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4, Tabl
 import uk.gov.nationalarchives.ingestassetreconciler.Lambda.Config
 import uk.gov.nationalarchives.ingestassetreconciler.testUtils.ExternalServicesTestUtils
 
-import java.util.UUID
-
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPropertyChecks {
   val dynamoServer = new WireMockServer(9005)
   val config: Config = Config("", "", "", "test-table")

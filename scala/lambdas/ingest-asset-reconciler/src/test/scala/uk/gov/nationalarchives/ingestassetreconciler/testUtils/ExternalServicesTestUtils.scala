@@ -63,8 +63,8 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
     1235,
     "http://localhost/api/entity/content-objects/4dee285b-64e4-49f8-942e-84ab460b5af6/generations/1/bitstreams/1/content",
     List(
-      Fixity("SHA256", "f7523c5d03a2c850fa06b5bbfed4c216f6368826"),
-      Fixity("MD5", "4985298cbf6b2b74c522ced8b128ebe3"),
+      Fixity("SHA256", "a8cfe9e6b5c10a26046c849cd3776734626e74a2"),
+      Fixity("MD5", "4696380ccb5520ebe001dace459d5135")
     ),
     1,
     Original,
