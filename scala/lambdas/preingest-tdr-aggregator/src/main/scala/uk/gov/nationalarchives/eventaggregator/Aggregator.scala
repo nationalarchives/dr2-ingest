@@ -16,7 +16,8 @@ import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.eventaggregator.Aggregator.NewGroupReason.*
 import uk.gov.nationalarchives.eventaggregator.Aggregator.{Input, SFNArguments}
 import uk.gov.nationalarchives.eventaggregator.Duration.{MilliSeconds, Seconds}
-import uk.gov.nationalarchives.eventaggregator.Lambda.{Group, Config}
+import uk.gov.nationalarchives.eventaggregator.Ids.*
+import uk.gov.nationalarchives.eventaggregator.Lambda.{Config, Group}
 import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 
@@ -36,8 +37,8 @@ object Aggregator:
   given Encoder[SFNArguments] = (a: SFNArguments) =>
     Json.fromJsonObject(
       JsonObject(
-        ("groupId", Json.fromString(a.groupId)),
-        ("batchId", Json.fromString(a.batchId)),
+        ("groupId", Json.fromString(a.groupId.groupValue)),
+        ("batchId", Json.fromString(a.batchId.batchValue)),
         ("waitFor", a.waitFor.toJson),
         ("retryCount", Json.fromInt(a.retryCount))
       )
@@ -49,7 +50,7 @@ object Aggregator:
 
   case class Input(id: UUID, location: URI)
 
-  case class SFNArguments(groupId: String, batchId: String, waitFor: Seconds, retryCount: Int = 0)
+  case class SFNArguments(groupId: GroupId, batchId: BatchId, waitFor: Seconds, retryCount: Int = 0)
 
   enum NewGroupReason:
     case NoExistingGroup, ExpiryBeforeLambdaTimeout, MaxGroupSizeExceeded
@@ -64,11 +65,15 @@ object Aggregator:
 
     private def toDynamoString(value: String): AttributeValue = AttributeValue.builder.s(value).build
 
-    def writeToLockTable(input: Input, config: Config, groupId: String)(using dynamoClient: DADynamoDBClient[F]): F[Int] = {
+    def writeToLockTable(input: Input, config: Config, groupId: GroupId)(using dynamoClient: DADynamoDBClient[F]): F[Int] = {
       dynamoClient.writeItem(
         DADynamoDbWriteItemRequest(
           config.lockTable,
-          Map("messageId" -> toDynamoString(input.id.toString), "groupId" -> toDynamoString(groupId), "message" -> toDynamoString(input.asJson.printWith(Printer.noSpaces)))
+          Map(
+            "messageId" -> toDynamoString(input.id.toString),
+            "groupId" -> toDynamoString(groupId.groupValue),
+            "message" -> toDynamoString(input.asJson.printWith(Printer.noSpaces))
+          )
         )
       )
     }
@@ -76,20 +81,20 @@ object Aggregator:
     private def startNewGroup(groupCacheRef: Ref[F, Map[String, Group]], sourceId: String, config: Config, lambdaTimeoutTime: MilliSeconds)(using
         sfnClient: DASFNClient[F],
         enc: Encoder[SFNArguments]
-    ): F[String] = {
+    ): F[GroupId] = {
       val groupExpiryTime = lambdaTimeoutTime + (config.maxSecondaryBatchingWindow * 1000)
       val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators[F].generateInstant.toEpochMilli).toDouble / 1000).toInt.seconds
-      val groupId = s"${config.sourceSystem}_${Generators[F].generateRandomUuid}"
-      val batchId = s"${groupId}_0"
+      val groupId: GroupId = GroupId[F](config.sourceSystem)
+      val batchId = BatchId(groupId)
       for {
-        _ <- sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.some)
+        _ <- sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some)
         _ <- groupCacheRef.update(groupCache => groupCache + (sourceId -> Group(groupId, Instant.ofEpochMilli(groupExpiryTime), 1)))
       } yield groupId
     }
 
     private def getNewOrExistingGroupId(groupCacheRef: Ref[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: MilliSeconds)(using
         Encoder[SFNArguments]
-    ): F[String] = {
+    ): F[GroupId] = {
       def log = logWithReason(sourceId)
       groupCacheRef.get.flatMap { groupCache =>
         val potentialCurrentGroupForSource = groupCache.get(sourceId)

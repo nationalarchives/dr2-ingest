@@ -7,7 +7,7 @@ import io.circe.Encoder
 import org.scalatest.flatspec.AnyFlatSpec
 import uk.gov.nationalarchives.eventaggregator.Aggregator.{*, given}
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
-import uk.gov.nationalarchives.eventaggregator.Lambda.{Group, Config}
+import uk.gov.nationalarchives.eventaggregator.Lambda.{Config, Group}
 import io.circe.generic.auto.*
 import org.scalatest.{Assertion, EitherValues}
 import org.scalatest.matchers.should.Matchers.*
@@ -16,6 +16,7 @@ import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
+import uk.gov.nationalarchives.eventaggregator.Ids.GroupId
 import uk.gov.nationalarchives.utils.Generators
 
 import java.net.URI
@@ -26,9 +27,9 @@ import scala.collection.immutable.Map
 
 class AggregatorTest extends AnyFlatSpec with EitherValues:
   val groupUUID: UUID = UUID.randomUUID
-  val groupId: String = s"TST_${groupUUID}"
+  val groupId: GroupId = GroupId("TST", groupUUID)
   val newBatchId = s"${groupId}_0"
-  val config: Config = Config("test-table", "", "TST", "sfnArn", 1.seconds, 10)
+  val config: Config = Config("test-table", "TST", "sfnArn", 1.seconds, 10)
   given DASFNClient[IO] = DASFNClient[IO]()
   given DADynamoDBClient[IO] = DADynamoDBClient[IO]()
   val instant: Instant = Instant.ofEpochSecond(1723559947)
@@ -50,13 +51,13 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
     override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = IO.pure(1)
 
-  def checkGroup(group: Group, groupId: String, instant: Instant, items: Int): Assertion = {
-    group.groupId should equal(groupId)
+  def checkGroup(group: Group, groupId: GroupId, instant: Instant, items: Int): Assertion = {
+    group.groupId should equal(groupId.groupValue)
     group.expires should equal(instant)
     group.itemCount should equal(items)
   }
 
-  def checkSfnArgs(startExecutionArgs: StartExecutionArgs, batchId: String, groupId: String): Assertion = {
+  def checkSfnArgs(startExecutionArgs: StartExecutionArgs, batchId: String, groupId: GroupId): Assertion = {
     startExecutionArgs.stateMachineArn should equal("sfnArn")
     val arguments = startExecutionArgs.sfnArguments
     arguments.batchId should equal(batchId)
@@ -65,12 +66,12 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     startExecutionArgs.name.get should equal(batchId)
   }
 
-  def checkWriteItemArgs(dynamoDbWriteItemRequest: DADynamoDbWriteItemRequest, messageId: UUID, groupId: String): Assertion = {
+  def checkWriteItemArgs(dynamoDbWriteItemRequest: DADynamoDbWriteItemRequest, messageId: UUID, groupId: GroupId): Assertion = {
     dynamoDbWriteItemRequest.tableName should equal("test-table")
     dynamoDbWriteItemRequest.conditionalExpression should equal(None)
     val attributes = dynamoDbWriteItemRequest.attributeNamesAndValuesToWrite
     attributes("messageId").s() should equal(messageId.toString)
-    attributes("groupId").s() should equal(groupId)
+    attributes("groupId").s() should equal(groupId.groupValue)
     attributes("message").s() should equal(s"""{"id":"$messageId","location":"s3://bucket/key"}""")
   }
 
@@ -125,7 +126,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
   "aggregate" should "add a new group if the existing group if the expiry is before the lambda timeout" in {
     val messageId = UUID.randomUUID
-    val existingGroupId = s"TST_${UUID.randomUUID}"
+    val existingGroupId = GroupId[IO]("TST")
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, instant, 1))
     val output = getAggregatorOutput(messageId, groupCache)
 
@@ -140,7 +141,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
   "aggregate" should "add a new group if the existing group if the expiry is after the lambda timeout but items is more than max batch size" in {
     val messageId = UUID.randomUUID
-    val existingGroupId = s"TST_${UUID.randomUUID}"
+    val existingGroupId = GroupId[IO]("TST")
     val later = Instant.now.plusMillis(10000)
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 11))
     val output = getAggregatorOutput(messageId, groupCache)
@@ -156,7 +157,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
   "aggregate" should "not add a new group if the expiry is after the lambda timeout and the group is smaller than the max" in {
     val messageId = UUID.randomUUID
-    val existingGroupId = s"TST_${UUID.randomUUID}_0"
+    val existingGroupId = GroupId[IO]("TST")
     val later = Instant.now.plusMillis(10000)
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 1))
     val output = getAggregatorOutput(messageId, groupCache)

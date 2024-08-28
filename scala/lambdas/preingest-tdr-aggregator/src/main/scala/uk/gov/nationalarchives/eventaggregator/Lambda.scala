@@ -14,6 +14,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 import io.circe.generic.auto.*
 import pureconfig.ConfigReader.Result
 import uk.gov.nationalarchives.eventaggregator.Duration.Seconds
+import uk.gov.nationalarchives.eventaggregator.Ids.GroupId
 
 import java.net.URI
 import java.time.Instant
@@ -36,8 +37,8 @@ class Lambda extends RequestHandler[SQSEvent, Unit]:
 
 object Lambda:
 
-  case class Group(groupId: String, expires: Instant, itemCount: Int)
+  case class Group(groupId: GroupId, expires: Instant, itemCount: Int)
 
   given ConfigReader[Seconds] = (cur: ConfigCursor) => cur.asInt.map(i => i.seconds)
 
-  case class Config(lockTable: String, outputQueueUrl: String, sourceSystem: String, sfnArn: String, maxSecondaryBatchingWindow: Seconds, maxBatchSize: Int) derives ConfigReader
+  case class Config(lockTable: String, sourceSystem: String, sfnArn: String, maxSecondaryBatchingWindow: Seconds, maxBatchSize: Int) derives ConfigReader
