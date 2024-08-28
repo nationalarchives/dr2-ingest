@@ -116,7 +116,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
     val s3: DAS3Client[IO] = DAS3Client[IO]()
     val sfn: DASFNClient[IO] = DASFNClient[IO]()
     val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
-    val randomUuidGenerator: () => UUID = () => Generators[IO].generateRandomUuid
+    val randomUuidGenerator: () => UUID = () => Generators().generateRandomUuid
     val seriesMapper: SeriesMapper = SeriesMapper()
     Dependencies(s3, sfn, dynamo, randomUuidGenerator, seriesMapper)
   }

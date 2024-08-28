@@ -1,6 +1,5 @@
 package uk.gov.nationalarchives.eventaggregator
 
-import cats.effect.Async
 import uk.gov.nationalarchives.utils.Generators
 
 import java.util.UUID
@@ -10,7 +9,7 @@ object Ids:
   opaque type BatchId = String
 
   object GroupId:
-    def apply[F[_]: Async](sourceSystem: String)(using Generators[F]): GroupId = s"${sourceSystem}_${Generators[F].generateRandomUuid}"
+    def apply(sourceSystem: String)(using Generators): GroupId = s"${sourceSystem}_${Generators().generateRandomUuid}"
     def apply(sourceSystem: String, id: UUID): GroupId = s"${sourceSystem}_$id"
   end GroupId
 

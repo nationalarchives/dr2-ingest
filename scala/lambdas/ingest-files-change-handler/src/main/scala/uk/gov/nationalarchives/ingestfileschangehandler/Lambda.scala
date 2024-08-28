@@ -106,7 +106,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
   }
 
   override def dependencies(config: Config): IO[Dependencies] = IO(
-    Dependencies(DADynamoDBClient[IO](), DASNSClient[IO](), () => Generators[IO].generateInstant, () => Generators[IO].generateRandomUuid)
+    Dependencies(DADynamoDBClient[IO](), DASNSClient[IO](), () => Generators().generateInstant, () => Generators().generateRandomUuid)
   )
 
 object Lambda:

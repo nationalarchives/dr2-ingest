@@ -57,7 +57,7 @@ object Aggregator:
 
   def apply[F[_]: Async](using ev: Aggregator[F]): Aggregator[F] = ev
 
-  given aggregator[F[_]: Async: Generators: DASFNClient: DADynamoDBClient: Parallel]: Aggregator[F] = new Aggregator[F]:
+  given aggregator[F[_]: Async: DASFNClient: DADynamoDBClient: Parallel](using Generators): Aggregator[F] = new Aggregator[F]:
     private val logger: SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger
 
     private def logWithReason(sourceId: String)(newGroupReason: NewGroupReason): F[Unit] =
@@ -83,8 +83,8 @@ object Aggregator:
         enc: Encoder[SFNArguments]
     ): F[GroupId] = {
       val groupExpiryTime = lambdaTimeoutTime + (config.maxSecondaryBatchingWindow * 1000)
-      val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators[F].generateInstant.toEpochMilli).toDouble / 1000).toInt.seconds
-      val groupId: GroupId = GroupId[F](config.sourceSystem)
+      val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli).toDouble / 1000).toInt.seconds
+      val groupId: GroupId = GroupId(config.sourceSystem)
       val batchId = BatchId(groupId)
       for {
         _ <- sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some)
@@ -112,7 +112,7 @@ object Aggregator:
         Encoder[SFNArguments],
         Decoder[Input]
     ): F[List[Outcome[F, Throwable, Unit]]] = {
-      val lambdaTimeoutTime = (Generators[F].generateInstant.toEpochMilli + remainingTimeInMillis).milliSeconds
+      val lambdaTimeoutTime = (Generators().generateInstant.toEpochMilli + remainingTimeInMillis).milliSeconds
       for {
         fibers <- messages.parTraverse { record =>
           val process = for {

@@ -75,7 +75,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     attributes("message").s() should equal(s"""{"id":"$messageId","location":"s3://bucket/key"}""")
   }
 
-  def generators(instant: Instant): Generators[IO] = new Generators[IO]:
+  def generators(instant: Instant): Generators = new Generators:
     override def generateRandomUuid: UUID = groupUUID
 
     override def generateInstant: Instant = instant
@@ -98,7 +98,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
       output <- {
         given DASFNClient[IO] = sfnClient(startSfnArgsRef, sfnError)
         given DADynamoDBClient[IO] = dynamoClient(writeItemArgsRef, dynamoError)
-        given Generators[IO] = generators(instant)
+        given Generators = generators(instant)
 
         val sqsMessage = new SQSMessage()
         sqsMessage.setEventSourceArn("eventSourceArn")
@@ -126,7 +126,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
   "aggregate" should "add a new group if the existing group if the expiry is before the lambda timeout" in {
     val messageId = UUID.randomUUID
-    val existingGroupId = GroupId[IO]("TST")
+    val existingGroupId = GroupId("TST")
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, instant, 1))
     val output = getAggregatorOutput(messageId, groupCache)
 
@@ -141,7 +141,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
   "aggregate" should "add a new group if the existing group if the expiry is after the lambda timeout but items is more than max batch size" in {
     val messageId = UUID.randomUUID
-    val existingGroupId = GroupId[IO]("TST")
+    val existingGroupId = GroupId("TST")
     val later = Instant.now.plusMillis(10000)
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 11))
     val output = getAggregatorOutput(messageId, groupCache)
@@ -157,7 +157,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
   "aggregate" should "not add a new group if the expiry is after the lambda timeout and the group is smaller than the max" in {
     val messageId = UUID.randomUUID
-    val existingGroupId = GroupId[IO]("TST")
+    val existingGroupId = GroupId("TST")
     val later = Instant.now.plusMillis(10000)
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 1))
     val output = getAggregatorOutput(messageId, groupCache)
