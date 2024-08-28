@@ -14,9 +14,11 @@ import uk.gov.nationalarchives.DADynamoDBClient.{*, given}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.given
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.*
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.MessageType.*
 import uk.gov.nationalarchives.utils.LambdaRunner
+
 import java.time.Instant
 import java.util.UUID
 
@@ -103,7 +105,9 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       .map(_ => ())
   }
 
-  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DADynamoDBClient[IO](), DASNSClient[IO](), () => Instant.now, () => UUID.randomUUID))
+  override def dependencies(config: Config): IO[Dependencies] = IO(
+    Dependencies(DADynamoDBClient[IO](), DASNSClient[IO](), () => Generators[IO].generateInstant, () => Generators[IO].generateRandomUuid)
+  )
 
 object Lambda:
   given Decoder[DynamodbEvent] = deriveDecoder[DynamodbEvent]

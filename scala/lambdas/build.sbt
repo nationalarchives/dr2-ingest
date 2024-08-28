@@ -11,7 +11,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     getLatestPreservicaVersion,
     ingestAssetOpexCreator,
     ingestAssetReconciler,
-    ingestEventAggregator,
+    preingestTdrAggregator,
     ingestFilesChangeHandler,
     ingestFindExistingAsset,
     ingestFolderOpexCreator,
@@ -235,7 +235,7 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
     )
   )
 
-lazy val ingestEventAggregator = (project in file("ingest-event-aggregator"))
+lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(
