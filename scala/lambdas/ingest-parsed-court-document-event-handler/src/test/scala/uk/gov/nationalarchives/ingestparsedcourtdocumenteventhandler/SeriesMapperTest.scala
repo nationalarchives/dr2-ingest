@@ -11,8 +11,8 @@ import java.net.URI
 
 class SeriesMapperTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
 
-  "seriesMap" should "have 12 entries" in {
-    seriesMap.size should equal(12)
+  "seriesMap" should "have 15 entries" in {
+    seriesMap.size should equal(15)
   }
 
   val courtToSeries: TableFor2[String, String] = Table(
@@ -28,7 +28,10 @@ class SeriesMapperTest extends AnyFlatSpec with MockitoSugar with TableDrivenPro
     ("UKEAT", "LE 10"),
     ("UKFTT", "LE 11"),
     ("UKET", "LE 12"),
-    ("UKIPTRIB", "HO 654")
+    ("UKIPTRIB", "HO 654"),
+    ("EWCC", "J 354"),
+    ("EWCRC", "J 355"),
+    ("EWCR", "J 355")
   )
 
   private val s3Uri: URI = URI.create("s3://upload/key")

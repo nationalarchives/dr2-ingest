@@ -50,6 +50,9 @@ object SeriesMapper {
     Court("UKEAT", "LE", "LE 10"),
     Court("UKFTT", "LE", "LE 11"),
     Court("UKET", "LE", "LE 12"),
-    Court("UKIPTRIB", "HO", "HO 654")
+    Court("UKIPTRIB", "HO", "HO 654"),
+    Court("EWCC", "J", "J 354"),
+    Court("EWCRC", "J", "J 355"),
+    Court("EWCR", "J", "J 355")
   )
 }
