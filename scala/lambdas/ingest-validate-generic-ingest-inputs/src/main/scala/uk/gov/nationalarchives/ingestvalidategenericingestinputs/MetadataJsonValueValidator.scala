@@ -42,7 +42,7 @@ class MetadataJsonValueValidator {
               val idAsString = idValue.str
               Try(UUID.fromString(idAsString)) match {
                 case Success(uuid) => idNel
-                case _ => IdIsNotAUuidError(s"The id $idAsString is not a valid UUID").invalidNel[Value]
+                case _             => IdIsNotAUuidError(s"The id $idAsString is not a valid UUID").invalidNel[Value]
               }
             case invalidNel => invalidNel
           }
@@ -51,7 +51,7 @@ class MetadataJsonValueValidator {
       entryType -> updatedEntries
     }
 
-  def getIdsOfAllEntries(allEntries: Map[String, List[Entry]]) = {
+  def getIdsOfAllEntries(allEntries: Map[String, List[Entry]]): List[(FieldName, EntryTypeAndParent)] = {
     def getEntryType(entryTypeAsString: String, potentialParentId: Option[String]): EntryTypeAndParent =
       entryTypeAsString match {
         case "File"            => FileEntry(potentialParentId)
@@ -97,7 +97,8 @@ class MetadataJsonValueValidator {
     val idsAndEntriesWithId = allEntryIds
       .groupBy { case (id, _) => id }
       .view
-      .mapValues(_.map { case (_, entryType) => entryType }).toMap
+      .mapValues(_.map { case (_, entryType) => entryType })
+      .toMap
 
     val idsThatAppearMoreThanOnce = idsAndEntriesWithId.filter { case (_, entries) => entries.length > 1 }
 
@@ -125,7 +126,7 @@ class MetadataJsonValueValidator {
       allEntries: Map[String, List[Entry]],
       allEntryIds: Map[String, EntryTypeAndParent],
       entryTypesGrouped: Map[EntryTypeAndParent, List[(String, EntryTypeAndParent)]]
-  ) = {
+  ): Map[FieldName, List[Entry]] = {
     val parentId = "parentId"
     allEntries.map { case (entryType, entriesOfSpecificType) =>
       val updatedEntries =
@@ -143,23 +144,17 @@ class MetadataJsonValueValidator {
                     case ArchiveFolderEntry(_) => parentIdNel
                     case _ => // parentId is 'None', either...
                       parentIdNel match {
-                        case Validated.Valid(parentIdThatIsNull) =>  // ...because it's value in the JSON is 'null'
+                        case Validated.Valid(parentIdThatIsNull) => // ...because it's value in the JSON is 'null'
                           HierarchyLinkingError(parentIdThatIsNull.strOpt.getOrElse("null"), "The parentId value is 'null'").invalidNel[Value]
-                        case invalidNel => invalidNel  // ...or it failed a previous validation and 'getIdsOfAllEntries' made the parent 'None'
+                        case invalidNel => invalidNel // ...or it failed a previous validation and 'getIdsOfAllEntries' made the parent 'None'
                       }
 
                   }
                 case Some(idThatMightBelongToAnEntry) => // check if parentId refers to an entry that is actually in the JSON
-                  print("\n\n\n\ntypeOfEntryAsString", entryTypeAndParent.getClass.getSimpleName)
-                  print("\n\n\n\nidAsString", idAsString)
-                  print("\n\n\n\nparent Id ", idThatMightBelongToAnEntry)
                   val potentialEntryType = allEntryIds.get(idThatMightBelongToAnEntry)
-                  print("\n\n\n\npotentialEntryType", potentialEntryType)
                   potentialEntryType match {
                     case None =>
-                      HierarchyLinkingError(
-                        idThatMightBelongToAnEntry,
-                        "The object that this parentId refers to can not be found in the JSON").invalidNel[Value]
+                      HierarchyLinkingError(idThatMightBelongToAnEntry, "The object that this parentId refers to can not be found in the JSON").invalidNel[Value]
                     case Some(parentEntryType) =>
                       lazy val typeOfEntryAsString = entryTypeAndParent.getClass.getSimpleName
                       parentEntryType match {
@@ -167,7 +162,7 @@ class MetadataJsonValueValidator {
                           HierarchyLinkingError(idThatMightBelongToAnEntry, "The parentId is for an object of type 'File'").invalidNel[Value]
                         case AssetEntry(_) if List("ArchiveFolderEntry", "ContentFolderEntry", "AssetEntry").contains(typeOfEntryAsString) =>
                           HierarchyLinkingError(idThatMightBelongToAnEntry, "The parentId is for an object of type 'Asset'").invalidNel[Value]
-                        case ContentFolderEntry(_) if List("ArchiveFolderEntry", "ContentFolderEntry", "FileEntry", "MetadataFileEntry", "UnknownFileTypeEntry").contains(typeOfEntryAsString) =>
+                        case ContentFolderEntry(_) if List("ArchiveFolderEntry", "FileEntry", "MetadataFileEntry", "UnknownFileTypeEntry").contains(typeOfEntryAsString) =>
                           HierarchyLinkingError(idThatMightBelongToAnEntry, "The parentId is for an object of type 'ContentFolder'").invalidNel[Value]
                         case ArchiveFolderEntry(_) if List("AssetEntry", "FileEntry", "MetadataFileEntry", "UnknownFileTypeEntry").contains(typeOfEntryAsString) =>
                           HierarchyLinkingError(idThatMightBelongToAnEntry, "The parentId is for an object of type 'ArchiveFolder'").invalidNel[Value]
@@ -193,14 +188,13 @@ class MetadataJsonValueValidator {
   ) = {
     val fileTypesAndTheirIds: Map[FieldName, List[FieldName]] =
       entryTypesGrouped.collect {
-        // This assumes that there will only be one Asset, if it changes in future, 'Some(`assetId`)' (with backticks) needs to replace '_'
         case (FileEntry(Some(`assetId`)), ids)            => "expectedOriginalFiles" -> ids.map(_._1)
         case (MetadataFileEntry(Some(`assetId`)), ids)    => "expectedOriginalMetadataFiles" -> ids.map(_._1)
         case (UnknownFileTypeEntry(Some(`assetId`)), ids) => "unexpectedFilesWithNoCategory" -> ids.map(_._1)
       }
-    val entryWithUpdatedOriginalFiles = verifyAssetHasCorrectFiles(assetId, entryWithUpdatedParentId, fileTypesAndTheirIds, "Files")
-    val entryWithUpdatedOriginalMetadataFiles = verifyAssetHasCorrectFiles(assetId, entryWithUpdatedParentId, fileTypesAndTheirIds, "MetadataFiles")
-    entryWithUpdatedParentId ++ entryWithUpdatedOriginalFiles ++ entryWithUpdatedOriginalMetadataFiles
+    val originalFilesUpdate = verifyAssetHasCorrectFiles(assetId, entryWithUpdatedParentId, fileTypesAndTheirIds, "Files")
+    val originalMetadataFilesUpdate = verifyAssetHasCorrectFiles(assetId, entryWithUpdatedParentId, fileTypesAndTheirIds, "MetadataFiles")
+    entryWithUpdatedParentId ++ originalFilesUpdate ++ originalMetadataFilesUpdate
   }
 
   private def verifyAssetHasCorrectFiles(
@@ -220,9 +214,11 @@ class MetadataJsonValueValidator {
 
         val idsMissingFromFilesListPotentialError =
           if idsMissingFromFilesList.isEmpty then filesNel
-          else HierarchyLinkingError(idsMissingFromFilesList.mkString(", "),
-            s"There are files in the JSON that have the parentId of this asset ($assetId) but do not appear in '$filesFieldName'"
-          ).invalidNel[Value]
+          else
+            HierarchyLinkingError(
+              idsMissingFromFilesList.mkString(", "),
+              s"There are files in the JSON that have the parentId of this Asset ($assetId) but do not appear in '$filesFieldName'"
+            ).invalidNel[Value]
 
         val idsInFilesListButNotInJsonPotentialError =
           if idsInFilesListButNotInJson.isEmpty then filesNel
@@ -231,25 +227,15 @@ class MetadataJsonValueValidator {
             val additionalErrorMessage =
               if idsForUncategorisedFileType.isEmpty then ""
               else
-                s"\n\nIt's also possible that the files are in the JSON but whether they were $filesFieldName or not, could not be determined;\n\n" +
-                s"these files are: $idsForUncategorisedFileType"
+                s"\n\nIt's also possible that the files are in the JSON but whether they were $filesFieldName or not, could not be determined, " +
+                  s"these files are: $idsForUncategorisedFileType"
             HierarchyLinkingError(
               idsInFilesListButNotInJson.mkString(", "),
-              s"There are files in this '$filesFieldName' that don't appear in the JSON or their parentId is not the same as this Asset's ('$assetId')"
+              s"There are files in this '$filesFieldName' that don't appear in the JSON or their parentId is not the same as this Asset's ('$assetId')" +
+                additionalErrorMessage
             ).invalidNel[Value]
 
         val filesValidatedNel = idsMissingFromFilesListPotentialError.combine(idsInFilesListButNotInJsonPotentialError)
-
-//        val idsMissingFromFilesListError =
-//          if idsMissingFromFilesList.isEmpty then ""
-//          else s"There are files in the JSON that have the parentId $assetId but do not appear in '$filesFieldName', they are: $idsMissingFromFilesList\n\n"
-//        val idsInFilesListButNotInJsonError =
-//          if idsInFilesListButNotInJson.isEmpty then ""
-//          else s"There are files in this array that aren't in the JSON, they are: $idsInFilesListButNotInJson"
-//        val filesErrorMessage = idsMissingFromFilesListError + idsInFilesListButNotInJsonError
-//
-//        val filesValidatedNel =
-//          if filesErrorMessage.isEmpty then filesNel else HierarchyLinkingError(filesErrorMessage).invalidNel[Value]
 
         Map(filesFieldName -> filesValidatedNel)
       case invalidNel => Map(filesFieldName -> filesNel)
@@ -258,31 +244,31 @@ class MetadataJsonValueValidator {
 
   def checkIfEntriesOfSameTypePointToSameParent(entryTypesGrouped: Map[EntryTypeAndParent, Map[String, EntryTypeAndParent]]) = {
     val entryLinkingErrors: List[Map[String, String]] = Nil
-    val fileParentIds =
-      entryTypesGrouped.collect {
-        case (FileEntry(Some(parentId)), _)            => parentId
-        case (MetadataFileEntry(Some(parentId)), _)    => parentId
-        case (UnknownFileTypeEntry(Some(parentId)), _) => parentId
-      }.toSet
-
-    val numOfFileParentIds = fileParentIds.size
-    val fileLinkingError =
-      if numOfFileParentIds != 1 then
-        entryLinkingErrors :+ Map(
-          "ErrorType" -> "Files",
-          "Error" -> s"Files should all be linked to one parent Asset but $numOfFileParentIds have been found: \n $fileParentIds"
-        )
-      else entryLinkingErrors
+//    val fileParentIds =
+//      entryTypesGrouped.collect {
+//        case (FileEntry(Some(parentId)), _)            => parentId
+//        case (MetadataFileEntry(Some(parentId)), _)    => parentId
+//        case (UnknownFileTypeEntry(Some(parentId)), _) => parentId
+//      }.toSet
+//
+//    val numOfFileParentIds = fileParentIds.size
+//    val fileLinkingError =
+//      if numOfFileParentIds != 1 then
+//        entryLinkingErrors :+ Map(
+//          "ErrorType" -> "Files",
+//          "Error" -> s"Files should all be linked to one parent Asset but $numOfFileParentIds have been found: \n $fileParentIds"
+//        )
+//      else entryLinkingErrors
 
     val assetParentIds = entryTypesGrouped.collect { case (AssetEntry(Some(parentId)), _) => parentId }.toSet
     val numOfAssetParentIds = assetParentIds.size
     val assetLinkingError =
       if numOfAssetParentIds != 1 then
-        fileLinkingError :+ Map(
+        entryLinkingErrors :+ Map(
           "ErrorType" -> "Assets",
           "Error" -> s"Assets should all be linked to one parent Folder but $numOfAssetParentIds have been found: \n $assetParentIds"
         )
-      else fileLinkingError
+      else entryLinkingErrors
 
     val folderIdsAndParent =
       entryTypesGrouped.toList.collect {

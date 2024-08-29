@@ -7,21 +7,21 @@ import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSch
 
 object ExternalServicesTestUtils {
   private val rand = new scala.util.Random
-  val id = "id"
-  val parentId = "parentId"
-  val name = "name"
-  val entryType = "type"
+  val id: "id" = "id"
+  val parentId: "parentId" = "parentId"
+  val name: "name" = "name"
+  val entryType: "type" = "type"
 
   def randomSeries: String = {
     val oneToFourRandomLetters =
-      (1 to rand.between(0, 4)).foldLeft("") {
-        (letters, _) => letters + rand.between(65, 90).toChar
+      (1 to rand.between(0, 4)).foldLeft("") { (letters, _) =>
+        letters + rand.between(65, 90).toChar
       }
 
     if oneToFourRandomLetters.nonEmpty then s"$oneToFourRandomLetters ${rand.between(1, 10000)}" else "Unknown"
   }
 
-  def testValidMetadataJson(incorrectValue: String="default"): List[Obj] =
+  def testValidMetadataJson(incorrectValue: String = "default"): List[Obj] =
     List(
       Obj(
         "series" -> randomSeries,
@@ -34,7 +34,6 @@ object ExternalServicesTestUtils {
         "name" -> "https://example.com/id/abcde/2023/1537"
       ),
       Obj(
-        "series" -> randomSeries,
         "id_Code" -> "idcode2",
         "id_URI" -> "https://example.com/id/abcde/2023/1537",
         "id" -> "27354aa8-975f-48d1-af79-121b9a349cbe",
@@ -88,7 +87,7 @@ object ExternalServicesTestUtils {
       )
     )
 
-  def testAllEntryIds(allEntries: List[Obj]=testValidMetadataJson()): List[(String, EntryTypeAndParent)] = {
+  def testAllEntryIds(allEntries: List[Obj] = testValidMetadataJson()): List[(String, EntryTypeAndParent)] = {
     val topFolder = allEntries.head
     val contentFolder = allEntries(1)
     val asset = allEntries(2)
@@ -99,7 +98,7 @@ object ExternalServicesTestUtils {
       (contentFolder(id).str, ContentFolderEntry(contentFolder(parentId).strOpt)),
       (asset(id).str, AssetEntry(asset(parentId).strOpt)),
       (file(id).str, FileEntry(file(parentId).strOpt)),
-      (metadataFile(id).str, MetadataFileEntry(metadataFile(parentId).strOpt)),
+      (metadataFile(id).str, MetadataFileEntry(metadataFile(parentId).strOpt))
     )
   }
 
@@ -109,11 +108,16 @@ object ExternalServicesTestUtils {
       "Asset" -> atLeastOneAssetAndFileErrorMessage("Asset")
     )
 
-  def convertUjsonToSchemaValidatedMap(entry: Obj): Map[String, ValidatedNel[SchemaValidationError, Value]] =
-    entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value)}
+  def convertUjsonObjToSchemaValidatedMap(entry: Obj): Map[String, ValidatedNel[SchemaValidationError, Value]] =
+    entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value) }
 
-  def convertUjsonToGenericValidatedMap(entry: Obj): Map[String, ValidatedNel[ValidationError, Value]] =
-    entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value)}
+  def convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType: Map[String, List[Obj]]) =
+    entriesGroupedByType.map { case (entryType, entries) =>
+      (entryType, entries.map(entry => convertUjsonObjToSchemaValidatedMap(entry)))
+    }
+
+  def convertUjsonObjToGenericValidatedMap(entry: Obj): Map[String, ValidatedNel[ValidationError, Value]] =
+    entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value) }
 
   private def atLeastOneAssetAndFileErrorMessage(entryType: "File" | "Asset") = {
     val exactlyOrAtLeastWording = Map("File" -> "at least", "Asset" -> "exactly")

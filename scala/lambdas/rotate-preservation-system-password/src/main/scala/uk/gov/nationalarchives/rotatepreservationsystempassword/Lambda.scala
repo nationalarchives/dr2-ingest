@@ -91,7 +91,7 @@ object Lambda:
 
   private case class AuthDetails(username: String, password: String)
 
-  enum RotatinStep:
+  enum RotationStep:
     case CreateSecret, SetSecret, TestSecret, FinishSecret
 
   given Decoder[RotationEvent] = (c: HCursor) =>

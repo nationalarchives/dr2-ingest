@@ -245,6 +245,7 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
       fs2Reactive,
       jsonSchemaValidator,
       s3Client,
+      sfnClient,
       sttpClientFs2,
       sttpCirce,
       upickle,

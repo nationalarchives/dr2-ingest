@@ -87,5 +87,11 @@
     "type",
     "name"
   ],
-  "additionalProperties": true
+  "additionalProperties": {
+    "minLength": 1,
+    "minItems": 1
+  },
+  "propertyNames": {
+    "pattern": "[A-Za-z0-9]"
+  }
 }

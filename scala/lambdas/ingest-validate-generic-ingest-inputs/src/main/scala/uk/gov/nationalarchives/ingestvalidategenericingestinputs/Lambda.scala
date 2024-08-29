@@ -46,7 +46,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
       metadataJson <- parseFileFromS3(s3Client, input)
       _ <- log("Retrieving metadata.json from s3 bucket")
-      
+
       minimumAssetsAndFilesErrors <- MetadataJsonSchemaValidator.checkJsonForMinimumObjects(metadataJson)
 
       errorsPreventingIngest <- // start step function OR log error
@@ -55,9 +55,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
             result <- d(metadataJson, s3Client)
             _ <- dependencies.sfn.startExecution(config.sfnArn, Output(input.batchId, input.metadataPackage), Option(input.batchId))
           } yield ()
-
-        else
-          IO.pure(minimumAssetsAndFilesErrors)
+        else IO.pure(minimumAssetsAndFilesErrors)
 // check batchId exists
     } yield ()
 
@@ -75,10 +73,9 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       archivedFolderEntries <- validateJsonObjects(ArchiveFolder)
       contentFolderEntries <- validateJsonObjects(ContentFolder)
 
-
       validatedLocations <- checkFileIsInCorrectS3Location(s3Client, fileEntries)
-      fileEntriesWithValidatedLocation = fileEntries.zip(validatedLocations).map {
-        case (entries, locationNel) => entries + (location -> locationNel)
+      fileEntriesWithValidatedLocation = fileEntries.zip(validatedLocations).map { case (entries, locationNel) =>
+        entries + (location -> locationNel)
       }
       valueValidator = new MetadataJsonValueValidator
       fileEntriesWithValidatedFileExtensions = valueValidator.checkFileNamesHaveExtensions(fileEntriesWithValidatedLocation)

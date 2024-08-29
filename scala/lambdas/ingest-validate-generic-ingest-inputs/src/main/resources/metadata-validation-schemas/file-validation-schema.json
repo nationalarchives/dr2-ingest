@@ -49,6 +49,9 @@
       "maxLength": 64
     }
   },
+  "patternProperties": {
+    "^checksum_": { "type": "string", "minLength": 32 }
+  },
   "required": [
     "id",
     "parentId",
@@ -59,8 +62,13 @@
     "fileSize",
     "representationType",
     "representationSuffix",
-    "location",
-    "checksum_sha256"
+    "location"
   ],
-  "additionalProperties": true
+  "additionalProperties": {
+    "minLength": 1,
+    "minItems": 1
+  },
+  "propertyNames": {
+    "pattern": "[A-Za-z0-9]"
+  }
 }
