@@ -1,23 +1,32 @@
 package uk.gov.nationalarchives.ingestvalidategenericingestinputs
 
 import cats.data.ValidatedNel
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import cats.implicits.*
+import org.mockito.ArgumentMatchers.*
+import org.mockito.Mockito.{times, verify, when}
+import org.mockito.ArgumentMatchers
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.*
 import org.scalatestplus.mockito.MockitoSugar
+import software.amazon.awssdk.http.SdkHttpResponse
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse
 import ujson.*
+import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.ValueError
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonValueValidator.{
-  HierarchyLinkingError,
-  IdIsNotAUuidError,
-  IdIsNotUniqueError,
-  MissingFileExtensionError
-}
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonValueValidator.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.testUtils.ExternalServicesTestUtils.*
 
 class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
+  val incorrectUrls: TableFor2[String, ValidatedNel[ValidationError, Value]] = Table(
+    ("IncorrectUrl", "Expected Error"),
+    ("AnIncorrectUrl", ValueError("location", "AnIncorrectUrl", "'location' could not be transformed into a URI").invalidNel[Value]),
+    ("An IncorrectUrlWithASpace", UriIsNotValid("Illegal character in path at index 2: An IncorrectUrlWithASpace").invalidNel[Value]),
+  )
+
   val entriesReferencingANonExistentParent: TableFor2[String, String] = Table(
     ("Entry referencing a non-existent parent", "Parent missing"),
     ("File", "Asset"),
@@ -36,9 +45,79 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
   private val validator = new MetadataJsonValueValidator
   private val allEntries = testValidMetadataJson()
 
+  private def mockS3Client(fileEntries: List[Obj], statusCode: Int=200): DAS3Client[IO] = {
+    val s3 = mock[DAS3Client[IO]]
+    fileEntries.foreach { fileEntry =>
+      val key = fileEntry(id).str
+      val response = SdkHttpResponse.builder().statusCode(statusCode).build()
+      when(s3.headObject(ArgumentMatchers.eq("test-source-bucket"), ArgumentMatchers.eq(key)))
+        .thenReturn(IO.pure(HeadObjectResponse.builder().sdkHttpResponse(response).build()))
+    }
+
+    s3
+  }
+
+  "checkFileIsInCorrectS3Location" should "return 0 s3 errors if the URI is in the correct format and 'headObject returns a valid response'" in {
+    val fileEntries = allEntries.filter(_(entryType).str == "File")
+    val s3Client = mockS3Client(fileEntries)
+    val entriesAsValidatedMap = fileEntries.map(convertUjsonObjToSchemaValidatedMap)
+    val validatedLocations = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
+
+    val fileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map{
+      case (entryAsValidatedMap, validatedLocation) => entryAsValidatedMap + ("location" -> validatedLocation)
+    }
+
+    fileEntriesWithValidatedLocation should equal(entriesAsValidatedMap)
+    verify(s3Client, times(fileEntries.length)).headObject(any[String], any[String])
+  }
+
+  "checkFileIsInCorrectS3Location" should "not check (validate) the location field if it already has an error on it" in {
+    val fileEntries = allEntries.filter(_(entryType).str == "File")
+    val s3Client = mock[DAS3Client[IO]]
+
+    val entriesAsValidatedMap = fileEntries.map { entry =>
+      convertUjsonObjToSchemaValidatedMap(entry) ++ Map(
+        "location" -> MissingPropertyError("location", "$: required property 'location' not found").invalidNel[Value]
+      )
+    }
+    val validatedLocations = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
+
+    val fileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map {
+      case (entryAsValidatedMap, validatedLocation) => entryAsValidatedMap + ("location" -> validatedLocation)
+    }
+
+    fileEntriesWithValidatedLocation should equal(entriesAsValidatedMap)
+    verify(s3Client, times(0)).headObject(any[String], any[String])
+  }
+
+  forAll(incorrectUrls) { (incorrectUrl, expectedError) =>
+  "checkFileIsInCorrectS3Location" should "not call the s3 client and instead return an error if a URI could not be extracted " +
+    s"from a location with a value of '$incorrectUrl'" in {
+    val fileEntries = allEntries.collect{
+      case entry if entry(entryType).str == "File" => Obj.from(entry.value ++ Map("location" -> Str(incorrectUrl)))
+    }
+
+    val s3Client = mock[DAS3Client[IO]]
+
+    val entriesAsValidatedMap = fileEntries.map(convertUjsonObjToSchemaValidatedMap)
+    val validatedLocations = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
+
+    val fileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map {
+      case (entryAsValidatedMap, validatedLocation) => entryAsValidatedMap + ("location" -> validatedLocation)
+    }
+
+    val expectedEntriesAsValidatedMap = fileEntries.map { entry =>
+      convertUjsonObjToSchemaValidatedMap(entry) ++ Map("location" -> expectedError )
+    }
+
+    fileEntriesWithValidatedLocation should equal(expectedEntriesAsValidatedMap)
+    verify(s3Client, times(0)).headObject(any[String], any[String])
+  }
+  }
+
   "checkFileNamesHaveExtensions" should "return 0 MissingFileExtensionErrors if the value of the 'name' in the File entries, end with an extension" in {
     val fileEntries = allEntries.filter(_(entryType).str == "File")
-    val entriesAsValidatedMap = fileEntries.map(entry => convertUjsonObjToSchemaValidatedMap(entry))
+    val entriesAsValidatedMap = fileEntries.map(convertUjsonObjToSchemaValidatedMap)
     val fileEntriesWithValidatedName = validator.checkFileNamesHaveExtensions(entriesAsValidatedMap)
     fileEntriesWithValidatedName should equal(entriesAsValidatedMap)
   }
@@ -50,7 +129,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       val nameValWithExtensionRemoved = nameVal.str.split('.').dropRight(1).mkString
       Obj.from(fileEntry.value ++ Map(name -> Str(nameValWithExtensionRemoved)))
     }
-    val entriesAsValidatedMap = fileEntriesWithExtsRemovedFromName.map(entry => convertUjsonObjToSchemaValidatedMap(entry))
+    val entriesAsValidatedMap = fileEntriesWithExtsRemovedFromName.map(convertUjsonObjToSchemaValidatedMap)
     val fileEntriesWithValidatedName = validator.checkFileNamesHaveExtensions(entriesAsValidatedMap)
     val expectedEntriesAsValidatedMap = entriesAsValidatedMap.map {
       _.map { case (property, value) =>
@@ -279,7 +358,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       }
       val entriesGroupedByType = entriesWithIncorrectIds.groupBy(_(entryType).str)
       val allEntriesAsValidatedMaps = entriesGroupedByType.map { case (entryType, entries) =>
-        (entryType, entries.map(entry => convertUjsonObjToSchemaValidatedMap(entry)))
+        (entryType, entries.map(convertUjsonObjToSchemaValidatedMap))
       }
       val allEntriesWithParentIdsChangedToError = allEntriesAsValidatedMaps.map { case (entryType, entries) =>
         entryType ->
@@ -312,7 +391,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       val entriesWithoutSpecifiedEntry = allEntries.filterNot(_(entryType).str == parentEntryTypeToRemove)
       val entriesGroupedByType = entriesWithoutSpecifiedEntry.groupBy(_(entryType).str)
       val allEntriesAsValidatedMaps = entriesGroupedByType.map { case (entryType, entries) =>
-        (entryType, entries.map(entry => convertUjsonObjToSchemaValidatedMap(entry)))
+        (entryType, entries.map(convertUjsonObjToSchemaValidatedMap))
       }
 
       val allEntryIds = testAllEntryIds().filterNot { case (id, entryType) => entryType.getClass.getSimpleName == parentEntryTypeToRemove + "Entry" }
@@ -341,7 +420,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       }
       val entriesGroupedByType = entriesWithoutIncorrectParentType.groupBy(_(entryType).str)
       val allEntriesAsValidatedMaps = entriesGroupedByType.map { case (entryType, entries) =>
-        (entryType, entries.map(entry => convertUjsonObjToSchemaValidatedMap(entry)))
+        (entryType, entries.map(convertUjsonObjToSchemaValidatedMap))
       }
 
       val allEntryIds = testAllEntryIds(entriesWithoutIncorrectParentType)

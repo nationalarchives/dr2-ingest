@@ -1,21 +1,52 @@
 package uk.gov.nationalarchives.ingestvalidategenericingestinputs
 
+import cats.effect.IO
 import cats.data.*
 import cats.implicits.*
 import org.scanamo.*
 import org.scanamo.generic.semiauto.*
 import ujson.*
+import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.given
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.ValueError
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonValueValidator.*
 
+import java.net.URI
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.Map
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 class MetadataJsonValueValidator {
+  def checkFileIsInCorrectS3Location(s3Client: DAS3Client[IO], fileEntries: List[Map[FieldName, ValidatedNel[ValidationError, Value]]]): IO[List[ValidatedNel[ValidationError, Value]]] =
+    fileEntries.map { fileEntry =>
+      val locationNel = fileEntry(location)
+      locationNel match {
+        case Validated.Valid(locationObject) =>
+          val potentialFileUri = Try(URI.create(locationObject.str))
+          potentialFileUri match {
+            case Success(fileUri) if fileUri.getHost != null =>
+              print("\n\n\n\nfileUri.getHost, fileUri.getPath.drop(1)", fileUri.getHost, fileUri.getPath.drop(1))
+              s3Client
+                .headObject(fileUri.getHost, fileUri.getPath.drop(1))
+                .redeem(
+                  exception => NoFileAtS3LocationError(exception.getMessage).invalidNel[Value],
+                  headResponse =>
+                    // compare checksums if file is there and if checksums don't match, Failure?
+                    val statusCode = headResponse.sdkHttpResponse().statusCode()
+                    print("\n\n\n\nstatusCode", statusCode)
+                    if statusCode == 200 then locationNel
+                    else NoFileAtS3LocationError(s"Head Object request returned Status code $statusCode").invalidNel[Value]
+                )
+            case Success(_) => IO.pure(ValueError(location, locationObject.str, s"'$location' could not be transformed into a URI").invalidNel[Value])
+            case Failure(e) => IO.pure(UriIsNotValid(e.getMessage).invalidNel[Value])
+          }
+        case locationInvalidNel => IO.pure(locationInvalidNel)
+      }
+    }.sequence
+
   def checkFileNamesHaveExtensions(fileEntries: List[Entry]): List[Entry] =
     fileEntries.map { fileEntry =>
       val nameNel = fileEntry(name)
@@ -305,6 +336,7 @@ class MetadataJsonValueValidator {
 
 object MetadataJsonValueValidator:
   case class MissingFileExtensionError(errorMessage: String) extends ValidationError
+  case class UriIsNotValid(errorMessage: String) extends ValidationError
   case class NoFileAtS3LocationError(errorMessage: String) extends ValidationError
   case class IdIsNotAUuidError(errorMessage: String) extends ValidationError
   case class IdIsNotUniqueError(errorMessage: String) extends ValidationError

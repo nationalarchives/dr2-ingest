@@ -45,12 +45,17 @@
     },
     "checksum_sha256": {
       "type": "string",
+      "$comment": "(Optional) But if File entry contains one, we ca ensure it's the correct type and length",
       "minLength": 64,
       "maxLength": 64
     }
   },
   "patternProperties": {
-    "^checksum_": { "type": "string", "minLength": 32 }
+    "^checksum_": {
+      "type": "string",
+      "$comment": "We're going to potentially receive multiple types of checksums, if we do, they must be >=32 chars (an MD5's length)",
+      "minLength": 32
+    }
   },
   "required": [
     "id",
