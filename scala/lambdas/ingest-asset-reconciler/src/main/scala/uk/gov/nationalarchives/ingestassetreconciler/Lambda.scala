@@ -66,11 +66,11 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     }
 
   private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoTable, fixities: List[Client.Fixity]): Boolean = {
-    val sortedItems = item.checksums.sortBy(_.algorithm)
-    val sortedFixities = fixities.sortBy(_.value)
+    val sortedChecksums = item.checksums.sortBy(_.algorithm)
+    val sortedFixities = fixities.sortBy(_.algorithm)
 
-    sortedItems.zip(sortedFixities).forall { case (dynamoItem, fixity) =>
-      dynamoItem.algorithm == fixity.algorithm && dynamoItem.fingerprint == fixity.value
+    sortedChecksums.zip(sortedFixities).forall { case (dynamoItemChecksum, preservedFixity) =>
+      dynamoItemChecksum.algorithm == preservedFixity.algorithm && dynamoItemChecksum.fingerprint == preservedFixity.value
     }
   }
 
