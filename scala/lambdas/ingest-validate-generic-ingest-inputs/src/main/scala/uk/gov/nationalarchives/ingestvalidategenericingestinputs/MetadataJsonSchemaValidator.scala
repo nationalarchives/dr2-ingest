@@ -12,7 +12,7 @@ import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.given
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.EntryTypeSchema.*
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.GeneralSchema.MinimumAssetsAndFiles
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.GeneralSchema.{ExactlyOneSeriesAndNullParent, MinimumAssetsAndFiles}
 
 import java.io.InputStream
 import scala.collection.immutable.Map
@@ -65,6 +65,7 @@ class MetadataJsonSchemaValidator(validationType: EntryTypeSchema) {
 object MetadataJsonSchemaValidator:
   private val schemaLocationFolder = "/metadata-validation-schemas"
   private val schemaLocations: Map[EntryTypeSchema | GeneralSchema, String] = Map(
+    ExactlyOneSeriesAndNullParent -> s"$schemaLocationFolder/exactly-one-entry-with-series-and-null-parentid-validation-schema.json",
     MinimumAssetsAndFiles -> s"$schemaLocationFolder/at-least-one-asset-and-file-validation-schema.json",
     ArchiveFolder -> s"$schemaLocationFolder/archive-and-content-folder-validation-schema.json",
     ContentFolder -> s"$schemaLocationFolder/archive-and-content-folder-validation-schema.json",
@@ -72,6 +73,12 @@ object MetadataJsonSchemaValidator:
     File -> s"$schemaLocationFolder/file-validation-schema.json"
   )
   def apply(validationType: EntryTypeSchema) = new MetadataJsonSchemaValidator(validationType: EntryTypeSchema)
+
+  def checkJsonForExactlyOneSeriesAndNullParent(metadataJson: String): IO[List[ValidatedNel[ExactlyOneSeriesAndNullParentError, String]]] = {
+    val schemaLocation = schemaLocations(ExactlyOneSeriesAndNullParent)
+    for (errors <- getResource(schemaLocation).use(schemaInputStream => validateAgainstSchema(metadataJson, schemaInputStream)))
+      yield errors.map(error => ExactlyOneSeriesAndNullParentError(error.getMessage).invalidNel[String])
+  }
 
   def checkJsonForMinimumObjects(metadataJson: String): IO[List[ValidatedNel[MinimumAssetsAndFilesError, String]]] = {
     val schemaLocation = schemaLocations(MinimumAssetsAndFiles)
@@ -97,6 +104,8 @@ object MetadataJsonSchemaValidator:
   sealed trait SchemaValidationError extends ValidationError:
     val propertyWithError: String
 
+  case class ExactlyOneSeriesAndNullParentError(errorMessage: String) extends ValidationError
+  
   case class MinimumAssetsAndFilesError(errorMessage: String) extends ValidationError
 
   case class MissingPropertyError(propertyWithError: String, errorMessage: String) extends SchemaValidationError
@@ -107,4 +116,4 @@ object MetadataJsonSchemaValidator:
     case File, Asset, ArchiveFolder, ContentFolder
 
   enum GeneralSchema:
-    case MinimumAssetsAndFiles
+    case ExactlyOneSeriesAndNullParent, MinimumAssetsAndFiles

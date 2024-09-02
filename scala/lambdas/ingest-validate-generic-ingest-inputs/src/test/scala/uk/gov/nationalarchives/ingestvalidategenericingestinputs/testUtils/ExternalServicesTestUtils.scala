@@ -21,7 +21,7 @@ object ExternalServicesTestUtils {
     if oneToFourRandomLetters.nonEmpty then s"$oneToFourRandomLetters ${rand.between(1, 10000)}" else "Unknown"
   }
 
-  def testValidMetadataJson(incorrectValue: String = "default"): List[Obj] =
+  def testValidMetadataJson(): List[Obj] =
     List(
       Obj(
         "series" -> randomSeries,

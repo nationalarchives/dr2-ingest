@@ -13,21 +13,21 @@ import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSch
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.testUtils.ExternalServicesTestUtils.*
 
 class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
-  val entryTypeSchemas: TableFor1[EntryTypeSchema] = Table("entryType", ArchiveFolder, ContentFolder, Asset, File)
+  private val entryTypeSchemas: TableFor1[EntryTypeSchema] = Table("entryType", ArchiveFolder, ContentFolder, Asset, File)
   val propertiesWithArrayType: TableFor4[String, String, Value, SchemaValidationError] = Table(
     ("entryField", "Expected array type", "Incorrect array value", "Expected error message"),
     ("originalFiles", "String", Bool(true), ValueError("originalFiles", "true", "$.originalFiles: boolean found, array expected")),
     ("originalMetadataFiles", "String", Num(123), ValueError("originalMetadataFiles", "123", "$.originalMetadataFiles: integer found, array expected"))
   )
 
-  val minimumTypesAllowedInJson: TableFor2[String, List[String]] = Table(
+  private val minimumTypesAllowedInJson: TableFor2[String, List[String]] = Table(
     ("title", "Types to remove"),
     ("contains a file but not an Asset", List("Asset")),
     ("contains an Asset but not a File", List("File")),
     ("does not contain an Asset nor a File", List("File", "Asset"))
   )
 
-  val someValidSeries: TableFor1[Value] = Table(
+  private val someValidSeries: TableFor1[Value] = Table(
     "Some Valid Series",
     Str("A 1"),
     Str("U 10"),
@@ -48,7 +48,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     Str("Unknown")
   )
 
-  val someInvalidSeries: TableFor1[Value] = Table(
+  private val someInvalidSeries: TableFor1[Value] = Table(
     "Some (valid-like) Invalid Series",
     Str("A"),
     Str("abc 1"),
@@ -66,17 +66,50 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     Str("Unknown ")
   )
 
-  val invalidSha256Checksums: TableFor2[Value, String] = Table(
+  private val invalidSha256Checksums: TableFor2[Value, String] = Table(
     ("hash", "At most/least 64 characters long"),
     (Str("ab41c540b192c7cd58d044527e2a849a6206fe95974910fe855bb92bc69c75a5b"), "most"),
     (Str("ab41c540b192c7cd58d044527e2a849a6206fe95974910fe855bb92bc69c75a"), "least")
   )
 
-  val nonSha256ChecksumsShorterThan32Chars: TableFor2[String, Value] = Table(
+  private val nonSha256ChecksumsShorterThan32Chars: TableFor2[String, Value] = Table(
     ("checksum_", "hash shorter than 32 chars"),
     ("checksum_shaMD5", Str("9e107d9d372bb6826bd81d3542a419d")),
     ("checksum_sha1", Str("2fd4e1c67a2d28fced849ee1bb76e73"))
   )
+
+  private val seriesAndParentPermutations: TableFor2[String, List[Map[String, Value]] | List[Map[? >: String <: String, Str | Null.type]]] = Table(
+    ("Series and null parent state", "values to add to the entries"),
+    ("only one entry with a series and none with a null parent", List(Map("series" -> Str(randomSeries)), Map(), Map(), Map(), Map())),
+    ("only one entry with a null parent and none with a series", List(Map(), Map("parentId" -> Null), Map(), Map(), Map())),
+    ("only one entry with a series and another one with a null parent", List(Map("series" -> Str(randomSeries)), Map("parentId" -> Null), Map(), Map(), Map())),
+    ("two entries with a series and a null parent", List(Map("series" -> Str(randomSeries), "parentId" -> Null), Map("series" -> Str(randomSeries), "parentId" -> Null), Map(), Map(), Map())),
+  )
+
+  private lazy val entriesWithoutASeriesOrNullParent = testValidMetadataJson().map {
+    entry =>
+      val entryWithoutASeries = Obj.from(entry.value.toMap - "series")
+      if entry(entryType).str == "ArchiveFolder" then
+        Obj.from(entryWithoutASeries.value.toMap ++ Map("parentId" -> Str("a499be5a-26b9-45ec-9f8e-2b81fd21dbf8")))
+      else entryWithoutASeries
+  }
+
+  "checkJsonForExactlyOneSeriesAndNullParent" should "return 0 errors if the JSON contains exactly one entry with a series and a parentId with a null value" in {
+    val jsonString = convertUjsonToString(testValidMetadataJson())
+    val errors = MetadataJsonSchemaValidator.checkJsonForExactlyOneSeriesAndNullParent(jsonString).unsafeRunSync()
+    errors should equal(Nil)
+  }
+
+  forAll(seriesAndParentPermutations) { case (seriesAndNullParentState, itemsToAddToEntries) =>
+    "checkJsonForExactlyOneSeriesAndNullParent" should s"return an error if the JSON contains $seriesAndNullParentState" in {
+      val entries = entriesWithoutASeriesOrNullParent.zip(itemsToAddToEntries).map {
+        case (entry, itemToAddToEntry) => Obj.from(entry.value.toMap ++ itemToAddToEntry)
+      }
+      val jsonString = convertUjsonToString(entries)
+      val errors = MetadataJsonSchemaValidator.checkJsonForExactlyOneSeriesAndNullParent(jsonString).unsafeRunSync()
+      errors should equal(Nil)
+    }
+  }
 
   "checkJsonForMinimumObjects" should "return 0 errors if the JSON contains at least one Asset and one File" in {
     val jsonString = convertUjsonToString(testValidMetadataJson())
@@ -86,8 +119,8 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
 
   forAll(minimumTypesAllowedInJson) { case (entryTypeTest, typesToRemove) =>
     val numOfEntriesToRemove = typesToRemove.length
-    "checkJsonForMinimumObjects" should s"should return $numOfEntriesToRemove error message${if numOfEntriesToRemove > 1 then "s" else ""} " +
-      s"if the JSON $entryTypeTest" in {
+    val s = if numOfEntriesToRemove > 1 then "s" else ""
+    "checkJsonForMinimumObjects" should s"should return $numOfEntriesToRemove error message$s if the JSON $entryTypeTest" in {
         val jsonWithoutSpecifiedType = testValidMetadataJson().filterNot(entry => typesToRemove.contains(entry(entryType).str))
         val jsonString = convertUjsonToString(jsonWithoutSpecifiedType)
         val validatedNelErrors = MetadataJsonSchemaValidator.checkJsonForMinimumObjects(jsonString).unsafeRunSync()
@@ -197,32 +230,51 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
       }
   }
 
-  forAll(someValidSeries) { series =>
-    "validateMetadataJsonObject" should s"return 0 errors if a valid Series $series matches the Regex pattern" in {
-      val archiveFolderEntry = testValidMetadataJson().filter(_(entryType).str == "ArchiveFolder").head
-      val entryWithSeriesChanged = Obj.from(archiveFolderEntry.value ++ Map("series" -> series))
-      val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(ArchiveFolder).validateMetadataJsonObject(entryWithSeriesChanged).unsafeRunSync()
-      validatedJsonObjectAsMap should equal(convertUjsonObjToSchemaValidatedMap(entryWithSeriesChanged))
+  forAll(entryTypeSchemas.filter(_.toString != "File")) { entryTypeSchema =>
+    forAll(someValidSeries) { series =>
+      "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return 0 errors if a valid Series $series matches the Regex pattern" in {
+        val entry = testValidMetadataJson().filter(_(entryType).str == entryTypeSchema.toString).head
+        val entryWithSeriesChanged = Obj.from(entry.value ++ Map("series" -> series))
+        val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithSeriesChanged).unsafeRunSync()
+        validatedJsonObjectAsMap should equal(convertUjsonObjToSchemaValidatedMap(entryWithSeriesChanged))
+      }
     }
   }
 
-  forAll(someInvalidSeries) { invalidSeries =>
-    val series = "series"
-    "validateMetadataJsonObject" should s"return a ValueError if an invalid Series $invalidSeries does no match the Regex pattern" in {
-      val archiveFolderEntry = testValidMetadataJson().filter(_(entryType).str == "ArchiveFolder").head
-      val entryWithSeriesChanged = Obj.from(archiveFolderEntry.value ++ Map(series -> invalidSeries))
-      val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(ArchiveFolder).validateMetadataJsonObject(entryWithSeriesChanged).unsafeRunSync()
+  forAll(entryTypeSchemas.filter(_.toString != "File")) { entryTypeSchema =>
+    forAll(someInvalidSeries) { invalidSeries =>
+      val series = "series"
+      "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return a ValueError if an invalid Series $invalidSeries does not match the Regex pattern" in {
+        val entry = testValidMetadataJson().filter(_(entryType).str == entryTypeSchema.toString).head
+        val entryWithSeriesChanged = Obj.from(entry.value ++ Map(series -> invalidSeries))
+        val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithSeriesChanged).unsafeRunSync()
 
-      val expectedValidatedJson = convertUjsonObjToSchemaValidatedMap(entryWithSeriesChanged) ++ Map(
-        series -> ValueError(
-          series,
-          invalidSeries.str,
-          s"$$.$series: does not match the regex pattern ^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown)$$"
-        ).invalidNel[Value]
-      )
+        val expectedValidatedJson = convertUjsonObjToSchemaValidatedMap(entryWithSeriesChanged) ++ Map(
+          series -> ValueError(
+            series,
+            invalidSeries.str,
+            s"$$.$series: does not match the regex pattern ^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown)$$"
+          ).invalidNel[Value]
+        )
 
-      validatedJsonObjectAsMap should equal(expectedValidatedJson)
+        validatedJsonObjectAsMap should equal(expectedValidatedJson)
+      }
     }
+  }
+
+  "validateMetadataJsonObject" should s", for an entry of type 'File', return a ValueError if it contains a series" in {
+    val series = "series"
+    val fileEntry = testValidMetadataJson().filter(_(entryType).str == "File").head
+    val fileEntryWithSeries = Obj.from(fileEntry.value ++ Map(series -> Str("A 1")))
+    val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(fileEntryWithSeries).unsafeRunSync()
+    val expectedValidatedJson = convertUjsonObjToSchemaValidatedMap(fileEntryWithSeries) ++ Map(
+      series -> ValueError(
+        series,
+        "A 1",
+        s"$$.$series: schema for 'series' is false"
+      ).invalidNel[Value]
+    )
+    validatedJsonObjectAsMap should equal(expectedValidatedJson)
   }
 
   forAll(invalidSha256Checksums) { (invalidSha256Checksum, atMostOrLeast) =>

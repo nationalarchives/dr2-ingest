@@ -110,31 +110,6 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         .compile
         .string
     } yield s3FileString
-
-//  private def checkFileIsInCorrectS3Location(s3Client: DAS3Client[IO], fileEntries: List[Map[FieldName, ValidatedNel[ValidationError, Value]]]) =
-//    fileEntries.map { fileEntry =>
-//      val locationNel = fileEntry(location)
-//      locationNel match {
-//        case Validated.Valid(locationObject) =>
-//          val potentialFileUri = Try(URI.create(location))
-//          potentialFileUri match {
-//            case Success(fileUri) =>
-//              s3Client
-//                .headObject(fileUri.getHost, fileUri.getPath.drop(1))
-//                .redeem(
-//                  exception => NoFileAtS3LocationError(exception.getMessage).invalidNel[Value],
-//                  headResponse =>
-//                    // compare checksums if file is there and if checksums don't match, Failure?
-//                    val statusCode = headResponse.sdkHttpResponse().statusCode()
-//                    if statusCode == 200 then Validated.Valid[Value](locationObject).toValidatedNel[ValidationError, Value]
-//                    else NoFileAtS3LocationError(s"Head Object request returned Status code $statusCode").invalidNel[Value]
-//                )
-//            case Failure(e) => IO.pure(UriIsNotValid(e.getMessage).invalidNel[Value])
-//          }
-//
-//        case locationInvalidNel => IO.pure(locationInvalidNel)
-//      }
-//    }.sequence
 }
 object Lambda {
   // Not expecting this 'given' to be used since we are only combining errors, but Validate's 'combine' method needs it

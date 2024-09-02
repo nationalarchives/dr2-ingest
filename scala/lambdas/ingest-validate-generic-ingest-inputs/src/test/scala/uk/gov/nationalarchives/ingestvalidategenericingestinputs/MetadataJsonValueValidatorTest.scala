@@ -43,15 +43,18 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
   )
 
   private val validator = new MetadataJsonValueValidator
-  private val allEntries = testValidMetadataJson()
+  private val allEntries = testValidMetadataJson().map {
+    entry => if entry(entryType).str != "ArchiveFolder" then Obj.from(entry.value.toMap - "series") else entry
+  }
 
-  private def mockS3Client(fileEntries: List[Obj], statusCode: Int=200): DAS3Client[IO] = {
+  private def mockS3Client(fileEntries: List[Obj], statusCode: Int=200, throwError: Boolean=false): DAS3Client[IO] = {
     val s3 = mock[DAS3Client[IO]]
     fileEntries.foreach { fileEntry =>
       val key = fileEntry(id).str
-      val response = SdkHttpResponse.builder().statusCode(statusCode).build()
+      lazy val response = SdkHttpResponse.builder().statusCode(statusCode).build()
+      lazy val headObjectResponse = if throwError then IO(throw new Exception("Key could not be found")) else IO(HeadObjectResponse.builder().sdkHttpResponse(response).build)
       when(s3.headObject(ArgumentMatchers.eq("test-source-bucket"), ArgumentMatchers.eq(key)))
-        .thenReturn(IO.pure(HeadObjectResponse.builder().sdkHttpResponse(response).build()))
+        .thenReturn(headObjectResponse)
     }
 
     s3
@@ -68,7 +71,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     }
 
     fileEntriesWithValidatedLocation should equal(entriesAsValidatedMap)
-    verify(s3Client, times(fileEntries.length)).headObject(any[String], any[String])
+    verify(s3Client, times(entriesAsValidatedMap.length)).headObject(any[String], any[String])
   }
 
   "checkFileIsInCorrectS3Location" should "not check (validate) the location field if it already has an error on it" in {
@@ -113,6 +116,44 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     fileEntriesWithValidatedLocation should equal(expectedEntriesAsValidatedMap)
     verify(s3Client, times(0)).headObject(any[String], any[String])
   }
+  }
+
+  "checkFileIsInCorrectS3Location" should "return a NoFileAtS3LocationError if the status code from the response of 'headObject' is not a 200" in {
+    val fileEntries = allEntries.filter(_(entryType).str == "File")
+    val s3Client = mockS3Client(fileEntries, 404)
+    val entriesAsValidatedMap = fileEntries.map(convertUjsonObjToSchemaValidatedMap)
+    val validatedLocations = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
+
+    val fileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map {
+      case (entryAsValidatedMap, validatedLocation) => entryAsValidatedMap + ("location" -> validatedLocation)
+    }
+
+    val expectedFileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map {
+      case (entryAsValidatedMap, validatedLocation) =>
+        entryAsValidatedMap + ("location" -> NoFileAtS3LocationError("Head Object request returned a Status code of 404").invalidNel[Value])
+    }
+
+    fileEntriesWithValidatedLocation should equal(expectedFileEntriesWithValidatedLocation)
+    verify(s3Client, times(entriesAsValidatedMap.length)).headObject(any[String], any[String])
+  }
+
+  "checkFileIsInCorrectS3Location" should "return a NoFileAtS3LocationError if the call to 'headObject' yields an Exception" in {
+    val fileEntries = allEntries.filter(_(entryType).str == "File")
+    val s3Client = mockS3Client(fileEntries, throwError =  true)
+    val entriesAsValidatedMap = fileEntries.map(convertUjsonObjToSchemaValidatedMap)
+    val validatedLocations = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
+
+    val fileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map {
+      case (entryAsValidatedMap, validatedLocation) => entryAsValidatedMap + ("location" -> validatedLocation)
+    }
+
+    val expectedFileEntriesWithValidatedLocation = entriesAsValidatedMap.map {
+      entryAsValidatedMap => entryAsValidatedMap + ("location" ->
+        NoFileAtS3LocationError("Key could not be found").invalidNel[Value])
+    }
+
+    fileEntriesWithValidatedLocation should equal(expectedFileEntriesWithValidatedLocation)
+    verify(s3Client, times(entriesAsValidatedMap.length)).headObject(any[String], any[String])
   }
 
   "checkFileNamesHaveExtensions" should "return 0 MissingFileExtensionErrors if the value of the 'name' in the File entries, end with an extension" in {
@@ -250,7 +291,8 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     fileEntriesWithValidatedName should equal(Nil)
   }
 
-  "getIdsOfAllEntries" should "return the ids with an EntryType that has a parentId of 'None', if the parentId field of each, has a error" in {
+  "getIdsOfAllEntries" should "return the ids with an EntryType that has a parentId of 'Some(parentIdErrorMessage)', if " + 
+    "the parentId field of each, has some sort of error prior" in {
     val entriesWithIncorrectParentIds = allEntries.map { entry =>
       Obj.from(entry.value ++ Map(parentId -> Num(123)))
     }
@@ -265,13 +307,14 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     }
 
     val fileEntriesWithValidatedName = validator.getIdsOfAllEntries(entriesWhereIdsHaveError).sortBy(_._1)
+    val parentIdErrorMessage = Some("parentId undetermined, due to validation error")
     fileEntriesWithValidatedName should equal(
       List(
-        ("b7329714-4753-4bf5-a802-1c126bad1ad6", ArchiveFolderEntry(None)),
-        ("27354aa8-975f-48d1-af79-121b9a349cbe", ContentFolderEntry(None)),
-        ("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6", AssetEntry(None)),
-        ("b0147dea-878b-4a25-891f-66eba66194ca", FileEntry(None)),
-        ("d4f8613d-2d2a-420d-a729-700c841244f3", MetadataFileEntry(None))
+        ("b7329714-4753-4bf5-a802-1c126bad1ad6", ArchiveFolderEntry(parentIdErrorMessage)),
+        ("27354aa8-975f-48d1-af79-121b9a349cbe", ContentFolderEntry(parentIdErrorMessage)),
+        ("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6", AssetEntry(parentIdErrorMessage)),
+        ("b0147dea-878b-4a25-891f-66eba66194ca", FileEntry(parentIdErrorMessage)),
+        ("d4f8613d-2d2a-420d-a729-700c841244f3", MetadataFileEntry(parentIdErrorMessage))
       ).sortBy(_._1)
     )
   }
@@ -498,7 +541,8 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     entriesWithValidatedName.toList.sortBy(_._1) should equal(entriesWhereAssetFilesHaveErrors.toList.sortBy(_._1))
   }
 
-  "checkIfEntriesHaveCorrectParentIds" should "return a HierarchyLinkingError if the files in originalFiles and originalMetadataFiles sdfsdf" in {
+  "checkIfEntriesHaveCorrectParentIds" should "return a HierarchyLinkingError if the files referred to in originalFiles and originalMetadataFiles, " +
+    "don't have an extension, and therefore, it could not be established whether they belong to originalFiles or originalMetadataFiles" in {
     val entriesWithFilesWithNoExtensions = allEntries.map { entry =>
       if entry(entryType).str == "File" then Obj.from(entry.value ++ Map(name -> Str(entry(name).str.drop(5)))) else entry
     }

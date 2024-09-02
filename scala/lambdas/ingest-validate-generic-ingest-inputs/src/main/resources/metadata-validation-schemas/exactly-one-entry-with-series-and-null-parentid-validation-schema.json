@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "contains": {
+        "title": "parentId is null appears once",
+        "description": "There must be exactly one object in the the JSON that has a parentId that is null",
+        "properties": {
+          "parentId": {
+            "type": "null",
+            "const": null
+          }
+        },
+        "required": ["parentId"]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "title": "series appears once",
+        "description": "There must be exactly one object in the the JSON that has a series",
+        "properties": {
+          "series": {
+            "pattern": "."
+          }
+        },
+        "required": [
+          "series"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "title": "There must be exactly one object in the JSON that has both a series and a parent that is null",
+        "description": "",
+        "properties": {
+          "parentId": {
+            "type": "null",
+            "const": null
+          },
+          "series": true
+        },
+        "required": [
+          "series",
+          "parentId"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    }
+  ]
+}

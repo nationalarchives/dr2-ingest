@@ -48,7 +48,8 @@
       "$comment": "(Optional) But if File entry contains one, we ca ensure it's the correct type and length",
       "minLength": 64,
       "maxLength": 64
-    }
+    },
+    "series": false
   },
   "patternProperties": {
     "^checksum_": {

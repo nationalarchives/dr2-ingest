@@ -17,7 +17,7 @@
     {
       "contains": {
         "title": "Asset",
-        "description": "JSON must contain exactly one object with all and only these properties, one of which is 'type': 'Asset'",
+        "description": "JSON must contain at least one object with all and only these properties, one of which is 'type': 'Asset'",
         "properties": {
           "type": {
             "type": "string",
