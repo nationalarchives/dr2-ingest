@@ -57,14 +57,13 @@ object DynamoWriteUtils {
         Map(
           sortOrder -> DynamoValue.fromNumber[Int](fileDynamoTable.sortOrder),
           fileSize -> DynamoValue.fromNumber[Long](fileDynamoTable.fileSize),
-          checksumSha256 -> DynamoValue.fromString(fileDynamoTable.checksumSha256),
           fileExtension -> DynamoValue.fromString(fileDynamoTable.fileExtension),
           representationType -> DynamoValue.fromString(fileDynamoTable.representationType.toString),
           representationSuffix -> DynamoValue.fromNumber(fileDynamoTable.representationSuffix),
           ingestedPreservica -> DynamoValue.fromString(fileDynamoTable.ingestedPreservica.toString),
           location -> DynamoValue.fromString(fileDynamoTable.location.toString),
           ingestedCustodialCopy -> DynamoValue.fromString(fileDynamoTable.ingestedCustodialCopy.toString)
-        )
+        ) ++ fileDynamoTable.checksums.map(eachChecksum => s"${checksumPrefix}${eachChecksum.algorithm}" -> DynamoValue.fromString(eachChecksum.fingerprint)).toMap
     }.toDynamoValue
 
   def writeLockTable(lockTable: IngestLockTable): DynamoValue =

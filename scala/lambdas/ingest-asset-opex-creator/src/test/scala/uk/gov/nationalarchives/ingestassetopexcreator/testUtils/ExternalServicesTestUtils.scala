@@ -111,7 +111,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
         <opex:SourceID>Test Name</opex:SourceID>
         <opex:Manifest>
           <opex:Files>
-            <opex:File type="metadata" size="3040">68b1c80b-36b8-4f0f-94d6-92589002d87e.xip</opex:File>
+            <opex:File type="metadata" size="3052">68b1c80b-36b8-4f0f-94d6-92589002d87e.xip</opex:File>
             <opex:File type="content" size="1">Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e/Generation_1/a25d33f3-7726-4fb3-8e6f-f66358451c4e.docx</opex:File>
             <opex:File type="content" size="2">Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793/Generation_1/feedd76d-e368-45c8-96e3-c37671476793.json</opex:File>
           </opex:Files>
@@ -170,7 +170,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |  "Count": 2,
        |  "Items": [
        |    {
-       |      "checksum_sha256": {
+       |      "checksum_SHA256": {
        |        "S": "checksumdocx"
        |      },
        |      "fileExtension": {
@@ -238,7 +238,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      }
        |    },
        |    {
-       |      "checksum_sha256": {
+       |      "checksum_SHA256": {
        |        "S": "checksum"
        |      },
        |      "fileExtension": {
