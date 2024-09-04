@@ -6,7 +6,6 @@ import com.github.tomakehurst.wiremock.http.RequestMethod
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
-import sttp.model.RequestMetadata
 import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.Config
 import uk.gov.nationalarchives.ingestassetopexcreator.testUtils.ExternalServicesTestUtils
 

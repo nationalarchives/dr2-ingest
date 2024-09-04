@@ -168,14 +168,14 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       invalidNumericField: String,
       missingFields: String*
   ): AttributeValue =
-    buildAttributeValue(missingFieldsMap(rowType, missingFields: _*) + (invalidNumericField -> fromS("1")))
+    buildAttributeValue(missingFieldsMap(rowType, missingFields*) + (invalidNumericField -> fromS("1")))
 
   def missingFieldsMap(rowType: Type, fieldsToExclude: String*): Map[String, AttributeValue] =
     allMandatoryFieldsMap(rowType.toString, "Preservation")
       .filterNot(fields => fieldsToExclude.contains(fields._1))
 
   def missingFieldsAttributeValue(rowType: Type, fieldsToExclude: String*): AttributeValue = {
-    val fieldMap = missingFieldsMap(rowType, fieldsToExclude: _*)
+    val fieldMap = missingFieldsMap(rowType, fieldsToExclude*)
     AttributeValue.builder().m(fieldMap.asJava).build()
   }
 
