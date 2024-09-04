@@ -78,12 +78,11 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     ("checksum_sha1", Str("2fd4e1c67a2d28fced849ee1bb76e73"))
   )
 
-  private val seriesAndParentPermutations: TableFor2[String, List[Map[String, Value]] | List[Map[? >: String <: String, Str | Null.type]]] = Table(
-    ("Series and null parent state", "values to add to the entries"),
+  private val incorrectSeriesAndParentPermutations: TableFor2[String, List[Map[? >: String <: String, Str | Null.type | Value]]] = Table(
+    ("Series and null parent state", "Items to add to the entries"),
     ("only one entry with a series and none with a null parent", List(Map("series" -> Str(randomSeries)), Map(), Map(), Map(), Map())),
     ("only one entry with a null parent and none with a series", List(Map(), Map("parentId" -> Null), Map(), Map(), Map())),
-    ("only one entry with a series and another one with a null parent", List(Map("series" -> Str(randomSeries)), Map("parentId" -> Null), Map(), Map(), Map())),
-    ("two entries with a series and a null parent", List(Map("series" -> Str(randomSeries), "parentId" -> Null), Map("series" -> Str(randomSeries), "parentId" -> Null), Map(), Map(), Map())),
+    ("only one entry with a series and another one with a null parent", List(Map("series" -> Str(randomSeries)), Map("parentId" -> Null), Map(), Map(), Map()))
   )
 
   private lazy val entriesWithoutASeriesOrNullParent = testValidMetadataJson().map {
@@ -94,20 +93,23 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
       else entryWithoutASeries
   }
 
-  "checkJsonForExactlyOneSeriesAndNullParent" should "return 0 errors if the JSON contains exactly one entry with a series and a parentId with a null value" in {
+  "checkJsonForAtLeastOneEntryWithSeriesAndNullParent" should "return 0 errors if the JSON contains at least one entry with a series and a parentId with a null value" in {
     val jsonString = convertUjsonToString(testValidMetadataJson())
-    val errors = MetadataJsonSchemaValidator.checkJsonForExactlyOneSeriesAndNullParent(jsonString).unsafeRunSync()
+    val errors = MetadataJsonSchemaValidator.checkJsonForAtLeastOneEntryWithSeriesAndNullParent(jsonString).unsafeRunSync()
     errors should equal(Nil)
   }
 
-  forAll(seriesAndParentPermutations) { case (seriesAndNullParentState, itemsToAddToEntries) =>
-    "checkJsonForExactlyOneSeriesAndNullParent" should s"return an error if the JSON contains $seriesAndNullParentState" in {
+  forAll(incorrectSeriesAndParentPermutations) { case (incorrectSeriesAndNullParentState, itemsToAddToEntries) =>
+    "checkJsonForAtLeastOneEntryWithSeriesAndNullParent" should s"return an error if the JSON contains $incorrectSeriesAndNullParentState" in {
       val entries = entriesWithoutASeriesOrNullParent.zip(itemsToAddToEntries).map {
         case (entry, itemToAddToEntry) => Obj.from(entry.value.toMap ++ itemToAddToEntry)
       }
       val jsonString = convertUjsonToString(entries)
-      val errors = MetadataJsonSchemaValidator.checkJsonForExactlyOneSeriesAndNullParent(jsonString).unsafeRunSync()
-      errors should equal(Nil)
+      val errors = MetadataJsonSchemaValidator.checkJsonForAtLeastOneEntryWithSeriesAndNullParent(jsonString).unsafeRunSync()
+      errors should equal(List(AtLeastOneEntryWithSeriesAndNullParentError(
+      "$: must contain at least 1 element(s) that passes these validations: " +
+       """{"title":"At least one top-level entry in the JSON","description":"There must be at least one object in the JSON that has both a series and a parent that is null",""" +
+        """"properties":{"parentId":{"type":"null","const":null},"series":true},"required":["series","parentId"]}""").invalidNel[Value]))
     }
   }
 

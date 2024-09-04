@@ -1,9 +1,11 @@
 package uk.gov.nationalarchives.ingestvalidategenericingestinputs.testUtils
 
 import cats.data.*
+import cats.implicits.*
 import ujson.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.SchemaValidationError
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonValueValidator.*
 
 object ExternalServicesTestUtils {
   private val rand = new scala.util.Random
@@ -21,7 +23,7 @@ object ExternalServicesTestUtils {
     if oneToFourRandomLetters.nonEmpty then s"$oneToFourRandomLetters ${rand.between(1, 10000)}" else "Unknown"
   }
 
-  def testValidMetadataJson(): List[Obj] =
+  def testValidMetadataJson(newObjectsToAdd: List[Obj]=Nil): List[Obj] =
     List(
       Obj(
         "series" -> randomSeries,
@@ -85,7 +87,7 @@ object ExternalServicesTestUtils {
         "location" -> "s3://test-source-bucket/d4f8613d-2d2a-420d-a729-700c841244f3",
         "checksum_sha256" -> "05fdca35f031b6d3246becd5888b2e2a538305fe48183fb3bf0dd6cdc7d6f7f5"
       )
-    )
+    ) ::: newObjectsToAdd
 
   def testAllEntryIds(allEntries: List[Obj] = testValidMetadataJson()): List[(String, EntryTypeAndParent)] = {
     val topFolder = allEntries.head
@@ -119,10 +121,23 @@ object ExternalServicesTestUtils {
   def convertUjsonObjToGenericValidatedMap(entry: Obj): Map[String, ValidatedNel[ValidationError, Value]] =
     entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value) }
 
-  private def atLeastOneAssetAndFileErrorMessage(entryType: "File" | "Asset") = {
-    val exactlyOrAtLeastWording = Map("File" -> "at least", "Asset" -> "exactly")
+  def parentIdError(parentIdMessage: String): Map[String, ValidatedNel[HierarchyLinkingError, Value]] =
+    if parentIdMessage.isEmpty then Map()
+    else Map(parentId -> HierarchyLinkingError("null", s"The parentId value is 'null' $parentIdMessage").invalidNel[Value])
+
+  def seriesError(seriesCaseClassName: String): Map[String, ValidatedNel[ValidationError, Value]] =
+    if seriesCaseClassName.isEmpty then Map()
+    else if seriesCaseClassName == "SeriesExistsError" then Map("series" -> SeriesExistsError("A file can not have a Series").invalidNel[Value])
+    else
+      Map(
+        "series" -> SeriesDoesNotExistError(
+          "The parentId is null and since only top-level entries can have null parentIds, " +
+            "and series, this entry should have a 'series' (if it is indeed top-level)"
+        ).invalidNel[Value]
+      )
+
+  private def atLeastOneAssetAndFileErrorMessage(entryType: "File" | "Asset") =
     s"$$: must contain at least 1 element(s) that passes these validations: " +
-      s"""{"title":"$entryType","description":"JSON must contain ${exactlyOrAtLeastWording(entryType)} one object with all and only these properties, """ +
+      s"""{"title":"$entryType","description":"JSON must contain at least one object with all and only these properties, """ +
       s"""one of which is 'type': '$entryType'","properties":{"type":{"type":"string","const":"$entryType"}}}"""
-  }
 }
