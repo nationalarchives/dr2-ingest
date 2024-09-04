@@ -7,10 +7,10 @@ object Dependencies {
   private val sttpVersion = "3.9.7"
   private val circeVersion = "0.14.9"
   private val log4CatsVersion = "2.7.0"
-  private val awsLibraryVersion = "1.12.767"
+  private val awsLibraryVersion = "1.12.769"
   private lazy val scalaTestVersion = "3.2.18"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.30.5"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.30.8"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val awsSecretsManager = "com.amazonaws" % "aws-java-sdk-secretsmanager" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.4"
@@ -35,7 +35,7 @@ object Dependencies {
   lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.96"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
-  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.8"
+  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.9"
   lazy val scanamo = "org.scanamo" %% "scanamo" % "2.0.0"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
