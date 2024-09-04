@@ -18,6 +18,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestParentFolderOpexCreator,
     ingestParsedCourtDocumentEventHandler,
     ingestUpsertArchiveFolders,
+    ingestValidateGenericIngestInputs,
     ingestWorkflowMonitor,
     preservicaConfig,
     rotatePreservationSystemPassword,
@@ -230,6 +231,24 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
       fs2IO,
       s3Client,
       sfnClient,
+      reactorTest % Test
+    )
+  )
+
+lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-generic-ingest-inputs"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      awsCrt,
+      catsEffect,
+      fs2Reactive,
+      jsonSchemaValidator,
+      s3Client,
+      sfnClient,
+      sttpClientFs2,
+      sttpCirce,
+      upickle,
       reactorTest % Test
     )
   )
