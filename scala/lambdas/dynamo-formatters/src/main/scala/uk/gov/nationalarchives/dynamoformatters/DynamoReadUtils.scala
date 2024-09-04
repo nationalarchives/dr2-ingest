@@ -26,6 +26,10 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     case (name, value) if name.startsWith("id_") => Identifier(name.drop(3), value.s())
   }.toList
 
+  val checksums: List[Checksum] = folderRowAsMap.collect {
+    case (name, value) if name.startsWith(checksumPrefix) => Checksum(name.drop(checksumPrefix.length), value.s())
+  }.toList
+
   private val allValidatedLockTableFields: LockTableValidatedFields = LockTableValidatedFields(
     stringToScalaType[UUID](
       assetId,
@@ -61,7 +65,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     getPotentialListOfValues(originalMetadataFiles, convertListOfStringsToT(UUID.fromString)),
     getNumber(sortOrder, _.toInt),
     getNumber(fileSize, _.toLong),
-    getValidatedMandatoryFieldAsString(checksumSha256),
+    getValidatedMandatoryChecksumsAsList(checksums),
     getValidatedMandatoryFieldAsString(fileExtension),
     stringToRepresentationType(getPotentialStringValue(representationType)),
     getNumber(representationSuffix, _.toInt),
@@ -140,6 +144,13 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     getPotentialStringValue(name)
       .map(_.validNel)
       .getOrElse((name -> MissingProperty).invalidNel)
+  }
+
+  private def getValidatedMandatoryChecksumsAsList(listOfValues: List[Checksum]): ValidatedNel[InvalidProperty, List[Checksum]] = {
+    listOfValues match {
+      case Nil => ("checksum" -> MissingProperty).invalidNel
+      case _   => listOfValues.validNel
+    }
   }
 
   private def getPotentialStringValue(name: String): Option[FieldName] = folderRowAsMap.get(name).map(_.s())
@@ -307,7 +318,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableFields.name,
       allValidatedFileTableFields.sortOrder,
       allValidatedFileTableFields.fileSize,
-      allValidatedFileTableFields.checksumSha256,
+      allValidatedFileTableFields.checksums,
       allValidatedFileTableFields.fileExtension,
       allValidatedFileTableFields.`type`,
       allValidatedFileTableFields.representationType,
@@ -321,7 +332,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           name,
           sortOrder,
           fileSize,
-          checksumSha256,
+          checksumList,
           fileExtension,
           rowType,
           representationType,
@@ -339,7 +350,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           allValidatedFileTableFields.description,
           sortOrder,
           fileSize,
-          checksumSha256,
+          checksumList,
           fileExtension,
           representationType,
           representationSuffix,

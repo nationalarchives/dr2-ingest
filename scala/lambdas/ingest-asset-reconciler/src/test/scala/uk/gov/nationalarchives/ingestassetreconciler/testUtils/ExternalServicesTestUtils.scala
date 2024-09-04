@@ -49,7 +49,10 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
     s"84cca074-a7bc-4740-9418-bcc9df9fef7e.docx",
     1234,
     "http://localhost/api/entity/content-objects/fc0a687d-f7fa-454e-941a-683bbf5594b1/generations/1/bitstreams/1/content",
-    Fixity("SHA256", "f7523c5d03a2c850fa06b5bbfed4c216f6368826"),
+    List(
+      Fixity("SHA256", "f7523c5d03a2c850fa06b5bbfed4c216f6368826"),
+      Fixity("MD5", "4985298cbf6b2b74c522ced8b128ebe3")
+    ),
     1,
     Original,
     Some(s"$docxTitle.docx"),
@@ -59,7 +62,10 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
     s"9ef5eb16-3017-401f-8180-cf74c2c25ec1.json",
     1235,
     "http://localhost/api/entity/content-objects/4dee285b-64e4-49f8-942e-84ab460b5af6/generations/1/bitstreams/1/content",
-    Fixity("SHA256", "a8cfe9e6b5c10a26046c849cd3776734626e74a2"),
+    List(
+      Fixity("SHA256", "a8cfe9e6b5c10a26046c849cd3776734626e74a2"),
+      Fixity("MD5", "4696380ccb5520ebe001dace459d5135")
+    ),
     1,
     Original,
     Some(s"$batchId.json"),
@@ -73,8 +79,11 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |  "Count": 2,
        |  "Items": [
        |    {
-       |      "checksum_sha256": {
+       |      "checksum_SHA256": {
        |        "S": "f7523c5d03a2c850fa06b5bbfed4c216f6368826"
+       |      },
+       |      "checksum_MD5": {
+       |        "S": "4985298cbf6b2b74c522ced8b128ebe3"
        |      },
        |      "title": {
        |        "S": "$docxTitle"
@@ -144,8 +153,11 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |      }
        |    },
        |    {
-       |      "checksum_sha256": {
+       |      "checksum_SHA256": {
        |        "S": "a8cfe9e6b5c10a26046c849cd3776734626e74a2"
+       |      },
+       |      "checksum_MD5": {
+       |        "S": "4696380ccb5520ebe001dace459d5135"
        |      },
        |      "title": {
        |        "S": ""

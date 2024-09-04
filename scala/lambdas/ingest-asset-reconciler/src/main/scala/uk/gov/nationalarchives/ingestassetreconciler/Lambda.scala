@@ -12,11 +12,12 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.DADynamoDBClient
 import uk.gov.nationalarchives.dp.client.Client.BitStreamInfo
-import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier => PreservicaIdentifier}
+import uk.gov.nationalarchives.dp.client.{Client, EntityClient}
+import uk.gov.nationalarchives.dp.client.EntityClient.Identifier as PreservicaIdentifier
 import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType
 import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType.*
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters
 import uk.gov.nationalarchives.ingestassetreconciler.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 
@@ -64,6 +65,15 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       titleOfCoWithoutExtension == assetChildTitleOrFileNameWithoutExtension
     }
 
+  private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoTable, fixities: List[Client.Fixity]): Boolean = {
+    val sortedChecksums = item.checksums.sortBy(_.algorithm)
+    val sortedFixities = fixities.sortBy(_.algorithm)
+
+    sortedChecksums.zip(sortedFixities).forall { case (dynamoItemChecksum, preservedFixity) =>
+      dynamoItemChecksum.algorithm == preservedFixity.algorithm && dynamoItemChecksum.fingerprint == preservedFixity.value
+    }
+  }
+
   private def verifyFilesInDdbAreInPreservica(
       childrenForRepresentationType: List[FileDynamoTable],
       bitstreamInfoPerContentObject: Seq[BitStreamInfo],
@@ -74,7 +84,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     val childrenThatDidNotMatchOnChecksum =
       childrenForRepresentationType.filter { assetChild =>
         val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
-          assetChild.checksumSha256 == bitstreamInfoForCo.fixity.value &&
+          doesChecksumMatchFixity(assetChild, bitstreamInfoForCo.fixities) &&
           coTitleMatchesAssetChildTitle(bitstreamInfoForCo.potentialCoTitle, assetChild)
         }
 
