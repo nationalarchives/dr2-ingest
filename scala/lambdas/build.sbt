@@ -19,6 +19,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestParsedCourtDocumentEventHandler,
     ingestUpsertArchiveFolders,
     ingestWorkflowMonitor,
+    preIngestTdrPackageBuilder,
     preservicaConfig,
     rotatePreservationSystemPassword,
     startWorkflow
@@ -48,7 +49,8 @@ lazy val commonSettings = Seq(
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
     case _                                                   => MergeStrategy.first
   },
-  scalacOptions ++= Seq("-Wunused:imports", "-Werror", "-deprecation", "-feature", "-language:implicitConversions"),
+//  scalacOptions ++= Seq("-Wunused:imports", "-Werror", "-deprecation", "-feature", "-language:implicitConversions"),
+  scalacOptions ++= Seq("-Yretain-trees", "-Xmax-inlines", "33", "-deprecation", "-feature", "-language:implicitConversions"),
   (Test / fork) := true,
   (Test / envVars) := Map(
     "AWS_ACCESS_KEY_ID" -> "accesskey",
@@ -231,6 +233,21 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
       s3Client,
       sfnClient,
       reactorTest % Test
+    )
+  )
+
+lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      circeFs2,
+      dynamoClient,
+      fs2Reactive,
+      s3Client,
+      reactorTest % Test,
+      scalaCheck % Test,
+      scalaCheckPlus % Test
     )
   )
 

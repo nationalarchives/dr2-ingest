@@ -2,12 +2,15 @@ package uk.gov.nationalarchives.ingestassetopexcreator
 
 import cats.effect.unsafe.implicits.global
 import com.github.tomakehurst.wiremock.WireMockServer
+import com.github.tomakehurst.wiremock.http.RequestMethod
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
+import sttp.model.RequestMetadata
 import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.Config
 import uk.gov.nationalarchives.ingestassetopexcreator.testUtils.ExternalServicesTestUtils
 
+import java.net.URI
 import scala.jdk.CollectionConverters.*
 import scala.xml.{Utility, XML}
 
@@ -122,8 +125,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3CopyRequests = s3Server.getAllServeEvents.asScala
-    s3CopyRequests.count(_.getRequest.getUrl == xipPath) should equal(1)
-    s3CopyRequests.count(_.getRequest.getUrl == opexPath) should equal(1)
+    s3CopyRequests.count(req => URI.create(req.getRequest.getUrl).getPath == xipPath) should equal(3)
+    s3CopyRequests.count(req => URI.create(req.getRequest.getUrl).getPath == opexPath) should equal(3)
   }
 
   "handler" should "write the xip content objects in the correct order" in {
@@ -136,7 +139,15 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3CopyRequests = s3Server.getAllServeEvents.asScala
-    val xipString = s3CopyRequests.filter(_.getRequest.getUrl == xipPath).head.getRequest.getBodyAsString.split('\n').tail.dropRight(4).mkString("\n")
+    val xipString = s3CopyRequests
+      .filter(req => URI.create(req.getRequest.getUrl).getPath == xipPath && req.getRequest.getMethod == RequestMethod.PUT)
+      .head
+      .getRequest
+      .getBodyAsString
+      .split('\n')
+      .tail
+      .dropRight(4)
+      .mkString("\n")
     val contentObjects = XML.loadString(xipString) \ "Representation" \ "ContentObjects" \ "ContentObject"
     contentObjects.head.text should equal(childIdDocx.toString)
     contentObjects.last.text should equal(childIdJson.toString)
@@ -153,7 +164,15 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3UploadRequests = s3Server.getAllServeEvents.asScala
-    val opexString = s3UploadRequests.filter(_.getRequest.getUrl == opexPath).head.getRequest.getBodyAsString.split('\n').tail.dropRight(3).mkString("\n")
+    val opexString = s3UploadRequests
+      .filter(req => URI.create(req.getRequest.getUrl).getPath == opexPath && req.getRequest.getMethod == RequestMethod.PUT)
+      .head
+      .getRequest
+      .getBodyAsString
+      .split('\n')
+      .tail
+      .dropRight(3)
+      .mkString("\n")
     val opexXml = XML.loadString(opexString)
     Utility.trim(opexXml) should equal(Utility.trim(expectedOpex))
   }

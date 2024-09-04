@@ -38,15 +38,40 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   }
 
   def stubPutRequest(itemPaths: String*): Unit = {
+    val fullUrl = s"/opex/$executionName/$folderId/$folderParentPath/$assetId.pax.opex"
+    val bucket = "test-destination-bucket"
+    val postResponse = <InitiateMultipartUploadResult>
+      <Bucket>{bucket}</Bucket>
+      <Key>{fullUrl}</Key>
+      <UploadId>id</UploadId>
+    </InitiateMultipartUploadResult>.toString
     s3Server.stubFor(
-      head(urlEqualTo(s"/opex/$executionName/$folderId/$folderParentPath/$assetId.pax.opex"))
+      head(urlEqualTo(fullUrl))
         .willReturn(ok().withHeader("Content-Length", "100"))
     )
     itemPaths.foreach { itemPath =>
       s3Server.stubFor(
-        put(urlEqualTo(itemPath))
-          .withHost(equalTo("test-destination-bucket.localhost"))
+        post(urlEqualTo(s"$itemPath?uploads"))
+          .withHost(equalTo(s"$bucket.localhost"))
+          .willReturn(okXml(postResponse))
+      )
+      s3Server.stubFor(
+        post(urlPathEqualTo(itemPath))
+          .withQueryParam("uploadId", equalTo("id"))
+          .withHost(equalTo(s"$bucket.localhost"))
+          .willReturn(okXml(postResponse))
+      )
+      s3Server.stubFor(
+        delete(urlPathEqualTo(itemPath))
+          .withQueryParam("uploadId", equalTo("id"))
+          .withHost(equalTo(s"$bucket.localhost"))
           .willReturn(ok())
+      )
+      s3Server.stubFor(
+        put(urlPathEqualTo(itemPath))
+          .withHost(equalTo(s"$bucket.localhost"))
+          .withQueryParam("uploadId", equalTo("id"))
+          .willReturn(ok().withHeader("ETag", "ETag"))
       )
       s3Server.stubFor(
         head(urlEqualTo(s"/$itemPath"))
@@ -313,7 +338,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
     new Lambda().handler(input, config, dependencies).unsafeRunSync()
 
     val s3CopyRequests = s3Server.getAllServeEvents.asScala
-    s3CopyRequests.count(_.getRequest.getUrl == opexPath) should equal(1)
+    s3CopyRequests.count(req => URI.create(req.getRequest.getUrl).getPath == opexPath) should equal(3)
   }
 
   "handler" should "upload the correct body to S3 if skipIngest is false on the asset" in {
