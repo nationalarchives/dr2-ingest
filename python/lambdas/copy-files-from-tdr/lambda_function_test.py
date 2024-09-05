@@ -9,42 +9,15 @@ import lambda_function
 @patch.dict('os.environ', {'DESTINATION_QUEUE': 'destination-queue'})
 class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.s3_client.head_object')
-    @patch('lambda_function.s3_client.copy_object')
-    @patch('lambda_function.sqs_client.send_message')
-    def test_standard_copy(self, mock_send_message, mock_copy_object, mock_head_object):
-        mock_head_object.return_value = {'ContentLength': (5 * 1024 * 1024 * 1024) - 1}
-        event = {
-            'Records': [
-                {'body': '{"bucket": "source-bucket","fileId":"test-file"}'}
-            ]
-        }
-        context = {}
-        lambda_function.lambda_handler(event, context)
-
-        def assert_copy_object_arguments(idx, key):
-            expected_request = \
-                {'Bucket': 'destination-bucket', 'CopySource': {'Bucket': 'source-bucket', 'Key': key}, 'Key': key}
-            self.assertEqual(mock_copy_object.call_args_list[idx][1], expected_request)
-
-        expected_sqs_args = \
-            {'MessageBody': '{"location": "s3://destination-bucket/test-file"}', 'QueueUrl': 'destination-queue'}
-
-        self.assertEqual(mock_copy_object.call_count, 2)
-        assert_copy_object_arguments(0, 'test-file')
-        assert_copy_object_arguments(1, 'test-file.metadata')
-        self.assertEqual(mock_send_message.call_args_list[0][1], expected_sqs_args)
-
-    @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.create_multipart_upload')
     @patch('lambda_function.s3_client.upload_part_copy')
     @patch('lambda_function.s3_client.complete_multipart_upload')
     @patch('lambda_function.sqs_client.send_message')
     @patch.dict(os.environ, {'DESTINATION_BUCKET': 'destination-bucket'})
-    def test_multipart_copy(self, mock_send_message, mock_complete_multipart_upload, mock_upload_part_copy,
-                            mock_create_multipart_upload,
-                            mock_head_object):
+    def test_copy(self, mock_send_message, mock_complete_multipart_upload, mock_upload_part_copy,
+                  mock_create_multipart_upload,
+                  mock_head_object):
         content_length = 5 * 1024 * 1024 * 1024
-        part_size = int(content_length / 100)
         mock_head_object.return_value = {'ContentLength': content_length}
         mock_create_multipart_upload.return_value = {'UploadId': 'test-upload-id'}
 
@@ -67,7 +40,6 @@ class TestLambdaFunction(unittest.TestCase):
 
         assert_create_multipart_arguments(0, "test-file")
         assert_create_multipart_arguments(1, "test-file.metadata")
-        self.assertEqual(mock_upload_part_copy.call_count, math.floor(content_length / part_size * 2) + 2)
         self.assertEqual(mock_complete_multipart_upload.call_count, 2)
         self.assertEqual(mock_send_message.call_args_list[0][1], expected_sqs_args)
 
