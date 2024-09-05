@@ -66,13 +66,13 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     startExecutionArgs.name.get should equal(batchId)
   }
 
-  def checkWriteItemArgs(dynamoDbWriteItemRequest: DADynamoDbWriteItemRequest, messageId: UUID, groupId: GroupId): Assertion = {
+  def checkWriteItemArgs(dynamoDbWriteItemRequest: DADynamoDbWriteItemRequest, assetId: UUID, groupId: GroupId): Assertion = {
     dynamoDbWriteItemRequest.tableName should equal("test-table")
-    dynamoDbWriteItemRequest.conditionalExpression should equal(None)
+    dynamoDbWriteItemRequest.conditionalExpression should equal(Some("attribute_not_exists(assetId)"))
     val attributes = dynamoDbWriteItemRequest.attributeNamesAndValuesToWrite
-    attributes("messageId").s() should equal(messageId.toString)
+    attributes("assetId").s() should equal(assetId.toString)
     attributes("groupId").s() should equal(groupId.groupValue)
-    attributes("message").s() should equal(s"""{"id":"$messageId","location":"s3://bucket/key"}""")
+    attributes("message").s() should equal(s"""{"id":"$assetId","location":"s3://bucket/key"}""")
   }
 
   def generators(instant: Instant): Generators = new Generators:
@@ -86,7 +86,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
       else ref.update(args => StartExecutionArgs(stateMachineArn, input.asInstanceOf[SFNArguments], name) :: args).map(_ => StartExecutionResponse.builder.build)
 
   private def getAggregatorOutput(
-      messageId: UUID,
+      assetId: UUID,
       groupMap: Map[String, Group] = Map(),
       dynamoError: Boolean = false,
       sfnError: Boolean = false
@@ -102,7 +102,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
         val sqsMessage = new SQSMessage()
         sqsMessage.setEventSourceArn("eventSourceArn")
-        sqsMessage.setBody(s"""{"id":"$messageId","location":"s3://bucket/key"}""")
+        sqsMessage.setBody(s"""{"id":"$assetId","location":"s3://bucket/key"}""")
 
         Aggregator[IO].aggregate(config, groupRef, List(sqsMessage), 1000)
       }
@@ -112,8 +112,8 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     } yield (writeItemArgs, startSfnArgs, group, output)
 
   "aggregate" should "add a new group when there is no current group" in {
-    val messageId = UUID.randomUUID
-    val output = getAggregatorOutput(messageId)
+    val assetId = UUID.randomUUID
+    val output = getAggregatorOutput(assetId)
 
     val (writeItemArgs, startSfnArgs, group, results) = output.unsafeRunSync()
 
@@ -121,14 +121,14 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     group.size should equal(1)
     checkGroup(group.head._2, groupId, instant.plusMillis(2000), 1)
     checkSfnArgs(startSfnArgs.head, newBatchId, groupId)
-    checkWriteItemArgs(writeItemArgs.head, messageId, groupId)
+    checkWriteItemArgs(writeItemArgs.head, assetId, groupId)
   }
 
   "aggregate" should "add a new group to the existing group if the expiry is before the lambda timeout" in {
-    val messageId = UUID.randomUUID
+    val assetId = UUID.randomUUID
     val existingGroupId = GroupId("TST")
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, instant, 1))
-    val output = getAggregatorOutput(messageId, groupCache)
+    val output = getAggregatorOutput(assetId, groupCache)
 
     val (writeItemArgs, startSfnArgs, group, results) = output.unsafeRunSync()
 
@@ -136,15 +136,15 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     group.size should equal(1)
     checkGroup(group.head._2, groupId, instant.plusMillis(2000), 1)
     checkSfnArgs(startSfnArgs.head, newBatchId, groupId)
-    checkWriteItemArgs(writeItemArgs.head, messageId, groupId)
+    checkWriteItemArgs(writeItemArgs.head, assetId, groupId)
   }
 
   "aggregate" should "add a new group to the existing group if the expiry is after the lambda timeout but items is more than max batch size" in {
-    val messageId = UUID.randomUUID
+    val assetId = UUID.randomUUID
     val existingGroupId = GroupId("TST")
     val later = Instant.now.plusMillis(10000)
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 11))
-    val output = getAggregatorOutput(messageId, groupCache)
+    val output = getAggregatorOutput(assetId, groupCache)
 
     val (writeItemArgs, startSfnArgs, group, results) = output.unsafeRunSync()
 
@@ -152,15 +152,15 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     group.size should equal(1)
     checkGroup(group.head._2, groupId, instant.plusMillis(2000), 1)
     checkSfnArgs(startSfnArgs.head, newBatchId, groupId)
-    checkWriteItemArgs(writeItemArgs.head, messageId, groupId)
+    checkWriteItemArgs(writeItemArgs.head, assetId, groupId)
   }
 
   "aggregate" should "not add a new group if the expiry is after the lambda timeout and the group is smaller than the max" in {
-    val messageId = UUID.randomUUID
+    val assetId = UUID.randomUUID
     val existingGroupId = GroupId("TST")
     val later = Instant.now.plusMillis(10000)
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 1))
-    val output = getAggregatorOutput(messageId, groupCache)
+    val output = getAggregatorOutput(assetId, groupCache)
 
     val (writeItemArgs, startSfnArgs, group, results) = output.unsafeRunSync()
 
@@ -168,12 +168,12 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     group.size should equal(1)
     checkGroup(group.head._2, existingGroupId, later, 2)
     startSfnArgs.length should equal(0)
-    checkWriteItemArgs(writeItemArgs.head, messageId, existingGroupId)
+    checkWriteItemArgs(writeItemArgs.head, assetId, existingGroupId)
   }
 
   "aggregate" should "return a failed outcome if the write request returns an error" in {
-    val messageId = UUID.randomUUID
-    val (_, _, _, results) = getAggregatorOutput(messageId, dynamoError = true).unsafeRunSync()
+    val assetId = UUID.randomUUID
+    val (_, _, _, results) = getAggregatorOutput(assetId, dynamoError = true).unsafeRunSync()
 
     results.head.isError should equal(true)
     val errorMessage = results.head match
@@ -183,8 +183,8 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
   }
 
   "aggregate" should "return a failed outcome if the step function request returns an error" in {
-    val messageId = UUID.randomUUID
-    val (_, _, _, results) = getAggregatorOutput(messageId, sfnError = true).unsafeRunSync()
+    val assetId = UUID.randomUUID
+    val (_, _, _, results) = getAggregatorOutput(assetId, sfnError = true).unsafeRunSync()
 
     results.head.isError should equal(true)
     val errorMessage = results.head match

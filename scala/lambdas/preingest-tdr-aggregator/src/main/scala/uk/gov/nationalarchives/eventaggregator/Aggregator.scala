@@ -72,10 +72,11 @@ object Aggregator:
         DADynamoDbWriteItemRequest(
           config.lockTable,
           Map(
-            "messageId" -> toDynamoString(input.id.toString),
+            "assetId" -> toDynamoString(input.id.toString),
             "groupId" -> toDynamoString(groupId.groupValue),
             "message" -> toDynamoString(input.asJson.printWith(Printer.noSpaces))
-          )
+          ),
+          Some(s"attribute_not_exists(assetId)")
         )
       )
     }

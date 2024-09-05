@@ -4,6 +4,14 @@ The aggregation uses Lambda's [built-in batching](https://aws.amazon.com/about-a
 DynamoDB is used to prevent the same message being included in multiple groups due to SQS's at-least-once delivery guarantee. 
 The application is designed to handle a failure of the aggregation-lambda, ensuring that events do not become stuck within the DynamoDB table and preventing re-processing.
 
+The lambda is configured to receive messages from our input queue. The Event Source Mapping for this is configured with the highest possible BatchSize and MaximumBatchingWindowInSeconds; the Lambda won't be invoked until the payload size is 6MB or 300 seconds has elapsed since the first message was received.
+
+On the surface, the processing this Lambda completes is relatively simple. It creates a new UUID to be used as the batchId, sends this UUID to our batch-queue with a delay, attempts to write the message to our lock-table, and returns a partial batch response so that only messages that were successfully written our lock-table are deleted from the input-queue. We send the batchId first to ensure that the batch is processed even if the Lambda times out before it finishes processing. 
+And use a ConditionExpression when writing to DynamoDB to prevent the same message from being processed in multiple batches simultaneously.
+
+However, due to Lambda's 6MB invocation payload limit and the large amount of non-optional SQS metadata included in each received message, we need to make this function smarter if it is to handle batches of more than a few thousand items. 
+We do this by caching the current batchId outside of the handler function. To encourage Lambda to handle messages within the same function containers, we specify a MaximumConcurrency on the Event Source Mapping which prevents Lambda from scaling up with additional SQS pollers. As we now want multiple invocations of the Lambda function to complete before we begin processing the batch, we implement a MAX_SECONDARY_BATCHING_WINDOW variable into our code to specify how long we should wait before starting to process a batch.
+
 There is a method to create a new group.
 * Generate a new group ID 
 * Generate an expiry time of the lambda timeout plus the batching window.
