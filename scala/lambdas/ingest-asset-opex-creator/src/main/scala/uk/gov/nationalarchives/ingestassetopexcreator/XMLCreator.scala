@@ -153,10 +153,14 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
         <FileSize>{child.fileSize}</FileSize>
         <PhysicalLocation>{bitstreamPath(child)}</PhysicalLocation>
         <Fixities>
-          <Fixity>
-            <FixityAlgorithmRef>SHA256</FixityAlgorithmRef>
-            <FixityValue>{child.checksumSha256}</FixityValue>
-          </Fixity>
+          {
+                child.checksums
+                  .sortBy(_.algorithm)
+                  .map(eachChecksum => <Fixity>
+              <FixityAlgorithmRef>{eachChecksum.algorithm}</FixityAlgorithmRef>
+              <FixityValue>{eachChecksum.fingerprint}</FixityValue>
+            </Fixity>)
+              }
         </Fixities>
       </Bitstream>
             List(if index == 0 then "" else "\n      ", contentElement, "\n      ", generationElement, "\n      ", bitstreamElement)

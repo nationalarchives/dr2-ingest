@@ -20,7 +20,8 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{
   digitalAssetSubtype,
   name,
   transferringBody,
-  upstreamSystem
+  upstreamSystem,
+  Checksum
 }
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.OutputMessage
 
@@ -67,7 +68,7 @@ object Utils {
       None,
       1,
       2,
-      "checksum",
+      List(Checksum("checksum_SHA512", "checksum")),
       "ext",
       PreservationRepresentationType,
       1,

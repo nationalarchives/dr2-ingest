@@ -13,6 +13,8 @@ import scala.jdk.CollectionConverters.*
 
 object DynamoFormatters {
 
+  final val checksumPrefix = "checksum_"
+
   private def createReadDynamoUtils(dynamoValue: DynamoValue) = {
     val folderRowAsMap = dynamoValue.toAttributeValue.m().asScala.toMap
     new DynamoReadUtils(folderRowAsMap)
@@ -59,6 +61,7 @@ object DynamoFormatters {
     override def write(ingestLockTable: IngestLockTable): DynamoValue = writeLockTable(ingestLockTable)
   }
 
+  // Attribute names as defined in the dynamo table
   val batchId = "batchId"
   val groupId = "groupId"
   val assetId = "assetId"
@@ -71,7 +74,6 @@ object DynamoFormatters {
   val parentPath = "parentPath"
   val title = "title"
   val description = "description"
-  val checksumSha256 = "checksum_sha256"
   val fileExtension = "fileExtension"
   val transferringBody = "transferringBody"
   val transferCompleteDatetime = "transferCompleteDatetime"
@@ -161,7 +163,7 @@ object DynamoFormatters {
       originalMetadataFiles: ValidatedField[List[UUID]],
       sortOrder: ValidatedField[Int],
       fileSize: ValidatedField[Long],
-      checksumSha256: ValidatedField[String],
+      checksums: ValidatedField[List[Checksum]],
       fileExtension: ValidatedField[String],
       representationType: ValidatedField[FileRepresentationType],
       representationSuffix: ValidatedField[Int],
@@ -231,7 +233,7 @@ object DynamoFormatters {
       description: Option[String],
       sortOrder: Int,
       fileSize: Long,
-      checksumSha256: String,
+      checksums: List[Checksum],
       fileExtension: String,
       representationType: FileRepresentationType,
       representationSuffix: Int,
@@ -260,4 +262,5 @@ object DynamoFormatters {
 
     case PreservationRepresentationType, AccessRepresentationType
 
+  case class Checksum(algorithm: String, fingerprint: String)
 }
