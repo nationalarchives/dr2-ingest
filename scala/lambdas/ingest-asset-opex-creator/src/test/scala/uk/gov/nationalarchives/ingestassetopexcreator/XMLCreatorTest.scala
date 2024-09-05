@@ -120,8 +120,12 @@ class XMLCreatorTest extends AnyFlatSpec {
         <PhysicalLocation>Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02/Generation_1</PhysicalLocation>
         <Fixities>
           <Fixity>
-            <FixityAlgorithmRef>SHA256</FixityAlgorithmRef>
-            <FixityValue>checksum0</FixityValue>
+            <FixityAlgorithmRef>Algorithm1</FixityAlgorithmRef>
+            <FixityValue>testChecksumAlgo1</FixityValue>
+          </Fixity>
+          <Fixity>
+            <FixityAlgorithmRef>Algorithm2</FixityAlgorithmRef>
+            <FixityValue>testChecksumAlgo2</FixityValue>
           </Fixity>
         </Fixities>
       </Bitstream><Bitstream xmlns="http://preservica.com/XIP/v7.0">
@@ -130,8 +134,12 @@ class XMLCreatorTest extends AnyFlatSpec {
       <PhysicalLocation>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1</PhysicalLocation>
       <Fixities>
         <Fixity>
-          <FixityAlgorithmRef>SHA256</FixityAlgorithmRef>
-          <FixityValue>checksum1</FixityValue>
+          <FixityAlgorithmRef>Algorithm1</FixityAlgorithmRef>
+          <FixityValue>testChecksumAlgo1</FixityValue>
+        </Fixity>
+        <Fixity>
+          <FixityAlgorithmRef>Algorithm2</FixityAlgorithmRef>
+          <FixityValue>testChecksumAlgo2</FixityValue>
         </Fixity>
       </Fixities>
     </Bitstream>
@@ -172,7 +180,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       Option(s"description$suffix"),
       suffix,
       1,
-      s"checksum$suffix",
+      List(Checksum("Algorithm2", "testChecksumAlgo2"), Checksum("Algorithm1", "testChecksumAlgo1")),
       s"ext$suffix",
       representationTypes(suffix)._1,
       representationTypes(suffix)._2,
