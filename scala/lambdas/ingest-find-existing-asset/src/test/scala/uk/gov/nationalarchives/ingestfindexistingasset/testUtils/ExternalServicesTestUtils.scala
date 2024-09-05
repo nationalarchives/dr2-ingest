@@ -18,7 +18,6 @@ import uk.gov.nationalarchives.DADynamoDBClient
 import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.{Config, Input, StateOutput}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.Identifier
 import uk.gov.nationalarchives.dp.client.EntityClient.*
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 

@@ -118,7 +118,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       .build()
 
     val s3: DAS3Client[IO] = DAS3Client[IO](s3AsyncClient)
-    val sfn: DASFNClient[IO] = new DASFNClient(sfnAsyncClient)
+    val sfn: DASFNClient[IO] = DASFNClient(sfnAsyncClient)
     val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO](dynamoAsyncClient)
     val seriesMapper: SeriesMapper = new SeriesMapper(Set(Court("COURT", "TEST", "TEST SERIES")))
     val uuidsIterator: Iterator[String] = uuidsAndChecksum.map(_._1).iterator
