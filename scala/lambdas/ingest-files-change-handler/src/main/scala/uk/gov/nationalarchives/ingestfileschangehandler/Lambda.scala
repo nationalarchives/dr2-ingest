@@ -9,12 +9,14 @@ import org.scanamo.syntax.*
 import org.scanamo.{DynamoArray, DynamoObject, DynamoReadError, DynamoValue}
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
+import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 import uk.gov.nationalarchives.DADynamoDBClient.given
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.given
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.*
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.MessageType.*
 import uk.gov.nationalarchives.utils.LambdaRunner
-import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 
 import java.time.Instant
 import java.util.UUID
@@ -102,7 +104,9 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       .map(_ => ())
   }
 
-  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DADynamoDBClient[IO](), DASNSClient[IO](), () => Instant.now, () => UUID.randomUUID))
+  override def dependencies(config: Config): IO[Dependencies] = IO(
+    Dependencies(DADynamoDBClient[IO](), DASNSClient[IO](), () => Generators().generateInstant, () => Generators().generateRandomUuid)
+  )
 
 object Lambda:
   given Decoder[DynamodbEvent] = deriveDecoder[DynamodbEvent]

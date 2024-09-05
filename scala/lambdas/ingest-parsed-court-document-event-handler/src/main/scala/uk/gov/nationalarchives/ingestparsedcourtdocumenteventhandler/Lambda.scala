@@ -11,7 +11,8 @@ import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.utils.EventDecoders.given
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{groupId, assetId, message}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{assetId, groupId, message}
+import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
@@ -115,7 +116,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
     val s3: DAS3Client[IO] = DAS3Client[IO]()
     val sfn: DASFNClient[IO] = DASFNClient[IO]()
     val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
-    val randomUuidGenerator: () => UUID = () => UUID.randomUUID
+    val randomUuidGenerator: () => UUID = () => Generators().generateRandomUuid
     val seriesMapper: SeriesMapper = SeriesMapper()
     Dependencies(s3, sfn, dynamo, randomUuidGenerator, seriesMapper)
   }
