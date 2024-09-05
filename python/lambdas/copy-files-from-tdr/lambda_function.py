@@ -25,5 +25,5 @@ def copy_object_to_s3(destination_bucket, s3_key, source_bucket):
         s3_client.copy(copy_source, destination_bucket, s3_key)
         return f"s3://{destination_bucket}/{s3_key}"
     except Exception as e:
-        print(f"Error during copy of {s3_key}: {e}")
+        print(f"Error during copy of {s3_key} from {source_bucket} to {destination_bucket}: {e}")
         raise e
