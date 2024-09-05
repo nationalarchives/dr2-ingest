@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.eventaggregator
+package uk.gov.nationalarchives.preingesttdraggregator
 
 import cats.Parallel
 import cats.effect.syntax.all.*
@@ -13,11 +13,11 @@ import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
-import uk.gov.nationalarchives.eventaggregator.Aggregator.NewGroupReason.*
-import uk.gov.nationalarchives.eventaggregator.Aggregator.{Input, SFNArguments}
-import uk.gov.nationalarchives.eventaggregator.Duration.{MilliSeconds, Seconds}
-import uk.gov.nationalarchives.eventaggregator.Ids.*
-import uk.gov.nationalarchives.eventaggregator.Lambda.{Config, Group}
+import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.NewGroupReason.*
+import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{Input, SFNArguments}
+import uk.gov.nationalarchives.preingesttdraggregator.Duration.{MilliSeconds, Seconds}
+import uk.gov.nationalarchives.preingesttdraggregator.Ids.*
+import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
 import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 
