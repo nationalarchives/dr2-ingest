@@ -157,7 +157,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
                 child.checksums
                   .sortBy(_.algorithm)
                   .map(eachChecksum => <Fixity>
-              <FixityAlgorithmRef>{eachChecksum.algorithm}</FixityAlgorithmRef>
+              <FixityAlgorithmRef>{eachChecksum.algorithm.toUpperCase}</FixityAlgorithmRef>
               <FixityValue>{eachChecksum.fingerprint}</FixityValue>
             </Fixity>)
               }
