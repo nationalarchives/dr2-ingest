@@ -1,13 +1,13 @@
-package uk.gov.nationalarchives.eventaggregator
+package uk.gov.nationalarchives.preingesttdraggregator
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Outcome, Ref}
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import io.circe.Encoder
 import org.scalatest.flatspec.AnyFlatSpec
-import uk.gov.nationalarchives.eventaggregator.Aggregator.{*, given}
+import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{*, given}
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
-import uk.gov.nationalarchives.eventaggregator.Lambda.{Config, Group}
+import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
 import io.circe.generic.auto.*
 import org.scalatest.{Assertion, EitherValues}
 import org.scalatest.matchers.should.Matchers.*
@@ -16,7 +16,7 @@ import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
-import uk.gov.nationalarchives.eventaggregator.Ids.GroupId
+import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
 import uk.gov.nationalarchives.utils.Generators
 
 import java.net.URI
