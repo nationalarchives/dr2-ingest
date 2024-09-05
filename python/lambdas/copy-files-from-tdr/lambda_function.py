@@ -15,7 +15,8 @@ def lambda_handler(event, context):
         source_bucket = body['bucket']
         file_location = copy_object_to_s3(destination_bucket, file_id, source_bucket)
         copy_object_to_s3(destination_bucket, f"{file_id}.metadata", source_bucket)
-        sqs_client.send_message(QueueUrl=destination_queue, MessageBody=json.dumps({'location': file_location}))
+        sqs_body = json.dumps({'id': file_id, 'location': file_location})
+        sqs_client.send_message(QueueUrl=destination_queue, MessageBody=sqs_body)
 
 
 def copy_object_to_s3(destination_bucket, s3_key, source_bucket):
