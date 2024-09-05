@@ -46,7 +46,9 @@ object Aggregator:
 
   extension (i: Int) def seconds: Seconds = Seconds(i)
 
-  extension (l: Long) private def milliSeconds: MilliSeconds = MilliSeconds(l)
+  extension (l: Long)
+    private def milliSeconds: MilliSeconds = MilliSeconds(l)
+    def <=(other: MilliSeconds): Boolean = l <= other.length
 
   case class Input(id: UUID, location: URI)
 

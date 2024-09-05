@@ -19,6 +19,6 @@ object Duration:
     def toJson: Json = Json.fromInt(s)
 
   extension (m: MilliSeconds)
+    def length: Long = m
     def +(other: Long): Long = m + other
-    def >=(other: Long): Boolean = m >= other
 end Duration

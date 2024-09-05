@@ -2,7 +2,6 @@ package uk.gov.nationalarchives.eventaggregator
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
-import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import com.amazonaws.services.lambda.runtime.{Context, RequestHandler}
 import pureconfig.generic.derivation.default.*
