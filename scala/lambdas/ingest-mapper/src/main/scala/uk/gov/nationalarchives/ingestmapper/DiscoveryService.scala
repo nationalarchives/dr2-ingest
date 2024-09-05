@@ -1,22 +1,22 @@
 package uk.gov.nationalarchives.ingestmapper
 
 import cats.effect.{IO, Resource}
-import cats.implicits._
+import cats.implicits.*
+import io.circe.generic.auto.*
 import sttp.capabilities.fs2.Fs2Streams
-import sttp.client3.httpclient.fs2.HttpClientFs2Backend
-import sttp.client3.{SttpBackend, UriContext, basicRequest}
 import sttp.client3.circe.*
+import sttp.client3.httpclient.fs2.HttpClientFs2Backend
 import sttp.client3.*
-import uk.gov.nationalarchives.ingestmapper.DiscoveryService._
-import uk.gov.nationalarchives.ingestmapper.MetadataService._
-import uk.gov.nationalarchives.ingestmapper.MetadataService.Type._
-import io.circe.generic.auto._
+import ujson.*
+import uk.gov.nationalarchives.ingestmapper.DiscoveryService.*
+import uk.gov.nationalarchives.ingestmapper.MetadataService.*
+import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
+
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.util.UUID
 import javax.xml.transform.TransformerFactory
 import javax.xml.transform.stream.{StreamResult, StreamSource}
 import scala.xml.XML
-import ujson._
 
 class DiscoveryService(discoveryBaseUrl: String, backend: SttpBackend[IO, Fs2Streams[IO]], randomUuidGenerator: () => UUID) {
 

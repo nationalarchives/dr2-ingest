@@ -11,6 +11,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     getLatestPreservicaVersion,
     ingestAssetOpexCreator,
     ingestAssetReconciler,
+    preingestTdrAggregator,
     ingestFilesChangeHandler,
     ingestFindExistingAsset,
     ingestFolderOpexCreator,
@@ -235,6 +236,7 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
     )
   )
 
+
 lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
@@ -247,6 +249,16 @@ lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-bu
       reactorTest % Test,
       scalaCheck % Test,
       scalaCheckPlus % Test
+    )
+  )
+
+lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      sfnClient
     )
   )
 

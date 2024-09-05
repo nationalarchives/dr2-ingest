@@ -16,6 +16,7 @@ import java.util.UUID
 import io.circe.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.DADynamoDBClient
+import uk.gov.nationalarchives.utils.Generators
 
 import java.net.URI
 import java.time.Instant
@@ -85,7 +86,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     }
 
   override def dependencies(config: Config): IO[Dependencies] = {
-    val randomUuidGenerator: () => UUID = () => UUID.randomUUID()
+    val randomUuidGenerator: () => UUID = () => Generators().generateRandomUuid
     DiscoveryService(config.discoveryApiUrl, randomUuidGenerator).map { discoveryService =>
       val metadataService: MetadataService = MetadataService(discoveryService)
       val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
@@ -97,5 +98,5 @@ object Lambda {
   case class StateOutput(batchId: String, metadataPackage: URI, archiveHierarchyFolders: List[UUID], contentFolders: List[UUID], contentAssets: List[UUID])
   case class Input(batchId: String, metadataPackage: URI)
   case class Config(dynamoTableName: String, discoveryApiUrl: String) derives ConfigReader
-  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], time: () => Instant = () => Instant.now())
+  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], time: () => Instant = () => Generators().generateInstant)
 }
