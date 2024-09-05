@@ -1,4 +1,3 @@
-import math
 import os
 import unittest
 from unittest.mock import patch
@@ -14,7 +13,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.s3_client.complete_multipart_upload')
     @patch('lambda_function.sqs_client.send_message')
     @patch.dict(os.environ, {'DESTINATION_BUCKET': 'destination-bucket'})
-    def test_copy(self, mock_send_message, mock_complete_multipart_upload, mock_upload_part_copy,
+    def test_copy(self, mock_send_message, mock_complete_multipart_upload, _,
                   mock_create_multipart_upload,
                   mock_head_object):
         content_length = 5 * 1024 * 1024 * 1024
@@ -29,8 +28,8 @@ class TestLambdaFunction(unittest.TestCase):
         context = {}
         lambda_function.lambda_handler(event, context)
 
-        expected_sqs_args = \
-            {'MessageBody': '{"location": "s3://destination-bucket/test-file"}', 'QueueUrl': 'destination-queue'}
+        expected_body = '{"id": "test-file", "location": "s3://destination-bucket/test-file"}'
+        expected_sqs_args = {'MessageBody': expected_body, 'QueueUrl': 'destination-queue'}
 
         self.assertEqual(mock_create_multipart_upload.call_count, 2)
 
