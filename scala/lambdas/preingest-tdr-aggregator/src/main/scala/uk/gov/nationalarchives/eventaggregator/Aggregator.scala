@@ -101,7 +101,7 @@ object Aggregator:
         potentialCurrentGroupForSource match
           case None => log(NoExistingGroup) >> startNewGroup(groupCacheRef, sourceId, config, lambdaTimeoutTime)
           case Some(currentGroupForSource) =>
-            if lambdaTimeoutTime >= currentGroupForSource.expires.toEpochMilli then
+            if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime then
               log(ExpiryBeforeLambdaTimeout) >> startNewGroup(groupCacheRef, sourceId, config, lambdaTimeoutTime)
             else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(groupCacheRef, sourceId, config, lambdaTimeoutTime)
             else groupCacheRef.update(_ + (sourceId -> currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))) >> Async[F].pure(currentGroupForSource.groupId)
@@ -123,6 +123,6 @@ object Aggregator:
           process.start
         }
         results <- fibers.traverse(_.join)
-        _ <- logger.info(Map("success" -> results.count(_.isSuccess).toString, "failures" -> results.count(_.isError).toString))("Aggregation complete")
+        _ <- logger.info(Map("successes" -> results.count(_.isSuccess).toString, "failures" -> results.count(_.isError).toString))("Aggregation complete")
       } yield results
     }

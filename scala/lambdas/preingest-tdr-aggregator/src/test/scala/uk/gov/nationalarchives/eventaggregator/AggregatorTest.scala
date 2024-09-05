@@ -124,7 +124,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     checkWriteItemArgs(writeItemArgs.head, messageId, groupId)
   }
 
-  "aggregate" should "add a new group if the existing group if the expiry is before the lambda timeout" in {
+  "aggregate" should "add a new group to the existing group if the expiry is before the lambda timeout" in {
     val messageId = UUID.randomUUID
     val existingGroupId = GroupId("TST")
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, instant, 1))
@@ -139,7 +139,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     checkWriteItemArgs(writeItemArgs.head, messageId, groupId)
   }
 
-  "aggregate" should "add a new group if the existing group if the expiry is after the lambda timeout but items is more than max batch size" in {
+  "aggregate" should "add a new group to the existing group if the expiry is after the lambda timeout but items is more than max batch size" in {
     val messageId = UUID.randomUUID
     val existingGroupId = GroupId("TST")
     val later = Instant.now.plusMillis(10000)

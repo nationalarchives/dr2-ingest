@@ -1,10 +1,12 @@
 # DR2 Preingest TDR aggregator
 
-A Lambda triggered by an aggregator SQS queue. It will run either when the number of messages reaches `MAX_BATCH_SIZE` or `MAX_SECONDARY_BATCHING_WINDOW` seconds have passed
+The aggregation uses Lambda's [built-in batching](https://aws.amazon.com/about-aws/whats-new/2020/11/aws-lambda-now-supports-batch-windows-of-up-to-5-minutes-for-functions/) functionality and in-memory caching to group events into groups of a specified size. 
+DynamoDB is used to prevent the same message being included in multiple groups due to SQS's at-least-once delivery guarantee. 
+The application is designed to handle a failure of the aggregation-lambda, ensuring that events do not become stuck within the DynamoDB table and preventing re-processing.
 
 There is a method to create a new group.
 * Generate a new group ID 
-* Generate an expiry time of the lambda timout plus the batching window.
+* Generate an expiry time of the lambda timeout plus the batching window.
 * Generate a batch ID which is "${groupId}_0"
 * Generate a delay time which is the expiry time - the current time
 * Start a step function with these parameters.
@@ -14,7 +16,7 @@ The lambda works out whether to create a new group with these steps.
 * Check the cache for an existing group id with the event source arn as the key.
 * If there is no group in the cache then create a new group
 * If there is a group in the cache then:
-  * If the lambda timeout time is later than the current group expiry, then create a new group.
+  * If the current group expiry occurs before the lambda timeout, then create a new group.
   * If the item count is more than the batch size, create a new group
   * Otherwise, increment the itemCount in the group cache
 
