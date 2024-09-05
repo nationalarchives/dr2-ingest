@@ -1,8 +1,8 @@
 package uk.gov.nationalarchives.preingesttdrpackagebuilder
 
 import cats.effect.IO
-import cats.syntax.all.*
 import fs2.Collector.string
+import fs2.hashing.{HashAlgorithm, Hashing}
 import fs2.interop.reactivestreams.*
 import fs2.{Chunk, Stream}
 import io.circe
@@ -75,25 +75,33 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies]:
           tdrMetadata.SHA256ServerSideChecksum
         )
         val metadataFileBytes = tdrMetadata.asJson.printWith(Printer.noSpaces).getBytes
+
         val metadataChecksum = Stream
           .emits(metadataFileBytes)
-          .through(fs2.hash.sha256)
+          .through(fs2.hashing.Hashing[IO].hash(HashAlgorithm.SHA256))
+          .flatMap(hash => Stream.emits(hash.bytes.toList))
           .through(fs2.text.hex.encode)
+          .compile
           .to(string)
-        val metadataFileSize = metadataFileBytes.length
-        val metadata = FileMetadataObject(
-          metadataId,
-          Option(assetId),
-          s"${tdrMetadata.ConsignmentReference}-metadata",
-          2,
-          s"${tdrMetadata.ConsignmentReference}-metadata.json",
-          metadataFileSize,
-          Preservation,
-          1,
-          getMetadataUri(fileLocation),
-          metadataChecksum
-        )
-        Stream.emits(List(archiveFolder, contentFolder, assetMetadata, file, metadata))
+        
+        Stream.evals {
+          metadataChecksum.map { checksum =>
+            val metadataFileSize = metadataFileBytes.length
+            val metadata = FileMetadataObject(
+              metadataId,
+              Option(assetId),
+              s"${tdrMetadata.ConsignmentReference}-metadata",
+              2,
+              s"${tdrMetadata.ConsignmentReference}-metadata.json",
+              metadataFileSize,
+              Preservation,
+              1,
+              getMetadataUri(fileLocation),
+              checksum
+            )
+            List(archiveFolder, contentFolder, assetMetadata, file, metadata)
+          }
+        }
       }
     }
 

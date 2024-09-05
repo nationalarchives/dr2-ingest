@@ -3,6 +3,7 @@ package uk.gov.nationalarchives.preingesttdrpackagebuilder
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
 import fs2.Collector.string
+import fs2.hashing.HashAlgorithm
 import io.circe.syntax.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
@@ -77,9 +78,13 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       )
       val metadataChecksum = fs2.Stream
         .emits(tdrMetadata.asJson.noSpaces.getBytes)
-        .through(fs2.hash.sha256)
+        .through(fs2.hashing.Hashing[IO].hash(HashAlgorithm.SHA256))
+        .flatMap(hash => fs2.Stream.emits(hash.bytes.toList))
         .through(fs2.text.hex.encode)
+        .compile
         .to(string)
+        .unsafeRunSync()
+      
       val initialS3Objects = Map("key.metadata" -> tdrMetadata)
       val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
       val initialDynamoObjects = List(IngestLockTable(UUID.randomUUID(), testData.groupId, lockTableMessage))
