@@ -83,7 +83,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies]:
           .through(fs2.text.hex.encode)
           .compile
           .to(string)
-        
+
         Stream.evals {
           metadataChecksum.map { checksum =>
             val metadataFileSize = metadataFileBytes.length

@@ -84,7 +84,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
         .compile
         .to(string)
         .unsafeRunSync()
-      
+
       val initialS3Objects = Map("key.metadata" -> tdrMetadata)
       val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
       val initialDynamoObjects = List(IngestLockTable(UUID.randomUUID(), testData.groupId, lockTableMessage))
