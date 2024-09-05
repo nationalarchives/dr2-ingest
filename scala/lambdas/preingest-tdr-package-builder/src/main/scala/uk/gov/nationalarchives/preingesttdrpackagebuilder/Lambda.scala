@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.tdrpreingestpackagebuilder
+package uk.gov.nationalarchives.preingesttdrpackagebuilder
 
 import cats.effect.IO
 import cats.syntax.all.*
@@ -16,7 +16,7 @@ import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTable
-import uk.gov.nationalarchives.tdrpreingestpackagebuilder.Lambda.*
+import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.RepresentationType.Preservation
 import uk.gov.nationalarchives.utils.LambdaRunner

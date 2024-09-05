@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.tdrpreingestpackagebuilder
+package uk.gov.nationalarchives.preingesttdrpackagebuilder
 
 import cats.effect.{IO, Ref}
 import fs2.interop.reactivestreams.*
@@ -17,7 +17,7 @@ import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObje
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.DADynamoDBClient.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTable
-import uk.gov.nationalarchives.tdrpreingestpackagebuilder.Lambda.*
+import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 

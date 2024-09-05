@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.tdrpreingestpackagebuilder
+package uk.gov.nationalarchives.preingesttdrpackagebuilder
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
@@ -9,8 +9,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTable
-import uk.gov.nationalarchives.tdrpreingestpackagebuilder.Lambda.*
-import uk.gov.nationalarchives.tdrpreingestpackagebuilder.TestUtils.{*, given}
+import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
+import uk.gov.nationalarchives.preingesttdrpackagebuilder.TestUtils.{*, given}
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 
 import java.net.URI
