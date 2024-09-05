@@ -2,21 +2,20 @@ package uk.gov.nationalarchives.ingestfileschangehandler
 
 import cats.effect.IO
 import cats.syntax.all.*
+import io.circe.*
 import io.circe.Decoder.Result
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-import io.circe.*
-import org.scanamo.{DynamoArray, DynamoObject, DynamoReadError, DynamoValue}
 import org.scanamo.syntax.*
+import org.scanamo.{DynamoArray, DynamoObject, DynamoReadError, DynamoValue}
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
-import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
-import uk.gov.nationalarchives.DADynamoDBClient.{*, given}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.given
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.DADynamoDBClient.given
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.*
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.MessageType.*
 import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
+
 import java.time.Instant
 import java.util.UUID
 

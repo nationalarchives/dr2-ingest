@@ -7,7 +7,7 @@ import org.scanamo.syntax.*
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DADynamoDBClient.{*, given}
+import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.DADynamoDBClient
