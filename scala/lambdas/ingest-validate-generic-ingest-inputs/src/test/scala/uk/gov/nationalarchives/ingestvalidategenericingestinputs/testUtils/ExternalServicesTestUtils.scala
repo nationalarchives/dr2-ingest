@@ -1,24 +1,24 @@
 package uk.gov.nationalarchives.ingestvalidategenericingestinputs.testUtils
 
 import cats.data.*
+import cats.implicits.*
 import ujson.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryType.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryValidationError.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonValueValidator.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.ValidatedUtils.ValidatedEntry
 
 object ExternalServicesTestUtils {
-  private val rand = new scala.util.Random
   val id: "id" = "id"
   val parentId: "parentId" = "parentId"
   val name: "name" = "name"
   val entryType: "type" = "type"
-
-  def randomSeries: String = {
-    val oneToFourRandomLetters =
-      (1 to rand.between(0, 4)).foldLeft("") { (letters, _) =>
-        letters + rand.between(65, 90).toChar
-      }
-
-    if oneToFourRandomLetters.nonEmpty then s"$oneToFourRandomLetters ${rand.between(1, 10000)}" else "Unknown"
-  }
+  val atLeastOnAssetAndFileErrorMessages: Map[String, String] =
+    Map(
+      "File" -> atLeastOneAssetAndFileErrorMessage("File"),
+      "Asset" -> atLeastOneAssetAndFileErrorMessage("Asset")
+    )
+  private val rand = new scala.util.Random
 
   def testValidMetadataJson(newObjectsToAdd: List[Obj] = Nil): List[Obj] =
     List(
@@ -86,22 +86,61 @@ object ExternalServicesTestUtils {
       )
     ) ::: newObjectsToAdd
 
-  val atLeastOnAssetAndFileErrorMessages: Map[String, String] =
-    Map(
-      "File" -> atLeastOneAssetAndFileErrorMessage("File"),
-      "Asset" -> atLeastOneAssetAndFileErrorMessage("Asset")
-    )
+  def randomSeries: String = {
+    val oneToFourRandomLetters =
+      (1 to rand.between(0, 4)).foldLeft("") { (letters, _) =>
+        letters + rand.between(65, 90).toChar
+      }
 
-  def convertUjsonObjToSchemaValidatedMap(entry: Obj): Map[String, ValidatedNel[SchemaValidationEntryError, Value]] =
-    entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value) }
+    if oneToFourRandomLetters.nonEmpty then s"$oneToFourRandomLetters ${rand.between(1, 10000)}" else "Unknown"
+  }
 
-  def convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType: Map[String, List[Obj]]) =
+  def convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType: Map[String, List[Obj]]): Map[String, List[Map[String, ValidatedNel[SchemaValidationEntryError, Value]]]] =
     entriesGroupedByType.map { case (entryType, entries) =>
       (entryType, entries.map(entry => convertUjsonObjToSchemaValidatedMap(entry)))
     }
 
-  def convertUjsonObjToGenericValidatedMap(entry: Obj): Map[String, ValidatedNel[ValidationError, Value]] =
+  def convertUjsonObjToSchemaValidatedMap(entry: Obj): Map[String, ValidatedNel[SchemaValidationEntryError, Value]] =
     entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value) }
+
+  def convertUjsonObjToGenericValidatedMap(entry: Obj): ValidatedEntry =
+    entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value) }
+
+  def testAllEntryIds(allEntries: List[Obj] = testValidMetadataJson()): List[(String, EntryTypeAndParent)] =
+    allEntries.map(entry => (entry(id).str, generateEntry(entry(entryType).str, entry(name).str, entry(parentId).strOpt)))
+
+  private def generateEntry(entryType: String, name: String, potentialParentId: Option[String]) =
+    entryType match {
+      case "ArchiveFolder"                           => ArchiveFolderEntry(potentialParentId)
+      case "ContentFolder"                           => ContentFolderEntry(potentialParentId)
+      case "Asset"                                   => AssetEntry(potentialParentId)
+      case "File" if name.endsWith("-metadata.json") => MetadataFileEntry(potentialParentId)
+      case "File"                                    => FileEntry(potentialParentId)
+    }
+
+  def parentIdError(parentIdMessage: String): Map[String, ValidatedNel[HierarchyLinkingError, Value]] =
+    if parentIdMessage.isEmpty then Map()
+    else Map(parentId -> HierarchyLinkingError("null", s"The parentId value is 'null' $parentIdMessage").invalidNel[Value])
+
+  def seriesError(seriesCaseClassName: String): ValidatedEntry =
+    if seriesCaseClassName.isEmpty then Map()
+    else if seriesCaseClassName == "SeriesExistsError" then Map("series" -> SeriesExistsError("A file can not have a Series").invalidNel[Value])
+    else
+      Map(
+        "series" -> SeriesDoesNotExistError(
+          "The parentId is null and since only top-level entries can have null parentIds, " +
+            "and series, this entry should have a 'series' (if it is indeed top-level)"
+        ).invalidNel[Value]
+      )
+
+  def circularDependencyError(incorrectBreadcrumbTrail: List[String]): ValidatedNel[HierarchyLinkingError, Value] = {
+    val parentThatReferencesChild = incorrectBreadcrumbTrail.dropRight(1).last
+    HierarchyLinkingError(
+      parentThatReferencesChild,
+      s"Circular dependency! A parent entry (id '$parentThatReferencesChild') references this entry as its parentId.\n\n" +
+        s"The breadcrumb trail looks like this ${incorrectBreadcrumbTrail.mkString(" > ")}"
+    ).invalidNel[Value]
+  }
 
   private def atLeastOneAssetAndFileErrorMessage(entryType: "File" | "Asset") =
     s"$$: must contain at least 1 element(s) that passes these validations: " +
