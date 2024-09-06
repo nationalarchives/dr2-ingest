@@ -120,11 +120,11 @@ class XMLCreatorTest extends AnyFlatSpec {
         <PhysicalLocation>Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02/Generation_1</PhysicalLocation>
         <Fixities>
           <Fixity>
-            <FixityAlgorithmRef>Algorithm1</FixityAlgorithmRef>
+            <FixityAlgorithmRef>ALGORITHM1</FixityAlgorithmRef>
             <FixityValue>testChecksumAlgo1</FixityValue>
           </Fixity>
           <Fixity>
-            <FixityAlgorithmRef>Algorithm2</FixityAlgorithmRef>
+            <FixityAlgorithmRef>ALGORITHM2</FixityAlgorithmRef>
             <FixityValue>testChecksumAlgo2</FixityValue>
           </Fixity>
         </Fixities>
@@ -134,11 +134,11 @@ class XMLCreatorTest extends AnyFlatSpec {
       <PhysicalLocation>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1</PhysicalLocation>
       <Fixities>
         <Fixity>
-          <FixityAlgorithmRef>Algorithm1</FixityAlgorithmRef>
+          <FixityAlgorithmRef>ALGORITHM1</FixityAlgorithmRef>
           <FixityValue>testChecksumAlgo1</FixityValue>
         </Fixity>
         <Fixity>
-          <FixityAlgorithmRef>Algorithm2</FixityAlgorithmRef>
+          <FixityAlgorithmRef>ALGORITHM2</FixityAlgorithmRef>
           <FixityValue>testChecksumAlgo2</FixityValue>
         </Fixity>
       </Fixities>

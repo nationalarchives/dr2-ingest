@@ -170,7 +170,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |  "Count": 2,
        |  "Items": [
        |    {
-       |      "checksum_SHA256": {
+       |      "checksum_sha256": {
        |        "S": "checksumdocx"
        |      },
        |      "fileExtension": {
@@ -238,7 +238,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      }
        |    },
        |    {
-       |      "checksum_SHA256": {
+       |      "checksum_sha256": {
        |        "S": "checksum"
        |      },
        |      "fileExtension": {
