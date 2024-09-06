@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UnknownType validation",
+  "description": "All Unknown types that are checked by this schema must have these properties common among all entry types",
+  "properties": {
+    "id_Code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id_URI": {
+      "type": "string",
+      "minLength": 1
+    },
+    "originalFiles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "originalMetadataFiles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "transferringBody": {
+      "type": "string",
+      "minLength": 1
+    },
+    "transferCompleteDatetime": {
+      "type": "string",
+      "minLength": 1
+    },
+    "upstreamSystem": {
+      "type": "string",
+      "minLength": 1
+    },
+    "digitalAssetSource": {
+      "type": "string",
+      "minLength": 1
+    },
+    "digitalAssetSubtype": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id_BornDigitalRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id_ConsignmentReference": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id_RecordID": {
+      "type": "string",
+      "minLength": 1
+    },
+    "series": {
+      "$comment": "(Optional) If it's the top-level entry in the JSON, then it will have a Series",
+      "type": "string",
+      "pattern": "^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown)$",
+      "minLength": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parentId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "title": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "ArchiveFolder",
+        "ContentFolder",
+        "Asset",
+        "File"
+      ]
+    },
+    "sortOrder": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fileSize": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "representationType": {
+      "type": "string",
+      "minLength": 1
+    },
+    "representationSuffix": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "location": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checksum_sha256": {
+      "type": "string",
+      "$comment": "(Optional) But if File entry contains one, we ca ensure it's the correct type and length",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  },
+  "patternProperties": {
+    "^checksum_": {
+      "type": "string",
+      "$comment": "We're going to potentially receive multiple types of checksums, if we do, they must be >=32 chars (an MD5's length)",
+      "minLength": 32
+    }
+  },
+  "required": [
+    "id",
+    "parentId",
+    "title",
+    "name",
+    "type"
+  ],
+  "additionalProperties": {
+    "minLength": 1,
+    "minItems": 1
+  },
+  "propertyNames": {
+    "pattern": "[A-Za-z0-9]"
+  }
+}

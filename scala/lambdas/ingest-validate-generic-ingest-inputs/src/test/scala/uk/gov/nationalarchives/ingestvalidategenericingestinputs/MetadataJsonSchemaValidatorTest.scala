@@ -14,7 +14,9 @@ import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSch
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.testUtils.ExternalServicesTestUtils.*
 
 class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
-  private val entryTypeSchemas: TableFor1[EntryTypeSchema] = Table("entryType", ArchiveFolder, ContentFolder, Asset, File)
+  private val entryTypeSchemas: TableFor1[EntryTypeSchema] = Table("entryType", ArchiveFolder, ContentFolder, Asset, File, UnknownType)
+  private lazy val unknownTypeEntry = List(Obj.from(testValidMetadataJson().head.value ++ Map("type" -> Str("UnknownType"))))
+
   val propertiesWithArrayType: TableFor4[String, String, Value, SchemaValidationEntryError] = Table(
     ("entryField", "Expected array type", "Incorrect array value", "Expected error message"),
     ("originalFiles", "String", Bool(true), ValueError("originalFiles", "true", "$.originalFiles: boolean found, array expected")),
@@ -138,7 +140,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
   forAll(entryTypeSchemas) { entryTypeSchema =>
     "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return the JSON object as a Map with all " +
       " properties as 'Valid' if all properties are present and the values are valid" in {
-        val entry = testValidMetadataJson().filter(_(entryType).str == entryTypeSchema.toString).head
+        val entry = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == entryTypeSchema.toString).head
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entry).unsafeRunSync()
         validatedJsonObjectAsMap should equal(convertUjsonObjToSchemaValidatedMap(entry))
       }
@@ -147,7 +149,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
   forAll(entryTypeSchemas) { entryTypeSchema =>
     "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return the JSON object as a Map with all " +
       "properties as 'Valid' if additional properties are present, so long as all properties are present and the values are valid" in {
-        val entry = testValidMetadataJson().filter(_(entryType).str == entryTypeSchema.toString).head
+        val entry = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == entryTypeSchema.toString).head
         val entryWithAdditionalProperty = Obj.from(entry.value ++ Map("additionalProperty" -> Str("additionalPropertyVal")))
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithAdditionalProperty).unsafeRunSync()
         validatedJsonObjectAsMap should equal(convertUjsonObjToSchemaValidatedMap(entryWithAdditionalProperty))
@@ -157,7 +159,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
   forAll(entryTypeSchemas) { entryTypeSchema =>
     "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return ValueErrors for all of the additional " +
       "properties that are empty" in {
-        val entry = testValidMetadataJson().filter(_(entryType).str == entryTypeSchema.toString).head
+        val entry = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == entryTypeSchema.toString).head
         val entryWithAdditionalProperty = Obj.from(entry.value ++ Map("additionalProperty" -> Str(""), "additionalProperty2" -> Arr()))
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithAdditionalProperty).unsafeRunSync()
         validatedJsonObjectAsMap should equal(
@@ -172,7 +174,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
   forAll(entryTypeSchemas) { entryTypeSchema =>
     "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return ValueErrors for all of the additional " +
       "property names that don't contain at least one ASCII letter or number" in {
-        val entry = testValidMetadataJson().filter(_(entryType).str == entryTypeSchema.toString).head
+        val entry = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == entryTypeSchema.toString).head
         val entryWithAdditionalProperty = Obj.from(entry.value ++ Map("!$%^&*()@~'#,./<>?" -> Str("symbols"), "āďđìťîōņàĺƤŗõƥēŕƭŷ²" -> Arr("non-ascii letter and number")))
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithAdditionalProperty).unsafeRunSync()
         validatedJsonObjectAsMap should equal(
@@ -188,7 +190,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
       }
   }
 
-  forAll(entryTypeSchemas) { entryTypeSchema =>
+  forAll(entryTypeSchemas.filter(_.toString != "UnknownType")) { entryTypeSchema =>
     "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return ValueErrors for all of the properties " +
       "with incorrect types and multiple ValueErrors for properties with multiple criteria" in {
         val schemaType = entryTypeSchema.toString
@@ -214,7 +216,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
   forAll(propertiesWithArrayType) { (arrayTypeField, expectedType, incorrectValue, expectedErrorMessage) =>
     "validateMetadataJsonObject" should s", for an entry with an array type like '$arrayTypeField', return a 'required property key not found' " +
       "error message if the type is an array but the inner type is of an unexpected type" in {
-        val entryWithArrayTypes = testValidMetadataJson().filter(_(entryType).str == "Asset").head
+        val entryWithArrayTypes = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == "Asset").head
         val entryWithInnerTypeChanged = Obj.from(entryWithArrayTypes.value ++ Map(arrayTypeField -> incorrectValue))
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(Asset).validateMetadataJsonObject(entryWithInnerTypeChanged).unsafeRunSync()
         val expectedValidatedJsonObjectAsMap = convertUjsonObjToSchemaValidatedMap(entryWithInnerTypeChanged) ++ Map(arrayTypeField -> expectedErrorMessage.invalidNel[Value])
@@ -222,7 +224,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
       }
   }
 
-  forAll(entryTypeSchemas) { entryTypeSchema =>
+  forAll(entryTypeSchemas.filter(_.toString != "UnknownType")) { entryTypeSchema =>
     "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return a 'required property key not found' " +
       "error message for all of the missing 'required' properties" in {
         val entryWithoutAnyRequiredFields = Obj()
@@ -239,7 +241,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
   forAll(entryTypeSchemas.filter(_.toString != "File")) { entryTypeSchema =>
     forAll(someValidSeries) { series =>
       "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return 0 errors if a valid Series $series matches the Regex pattern" in {
-        val entry = testValidMetadataJson().filter(_(entryType).str == entryTypeSchema.toString).head
+        val entry = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == entryTypeSchema.toString).head
         val entryWithSeriesChanged = Obj.from(entry.value ++ Map("series" -> series))
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithSeriesChanged).unsafeRunSync()
         validatedJsonObjectAsMap should equal(convertUjsonObjToSchemaValidatedMap(entryWithSeriesChanged))
@@ -251,7 +253,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     forAll(someInvalidSeries) { invalidSeries =>
       val series = "series"
       "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return a ValueError if an invalid Series $invalidSeries does not match the Regex pattern" in {
-        val entry = testValidMetadataJson().filter(_(entryType).str == entryTypeSchema.toString).head
+        val entry = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == entryTypeSchema.toString).head
         val entryWithSeriesChanged = Obj.from(entry.value ++ Map(series -> invalidSeries))
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithSeriesChanged).unsafeRunSync()
 

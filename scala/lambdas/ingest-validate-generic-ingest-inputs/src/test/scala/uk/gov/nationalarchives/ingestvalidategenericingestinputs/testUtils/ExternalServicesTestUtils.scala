@@ -101,7 +101,11 @@ object ExternalServicesTestUtils {
     }
 
   def convertUjsonObjToSchemaValidatedMap(entry: Obj): Map[String, ValidatedNel[SchemaValidationEntryError, Value]] =
-    entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value) }
+    entry.obj.toMap.map { case (property, value) =>
+      if (property == "type" && value.str == "UnknownType") then
+        property -> ValueError("type", "UnknownType", """$.type: does not have a value in the enumeration ["ArchiveFolder", "ContentFolder", "Asset", "File"]""").invalidNel[Value]
+      else property -> Validated.Valid(value)
+    }
 
   def convertUjsonObjToGenericValidatedMap(entry: Obj): ValidatedEntry =
     entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value) }

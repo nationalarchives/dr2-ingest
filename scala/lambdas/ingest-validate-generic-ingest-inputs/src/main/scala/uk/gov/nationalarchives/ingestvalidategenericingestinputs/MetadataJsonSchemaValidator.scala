@@ -52,13 +52,6 @@ class MetadataJsonSchemaValidator(validationType: EntryTypeSchema) {
       }
   }
 
-  private def convertUjsonObjectToMap(jsonObject: Obj): Map[String, ValidatedNel[SchemaValidationEntryError, Value]] = {
-    val objectAsMap = jsonObject.obj.toMap
-    objectAsMap.map { case (property, value) =>
-      property -> Validated.Valid[Value](value).toValidatedNel[SchemaValidationEntryError, Value]
-    }
-  }
-
   private def convertUjsonObjectToString(jsonObject: Obj): String = write(jsonObject)
 }
 
@@ -70,9 +63,17 @@ object MetadataJsonSchemaValidator:
     ArchiveFolder -> s"$schemaLocationFolder/archive-and-content-folder-validation-schema.json",
     ContentFolder -> s"$schemaLocationFolder/archive-and-content-folder-validation-schema.json",
     Asset -> s"$schemaLocationFolder/asset-validation-schema.json",
-    File -> s"$schemaLocationFolder/file-validation-schema.json"
+    File -> s"$schemaLocationFolder/file-validation-schema.json",
+    UnknownType -> s"$schemaLocationFolder/unknown-entry-type-validation-schema.json"
   )
   def apply(validationType: EntryTypeSchema) = new MetadataJsonSchemaValidator(validationType: EntryTypeSchema)
+
+  def convertUjsonObjectToMap(jsonObject: Obj): Map[String, ValidatedNel[SchemaValidationEntryError, Value]] = {
+    val objectAsMap = jsonObject.obj.toMap
+    objectAsMap.map { case (property, value) =>
+      property -> Validated.Valid[Value](value).toValidatedNel[SchemaValidationEntryError, Value]
+    }
+  }
 
   def checkJsonForAtLeastOneEntryWithSeriesAndNullParent(metadataJson: String): IO[List[ValidatedNel[AtLeastOneEntryWithSeriesAndNullParentError, String]]] = {
     val schemaLocation = schemaLocations(AtLeastOneEntryWithSeriesAndNullParent)
@@ -104,7 +105,7 @@ object MetadataJsonSchemaValidator:
   }
 
   enum EntryTypeSchema:
-    case File, Asset, ArchiveFolder, ContentFolder
+    case UnknownType, File, Asset, ArchiveFolder, ContentFolder
 
   enum GeneralSchema:
     case AtLeastOneEntryWithSeriesAndNullParent, MinimumAssetsAndFiles
