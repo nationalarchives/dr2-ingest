@@ -27,12 +27,12 @@ import java.nio.ByteBuffer
 import java.time.{LocalDateTime, ZoneOffset}
 import java.util.UUID
 
-class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies]:
+class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   lazy private val bufferSize = 1024 * 1
 
   private def stripFileExtension(title: String) = if title.contains(".") then title.substring(0, title.lastIndexOf('.')) else title
 
-  override def handler: (Input, Config, Dependencies) => IO[Unit] = (input, config, dependencies) => {
+  override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
     def processTdrMetadata(tdrMetadataStream: Stream[IO, TDRMetadata], fileLocation: URI): Stream[IO, MetadataObject] = {
       tdrMetadataStream.flatMap { tdrMetadata =>
@@ -143,6 +143,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies]:
     dependencies.dynamoDbClient
       .queryItems(config.lockTableName, "groupId" === input.groupId, Option(config.lockTableGsiName))
       .flatMap(processLockTableItems)
+      .map(_ => Output(input.groupId, input.batchId, input.retryCount, URI.create(s"s3://${config.rawCacheBucket}/${input.batchId}/metadata.json")))
   }
 
   private def getMetadataUri(fileLocation: URI): URI = {
@@ -177,3 +178,5 @@ object Lambda:
   case class Dependencies(dynamoDbClient: DADynamoDBClient[IO], s3Client: DAS3Client[IO], uuidGenerator: () => UUID)
 
   case class Input(groupId: String, batchId: String, waitFor: Int, retryCount: Int = 0)
+
+  case class Output(groupId: String, batchId: String, retryCount: Int, packageMetadata: URI)
