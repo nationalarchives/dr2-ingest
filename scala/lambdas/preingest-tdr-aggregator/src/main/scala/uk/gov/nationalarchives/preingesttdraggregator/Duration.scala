@@ -21,4 +21,9 @@ object Duration:
   extension (m: MilliSeconds)
     def length: Long = m
     def +(other: Long): Long = m + other
+
+  extension (i: Int) def seconds: Seconds = Seconds(i)
+
+  extension (l: Long) def milliSeconds: MilliSeconds = MilliSeconds(l)
+
 end Duration

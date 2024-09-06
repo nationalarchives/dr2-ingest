@@ -1,11 +1,13 @@
 package uk.gov.nationalarchives.preingesttdraggregator
 
+import cats.effect.std.AtomicCell
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Outcome, Ref}
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import io.circe.Encoder
 import org.scalatest.flatspec.AnyFlatSpec
 import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{*, given}
+import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
 import io.circe.generic.auto.*
@@ -94,7 +96,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     for {
       writeItemArgsRef <- Ref.of[IO, List[DADynamoDbWriteItemRequest]](Nil)
       startSfnArgsRef <- Ref.of[IO, List[StartExecutionArgs]](Nil)
-      groupRef <- Ref.of[IO, Map[String, Group]](groupMap)
+      groupAtomicCell <- AtomicCell[IO].of[Map[String, Group]](groupMap)
       output <- {
         given DASFNClient[IO] = sfnClient(startSfnArgsRef, sfnError)
         given DADynamoDBClient[IO] = dynamoClient(writeItemArgsRef, dynamoError)
@@ -104,11 +106,11 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
         sqsMessage.setEventSourceArn("eventSourceArn")
         sqsMessage.setBody(s"""{"id":"$assetId","location":"s3://bucket/key"}""")
 
-        Aggregator[IO].aggregate(config, groupRef, List(sqsMessage), 1000)
+        Aggregator[IO].aggregate(config, groupAtomicCell, List(sqsMessage), 1000)
       }
       writeItemArgs <- writeItemArgsRef.get
       startSfnArgs <- startSfnArgsRef.get
-      group <- groupRef.get
+      group <- groupAtomicCell.get
     } yield (writeItemArgs, startSfnArgs, group, output)
 
   "aggregate" should "add a new group when there is no current group" in {
