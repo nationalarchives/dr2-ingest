@@ -67,6 +67,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
       metadataJson <- dependencies.metadataService.parseMetadataJson(input)
       metadataJsonWithTtl <- IO(metadataJson.map(obj => Obj.from(obj.value ++ Map("ttl" -> hundredDaysFromNowInEpochSecs))))
+      a = metadataJsonWithTtl.find(json => json("id").str == "de4e10bf-33f8-4089-8451-9fc5ed2b5822")
       _ <- dependencies.dynamo.writeItems(config.dynamoTableName, metadataJsonWithTtl)
       _ <- log("Metadata written to dynamo db")
     } yield {

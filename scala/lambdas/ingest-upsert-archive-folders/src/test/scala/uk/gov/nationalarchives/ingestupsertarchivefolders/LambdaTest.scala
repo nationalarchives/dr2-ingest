@@ -390,7 +390,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
       argumentVerifier.verifyInvocationsAndArgumentsPassed(folderIdsAndRows, 0)
     }
 
-  "handler" should "call the DDB client's 'getItems' method and throw an exception when sorted parent folder path length isn't '0, 1, 2'" in {
+  "handler" should "call the DDB client's 'getItems' method and throw an exception when a parent folder string does not contain the full path" in {
     val lastElementFolderRow = folderIdsAndRows(UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2"))
     val lastElementFolderRowsWithTooShortOfAParentPath =
       lastElementFolderRow.copy(parentPath = Option("e88e433a-1f3e-48c5-b15f-234c0e663c27"))
@@ -404,7 +404,28 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
     }
 
     thrownException.getMessage should be(
-      "The lengths of the parent paths should increase by 1 for each subfolder (from 0 to N); instead it was 0, 1, 1"
+      "The following rows have invalid paths id: 93f5a200-9ee7-423d-827c-aad823182ad2, parentPath: e88e433a-1f3e-48c5-b15f-234c0e663c27"
+    )
+
+    argumentVerifier.verifyInvocationsAndArgumentsPassed(folderIdsAndRowsWithParentPathMistake, 0)
+  }
+
+  "handler" should "call the DDB client's 'getItems' method and throw an exception when the parent path references a non existent item" in {
+    val lastElementFolderRow = folderIdsAndRows(UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2"))
+    val invalidPath = UUID.randomUUID.toString
+    val lastElementFolderRowsWithTooShortOfAParentPath =
+      lastElementFolderRow.copy(parentPath = lastElementFolderRow.parentPath.map(_.replace("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176", invalidPath)))
+    val folderIdsAndRowsWithParentPathMistake =
+      folderIdsAndRows + (UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2") -> lastElementFolderRowsWithTooShortOfAParentPath)
+
+    val argumentVerifier = ArgumentVerifier(convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRowsWithParentPathMistake))
+
+    val thrownException = intercept[Exception] {
+      new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
+    }
+
+    thrownException.getMessage should be(
+      s"The following rows have invalid paths id: 93f5a200-9ee7-423d-827c-aad823182ad2, parentPath: $invalidPath/e88e433a-1f3e-48c5-b15f-234c0e663c27"
     )
 
     argumentVerifier.verifyInvocationsAndArgumentsPassed(folderIdsAndRowsWithParentPathMistake, 0)
@@ -425,8 +446,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
       }
 
       thrownException.getMessage should be(
-        "The parent ref of subfolder 93f5a200-9ee7-423d-827c-aad823182ad2 is 137bb3f9-3ae4-4e69-9d06-e7d569968ed2: " +
-          "this does not match the id of its presumed parent e88e433a-1f3e-48c5-b15f-234c0e663c27"
+        "The following rows have invalid paths id: 93f5a200-9ee7-423d-827c-aad823182ad2, parentPath: f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176/137bb3f9-3ae4-4e69-9d06-e7d569968ed2"
       )
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed(folderIdsAndRowsWithParentPathMistake, 0)
@@ -483,7 +503,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
       }
 
       thrownException.getMessage should be(
-        "There is more than 1 entity with the same SourceID as f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176"
+        "There is more than 1 entity with the same SourceID mock title_1"
       )
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed(folderIdsAndRows, 3)
