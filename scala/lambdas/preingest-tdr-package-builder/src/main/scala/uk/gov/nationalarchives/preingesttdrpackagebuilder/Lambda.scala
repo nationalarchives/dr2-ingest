@@ -55,6 +55,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           "Born Digital",
           "TDR",
           List(
+            IdField("UpstreamSystemReference", tdrMetadata.FileReference),
             IdField("BornDigitalRef", tdrMetadata.FileReference),
             IdField("ConsignmentReference", tdrMetadata.ConsignmentReference),
             IdField("RecordID", assetId.toString)

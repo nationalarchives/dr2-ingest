@@ -70,11 +70,10 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   forAll(testDataGen) { testData =>
     "lambda handler" should s"write the correct metadata to s3 ${testCount.next}" in {
       val archiveFolderId = UUID.fromString("dd28dde8-9d94-4843-8f46-fd3da71afaae")
-      val contentFolderId = UUID.fromString("41ca3e41-e846-439f-9b2f-4397ffee646a")
       val fileId = UUID.fromString("4e03a500-4f29-47c5-9c08-26e12f631fd8")
       val metadataFileId = UUID.fromString("427789a1-e7af-4172-9fa7-02da1d60125f")
       val tdrFileId = UUID.fromString("a2834c9d-46e8-42d9-a300-2a4ed31c1e1a")
-      val uuids = Iterator(archiveFolderId, contentFolderId, fileId, metadataFileId)
+      val uuids = Iterator(archiveFolderId, fileId, metadataFileId)
       val uuidIterator: () => UUID = () => uuids.next
       val tdrMetadata = TDRMetadata(
         testData.series,
@@ -107,24 +106,18 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
       val metadataObjects = s3Contents(s"${testData.batchId}/metadata.json").asInstanceOf[List[MetadataObject]]
       val archiveFolderMetadataObject = metadataObjects.head.asInstanceOf[ArchiveFolderMetadataObject]
-      val contentFolderMetadataObject = metadataObjects(1).asInstanceOf[ContentFolderMetadataObject]
-      val assetMetadataObject = metadataObjects(2).asInstanceOf[AssetMetadataObject]
-      val fileMetadataObject = metadataObjects(3).asInstanceOf[FileMetadataObject]
-      val metadataFileMetadataObject = metadataObjects(4).asInstanceOf[FileMetadataObject]
+      val assetMetadataObject = metadataObjects(1).asInstanceOf[AssetMetadataObject]
+      val fileMetadataObject = metadataObjects(2).asInstanceOf[FileMetadataObject]
+      val metadataFileMetadataObject = metadataObjects(3).asInstanceOf[FileMetadataObject]
 
       archiveFolderMetadataObject.id should equal(archiveFolderId)
-      archiveFolderMetadataObject.name should equal(testData.series)
+      archiveFolderMetadataObject.name should equal(testData.tdrRef)
       archiveFolderMetadataObject.title should equal(None)
       archiveFolderMetadataObject.parentId should equal(None)
       archiveFolderMetadataObject.series should equal(testData.series)
 
-      contentFolderMetadataObject.id should equal(contentFolderId)
-      contentFolderMetadataObject.name should equal(testData.tdrRef)
-      contentFolderMetadataObject.title should equal(None)
-      contentFolderMetadataObject.parentId should equal(Option(archiveFolderId))
-
       assetMetadataObject.id should equal(tdrFileId)
-      assetMetadataObject.parentId should equal(Option(contentFolderId))
+      assetMetadataObject.parentId should equal(Option(archiveFolderId))
       assetMetadataObject.title should equal(stripFileExtension(testData.fileName.fileString))
       assetMetadataObject.name should equal(testData.fileName.fileString)
       assetMetadataObject.originalFiles should equal(List(fileId))
