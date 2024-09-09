@@ -52,6 +52,13 @@ class MetadataJsonSchemaValidator(validationType: EntryTypeSchema) {
       }
   }
 
+  private def convertUjsonObjectToMap(jsonObject: Obj): Map[String, ValidatedNel[SchemaValidationEntryError, Value]] = {
+    val objectAsMap = jsonObject.obj.toMap
+    objectAsMap.map { case (property, value) =>
+      property -> Validated.Valid[Value](value).toValidatedNel[SchemaValidationEntryError, Value]
+    }
+  }
+
   private def convertUjsonObjectToString(jsonObject: Obj): String = write(jsonObject)
 }
 
@@ -67,13 +74,6 @@ object MetadataJsonSchemaValidator:
     UnknownType -> s"$schemaLocationFolder/unknown-entry-type-validation-schema.json"
   )
   def apply(validationType: EntryTypeSchema) = new MetadataJsonSchemaValidator(validationType: EntryTypeSchema)
-
-  def convertUjsonObjectToMap(jsonObject: Obj): Map[String, ValidatedNel[SchemaValidationEntryError, Value]] = {
-    val objectAsMap = jsonObject.obj.toMap
-    objectAsMap.map { case (property, value) =>
-      property -> Validated.Valid[Value](value).toValidatedNel[SchemaValidationEntryError, Value]
-    }
-  }
 
   def checkJsonForAtLeastOneEntryWithSeriesAndNullParent(metadataJson: String): IO[List[ValidatedNel[AtLeastOneEntryWithSeriesAndNullParentError, String]]] = {
     val schemaLocation = schemaLocations(AtLeastOneEntryWithSeriesAndNullParent)

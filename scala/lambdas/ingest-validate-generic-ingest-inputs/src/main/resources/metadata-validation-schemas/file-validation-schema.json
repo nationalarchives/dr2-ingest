@@ -11,10 +11,7 @@
       "type": "string",
       "minLength": 1
     },
-    "title": {
-      "type": "string",
-      "minLength": 1
-    },
+    "title": true,
     "type": {
       "type": "string",
       "const": "File"
@@ -76,5 +73,30 @@
   },
   "propertyNames": {
     "pattern": "[A-Za-z0-9]"
+  },
+  "if": {
+    "properties": {
+      "name": {
+        "type": "string",
+        "pattern": "\\-metadata.json$",
+        "minLength": 14
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 0
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
   }
 }

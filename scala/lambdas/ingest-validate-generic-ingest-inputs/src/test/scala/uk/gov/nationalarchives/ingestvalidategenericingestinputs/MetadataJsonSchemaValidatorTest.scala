@@ -148,12 +148,29 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
 
   forAll(entryTypeSchemas) { entryTypeSchema =>
     "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return the JSON object as a Map with all " +
-      "properties as 'Valid' if additional properties are present, so long as all properties are present and the values are valid" in {
+      "properties as 'Valid' if additional properties are present, so long as all required properties are present and the values are valid" in {
         val entry = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == entryTypeSchema.toString).head
         val entryWithAdditionalProperty = Obj.from(entry.value ++ Map("additionalProperty" -> Str("additionalPropertyVal")))
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithAdditionalProperty).unsafeRunSync()
         validatedJsonObjectAsMap should equal(convertUjsonObjToSchemaValidatedMap(entryWithAdditionalProperty))
       }
+  }
+
+  "validateMetadataJsonObject" should s", for an entry of type 'File', return 0 errors if a file, with a 'name' ending in '-metadata.json', has an empty title" in {
+    val metadataFileEntry = testValidMetadataJson().filter(_(entryType).str == File.toString).last
+    val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(metadataFileEntry).unsafeRunSync()
+    validatedJsonObjectAsMap should equal(convertUjsonObjToSchemaValidatedMap(metadataFileEntry))
+  }
+
+  "validateMetadataJsonObject" should s", for an entry of type 'File', return an error if a file doesn't have a 'name' ending in '-metadata.json', but has an empty title" in {
+    val metadataFileEntry = testValidMetadataJson().filter(_(entryType).str == File.toString).last
+    val metadataFileEntryWithoutExceptionalName = Obj.from(metadataFileEntry.value ++ Map("name" -> Str("nameMissingAHypenBeforemetadata.json")))
+    val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(metadataFileEntryWithoutExceptionalName).unsafeRunSync()
+    val expectedValidatedJsonObjectAsMap = convertUjsonObjToSchemaValidatedMap(metadataFileEntryWithoutExceptionalName) ++ Map(
+      "title" ->
+        ValueError("title", "", "$.title: must be at least 1 characters long").invalidNel[Value]
+    )
+    validatedJsonObjectAsMap should equal(expectedValidatedJsonObjectAsMap)
   }
 
   forAll(entryTypeSchemas) { entryTypeSchema =>
