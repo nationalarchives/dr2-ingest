@@ -37,15 +37,13 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     def processTdrMetadata(tdrMetadataStream: Stream[IO, TDRMetadata], fileLocation: URI): Stream[IO, MetadataObject] = {
       tdrMetadataStream.flatMap { tdrMetadata =>
         val archiveFolderId = dependencies.uuidGenerator()
-        val contentFolderId = dependencies.uuidGenerator()
         val assetId = tdrMetadata.UUID
         val fileId = dependencies.uuidGenerator()
         val metadataId = dependencies.uuidGenerator()
-        val archiveFolder = ArchiveFolderMetadataObject(archiveFolderId, None, None, tdrMetadata.Series, tdrMetadata.Series, Nil)
-        val contentFolder = ContentFolderMetadataObject(contentFolderId, Option(archiveFolderId), None, tdrMetadata.ConsignmentReference, Nil)
+        val archiveFolder = ArchiveFolderMetadataObject(archiveFolderId, None, None, tdrMetadata.ConsignmentReference, tdrMetadata.Series, Nil)
         val assetMetadata = AssetMetadataObject(
           assetId,
-          Option(contentFolderId),
+          Option(archiveFolderId),
           stripFileExtension(tdrMetadata.Filename),
           tdrMetadata.Filename,
           List(fileId),
@@ -99,7 +97,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               getMetadataUri(fileLocation),
               checksum
             )
-            List(archiveFolder, contentFolder, assetMetadata, file, metadata)
+            List(archiveFolder, assetMetadata, file, metadata)
           }
         }
       }
