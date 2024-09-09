@@ -164,7 +164,7 @@ object DynamoFormatters {
       sortOrder: ValidatedField[Int],
       fileSize: ValidatedField[Long],
       checksums: ValidatedField[List[Checksum]],
-      fileExtension: ValidatedField[String],
+      fileExtension: String,
       representationType: ValidatedField[FileRepresentationType],
       representationSuffix: ValidatedField[Int],
       ingestedPreservica: Option[String],
