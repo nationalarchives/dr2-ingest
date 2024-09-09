@@ -17,10 +17,10 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
   private val entryTypeSchemas: TableFor1[EntryTypeSchema] = Table("entryType", ArchiveFolder, ContentFolder, Asset, File, UnknownType)
   private lazy val unknownTypeEntry = List(Obj.from(testValidMetadataJson().head.value ++ Map("type" -> Str("UnknownType"))))
 
-  val propertiesWithArrayType: TableFor4[String, String, Value, SchemaValidationEntryError] = Table(
+  val propertiesWithArrayType: TableFor4[String, String, Value, ValidationError] = Table(
     ("entryField", "Expected array type", "Incorrect array value", "Expected error message"),
-    ("originalFiles", "String", Bool(true), ValueError("originalFiles", "true", "$.originalFiles: boolean found, array expected")),
-    ("originalMetadataFiles", "String", Num(123), ValueError("originalMetadataFiles", "123", "$.originalMetadataFiles: integer found, array expected"))
+    ("originalFiles", "String", Bool(true), SchemaValueError("true", "$.originalFiles: boolean found, array expected")),
+    ("originalMetadataFiles", "String", Num(123), SchemaValueError("123", "$.originalMetadataFiles: integer found, array expected"))
   )
 
   private val minimumTypesAllowedInJson: TableFor2[String, List[String]] = Table(
@@ -168,7 +168,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(metadataFileEntryWithoutExceptionalName).unsafeRunSync()
     val expectedValidatedJsonObjectAsMap = convertUjsonObjToSchemaValidatedMap(metadataFileEntryWithoutExceptionalName) ++ Map(
       "title" ->
-        ValueError("title", "", "$.title: must be at least 1 characters long").invalidNel[Value]
+        SchemaValueError("", "$.title: must be at least 1 characters long").invalidNel[Value]
     )
     validatedJsonObjectAsMap should equal(expectedValidatedJsonObjectAsMap)
   }
@@ -181,8 +181,8 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithAdditionalProperty).unsafeRunSync()
         validatedJsonObjectAsMap should equal(
           convertUjsonObjToSchemaValidatedMap(entryWithAdditionalProperty) ++ Map(
-            "additionalProperty" -> ValueError("additionalProperty", "", "$.additionalProperty: must be at least 1 characters long").invalidNel[Value],
-            "additionalProperty2" -> ValueError("additionalProperty2", "", "$.additionalProperty2: must have at least 1 items but found 0").invalidNel[Value]
+            "additionalProperty" -> SchemaValueError("", "$.additionalProperty: must be at least 1 characters long").invalidNel[Value],
+            "additionalProperty2" -> SchemaValueError("", "$.additionalProperty2: must have at least 1 items but found 0").invalidNel[Value]
           )
         )
       }
@@ -269,14 +269,13 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
   forAll(entryTypeSchemas.filter(_.toString != "File")) { entryTypeSchema =>
     forAll(someInvalidSeries) { invalidSeries =>
       val series = "series"
-      "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return a ValueError if an invalid Series $invalidSeries does not match the Regex pattern" in {
+      "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return a SchemaValueError if an invalid Series $invalidSeries does not match the Regex pattern" in {
         val entry = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == entryTypeSchema.toString).head
         val entryWithSeriesChanged = Obj.from(entry.value ++ Map(series -> invalidSeries))
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithSeriesChanged).unsafeRunSync()
 
         val expectedValidatedJson = convertUjsonObjToSchemaValidatedMap(entryWithSeriesChanged) ++ Map(
-          series -> ValueError(
-            series,
+          series -> SchemaValueError(
             invalidSeries.str,
             s"$$.$series: does not match the regex pattern ^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown)$$"
           ).invalidNel[Value]
@@ -287,14 +286,13 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     }
   }
 
-  "validateMetadataJsonObject" should s", for an entry of type 'File', return a ValueError if it contains a series" in {
+  "validateMetadataJsonObject" should s", for an entry of type 'File', return a SchemaValueError if it contains a series" in {
     val series = "series"
     val fileEntry = testValidMetadataJson().filter(_(entryType).str == "File").head
     val fileEntryWithSeries = Obj.from(fileEntry.value ++ Map(series -> Str("A 1")))
     val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(fileEntryWithSeries).unsafeRunSync()
     val expectedValidatedJson = convertUjsonObjToSchemaValidatedMap(fileEntryWithSeries) ++ Map(
-      series -> ValueError(
-        series,
+      series -> SchemaValueError(
         "A 1",
         s"$$.$series: schema for 'series' is false"
       ).invalidNel[Value]
@@ -304,14 +302,13 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
 
   forAll(invalidSha256Checksums) { (invalidSha256Checksum, atMostOrLeast) =>
     val checksum256: String = "checksum_sha256"
-    "validateMetadataJsonObject" should s"return a ValueError if the $checksum256 value is not at $atMostOrLeast 64 characters long" in {
+    "validateMetadataJsonObject" should s"return a SchemaValueError if the $checksum256 value is not at $atMostOrLeast 64 characters long" in {
       val fileEntry = testValidMetadataJson().filter(_(entryType).str == "File").head
       val entryWithChecksumChanged = Obj.from(fileEntry.value ++ Map(checksum256 -> invalidSha256Checksum))
       val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(entryWithChecksumChanged).unsafeRunSync()
 
       val expectedValidatedJson = convertUjsonObjToSchemaValidatedMap(entryWithChecksumChanged) ++ Map(
-        checksum256 -> ValueError(
-          checksum256,
+        checksum256 -> SchemaValueError(
           invalidSha256Checksum.str,
           s"$$.$checksum256: must be at $atMostOrLeast 64 characters long"
         ).invalidNel[Value]
@@ -322,14 +319,13 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
   }
 
   forAll(nonSha256ChecksumsShorterThan32Chars) { (checksumSha, hashShorterThan32Chars) =>
-    "validateMetadataJsonObject" should s"return a ValueError if the $checksumSha value is shorter than 32 characters" in {
+    "validateMetadataJsonObject" should s"return a SchemaValueError if the $checksumSha value is shorter than 32 characters" in {
       val fileEntry = testValidMetadataJson().filter(_(entryType).str == "File").head
       val entryWithChecksumChanged = Obj.from(fileEntry.value ++ Map(checksumSha -> hashShorterThan32Chars))
       val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(entryWithChecksumChanged).unsafeRunSync()
 
       val expectedValidatedJson = convertUjsonObjToSchemaValidatedMap(entryWithChecksumChanged) ++ Map(
-        checksumSha -> ValueError(
-          checksumSha,
+        checksumSha -> SchemaValueError(
           hashShorterThan32Chars.str,
           s"$$.$checksumSha: must be at least 32 characters long"
         ).invalidNel[Value]
@@ -339,7 +335,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     }
   }
 
-  "validateMetadataJsonObject" should s"return a ValueError if the representationSuffix value is less than 1" in {
+  "validateMetadataJsonObject" should s"return a SchemaValueError if the representationSuffix value is less than 1" in {
     val representationSuffix = "representationSuffix"
     val fileEntry = testValidMetadataJson().filter(_(entryType).str == "File").head
     val invalidRepresentationSuffix = Num(0)
@@ -347,8 +343,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(entryWithRepresentationSuffixChanged).unsafeRunSync()
 
     val expectedValidatedJson = convertUjsonObjToSchemaValidatedMap(entryWithRepresentationSuffixChanged) ++ Map(
-      representationSuffix -> ValueError(
-        "representationSuffix",
+      representationSuffix -> SchemaValueError(
         invalidRepresentationSuffix.value.toInt.toString,
         s"$$.$representationSuffix: must have a minimum value of 1"
       ).invalidNel[Value]
@@ -363,30 +358,28 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     entry.value.map { case (name, value) =>
       val invalidNel = name match {
         case "sortOrder" | "fileSize" | "representationSuffix" =>
-          ValueError(name, "stringInsteadOfInt", s"$$.$name: string found, integer expected").invalidNel[Value]
+          SchemaValueError("stringInsteadOfInt", s"$$.$name: string found, integer expected").invalidNel[Value]
         case "originalFiles" | "originalMetadataFiles" =>
-          ValueError(name, "stringInsteadOfInt", s"$$.$name: string found, array expected").invalidNel[Value]
+          SchemaValueError("stringInsteadOfInt", s"$$.$name: string found, array expected").invalidNel[Value]
         case "parentId" | "title" if List("ArchiveFolder", "ContentFolder").contains(schemaType) =>
-          ValueError(name, "123", s"$$.$name: integer found, [string, null] expected").invalidNel[Value]
+          SchemaValueError("123", s"$$.$name: integer found, [string, null] expected").invalidNel[Value]
         case "type" =>
           if List("ArchiveFolder", "ContentFolder").contains(value.str) then
             NonEmptyList
               .of(
-                ValueError(name, "123", s"$$.$name: integer found, string expected"),
-                ValueError(name, "123", s"""$$.$name: does not have a value in the enumeration ["ArchiveFolder", "ContentFolder"]""")
+                SchemaValueError("123", s"$$.$name: integer found, string expected"),
+                SchemaValueError("123", s"""$$.$name: does not have a value in the enumeration ["ArchiveFolder", "ContentFolder"]""")
               )
-              .sortBy(_.propertyWithError)
               .invalid
           else
             NonEmptyList
               .of(
-                ValueError(name, "123", s"$$.$name: integer found, string expected"),
-                ValueError(name, "123", s"""$$.$name: must be the constant value '$schemaType'""")
+                SchemaValueError("123", s"$$.$name: integer found, string expected"),
+                SchemaValueError("123", s"""$$.$name: must be the constant value '$schemaType'""")
               )
-              .sortBy(_.propertyWithError)
               .invalid
         case _ =>
-          ValueError(name, "123", s"$$.$name: integer found, string expected").invalidNel[Value]
+          SchemaValueError("123", s"$$.$name: integer found, string expected").invalidNel[Value]
       }
       name -> invalidNel
     }.toMap

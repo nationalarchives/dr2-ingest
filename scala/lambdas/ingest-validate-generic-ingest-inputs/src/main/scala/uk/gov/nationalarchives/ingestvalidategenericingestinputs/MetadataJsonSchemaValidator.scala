@@ -22,7 +22,7 @@ class MetadataJsonSchemaValidator(validationType: EntryTypeSchema) {
   private val schemaLocation = schemaLocations(validationType)
   private val resource = getResource(schemaLocation)
 
-  def validateMetadataJsonObject(jsonObject: Obj): IO[Map[String, ValidatedNel[SchemaValidationEntryError, Value]]] = {
+  def validateMetadataJsonObject(jsonObject: Obj): IO[Map[String, ValidatedNel[ValidationError, Value]]] = {
     val jsonObjectAsString = convertUjsonObjectToString(jsonObject)
 
     for (errors <- resource.use(schemaInputStream => validateAgainstSchema(jsonObjectAsString, schemaInputStream)))
@@ -32,15 +32,14 @@ class MetadataJsonSchemaValidator(validationType: EntryTypeSchema) {
           errors.foldLeft(originalJsonMap) { case (jsonMap, error) =>
             val missingProperty = Option(error.getProperty)
             val errorMessage = error.getMessage
-            val validationError: SchemaValidationEntryError =
+            val (property, validationError: ValidationError) =
               missingProperty match {
                 case None =>
                   val property = error.getInstanceLocation.toString.split('.').last
                   val valueThatCausedError = error.getInstanceNode.asText()
-                  ValueError(property, valueThatCausedError, errorMessage)
-                case Some(property) => MissingPropertyError(property, errorMessage)
+                  (property, SchemaValueError(valueThatCausedError, errorMessage))
+                case Some(property) => (property, MissingPropertyError(property, errorMessage))
               }
-            val property = validationError.propertyWithError
             val currentPropertyErrorsInNel = jsonMap.getOrElse(property, Validated.Valid(Obj()))
             val newPropertyErrorInNel = validationError.invalidNel[Value]
             val allPropertyErrorsInNel = currentPropertyErrorsInNel.combine(newPropertyErrorInNel)
@@ -52,10 +51,10 @@ class MetadataJsonSchemaValidator(validationType: EntryTypeSchema) {
       }
   }
 
-  private def convertUjsonObjectToMap(jsonObject: Obj): Map[String, ValidatedNel[SchemaValidationEntryError, Value]] = {
+  private def convertUjsonObjectToMap(jsonObject: Obj): Map[String, ValidatedNel[ValidationError, Value]] = {
     val objectAsMap = jsonObject.obj.toMap
     objectAsMap.map { case (property, value) =>
-      property -> Validated.Valid[Value](value).toValidatedNel[SchemaValidationEntryError, Value]
+      property -> Validated.Valid[Value](value).toValidatedNel[ValidationError, Value]
     }
   }
 
@@ -88,8 +87,8 @@ object MetadataJsonSchemaValidator:
   }
 
   def sortJsonObjectByFieldName(
-      jsonObjectsAsMap: Map[String, ValidatedNel[SchemaValidationEntryError, Value]]
-  ): Map[String, Validated[NonEmptyList[SchemaValidationEntryError], Value]] = {
+      jsonObjectsAsMap: Map[String, ValidatedNel[ValidationError, Value]]
+  ): Map[String, Validated[NonEmptyList[ValidationError], Value]] = {
     val sortedValidatedJsonObjects = jsonObjectsAsMap.toSeq.sortBy(_._1)
     sortedValidatedJsonObjects.map { case (field, value) => (field, value.leftMap(_.sortBy(_.errorMessage))) }.toMap
   }

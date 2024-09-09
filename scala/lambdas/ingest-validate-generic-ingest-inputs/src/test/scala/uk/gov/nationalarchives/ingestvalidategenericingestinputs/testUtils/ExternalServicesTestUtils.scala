@@ -95,15 +95,15 @@ object ExternalServicesTestUtils {
     if oneToFourRandomLetters.nonEmpty then s"$oneToFourRandomLetters ${rand.between(1, 10000)}" else "Unknown"
   }
 
-  def convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType: Map[String, List[Obj]]): Map[String, List[Map[String, ValidatedNel[SchemaValidationEntryError, Value]]]] =
+  def convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType: Map[String, List[Obj]]): Map[String, List[Map[String, ValidatedNel[ValidationError, Value]]]] =
     entriesGroupedByType.map { case (entryType, entries) =>
       (entryType, entries.map(entry => convertUjsonObjToSchemaValidatedMap(entry)))
     }
 
-  def convertUjsonObjToSchemaValidatedMap(entry: Obj): Map[String, ValidatedNel[SchemaValidationEntryError, Value]] =
+  def convertUjsonObjToSchemaValidatedMap(entry: Obj): Map[String, ValidatedNel[ValidationError, Value]] =
     entry.obj.toMap.map { case (property, value) =>
       if (property == "type" && value.str == "UnknownType") then
-        property -> ValueError("type", "UnknownType", """$.type: does not have a value in the enumeration ["ArchiveFolder", "ContentFolder", "Asset", "File"]""").invalidNel[Value]
+        property -> SchemaValueError("UnknownType", """$.type: does not have a value in the enumeration ["ArchiveFolder", "ContentFolder", "Asset", "File"]""").invalidNel[Value]
       else property -> Validated.Valid(value)
     }
 
@@ -132,8 +132,8 @@ object ExternalServicesTestUtils {
     else
       Map(
         "series" -> SeriesDoesNotExistError(
-          "The parentId is null and since only top-level entries can have null parentIds, " +
-            "and series, this entry should have a 'series' (if it is indeed top-level)"
+          "The parentId is null and since only top-level entries can have a null parentId " +
+            "and a series, this entry should have a 'series' (if it is indeed top-level)"
         ).invalidNel[Value]
       )
 

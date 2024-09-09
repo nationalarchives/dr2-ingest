@@ -28,20 +28,21 @@ class MetadataJsonValueValidator {
       val locationNel = fileEntry(location)
       locationNel match {
         case Validated.Valid(locationObject) =>
-          val potentialFileUri = Try(URI.create(locationObject.str))
+          val fileLocation = locationObject.str
+          val potentialFileUri = Try(URI.create(fileLocation))
           potentialFileUri match {
             case Success(fileUri) if fileUri.getHost != null =>
               s3Client
                 .headObject(fileUri.getHost, fileUri.getPath.drop(1))
                 .redeem(
-                  exception => NoFileAtS3LocationError(exception.getMessage).invalidNel[Value],
+                  exception => NoFileAtS3LocationError(fileLocation, exception.getMessage).invalidNel[Value],
                   headResponse =>
                     val statusCode = headResponse.sdkHttpResponse().statusCode()
                     if statusCode == 200 then locationNel
-                    else NoFileAtS3LocationError(s"Head Object request returned a Status code of $statusCode").invalidNel[Value]
+                    else NoFileAtS3LocationError(fileLocation, s"Head Object request returned a Status code of $statusCode").invalidNel[Value]
                 )
-            case Success(_) => IO.pure(ValueError(location, locationObject.str, s"'$location' could not be transformed into a URI").invalidNel[Value])
-            case Failure(e) => IO.pure(UriIsNotValid(e.getMessage).invalidNel[Value])
+            case Success(_) => IO.pure(UriIsNotValid(fileLocation, s"'$location' could not be transformed into a URI").invalidNel[Value])
+            case Failure(e) => IO.pure(UriIsNotValid(fileLocation, e.getMessage).invalidNel[Value])
           }
         case locationInvalidNel => IO.pure(locationInvalidNel)
       }
@@ -53,10 +54,11 @@ class MetadataJsonValueValidator {
       val nameValidationResult =
         nameNel match {
           case Validated.Valid(nameValue) =>
-            nameValue.str.split('.').toList.reverse match {
+            val fileName = nameValue.str
+            fileName.split('.').toList.reverse match {
               case ext :: _ :: _ => nameNel
               case _ =>
-                MissingFileExtensionError(s"The file name does not have an extension at the end of it").invalidNel[Value]
+                MissingFileExtensionError(fileName, s"The file name does not have an extension at the end of it").invalidNel[Value]
             }
           case invalidatedNel => invalidatedNel
         }
@@ -73,7 +75,7 @@ class MetadataJsonValueValidator {
               val idAsString = idValue.str
               Try(UUID.fromString(idAsString)) match {
                 case Success(uuid) => idNel
-                case _             => IdIsNotAUuidError(s"The id $idAsString is not a valid UUID").invalidNel[Value]
+                case _             => IdIsNotAUuidError(idAsString, s"The id is not a valid UUID").invalidNel[Value]
               }
             case invalidNel => invalidNel
           }
@@ -101,7 +103,7 @@ class MetadataJsonValueValidator {
               val idAsString = idValue.str
               val numOfIdOccurrences = idsThatAppearMoreThanOnce.getOrElse(idAsString, Nil).length
 
-              if numOfIdOccurrences > 1 then entry + (id -> IdIsNotUniqueError(s"This id occurs $numOfIdOccurrences times").invalidNel[Value])
+              if numOfIdOccurrences > 1 then entry + (id -> IdIsNotUniqueError(idAsString, s"This id occurs $numOfIdOccurrences times").invalidNel[Value])
               else entry
             case invalidNel => entry
           }
@@ -123,18 +125,19 @@ class MetadataJsonValueValidator {
       entriesWithAParentType.toSet
     }
 
-    def getErrorMessageIfSeriesDoesNotExist(entry: ValidatedEntry, entryType: String) =
+    def getErrorMessageIfSeriesDoesNotExist(entry: ValidatedEntry, entryType: String) = {
       if entry.contains(series) && entryType == "File" then Map(series -> SeriesExistsError("A file can not have a Series").invalidNel[Value])
       else if entry.contains(series) || entryType == "File" then Map()
       else
         Map(
           series -> SeriesDoesNotExistError(
-            "The parentId is null and since only top-level entries can have null parentIds, " +
-              "and series, this entry should have a 'series' (if it is indeed top-level)"
+            "The parentId is null and since only top-level entries can have a null parentId " +
+              "and a series, this entry should have a 'series' (if it is indeed top-level)"
           ).invalidNel[Value]
         )
+    }
 
-    def getErrorMessageIfASeriesExists(entry: ValidatedEntry) =
+    def getErrorMessageIfASeriesExists(entry: ValidatedEntry) = {
       if entry.contains(series) then
         Map(
           series -> SeriesExistsError(
@@ -142,6 +145,7 @@ class MetadataJsonValueValidator {
           ).invalidNel[Value]
         )
       else Map()
+    }
 
     allEntries.map { case (entryType, entriesOfSpecificType) =>
       val updatedEntries =
@@ -383,11 +387,11 @@ class MetadataJsonValueValidator {
 }
 
 object MetadataJsonValueValidator:
-  case class MissingFileExtensionError(errorMessage: String) extends ValidationError
-  case class UriIsNotValid(errorMessage: String) extends ValidationError
-  case class NoFileAtS3LocationError(errorMessage: String) extends ValidationError
-  case class IdIsNotAUuidError(errorMessage: String) extends ValidationError
-  case class IdIsNotUniqueError(errorMessage: String) extends ValidationError
-  case class HierarchyLinkingError(valueThatCausedError: String, errorMessage: String) extends ValidationError
+  case class MissingFileExtensionError(valueThatCausedError: String, errorMessage: String) extends ValueError
+  case class UriIsNotValid(valueThatCausedError: String, errorMessage: String) extends ValueError
+  case class NoFileAtS3LocationError(valueThatCausedError: String, errorMessage: String) extends ValueError
+  case class IdIsNotAUuidError(valueThatCausedError: String, errorMessage: String) extends ValueError
+  case class IdIsNotUniqueError(valueThatCausedError: String, errorMessage: String) extends ValueError
+  case class HierarchyLinkingError(valueThatCausedError: String, errorMessage: String) extends ValueError
   case class SeriesDoesNotExistError(errorMessage: String) extends ValidationError
   case class SeriesExistsError(errorMessage: String) extends ValidationError

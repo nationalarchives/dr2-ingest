@@ -25,8 +25,8 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
   private val assetFileIds = Map("originalFiles" -> "b0147dea-878b-4a25-891f-66eba66194ca", "originalMetadataFiles" -> "d4f8613d-2d2a-420d-a729-700c841244f3")
   private val incorrectUrls: TableFor2[String, ValidatedNel[ValidationError, Value]] = Table(
     ("IncorrectUrl", "Expected Error"),
-    ("AnIncorrectUrl", ValueError("location", "AnIncorrectUrl", "'location' could not be transformed into a URI").invalidNel[Value]),
-    ("An IncorrectUrlWithASpace", UriIsNotValid("Illegal character in path at index 2: An IncorrectUrlWithASpace").invalidNel[Value])
+    ("AnIncorrectUrl", UriIsNotValid("AnIncorrectUrl", "'location' could not be transformed into a URI").invalidNel[Value]),
+    ("An IncorrectUrlWithASpace", UriIsNotValid("An IncorrectUrlWithASpace", "Illegal character in path at index 2: An IncorrectUrlWithASpace").invalidNel[Value])
   )
 
   private val entriesReferencingANonExistentParent: TableFor2[String, String] = Table(
@@ -173,8 +173,9 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       entryAsValidatedMap + ("location" -> validatedLocation)
     }
 
-    val expectedFileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map { case (entryAsValidatedMap, validatedLocation) =>
-      entryAsValidatedMap + ("location" -> NoFileAtS3LocationError("Head Object request returned a Status code of 404").invalidNel[Value])
+    val expectedFileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map { case (entry, validatedLocation) =>
+      val expectedFileLocation = entry("location").getOrElse(Str("")).str
+      entry + ("location" -> NoFileAtS3LocationError(expectedFileLocation, "Head Object request returned a Status code of 404").invalidNel[Value])
     }
 
     fileEntriesWithValidatedLocation should equal(expectedFileEntriesWithValidatedLocation)
@@ -191,9 +192,8 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       entryAsValidatedMap + ("location" -> validatedLocation)
     }
 
-    val expectedFileEntriesWithValidatedLocation = entriesAsValidatedMap.map { entryAsValidatedMap =>
-      entryAsValidatedMap + ("location" ->
-        NoFileAtS3LocationError("Key could not be found").invalidNel[Value])
+    val expectedFileEntriesWithValidatedLocation = entriesAsValidatedMap.map { entry =>
+      entry + ("location" -> NoFileAtS3LocationError(entry("location").getOrElse(Str("")).str, "Key could not be found").invalidNel[Value])
     }
 
     fileEntriesWithValidatedLocation should equal(expectedFileEntriesWithValidatedLocation)
@@ -220,7 +220,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       _.map { case (property, value) =>
         (
           property,
-          if property == name then MissingFileExtensionError("The file name does not have an extension at the end of it").invalidNel[Value]
+          if property == name then MissingFileExtensionError(value.getOrElse(Str("")).str, "The file name does not have an extension at the end of it").invalidNel[Value]
           else value
         )
       }
@@ -237,7 +237,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     }
     val entriesAsValidatedMap = fileEntriesWithExtsRemovedFromName.map { entry =>
       convertUjsonObjToSchemaValidatedMap(entry) ++ Map(
-        name -> ValueError(name, "123", s"$$.$name: integer found, string expected").invalidNel[Value]
+        name -> SchemaValueError("123", s"$$.$name: integer found, string expected").invalidNel[Value]
       )
     }
     val fileEntriesWithValidatedName = validator.checkFileNamesHaveExtensions(entriesAsValidatedMap)
@@ -261,7 +261,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     val fileEntriesWithValidatedIds = validator.checkIfAllIdsAreUuids(allEntriesAsValidatedMaps)
 
     val convertIdFieldToError = (property: String, value: ValidatedNel[ValidationError, Value]) =>
-      if property == id then IdIsNotAUuidError("The id notAUuid is not a valid UUID").invalidNel[Value] else value
+      if property == id then IdIsNotAUuidError("notAUuid", "The id is not a valid UUID").invalidNel[Value] else value
     val expectedEntriesAsValidatedMap = transformValuesInAllJsonObjects(allEntriesAsValidatedMaps, convertIdFieldToError)
     fileEntriesWithValidatedIds should equal(expectedEntriesAsValidatedMap)
   }
@@ -275,7 +275,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       entryType ->
         entries.map { entry =>
           convertUjsonObjToSchemaValidatedMap(entry) ++ Map(
-            id -> ValueError(id, "123", s"$$.$id: integer found, string expected").invalidNel[Value]
+            id -> SchemaValueError("123", s"$$.$id: integer found, string expected").invalidNel[Value]
           )
         }
     }
@@ -300,7 +300,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       entryType ->
         entries.map { entry =>
           convertUjsonObjToSchemaValidatedMap(entry) ++ Map(
-            name -> ValueError(name, "123", s"$$.$name: integer found, string expected").invalidNel[Value]
+            name -> SchemaValueError("123", s"$$.$name: integer found, string expected").invalidNel[Value]
           )
         }
     }
@@ -326,7 +326,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       entryType ->
         entries.map { entry =>
           convertUjsonObjToSchemaValidatedMap(entry) ++ Map(
-            id -> ValueError(id, "123", s"$$.$id: integer found, string expected").invalidNel[Value]
+            id -> SchemaValueError("123", s"$$.$id: integer found, string expected").invalidNel[Value]
           )
         }
     }
@@ -345,7 +345,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
         entryType ->
           entries.map { entry =>
             convertUjsonObjToSchemaValidatedMap(entry) ++ Map(
-              parentId -> ValueError(parentId, "123", s"$$.$parentId: integer found, string expected").invalidNel[Value]
+              parentId -> SchemaValueError("123", s"$$.$parentId: integer found, string expected").invalidNel[Value]
             )
           }
       }
@@ -370,7 +370,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     entriesWithValidatedName should equal(allEntriesAsValidatedMaps)
   }
 
-  "checkIfAllIdsAreUnique" should "return a IdIsNotUniqueError if any of the entries' ids, are not unique" in {
+  "checkIfAllIdsAreUnique" should "return an IdIsNotUniqueError if any of the entries' ids, are not unique" in {
     val entriesWithIncorrectIds = allEntries.map { entry =>
       Obj.from(entry.value ++ Map(id -> Str("cbf14cb2-1cb3-43a4-8310-2ac295a130c5")))
     }
@@ -381,7 +381,8 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     val fileEntriesWithValidatedIds = validator.checkIfAllIdsAreUnique(allEntriesAsValidatedMaps, duplicateEntryIdsAndTypes)
 
     val convertIdFieldToError =
-      (property: String, value: ValidatedNel[ValidationError, Value]) => if property == id then IdIsNotUniqueError("This id occurs 5 times").invalidNel[Value] else value
+      (property: String, value: ValidatedNel[ValidationError, Value]) =>
+        if property == id then IdIsNotUniqueError(value.getOrElse(Str("")).str, "This id occurs 5 times").invalidNel[Value] else value
     val expectedEntriesAsValidatedMap = transformValuesInAllJsonObjects(allEntriesAsValidatedMaps, convertIdFieldToError)
     fileEntriesWithValidatedIds should equal(expectedEntriesAsValidatedMap)
   }
@@ -395,7 +396,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       entryType ->
         entries.map { entry =>
           convertUjsonObjToSchemaValidatedMap(entry) ++ Map(
-            id -> ValueError(id, "123", s"$$.$id: integer found, string expected").invalidNel[Value]
+            id -> SchemaValueError("123", s"$$.$id: integer found, string expected").invalidNel[Value]
           )
         }
     }
@@ -502,7 +503,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
           entries.map { entry =>
             val updatedParentId =
               if "ArchiveFolder" == entryType then Map()
-              else Map(parentId -> IdIsNotUniqueError("This id occurs 5 times").invalidNel[Value])
+              else Map(parentId -> IdIsNotUniqueError(entry(parentId).getOrElse(Str("")).str, "This id occurs 5 times").invalidNel[Value])
 
             val updatedFiles =
               if entryType == "Asset" then assetFilesErrorMessage("originalFiles") ++ assetFilesErrorMessage("originalMetadataFiles")
@@ -719,8 +720,8 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
           convertUjsonObjToSchemaValidatedMap(entry) ++ (
             if entryType == "Asset" then
               Map(
-                "originalFiles" -> ValueError("originalFiles", "true", "$.originalFiles: boolean found, array expected").invalidNel[Value],
-                "originalMetadataFiles" -> ValueError("originalMetadataFiles", "true", "$.originalMetadataFiles: boolean found, array expected").invalidNel[Value]
+                "originalFiles" -> SchemaValueError("true", "$.originalFiles: boolean found, array expected").invalidNel[Value],
+                "originalMetadataFiles" -> SchemaValueError("true", "$.originalMetadataFiles: boolean found, array expected").invalidNel[Value]
               )
             else Map()
           )
@@ -741,7 +742,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     val allEntriesAsValidatedMaps = entriesGroupedByType.map { case (entryType, entries) =>
       entryType ->
         entries.map { entry =>
-          convertUjsonObjToSchemaValidatedMap(entry) ++ Map(id -> IdIsNotUniqueError("This id occurs 5 times").invalidNel[Value])
+          convertUjsonObjToSchemaValidatedMap(entry) ++ Map(id -> IdIsNotUniqueError(entry(id).str, "This id occurs 5 times").invalidNel[Value])
         }
     }
     val allEntryIds = testAllEntryIds(entriesWithIncorrectIds)
