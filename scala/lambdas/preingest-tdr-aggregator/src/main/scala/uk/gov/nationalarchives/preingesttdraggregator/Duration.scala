@@ -17,10 +17,12 @@ object Duration:
     def *(other: Int): Int = s * other
     def length: Int = s
     def toJson: Json = Json.fromInt(s)
+    def toMilliSeconds: MilliSeconds = s * 1000
 
   extension (m: MilliSeconds)
     def length: Long = m
-    def +(other: Long): Long = m + other
+    def +(other: MilliSeconds): MilliSeconds = m + other
+    def -(other: MilliSeconds): Long = m - other
 
   extension (i: Int) def seconds: Seconds = Seconds(i)
 

@@ -76,15 +76,15 @@ object Aggregator:
       )
     }
 
-    private def startNewGroup(sourceId: String, config: Config, groupExpiryTime: Long)(using
+    private def startNewGroup(sourceId: String, config: Config, groupExpiryTime: MilliSeconds)(using
         sfnClient: DASFNClient[F],
         enc: Encoder[SFNArguments]
     ): F[Group] = {
-      val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli).toDouble / 1000).toInt.seconds
+      val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
       val groupId: GroupId = GroupId(config.sourceSystem)
       val batchId = BatchId(groupId)
       sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
-        Group(groupId, Instant.ofEpochMilli(groupExpiryTime), 1)
+        Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
       }
     }
 
@@ -92,7 +92,7 @@ object Aggregator:
         Encoder[SFNArguments]
     ): F[GroupId] = {
       def log = logWithReason(sourceId)
-      val groupExpiryTime = lambdaTimeoutTime + (config.maxSecondaryBatchingWindow * 1000)
+      val groupExpiryTime: MilliSeconds = lambdaTimeoutTime + config.maxSecondaryBatchingWindow.toMilliSeconds
       atomicCell
         .evalUpdateAndGet { groupCache =>
           val groupF = groupCache.get(sourceId) match
