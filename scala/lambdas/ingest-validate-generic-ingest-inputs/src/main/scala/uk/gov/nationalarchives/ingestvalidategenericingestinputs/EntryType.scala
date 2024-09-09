@@ -15,4 +15,6 @@ object EntryType {
   case class ArchiveFolderEntry(potentialParentId: Option[String]) extends EntryTypeAndParent
 
   case class ContentFolderEntry(potentialParentId: Option[String]) extends EntryTypeAndParent
+
+  case class UnknownTypeEntry(potentialParentId: Option[String]) extends EntryTypeAndParent
 }

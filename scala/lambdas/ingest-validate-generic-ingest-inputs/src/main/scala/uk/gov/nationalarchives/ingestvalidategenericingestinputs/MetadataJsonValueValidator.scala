@@ -347,6 +347,7 @@ class MetadataJsonValueValidator {
         case "Asset"           => AssetEntry(potentialParentId)
         case "ArchiveFolder"   => ArchiveFolderEntry(potentialParentId)
         case "ContentFolder"   => ContentFolderEntry(potentialParentId)
+        case "UnknownType"     => UnknownTypeEntry(potentialParentId)
       }
 
     allEntries.toList.flatMap { case (entryType, entries) =>
