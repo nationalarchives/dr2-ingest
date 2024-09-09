@@ -349,7 +349,7 @@ class MetadataJsonValueValidator {
         case "ContentFolder"   => ContentFolderEntry(potentialParentId)
       }
 
-    allEntries.flatMap { case (entryType, entries) =>
+    allEntries.toList.flatMap { case (entryType, entries) =>
       entries.flatMap { entry =>
         val idNel = entry(id)
         val parentIdNel = entry("parentId")
@@ -377,7 +377,7 @@ class MetadataJsonValueValidator {
           case invalidNel => Nil
         }
       }
-    }.toList
+    }
   }
 }
 
