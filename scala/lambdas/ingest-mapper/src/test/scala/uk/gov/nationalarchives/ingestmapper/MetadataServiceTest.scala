@@ -94,30 +94,27 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           val batchId = "batchId"
           val folderIdOne = UUID.randomUUID()
           val assetIdOne = UUID.randomUUID()
-          val fileIdOneOne = UUID.randomUUID()
-          val fileIdOneTwo = UUID.randomUUID()
+          val fileIdOne = UUID.randomUUID()
+          val metadataFileOne = UUID.randomUUID()
           val folderIdTwo = UUID.randomUUID()
           val assetIdTwo = UUID.randomUUID()
-          val fileIdTwoOne = UUID.randomUUID()
-          val fileIdTwoTwo = UUID.randomUUID()
+          val fileIdTwo = UUID.randomUUID()
+          val metadataFileTwo = UUID.randomUUID()
           val departmentTableItem = tableItem(departmentId, "department", "")
           val seriesTableItem = seriesIdOpt.map(id => tableItem(id, "series", departmentId.toString))
           val departmentAndSeries = DepartmentAndSeriesTableItems(departmentTableItem, seriesTableItem)
 
           val expectedTimeInSecs = 1712707200
-          val originalFileId = UUID.randomUUID()
-          val originalMetadataFileIdOne = UUID.randomUUID()
-          val originalMetadataFileIdTwo = UUID.randomUUID()
           val metadata =
             s"""[
            |{"id":"$folderIdTwo","parentId":null,"title":"TestTitle2","type":"ArchiveFolder","name":"TestName2","fileSize":null, "series": null},
-           |{"id":"$assetIdTwo","parentId":"$folderIdTwo","title":"TestAssetTitle2","type":"Asset","name":"TestAssetName2","fileSize":null, "originalFiles" : ["$originalFileId"], "originalMetadataFiles": ["$originalMetadataFileIdTwo"], "customMetadataAttribute1": "customMetadataAttributeValue"},
-           |{"id":"$fileIdTwoOne","parentId":"$assetIdOne","title":"Test2","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
-           |{"id":"$fileIdTwoTwo","parentId":"$assetIdTwo","title":"","type":"File","name":"TEST2-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"},
+           |{"id":"$assetIdTwo","parentId":"$folderIdTwo","title":"TestAssetTitle2","type":"Asset","name":"TestAssetName2","fileSize":null, "originalFiles" : ["$fileIdTwo"], "originalMetadataFiles": ["$metadataFileTwo"], "customMetadataAttribute1": "customMetadataAttributeValue"},
+           |{"id":"$fileIdTwo","parentId":"$assetIdTwo","title":"Test2","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
+           |{"id":"$metadataFileTwo","parentId":"$assetIdTwo","title":"","type":"File","name":"TEST2-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"},
            |{"id":"$folderIdOne","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "series": null},
-           |{"id":"$assetIdOne","parentId":"$folderIdOne","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalFiles" : ["$originalFileId"], "originalMetadataFiles": ["$originalMetadataFileIdOne"], "customMetadataAttribute1": "customMetadataAttributeValue"},
-           |{"id":"$fileIdOneOne","parentId":"$assetIdOne","title":"Test","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
-           |{"id":"$fileIdOneTwo","parentId":"$assetIdOne","title":"","type":"File","name":"TEST-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"}
+           |{"id":"$assetIdOne","parentId":"$folderIdOne","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalFiles" : ["$fileIdOne"], "originalMetadataFiles": ["$metadataFileOne"], "customMetadataAttribute1": "customMetadataAttributeValue"},
+           |{"id":"$fileIdOne","parentId":"$assetIdOne","title":"Test","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
+           |{"id":"$metadataFileOne","parentId":"$assetIdOne","title":"","type":"File","name":"TEST-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"}
            |]
            |""".stripMargin.replaceAll("\n", "")
           val s3 = mockS3(metadata)
@@ -163,13 +160,13 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               1,
               expectedTimeInSecs,
               customMetadataAttribute1 = Option("customMetadataAttributeValue"),
-              originalFiles = List(originalFileId.toString),
-              originalMetadataFiles = List(originalMetadataFileIdOne.toString)
+              originalFiles = List(fileIdOne.toString),
+              originalMetadataFiles = List(metadataFileOne.toString)
             )
           )
           checkTableItems(
             result,
-            List(fileIdOneOne),
+            List(fileIdOne),
             DynamoFilesTableItem(
               batchId,
               assetIdOne,
@@ -188,7 +185,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           )
           checkTableItems(
             result,
-            List(fileIdOneTwo),
+            List(metadataFileOne),
             DynamoFilesTableItem(
               batchId,
               assetIdOne,
