@@ -64,7 +64,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def uploadXMLToS3(s3Client: DAS3Client[IO], xmlString: String, destinationBucket: String, key: String): IO[CompletedUpload] =
     Stream.emits[IO, Byte](xmlString.getBytes).chunks.map(_.toByteBuffer).toPublisherResource.use { publisher =>
-      s3Client.upload(destinationBucket, key, xmlString.getBytes.length, FlowAdapters.toPublisher(publisher))
+      s3Client.upload(destinationBucket, key, FlowAdapters.toPublisher(publisher))
     }
 
   private def copyFromSourceToDestination(

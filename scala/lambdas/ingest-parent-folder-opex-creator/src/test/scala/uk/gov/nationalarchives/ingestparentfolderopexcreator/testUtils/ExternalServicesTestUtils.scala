@@ -54,7 +54,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec {
         mockS3Client.upload(
           any[String],
           any[String],
-          any[Long],
           any[Publisher[ByteBuffer]]
         )
       ).thenReturn(s3UploadResult)
@@ -84,7 +83,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec {
       verify(mockS3Client, times(numberOfUploads)).upload(
         uploadBucketCaptor.capture(),
         keyToUploadCaptor.capture(),
-        opexFileContentLengthCaptor.capture(),
         any[Publisher[ByteBuffer]]
       )
 

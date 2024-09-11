@@ -176,7 +176,7 @@ class FileProcessor(
                 stream.chunks
                   .map(_.toByteBuffer)
                   .toPublisherResource
-                  .use(pub => s3.upload(uploadBucket, id.toString, tarEntry.getSize, FlowAdapters.toPublisher(pub)))
+                  .use(pub => s3.upload(uploadBucket, id.toString, FlowAdapters.toPublisher(pub)))
                   .map { res =>
                     val checksum = checksumToString(res.response().checksumSHA256())
                     tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
@@ -196,16 +196,14 @@ class FileProcessor(
       .flatMap(unarchiveAndUploadToS3)
   }
 
-  private def uploadAsFile(fileContent: String, s3Location: URI): IO[Unit] = {
+  private def uploadAsFile(fileContent: String, s3Location: URI): IO[Unit] =
     Stream
       .eval(IO.pure(fileContent))
       .map(s => ByteBuffer.wrap(s.getBytes()))
       .toPublisherResource
       .use { pub =>
-        s3.upload(s3Location.getHost, s3Location.getPath.drop(1), fileContent.getBytes.length, FlowAdapters.toPublisher(pub))
+        s3.upload(s3Location.getHost, s3Location.getPath.drop(1), FlowAdapters.toPublisher(pub)).void
       }
-      .map(_ => ())
-  }
 
   def createMetadataJson(metadata: List[MetadataObject], s3Location: URI): IO[Unit] =
     uploadAsFile(metadata.asJson.printWith(Printer.noSpaces), s3Location)

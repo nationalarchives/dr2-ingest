@@ -90,11 +90,11 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val metadataCompletedUpload = completedUpload(Option("123456"))
 
     when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Publisher[ByteBuffer]]))
       .thenReturn(IO(docxCompletedUpload))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Publisher[ByteBuffer]]))
       .thenReturn(IO(metadataCompletedUpload))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Publisher[ByteBuffer]]))
       .thenReturn(IO(completedUpload(Option("bcdeff"))))
 
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, generator.uuidGenerator)
@@ -155,7 +155,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val s3 = mock[DAS3Client[IO]]
 
     when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], any[String], any[Long], any[Publisher[ByteBuffer]])).thenThrow(
+    when(s3.upload(any[String], any[String], any[Publisher[ByteBuffer]])).thenThrow(
       new RuntimeException(
         "Upload failed"
       )
@@ -176,11 +176,11 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val metadataCompletedUpload = completedUpload()
 
     when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Publisher[ByteBuffer]]))
       .thenReturn(IO(docxCompletedUpload))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Publisher[ByteBuffer]]))
       .thenReturn(IO(metadataCompletedUpload))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Publisher[ByteBuffer]]))
       .thenReturn(IO(completedUpload(Option("bcdeff"))))
 
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, generator.uuidGenerator)
@@ -459,7 +459,6 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
       s3.upload(
         ArgumentMatchers.eq("upload"),
         ArgumentMatchers.eq(s"ref/$fileName"),
-        any[Long],
         argThat(publisherMatcher)
       )
     )
