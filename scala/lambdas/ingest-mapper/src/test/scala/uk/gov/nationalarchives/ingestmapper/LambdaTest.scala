@@ -201,7 +201,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
       new Lambda().handler(input, config, dependencies()).unsafeRunSync()
     }
 
-    ex.getMessage should equal("(Service: S3, Status Code: 404, Request ID: null)")
+    ex.getMessage should equal("null (Service: S3, Status Code: 404, Request ID: null)")
   }
 
   "handler" should "return an error if the dynamo table doesn't exist" in {
