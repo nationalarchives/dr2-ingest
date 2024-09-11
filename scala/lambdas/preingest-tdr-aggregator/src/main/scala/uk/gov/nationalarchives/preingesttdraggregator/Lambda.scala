@@ -1,27 +1,31 @@
 package uk.gov.nationalarchives.preingesttdraggregator
 
+import cats.Monoid
+import cats.effect.IO
+import cats.effect.std.AtomicCell
 import cats.effect.unsafe.implicits.global
-import cats.effect.{IO, Ref}
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import com.amazonaws.services.lambda.runtime.{Context, RequestHandler}
+import io.circe.generic.auto.*
+import pureconfig.ConfigReader.Result
 import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
-import uk.gov.nationalarchives.preingesttdraggregator.Lambda.*
 import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.*
-import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
-import io.circe.generic.auto.*
-import pureconfig.ConfigReader.Result
-import uk.gov.nationalarchives.preingesttdraggregator.Duration.Seconds
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
-
+import uk.gov.nationalarchives.preingesttdraggregator.Lambda.*
+import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
+import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
 import java.net.URI
 import java.time.Instant
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 class Lambda extends RequestHandler[SQSEvent, Unit]:
 
-  private val groupCacheRef: Ref[IO, Map[String, Group]] = Ref.unsafe[IO, Map[String, Group]](Map[String, Group]())
+  given Monoid[Map[String, Group]] = Monoid.instance(Map.empty, _ ++ _)
+
+  private val groupCacheAtomicCell: AtomicCell[IO, Map[String, Group]] =
+    AtomicCell[IO].empty[Map[String, Group]].unsafeRunSync() // Not ideal but it needs initialising outside the handler function
 
   given DASFNClient[IO] = DASFNClient[IO]()
   given DADynamoDBClient[IO] = DADynamoDBClient[IO]()
@@ -30,7 +34,7 @@ class Lambda extends RequestHandler[SQSEvent, Unit]:
     ConfigSource.default
       .loadF[IO, Config]()
       .flatMap { config =>
-        Aggregator[IO].aggregate(config, groupCacheRef, input.getRecords.asScala.toList, context.getRemainingTimeInMillis)
+        Aggregator[IO].aggregate(config, groupCacheAtomicCell, input.getRecords.asScala.toList, context.getRemainingTimeInMillis)
       }
       .unsafeRunSync()
 
