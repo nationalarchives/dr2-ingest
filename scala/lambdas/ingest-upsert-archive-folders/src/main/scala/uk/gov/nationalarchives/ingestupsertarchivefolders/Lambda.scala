@@ -6,7 +6,8 @@ import io.circe.generic.auto.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoTable, DynamoTable, FilesTablePartitionKey, FilesTablePrimaryKey, FilesTableSortKey}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Identifier => DynamoIdentifier, *}
+import uk.gov.nationalarchives.utils.ExternalUtils.DetailType.DR2Message
 import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda.*
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
@@ -14,75 +15,140 @@ import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.*
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
-import uk.gov.nationalarchives.utils.ExternalUtils.DetailType.DR2Message
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
 
 import java.util.UUID
 
 class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
-  private val structuralObject = StructuralObject
   private val sourceId = "SourceID"
+
+  given Ordering[ArchiveFolderDynamoTable] = (x: ArchiveFolderDynamoTable, y: ArchiveFolderDynamoTable) => x.parentPath.compare(y.parentPath)
+
+  extension [T](potentialValue: Option[T]) private def toStringOrEmpty: String = potentialValue.map(_.toString).getOrElse("")
+
+  extension (archiveFolderDynamoTable: ArchiveFolderDynamoTable)
+    private def directParentId: Option[UUID] = archiveFolderDynamoTable.parentPath.flatMap(_.split("/").lastOption).map(UUID.fromString)
 
   override def handler: (
       StepFnInput,
       Config,
       Dependencies
   ) => IO[Unit] = (stepFnInput, config, dependencies) => {
-    val logWithBatchRef = log(Map("batchRef" -> stepFnInput.batchId))(_)
 
     val folderIdPartitionKeysAndValues: List[FilesTablePrimaryKey] =
       stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(id => FilesTablePrimaryKey(FilesTablePartitionKey(id), FilesTableSortKey(stepFnInput.batchId)))
 
+    def getFolderRows: IO[List[ArchiveFolderDynamoTable]] =
+      dependencies.dADynamoDBClient
+        .getItems[ArchiveFolderDynamoTable, FilesTablePrimaryKey](
+          folderIdPartitionKeysAndValues,
+          config.archiveFolderTableName
+        )
+        .map(_.sorted)
+
+    def getIdToEntityMap(folderRows: List[ArchiveFolderDynamoTable], sourceMap: Map[String, Entity]) =
+      folderRows.foldLeft(IO(Map.empty[UUID, UUID])) { (entityMapIO, folderRow) =>
+        sourceMap
+          .get(folderRow.name)
+          .map { entity =>
+            val expectedParent = getExpectedParent(folderRow, folderRows, sourceMap)
+            for {
+              _ <- IO.raiseWhen(!entity.entityType.contains(StructuralObject))(
+                new Exception(s"The entity type for folder id ${folderRow.id} should be 'StructuralObject' but it is ${entity.entityType.toStringOrEmpty}")
+              )
+              _ <- IO.raiseWhen(entity.parent != expectedParent)(
+                new Exception(s"API returned a parent ref of '${entity.parent.toStringOrEmpty}' for entity ${entity.ref} instead of expected '${expectedParent.toStringOrEmpty}'")
+              )
+              _ <- IO.raiseWhen(entity.securityTag.isEmpty || entity.securityTag.flatMap(Option.apply).isEmpty)(
+                new Exception(s"Security tag '${entity.securityTag}' is unexpected for SO ref '${entity.ref}'")
+              )
+              mapping <- entityMapIO.map(_ + (folderRow.id -> entity.ref))
+            } yield mapping
+          }
+          .getOrElse {
+            for {
+              entityMap <- entityMapIO
+              entityId <- addFolder(folderRow, entityMap)
+            } yield entityMap + (folderRow.id -> entityId)
+
+          }
+      }
+
+    def addFolder(folderRow: ArchiveFolderDynamoTable, entityMap: Map[UUID, UUID]) = {
+      val potentialParentRef = for {
+        directParent <- folderRow.directParentId
+        entityRef <- entityMap.get(directParent)
+      } yield entityRef
+      val addFolderRequest = AddEntityRequest(
+        None,
+        folderRow.title.getOrElse(folderRow.name),
+        folderRow.description,
+        StructuralObject,
+        Open,
+        potentialParentRef
+      )
+      val folderName = folderRow.name
+      val identifiersToAdd = List(Identifier(sourceId, folderName)) ++
+        folderRow.identifiers.map(id => Identifier(id.identifierName, id.value))
+      for {
+        entityId <- dependencies.entityClient.addEntity(addFolderRequest)
+        _ <- identifiersToAdd.traverse { identifierToAdd =>
+          dependencies.entityClient.addIdentifierForEntity(
+            entityId,
+            StructuralObject,
+            identifierToAdd
+          )
+        }
+      } yield entityId
+    }
+
+    def getEntitiesByIdentifier(
+        folderRows: List[DynamoTable]
+    ): IO[Map[String, Entity]] = {
+      folderRows
+        .map(_.name)
+        .toSet
+        .map(name => Identifier(sourceId, name))
+        .toList
+        .traverse(identifier =>
+          dependencies.entityClient.entitiesByIdentifier(identifier).flatMap {
+            case head :: next =>
+              if next.nonEmpty then IO.raiseError(new Exception(s"There is more than 1 entity with the same SourceID ${identifier.value}"))
+              else IO(identifier.value -> Option(head))
+            case Nil => IO(identifier.value -> None)
+          }
+        )
+        .map {
+          _.collect { case (value, Some(entity)) =>
+            (value, entity)
+          }.toMap
+        }
+    }
+
+    val logWithBatchRef = log(Map("batchRef" -> stepFnInput.batchId))(_)
+
     for {
-      folderRowsSortedByParentPath <- getFolderRowsSortedByParentPath(
-        dependencies.dADynamoDBClient,
-        folderIdPartitionKeysAndValues,
-        config.archiveFolderTableName
-      )
-
-      _ <- checkNumOfParentPathSlashesPerFolderIncrease(folderRowsSortedByParentPath)
-      _ <- checkEachParentPathMatchesFolderBeforeIt(folderRowsSortedByParentPath)
-
-      secretName = config.secretName
-
-      _ <- logWithBatchRef(s"Searching for Source Ids ${folderRowsSortedByParentPath.map(_.name).mkString(",")}")
-      potentialEntitiesWithSourceId <- getEntitiesByIdentifier(folderRowsSortedByParentPath, dependencies.entityClient)
-      folderIdAndInfo <-
-        verifyOnlyOneEntityReturnedAndGetFullFolderInfo(folderRowsSortedByParentPath.zip(potentialEntitiesWithSourceId))
-      folderInfoWithExpectedParentRef <- getExpectedParentRefForEachFolder(folderIdAndInfo)
-
-      (folderInfoOfEntitiesThatDoNotExist, folderInfoOfEntitiesThatExist) = folderInfoWithExpectedParentRef.partition(
-        _.entity.isEmpty
-      )
-      _ <- createFolders(folderInfoOfEntitiesThatDoNotExist, dependencies.entityClient, secretName)
-      _ <- logWithBatchRef(s"Created ${folderInfoOfEntitiesThatDoNotExist.length} entities which did not previously exist")
-      _ <- verifyEntitiesAreStructuralObjects(folderInfoOfEntitiesThatExist)
-
-      folderInfoOfEntitiesThatExistWithSecurityTags <-
-        verifyExpectedParentFolderMatchesFolderFromApiAndGetSecurityTag(folderInfoOfEntitiesThatExist)
-      folderUpdateRequests = findOnlyFoldersThatNeedUpdatingAndCreateRequests(
-        folderInfoOfEntitiesThatExistWithSecurityTags
-      )
-
-      _ <- folderInfoOfEntitiesThatExistWithSecurityTags.map { fi =>
-        val identifiersFromDynamo = fi.folderRow.identifiers.map(id => Identifier(id.identifierName, id.value))
-
-        val entity = fi.entity.get
+      folderRows <- getFolderRows
+      entitiesByIdentifier <- getEntitiesByIdentifier(folderRows)
+      idToEntityRef <- getIdToEntityMap(folderRows, entitiesByIdentifier)
+      _ <- folderRows.filter(row => entitiesByIdentifier.contains(row.name)).traverse { folderRow =>
+        val entity = entitiesByIdentifier(folderRow.name)
         for {
-          identifiersFromPreservica <- dependencies.entityClient.getEntityIdentifiers(entity)
-          identifiersToUpdate <- findIdentifiersToUpdate(identifiersFromDynamo, identifiersFromPreservica)
-          _ <- logWithBatchRef(s"Found ${identifiersToUpdate.length} identifiers to update")
-          identifiersToAdd <- findIdentifiersToAdd(identifiersFromDynamo, identifiersFromPreservica)
-          _ <- logWithBatchRef(s"Found ${identifiersToAdd.length} identifiers to add")
-          _ <- identifiersToAdd.map { id =>
-            dependencies.entityClient.addIdentifierForEntity(entity.ref, entity.entityType.getOrElse(StructuralObject), id)
-          }.sequence
-          updatedIdentifier = identifiersToUpdate.map(_.newIdentifier)
-          _ <-
-            if (updatedIdentifier.nonEmpty)
-              dependencies.entityClient.updateEntityIdentifiers(entity, identifiersToUpdate.map(_.newIdentifier))
-            else IO.unit
+          _ <- createUpdateRequest(folderRow, folderRows, entity, entitiesByIdentifier).toList.traverse { updateEntityRequest =>
+            val message = generateTitleDescriptionSlackMessage(config.apiUrl, updateEntityRequest, entity)
+            for {
+              _ <- logWithBatchRef(s"Updating entity ${updateEntityRequest.ref}")
+              _ <- dependencies.entityClient.updateEntity(updateEntityRequest)
+              _ <- logWithBatchRef(s"Sending\n$message\nto slack")
+              _ <- dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, DR2Message, Detail(message))
+            } yield ()
+          }
+          identifiers <- dependencies.entityClient.getEntityIdentifiers(entity)
+          identifiersToAdd <- findIdentifiersToAdd(folderRow.identifiers, identifiers)
+          identifiersToUpdate <- findIdentifiersToUpdate(folderRow.identifiers, identifiers)
+          _ <- identifiersToAdd.traverse(ita => dependencies.entityClient.addIdentifierForEntity(entity.ref, StructuralObject, ita))
+          _ <- identifiersToUpdate.traverse(itu => dependencies.entityClient.updateEntityIdentifiers(entity, identifiersToUpdate.map(_.newIdentifier)))
           updatedSlackMessage <- generateIdentifierSlackMessage(
             config.apiUrl,
             entity,
@@ -91,17 +157,69 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
           )
           _ <- updatedSlackMessage.map(msg => dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, DR2Message, Detail(msg))).sequence
         } yield ()
-      }.sequence
-      _ <- folderUpdateRequests.map { folderUpdateRequest =>
-        val message = generateTitleDescriptionSlackMessage(config.apiUrl, folderUpdateRequest)
-        for {
-          _ <- logWithBatchRef(s"Updating entity ${folderUpdateRequest.updateEntityRequest.ref}")
-          _ <- dependencies.entityClient.updateEntity(folderUpdateRequest.updateEntityRequest)
-          _ <- logWithBatchRef(s"Sending\n$message\nto slack")
-          _ <- dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, DR2Message, Detail(message))
-        } yield ()
-      }.sequence
+
+      }
+      _ <- logWithBatchRef(s"Created ${folderRows.count(row => !entitiesByIdentifier.contains(row.name))} entities which did not previously exist")
     } yield ()
+  }
+
+  private def getExpectedParent(folderRow: ArchiveFolderDynamoTable, folderRows: List[ArchiveFolderDynamoTable], sourceMap: Map[String, Entity]) = {
+    folderRows
+      .find(row => folderRow.directParentId.contains(row.id))
+      .map(_.name)
+      .flatMap(sourceMap.get)
+      .map(_.ref)
+  }
+
+  private def createUpdateRequest(
+      folderRow: ArchiveFolderDynamoTable,
+      folderRows: List[ArchiveFolderDynamoTable],
+      entity: Entity,
+      sourceMap: Map[String, Entity]
+  ): Option[UpdateEntityRequest] = {
+    val potentialNewTitle = folderRow.title.orElse(entity.title)
+    val potentialNewDescription = folderRow.description
+
+    val titleHasChanged = potentialNewTitle != entity.title && potentialNewTitle.nonEmpty
+    val descriptionHasChanged = potentialNewDescription != entity.description && potentialNewDescription.nonEmpty
+    val parentRef = getExpectedParent(folderRow, folderRows, sourceMap)
+    val updateEntityRequest =
+      if (titleHasChanged || descriptionHasChanged) {
+        val updatedTitleOrDescriptionRequest =
+          UpdateEntityRequest(
+            entity.ref,
+            potentialNewTitle.get,
+            if (descriptionHasChanged) potentialNewDescription else None,
+            StructuralObject,
+            entity.securityTag.get,
+            parentRef
+          )
+        Some(updatedTitleOrDescriptionRequest)
+      } else None
+
+    updateEntityRequest
+  }
+
+  private def findIdentifiersToUpdate(
+      identifiersFromDynamo: List[DynamoIdentifier],
+      identifiersFromPreservica: Seq[IdentifierResponse]
+  ): IO[Seq[IdentifierToUpdate]] = IO {
+    identifiersFromDynamo.flatMap { id =>
+      identifiersFromPreservica
+        .find(pid => pid.identifierName == id.identifierName && pid.value != id.value)
+        .map(pid => IdentifierToUpdate(pid, IdentifierResponse(pid.id, id.identifierName, id.value)))
+    }
+  }
+
+  private def findIdentifiersToAdd(
+      identifiersFromDynamo: List[DynamoIdentifier],
+      identifiersFromPreservica: Seq[IdentifierResponse]
+  ): IO[Seq[Identifier]] = IO {
+    identifiersFromDynamo
+      .filterNot { id =>
+        identifiersFromPreservica.exists(pid => pid.identifierName == id.identifierName)
+      }
+      .map(id => Identifier(id.identifierName, id.value))
   }
 
   private def generateIdentifierSlackMessage(
@@ -142,11 +260,10 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
 
   private def generateTitleDescriptionSlackMessage(
       preservicaUrl: String,
-      folderUpdateRequest: EntityWithUpdateEntityRequest
+      updateEntityRequest: UpdateEntityRequest,
+      entity: Entity
   ): String = {
-    val entity: Entity = folderUpdateRequest.entity
     val firstLineOfMsg: String = generateSlackMessageFirstLine(preservicaUrl, entity, messageWithNewLine = false)
-    val updateEntityRequest = folderUpdateRequest.updateEntityRequest
 
     val titleUpdates = Option.when(entity.title.getOrElse("") != updateEntityRequest.title)(
       "Title has changed"
@@ -164,254 +281,12 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       .getOrElse("IO") // We need a default and Preservica don't validate the entity type in the url
     val entityUrl = s"$preservicaUrl/explorer/explorer.html#properties:$entityTypeShort&${entity.ref}"
     val firstLineOfMsg = s":preservica: Entity <$entityUrl|${entity.ref}> has been updated: "
-    val firstLineOfMsgWithNewLine = s"""$firstLineOfMsg
-                                       |""".stripMargin
+    val firstLineOfMsgWithNewLine =
+      s"""$firstLineOfMsg
+         |""".stripMargin
     if (messageWithNewLine) firstLineOfMsgWithNewLine else firstLineOfMsg
   }
 
-  private def getFolderRowsSortedByParentPath(
-      dADynamoDBClient: DADynamoDBClient[IO],
-      folderIdPartitionKeysAndValues: List[FilesTablePrimaryKey],
-      archiveFolderTableName: String
-  ): IO[List[DynamoTable]] = {
-    val getItemsResponse: IO[List[DynamoTable]] =
-      dADynamoDBClient.getItems[ArchiveFolderDynamoTable, FilesTablePrimaryKey](
-        folderIdPartitionKeysAndValues,
-        archiveFolderTableName
-      )
-
-    getItemsResponse.map(_.sortBy(folderRow => folderRow.parentPath))
-  }
-
-  private def checkNumOfParentPathSlashesPerFolderIncrease(
-      folderRowsSortedByParentPath: List[DynamoTable]
-  ): IO[List[Int]] = {
-    val numberOfSlashesInParentPathPerFolder: List[Int] =
-      folderRowsSortedByParentPath.map { folderRow =>
-        val parentPathSplitBySlash: Array[String] = folderRow.parentPath.getOrElse("").split('/')
-        if (parentPathSplitBySlash.head.isEmpty || parentPathSplitBySlash.isEmpty) 0 else parentPathSplitBySlash.length
-      }
-
-    val slashesInParentPathsIncreaseByOne: Boolean =
-      numberOfSlashesInParentPathPerFolder.zip(numberOfSlashesInParentPathPerFolder.drop(1)).forall { case (slashesInParentOfParent, slashesInParent) =>
-        (slashesInParent - slashesInParentOfParent) == 1
-      }
-
-    if (!slashesInParentPathsIncreaseByOne)
-      IO.raiseError {
-        new Exception(
-          s"The lengths of the parent paths should increase by 1 for each subfolder (from 0 to N); " +
-            s"instead it was ${numberOfSlashesInParentPathPerFolder.mkString(", ")}"
-        )
-      }
-    else IO.pure(numberOfSlashesInParentPathPerFolder)
-  }
-
-  private def checkEachParentPathMatchesFolderBeforeIt(
-      folderRowsSortedByParentPath: List[DynamoTable]
-  ): IO[Seq[Unit]] = {
-    val folderRowsSortedByLongestParentPath: List[DynamoTable] = folderRowsSortedByParentPath.reverse
-
-    val subfoldersWithPresumedParents: Seq[(DynamoTable, DynamoTable)] =
-      folderRowsSortedByLongestParentPath.zip(folderRowsSortedByLongestParentPath.drop(1))
-
-    subfoldersWithPresumedParents.map { case (subfolderInfo, presumedParentFolderInfo) =>
-      val directParentRefOfSubfolder: String = subfolderInfo.parentPath.getOrElse("").split('/').last
-
-      if (directParentRefOfSubfolder != presumedParentFolderInfo.id.toString) {
-        IO.raiseError {
-          new Exception(
-            s"The parent ref of subfolder ${subfolderInfo.id} is $directParentRefOfSubfolder: " +
-              s"this does not match the id of its presumed parent ${presumedParentFolderInfo.id}"
-          )
-        }
-      } else IO.unit
-    }.sequence
-  }
-
-  private def getEntitiesByIdentifier(
-      folderRowsSortedByParentPath: List[DynamoTable],
-      entitiesClient: EntityClient[IO, Fs2Streams[IO]]
-  ): IO[List[Seq[Entity]]] =
-    folderRowsSortedByParentPath.map { folderRow =>
-      entitiesClient.entitiesByIdentifier(Identifier(sourceId, folderRow.name))
-    }.sequence
-
-  private def verifyOnlyOneEntityReturnedAndGetFullFolderInfo(
-      potentialEntitiesWithSourceId: List[(DynamoTable, Seq[Entity])]
-  ): IO[Map[UUID, FullFolderInfo]] =
-    IO {
-      potentialEntitiesWithSourceId.map { case (folderRow, potentialEntitiesWithSourceId) =>
-        if (potentialEntitiesWithSourceId.length > 1) {
-          throw new Exception(s"There is more than 1 entity with the same SourceID as ${folderRow.id}")
-        } else {
-          val potentialEntity = potentialEntitiesWithSourceId.headOption
-
-          folderRow.id -> FullFolderInfo(folderRow, potentialEntity)
-        }
-      }.toMap
-    }
-
-  private def getExpectedParentRefForEachFolder(
-      folderIdAndInfo: Map[UUID, FullFolderInfo]
-  ): IO[List[FullFolderInfo]] =
-    IO {
-      folderIdAndInfo.map { case (_, fullFolderInfo) =>
-        val directParent = fullFolderInfo.folderRow.parentPath
-          .flatMap(_.split('/').lastOption)
-          .map(UUID.fromString)
-        directParent.flatMap(folderIdAndInfo.get) match {
-          case None => fullFolderInfo // top-level folder doesn't/shouldn't have parent path
-          case Some(fullFolderInfoOfParent) =>
-            fullFolderInfoOfParent.entity
-              .map(entity => fullFolderInfo.copy(expectedParentRef = Option(entity.ref)))
-              .getOrElse(fullFolderInfo)
-        }
-      }.toList
-    }
-
-  private def createFolders(
-      folderInfoOfEntities: List[FullFolderInfo],
-      entitiesClient: EntityClient[IO, Fs2Streams[IO]],
-      secretName: String,
-      previouslyCreatedEntityIdsWithFolderRowIdsAsKeys: Map[UUID, UUID] = Map()
-  ): IO[Unit] = {
-    if (folderInfoOfEntities.isEmpty) IO.unit
-    else {
-      val folderInfo = folderInfoOfEntities.head
-      val potentialParentRef =
-        if (folderInfo.expectedParentRef.isEmpty) {
-          // 'expectedParentRef' is empty either because parent was not in Preservica at start of Lambda, or folder is top-level
-          val parentId = folderInfo.folderRow.parentPath
-            .flatMap(_.split('/').lastOption)
-            .map(UUID.fromString)
-          parentId.flatMap(previouslyCreatedEntityIdsWithFolderRowIdsAsKeys.get)
-        } else folderInfo.expectedParentRef
-
-      val addFolderRequest = AddEntityRequest(
-        None,
-        folderInfo.folderRow.title.getOrElse(folderInfo.folderRow.name),
-        folderInfo.folderRow.description,
-        structuralObject,
-        Open,
-        potentialParentRef
-      )
-
-      val folderName = folderInfo.folderRow.name
-      val identifiersToAdd = List(Identifier(sourceId, folderName)) ++
-        folderInfo.folderRow.identifiers.map(id => Identifier(id.identifierName, id.value))
-
-      for {
-        entityId <- entitiesClient.addEntity(addFolderRequest)
-        _ <- identifiersToAdd.map { identifierToAdd =>
-          entitiesClient.addIdentifierForEntity(
-            entityId,
-            structuralObject,
-            identifierToAdd
-          )
-        }.sequence
-        _ <- createFolders(
-          folderInfoOfEntities.tail,
-          entitiesClient,
-          secretName,
-          previouslyCreatedEntityIdsWithFolderRowIdsAsKeys + (folderInfo.folderRow.id -> entityId)
-        )
-      } yield ()
-    }
-  }
-
-  private def verifyEntitiesAreStructuralObjects(folderInfoOfEntitiesThatExist: List[FullFolderInfo]): IO[List[Unit]] =
-    folderInfoOfEntitiesThatExist.map { folderInfo =>
-      val potentialEntityType: Option[EntityClient.EntityType] = folderInfo.entity.flatMap(_.entityType)
-
-      potentialEntityType
-        .collect {
-          case entityType if entityType != StructuralObject =>
-            IO.raiseError(
-              new Exception(
-                s"The entity type for folder id ${folderInfo.folderRow.id} should be 'StructuralObject' but it is $entityType"
-              )
-            )
-          case _ => IO.unit
-        }
-        .getOrElse(IO.raiseError(new Exception(s"There is no entity type for folder id ${folderInfo.folderRow.id}")))
-    }.sequence
-
-  private def verifyExpectedParentFolderMatchesFolderFromApiAndGetSecurityTag(
-      folderInfoOfEntitiesThatExist: List[FullFolderInfo]
-  ): IO[List[FullFolderInfo]] =
-    folderInfoOfEntitiesThatExist.map { folderInfo =>
-      val entity = folderInfo.entity.get
-      val ref = entity.ref
-      val parentRef = entity.parent
-
-      if (parentRef != folderInfo.expectedParentRef)
-        IO.raiseError {
-          new Exception(
-            s"API returned a parent ref of '${parentRef.getOrElse("None")}' for entity $ref instead of expected '${folderInfo.expectedParentRef.getOrElse("")}'"
-          )
-        }
-      else
-        entity.securityTag match {
-          case open @ Some(Open)     => IO.pure(folderInfo.copy(securityTag = open))
-          case closed @ Some(Closed) => IO.pure(folderInfo.copy(securityTag = closed))
-          case unexpectedTag =>
-            IO.raiseError(new Exception(s"Security tag '$unexpectedTag' is unexpected for SO ref '$ref'"))
-        }
-    }.sequence
-
-  private def findIdentifiersToUpdate(
-      identifiersFromDynamo: List[Identifier],
-      identifiersFromPreservica: Seq[IdentifierResponse]
-  ): IO[Seq[IdentifierToUpdate]] = IO {
-    identifiersFromDynamo.flatMap { id =>
-      identifiersFromPreservica
-        .find(pid => pid.identifierName == id.identifierName && pid.value != id.value)
-        .map(pid => IdentifierToUpdate(pid, IdentifierResponse(pid.id, id.identifierName, id.value)))
-    }
-  }
-
-  private def findIdentifiersToAdd(
-      identifiersFromDynamo: Seq[Identifier],
-      identifiersFromPreservica: Seq[IdentifierResponse]
-  ): IO[Seq[Identifier]] = IO {
-    identifiersFromDynamo
-      .filterNot { id =>
-        identifiersFromPreservica.exists(pid => pid.identifierName == id.identifierName)
-      }
-      .map(id => Identifier(id.identifierName, id.value))
-  }
-
-  private def findOnlyFoldersThatNeedUpdatingAndCreateRequests(
-      folderInfoOfEntitiesThatExist: List[FullFolderInfo]
-  ): List[EntityWithUpdateEntityRequest] =
-    folderInfoOfEntitiesThatExist.flatMap { folderInfo =>
-      val folderRow = folderInfo.folderRow
-      val entity = folderInfo.entity.get
-
-      val potentialNewTitle = folderRow.title.orElse(entity.title)
-      val potentialNewDescription = folderRow.description
-
-      val titleHasChanged = potentialNewTitle != entity.title && potentialNewTitle.nonEmpty
-      val descriptionHasChanged = potentialNewDescription != entity.description && potentialNewDescription.nonEmpty
-
-      val updateEntityRequest =
-        if (titleHasChanged || descriptionHasChanged) {
-          val parentRef = folderInfo.expectedParentRef
-          val updatedTitleOrDescriptionRequest =
-            UpdateEntityRequest(
-              entity.ref,
-              potentialNewTitle.get,
-              if (descriptionHasChanged) potentialNewDescription else None,
-              structuralObject,
-              folderInfo.securityTag.get,
-              parentRef
-            )
-          Some(updatedTitleOrDescriptionRequest)
-        } else None
-
-      updateEntityRequest.map(EntityWithUpdateEntityRequest(entity, _))
-    }
   override def dependencies(config: Config): IO[Dependencies] = {
     Fs2Client.entityClient(config.apiUrl, config.secretName).map { client =>
       Dependencies(client, DADynamoDBClient[IO](), DAEventBridgeClient[IO]())
@@ -429,12 +304,6 @@ object Lambda extends App {
       contentAssets: List[String]
   )
 
-  private case class FullFolderInfo(
-      folderRow: DynamoTable,
-      entity: Option[Entity],
-      expectedParentRef: Option[UUID] = None,
-      securityTag: Option[SecurityTag] = None
-  )
   private[nationalarchives] case class EntityWithUpdateEntityRequest(
       entity: Entity,
       updateEntityRequest: UpdateEntityRequest
@@ -448,4 +317,5 @@ object Lambda extends App {
   case class Detail(slackMessage: String)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dADynamoDBClient: DADynamoDBClient[IO], eventBridgeClient: DAEventBridgeClient[IO])
+
 }
