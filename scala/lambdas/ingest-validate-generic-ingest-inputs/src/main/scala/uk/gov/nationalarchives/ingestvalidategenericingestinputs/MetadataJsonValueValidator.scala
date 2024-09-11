@@ -161,8 +161,7 @@ class MetadataJsonValueValidator {
                 entryTypeAndParent.potentialParentId match {
                   case None =>
                     val parentIdValidatedNel = entryTypeAndParent match {
-                      // It's hard to determine whether an ArchiveFolderEntry's parent is null/None because it's a top-level entry
-                      // or it's a mistake so further checking needs to be done (in the circular dependencies method).
+                      // It's hard to determine whether an ArchiveFolderEntry's parent is null/None because it's a top-level entry or it's a mistake
                       case ArchiveFolderEntry(_) => parentIdNel
                       case ContentFolderEntry(_) =>
                         val potentialParent = checkIfParentTypeExists(2)
