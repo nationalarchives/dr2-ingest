@@ -24,6 +24,7 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2, TableFor4}
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
+import uk.gov.nationalarchives.utils.ExternalUtils.*
 
 import java.net.URI
 import java.time.OffsetDateTime
@@ -167,18 +168,74 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     )
 
     val (file, checksum) = metadataFilesAndChecksum
+    val filePath = s"/$testOutputBucket/$reference/$file"
+    val postResponse = <InitiateMultipartUploadResult>
+      <Bucket>{testOutputBucket}</Bucket>
+      <Key>{filePath}</Key>
+      <UploadId>id</UploadId>
+    </InitiateMultipartUploadResult>.toString
     s3Server.stubFor(
-      put(urlEqualTo(s"/$testOutputBucket/$reference/$file"))
-        .willReturn(ok().withHeader("x-amz-checksum-sha256", convertChecksumToS3Format(checksum)))
+      put(urlPathEqualTo(filePath))
+        .withQueryParam("uploadId", equalTo("id"))
+        .withQueryParam("partNumber", equalTo("1"))
+        .willReturn(ok().withHeader("ETag", "abcde").withHeader("x-amz-checksum-sha256", convertChecksumToS3Format(checksum)))
+    )
+    s3Server.stubFor(
+      post(urlEqualTo(s"$filePath?uploads"))
+        .willReturn(okXml(postResponse).withHeader("ETag", "abcde"))
+    )
+    s3Server.stubFor(
+      post(urlPathEqualTo(filePath))
+        .withQueryParam("uploadId", equalTo("id"))
+        .willReturn(okXml(postResponse).withHeader("ETag", "abcde"))
+    )
+    s3Server.stubFor(
+      delete(urlPathEqualTo(filePath))
+        .withQueryParam("uploadId", equalTo("id"))
+        .willReturn(ok())
     )
 
     uuidsAndChecksum.foreach { case (uuid, checksum) =>
+      val uuidPath = s"/$testOutputBucket/$uuid"
+      val referenceUidPath = s"/$testOutputBucket/$reference/$uuid"
+
       s3Server.stubFor(
-        put(urlEqualTo(s"/$testOutputBucket/$uuid"))
-          .willReturn(ok().withHeader("x-amz-checksum-sha256", convertChecksumToS3Format(checksum)))
+        put(urlPathEqualTo(uuidPath))
+          .withQueryParam("uploadId", equalTo("id"))
+          .withQueryParam("partNumber", equalTo("1"))
+          .willReturn(ok().withHeader("ETag", "ETag").withHeader("x-amz-checksum-sha256", convertChecksumToS3Format(checksum)))
       )
       s3Server.stubFor(
-        put(urlEqualTo(s"/$testOutputBucket/$reference/$uuid"))
+        post(urlEqualTo(s"$uuidPath?uploads"))
+          .willReturn(okXml(postResponse).withHeader("ETag", "abcde"))
+      )
+      s3Server.stubFor(
+        post(urlPathEqualTo(uuidPath))
+          .withQueryParam("uploadId", equalTo("id"))
+          .willReturn(okXml(postResponse).withHeader("ETag", "abcde"))
+      )
+      s3Server.stubFor(
+        delete(urlPathEqualTo(uuidPath))
+          .withQueryParam("uploadId", equalTo("id"))
+          .willReturn(ok())
+      )
+      s3Server.stubFor(
+        put(urlEqualTo(referenceUidPath))
+          .withQueryParam("uploadId", equalTo("id"))
+          .willReturn(ok().withHeader("ETag", "abcde"))
+      )
+      s3Server.stubFor(
+        post(urlEqualTo(s"$referenceUidPath?uploads"))
+          .willReturn(okXml(postResponse).withHeader("ETag", "abcde"))
+      )
+      s3Server.stubFor(
+        post(urlPathEqualTo(referenceUidPath))
+          .withQueryParam("uploadId", equalTo("id"))
+          .willReturn(okXml(postResponse).withHeader("ETag", "abcde"))
+      )
+      s3Server.stubFor(
+        delete(urlPathEqualTo(referenceUidPath))
+          .withQueryParam("uploadId", equalTo("id"))
           .willReturn(ok())
       )
       s3Server.stubFor(
@@ -220,7 +277,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     new Lambda().handler(event(), config, dependencies).unsafeRunSync()
     val serveEvents = s3Server.getAllServeEvents.asScala
 
-    def countPutEvents(name: String) = serveEvents.count(e => e.getRequest.getUrl == s"/$testOutputBucket/$reference/$name" && e.getRequest.getMethod == RequestMethod.PUT)
+    def countPutEvents(name: String) =
+      serveEvents.count(e => URI.create(e.getRequest.getUrl).getPath == s"/$testOutputBucket/$reference/$name" && e.getRequest.getMethod == RequestMethod.PUT)
 
     countPutEvents(metadataFilesAndChecksum._1) should equal(1)
   }
@@ -290,12 +348,12 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           RepresentationType.Preservation,
           1,
           URI.create(s"s3://$testOutputBucket/$metadataFileId"),
-          "91"
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         )
       )
 
       val expectedFolderMetadata =
-        FolderMetadataObject(
+        ArchiveFolderMetadataObject(
           folderId,
           None,
           Option("test"),
