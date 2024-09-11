@@ -28,7 +28,7 @@ import java.time.{LocalDateTime, ZoneOffset}
 import java.util.UUID
 
 class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
-  lazy private val bufferSize = 1024 * 1
+  lazy private val bufferSize = 1024 * 5
 
   private def stripFileExtension(title: String) = if title.contains(".") then title.substring(0, title.lastIndexOf('.')) else title
 
@@ -36,14 +36,14 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
 
     def processTdrMetadata(tdrMetadataStream: Stream[IO, TDRMetadata], fileLocation: URI): Stream[IO, MetadataObject] = {
       tdrMetadataStream.flatMap { tdrMetadata =>
-        val archiveFolderId = dependencies.uuidGenerator()
+        val contentFolderId = dependencies.uuidGenerator()
         val assetId = tdrMetadata.UUID
         val fileId = dependencies.uuidGenerator()
         val metadataId = dependencies.uuidGenerator()
-        val archiveFolder = ContentFolderMetadataObject(archiveFolderId, None, None, tdrMetadata.ConsignmentReference, Nil)
+        val contentFolder = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, Nil)
         val assetMetadata = AssetMetadataObject(
           assetId,
-          Option(archiveFolderId),
+          Option(contentFolderId),
           stripFileExtension(tdrMetadata.Filename),
           tdrMetadata.Filename,
           List(fileId),
@@ -98,7 +98,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               getMetadataUri(fileLocation),
               checksum
             )
-            List(archiveFolder, assetMetadata, file, metadata)
+            List(contentFolder, assetMetadata, file, metadata)
           }
         }
       }
@@ -119,9 +119,9 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         }
     }
 
-    def processLockTableItems(lockTableRows: List[IngestLockTable]): IO[Unit] = {
+    def processLockTableItems(lockTableItems: List[IngestLockTable]): IO[Unit] = {
       Stream
-        .emits(lockTableRows)
+        .emits(lockTableItems)
         .map(_.message)
         .through(stringStreamParser[IO])
         .through(fs2Decoder[IO, LockTableMessage])

@@ -111,7 +111,7 @@ class FileProcessor(
     val fileTitle = fileInfo.fileName.split('.').dropRight(1).mkString(".")
     val folderId = uuidGenerator()
     val assetId = UUID.fromString(tdrUuid)
-    val folderMetadataObject = ArchiveFolderMetadataObject(folderId, None, potentialFolderTitle, folderName, potentialSeries.getOrElse("Unknown"), folderMetadataIdFields)
+    val archiveFolderMetadataObject = ArchiveFolderMetadataObject(folderId, None, potentialFolderTitle, folderName, potentialSeries.getOrElse("Unknown"), folderMetadataIdFields)
     val assetMetadataObject =
       AssetMetadataObject(
         assetId,
@@ -153,7 +153,7 @@ class FileProcessor(
       metadataFileInfo.location,
       metadataFileInfo.checksum
     )
-    List(folderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
+    List(archiveFolderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
   }
 
   private def extractMetadataFromJson(str: Stream[IO, Byte]): Stream[IO, TREMetadata] = {

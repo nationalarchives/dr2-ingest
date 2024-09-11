@@ -14,7 +14,7 @@ object ExternalUtils {
     case DR2Message, DR2DevMessage
 
   enum RepresentationType:
-    case Preservation
+    case Preservation, Access
 
   sealed trait MetadataObject {
     def id: UUID
