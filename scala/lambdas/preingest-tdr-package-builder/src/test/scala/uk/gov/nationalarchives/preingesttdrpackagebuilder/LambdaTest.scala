@@ -105,16 +105,16 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       def stripFileExtension(title: String) = if title.contains(".") then title.substring(0, title.lastIndexOf('.')) else title
 
       val metadataObjects = s3Contents(s"${testData.batchId}/metadata.json").asInstanceOf[List[MetadataObject]]
-      val archiveFolderMetadataObject = metadataObjects.head.asInstanceOf[ArchiveFolderMetadataObject]
+      val contentFolderMetadataObject = metadataObjects.head.asInstanceOf[ContentFolderMetadataObject]
       val assetMetadataObject = metadataObjects(1).asInstanceOf[AssetMetadataObject]
       val fileMetadataObject = metadataObjects(2).asInstanceOf[FileMetadataObject]
       val metadataFileMetadataObject = metadataObjects(3).asInstanceOf[FileMetadataObject]
 
-      archiveFolderMetadataObject.id should equal(archiveFolderId)
-      archiveFolderMetadataObject.name should equal(testData.tdrRef)
-      archiveFolderMetadataObject.title should equal(None)
-      archiveFolderMetadataObject.parentId should equal(None)
-      archiveFolderMetadataObject.series should equal(testData.series)
+      contentFolderMetadataObject.id should equal(archiveFolderId)
+      contentFolderMetadataObject.name should equal(testData.tdrRef)
+      contentFolderMetadataObject.title should equal(None)
+      contentFolderMetadataObject.parentId should equal(None)
+      contentFolderMetadataObject.series should equal(testData.series)
 
       assetMetadataObject.id should equal(tdrFileId)
       assetMetadataObject.parentId should equal(Option(archiveFolderId))

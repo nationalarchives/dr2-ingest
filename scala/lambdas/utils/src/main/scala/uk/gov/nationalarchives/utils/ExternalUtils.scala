@@ -52,25 +52,25 @@ object ExternalUtils {
       ("name", Json.fromString(name))
     )
   }
-
+  
+  private def createFolderMetadataObject(id: UUID, parentId: Option[UUID], title: Option[String], name: String, series: String, folderMetadataIdFields: List[IdField], folderType: Type) = {
+    jsonFromMetadataObject(id, parentId, title, folderType, name)
+      .deepMerge {
+        Json.fromFields(convertIdFieldsToJson(folderMetadataIdFields))
+      }
+      .deepMerge {
+        Json
+          .obj(
+            ("series", Json.fromString(series))
+          )
+      }
+  }
 
   given Encoder[MetadataObject] = {
     case ArchiveFolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields) =>
-      jsonFromMetadataObject(id, parentId, title, ArchiveFolder, name)
-        .deepMerge {
-          Json.fromFields(convertIdFieldsToJson(folderMetadataIdFields))
-        }
-        .deepMerge {
-          Json
-            .obj(
-              ("series", Json.fromString(series))
-            )
-        }
-    case ContentFolderMetadataObject(id, parentId, title, name, folderMetadataIdFields) =>
-      jsonFromMetadataObject(id, parentId, title, ContentFolder, name)
-        .deepMerge {
-          Json.fromFields(convertIdFieldsToJson(folderMetadataIdFields))
-        }
+      createFolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields, ArchiveFolder)
+    case ContentFolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields) =>
+      createFolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields, ContentFolder)
     case AssetMetadataObject(
     id,
     parentId,
@@ -136,6 +136,7 @@ object ExternalUtils {
                                           parentId: Option[UUID],
                                           title: Option[String],
                                           name: String,
+                                          series: String,
                                           idFields: List[IdField] = Nil
                                         ) extends MetadataObject
 

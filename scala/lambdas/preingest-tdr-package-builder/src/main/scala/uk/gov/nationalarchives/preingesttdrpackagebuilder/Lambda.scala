@@ -40,7 +40,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         val assetId = tdrMetadata.UUID
         val fileId = dependencies.uuidGenerator()
         val metadataId = dependencies.uuidGenerator()
-        val contentFolder = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, Nil)
+        val contentFolder = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, tdrMetadata.Series, Nil)
         val assetMetadata = AssetMetadataObject(
           assetId,
           Option(contentFolderId),
