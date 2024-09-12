@@ -78,7 +78,8 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
                 if potentialSeries.contains("Unknown") then IO.pure(DepartmentAndSeriesCollectionAssets(None, None))
                 else discoveryService.getDiscoveryCollectionAssets(potentialSeries)
               collectionAssets.map { assets =>
-                parentIds.map(parentId => parentId -> discoveryService.getDepartmentAndSeriesItems(input.batchId, assets))
+                val departmentSeriesItems = discoveryService.getDepartmentAndSeriesItems(input.batchId, assets)
+                parentIds.map(parentId => parentId -> departmentSeriesItems)
               }
             }
             .toList
@@ -108,7 +109,8 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
                     .filterKeys(_ != "parentId")
                     .toMap
                 Obj.from(metadataMap)
-              } ++ itemToDepartmentSeries.values.toList.flatMap(_.potentialSeriesItem) ++ itemToDepartmentSeries.values.toList.map(_.departmentItem)
+              } ++ itemToDepartmentSeries.values.flatMap(_.potentialSeriesItem).toList.distinctBy(obj => obj("id")) ++
+                itemToDepartmentSeries.values.map(_.departmentItem).toList.distinctBy(obj => obj("id"))
               addChildCountAttributes(updatedJson)
             }
           }
