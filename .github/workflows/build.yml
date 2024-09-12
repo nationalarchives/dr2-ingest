@@ -1,25 +1,17 @@
-<<<<<<< HEAD
 name: DR2 Build Project
-=======
-name: DR2 Tag and pre deploy
->>>>>>> python/lambdas/ingest-cc-notifications/move-to-monorepo
 on:
   push:
     branches:
       - main
-<<<<<<< HEAD
     paths:
       - scala/lambdas/**
       - python/lambdas/**
       - build.sbt
-=======
->>>>>>> python/lambdas/ingest-cc-notifications/move-to-monorepo
 permissions:
   id-token: write
   contents: write
 jobs:
   pre-deploy:
-<<<<<<< HEAD
     runs-on: ubuntu-latest
     outputs:
       next-version: ${{ steps.next-tag.outputs.next-version }}
@@ -40,24 +32,12 @@ jobs:
           mkdir -p target/outputs
           sbt ingestLambdasRoot/assembly
           zip -jA copy-files-from-tdr python/lambdas/copy-files-from-tdr/lambda_function.py
+          zip -jA ingest-cc-notifications python/lambdas/ingest-cc-notifications/lambda_function.py
           cp copy-files-from-tdr target/outputs/
           cd target/outputs
           aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
           git tag ${{ steps.next-tag.outputs.next-version }}
           git push origin ${{ steps.next-tag.outputs.next-version }}
-=======
-    uses: nationalarchives/dr2-github-actions/.github/workflows/lambda_build.yml@main
-    with:
-      repo-name: dr2-ingest-cc-notification-handler
-      artifact-name: ingest_cc_notification_handler_lambda
-      artifact-file-type: zip
-      artifact-path: .
-      build-command: |
-        zip ingest_cc_notification_handler_lambda.zip lambda_function.py
-    secrets:
-      MANAGEMENT_ACCOUNT: ${{ secrets.MANAGEMENT_ACCOUNT }}
-      WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
->>>>>>> python/lambdas/ingest-cc-notifications/move-to-monorepo
   deploy:
     needs: pre-deploy
     runs-on: ubuntu-latest
