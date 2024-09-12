@@ -55,8 +55,7 @@ object ExternalServicesTestUtils {
         "id" -> "b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6",
         "parentId" -> "27354aa8-975f-48d1-af79-121b9a349cbe",
         "title" -> "fhfghfgh",
-        "type" -> "Asset",
-        "name" -> "b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6"
+        "type" -> "Asset"
       ),
       Obj(
         "id" -> "b0147dea-878b-4a25-891f-66eba66194ca",
@@ -111,16 +110,19 @@ object ExternalServicesTestUtils {
     entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value) }
 
   def testAllEntryIds(allEntries: List[Obj] = testValidMetadataJson()): List[(String, EntryTypeAndParent)] =
-    allEntries.map(entry => (entry(id).str, generateEntry(entry(entryType).str, entry(name).str, entry(parentId).strOpt)))
+    allEntries.map(entry => (entry(id).str, generateEntry(entry)))
 
-  private def generateEntry(entryType: String, name: String, potentialParentId: Option[String]) =
-    entryType match {
-      case "ArchiveFolder"                           => ArchiveFolderEntry(potentialParentId)
-      case "ContentFolder"                           => ContentFolderEntry(potentialParentId)
-      case "Asset"                                   => AssetEntry(potentialParentId)
-      case "File" if name.endsWith("-metadata.json") => MetadataFileEntry(potentialParentId)
-      case "File"                                    => FileEntry(potentialParentId)
+  private def generateEntry(entry: Obj) = {
+    val typeOfEntry = entry(entryType).str
+    val potentialParentId = entry(parentId).strOpt
+    typeOfEntry match {
+      case "ArchiveFolder"                                      => ArchiveFolderEntry(potentialParentId)
+      case "ContentFolder"                                      => ContentFolderEntry(potentialParentId)
+      case "Asset"                                              => AssetEntry(potentialParentId)
+      case "File" if entry(name).str.endsWith("-metadata.json") => MetadataFileEntry(potentialParentId)
+      case "File"                                               => FileEntry(potentialParentId)
     }
+  }
 
   def parentIdError(parentIdMessage: String): Map[String, ValidatedNel[HierarchyLinkingError, Value]] =
     if parentIdMessage.isEmpty then Map()
