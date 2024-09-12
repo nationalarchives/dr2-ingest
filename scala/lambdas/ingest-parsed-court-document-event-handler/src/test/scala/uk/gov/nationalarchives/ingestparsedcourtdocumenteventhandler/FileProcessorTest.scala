@@ -21,6 +21,7 @@ import software.amazon.awssdk.transfer.s3.model.CompletedUpload
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
+import uk.gov.nationalarchives.utils.ExternalUtils.*
 
 import java.net.URI
 import java.nio.ByteBuffer
@@ -90,11 +91,11 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val metadataCompletedUpload = completedUpload(Option("123456"))
 
     when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Publisher[ByteBuffer]]))
       .thenReturn(IO(docxCompletedUpload))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Publisher[ByteBuffer]]))
       .thenReturn(IO(metadataCompletedUpload))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
+    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Publisher[ByteBuffer]]))
       .thenReturn(IO(completedUpload(Option("bcdeff"))))
 
     val fileProcessor = new FileProcessor("download", "upload", "ref", s3, generator.uuidGenerator)
@@ -112,19 +113,19 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     docxInfo.id should equal(uuids(1))
     docxInfo.fileName should equal("Test.docx")
     docxInfo.fileSize should equal(15684)
-    docxInfo.checksum should equal("abcdef")
+    docxInfo.checksum should equal("9b38180e4a1e60b35c3310e038ba5db2ff08021afe091ddc325410e6e0f4d210")
 
     val unusedTreFileInfo = unusedTreFile.get
     unusedTreFileInfo.id should equal(uuids.head)
     unusedTreFileInfo.fileName should equal("unused-tre-file")
     unusedTreFileInfo.fileSize should equal(0)
-    unusedTreFileInfo.checksum should equal("bcdeff")
+    unusedTreFileInfo.checksum should equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
     val metadataInfo = metadata.get
     metadataInfo.id should equal(uuids.last)
     metadataInfo.fileName should equal(s"TRE-$reference-metadata.json")
     metadataInfo.fileSize should equal(215)
-    metadataInfo.checksum should equal("123456")
+    metadataInfo.checksum should equal("78380a854ce3af9caa6448e25190a8867242adf82af6f7e3909a2242c66b3487")
   }
 
   "copyFilesFromDownloadToUploadBucket" should "return an error if the downloaded file is not a valid tar.gz" in {
@@ -155,7 +156,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     val s3 = mock[DAS3Client[IO]]
 
     when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], any[String], any[Long], any[Publisher[ByteBuffer]])).thenThrow(
+    when(s3.upload(any[String], any[String], any[Publisher[ByteBuffer]])).thenThrow(
       new RuntimeException(
         "Upload failed"
       )
@@ -166,28 +167,6 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
       fileProcessor.copyFilesFromDownloadToUploadBucket("key").unsafeRunSync()
     }
     ex.getMessage should equal("Upload failed")
-  }
-
-  "copyFilesFromDownloadToUploadBucket" should "return an empty checksum if a checksum is not returned from S3" in {
-    val generator = UUIDGenerator()
-    val s3 = mock[DAS3Client[IO]]
-    val docxCompletedUpload = completedUpload()
-
-    val metadataCompletedUpload = completedUpload()
-
-    when(s3.download(ArgumentMatchers.eq("download"), ArgumentMatchers.eq("key"))).thenReturn(IO(publisher))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids(1).toString), any[Long], any[Publisher[ByteBuffer]]))
-      .thenReturn(IO(docxCompletedUpload))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.last.toString), any[Long], any[Publisher[ByteBuffer]]))
-      .thenReturn(IO(metadataCompletedUpload))
-    when(s3.upload(any[String], ArgumentMatchers.eq(uuids.head.toString), any[Long], any[Publisher[ByteBuffer]]))
-      .thenReturn(IO(completedUpload(Option("bcdeff"))))
-
-    val fileProcessor = new FileProcessor("download", "upload", "ref", s3, generator.uuidGenerator)
-    val res = fileProcessor.copyFilesFromDownloadToUploadBucket("key").unsafeRunSync()
-
-    res(s"$reference/Test.docx").checksum should equal("")
-    res(s"$reference/TRE-$reference-metadata.json").checksum should equal("")
   }
 
   "readJsonFromPackage" should "return the correct object for valid json" in {
@@ -366,7 +345,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
               val fileName = treFileName.split('.').dropRight(1).mkString(".")
               val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
               val folder =
-                FolderMetadataObject(folderId, None, folderTitle, expectedFolderName, series.getOrElse("Unknown"), updatedIdFields)
+                ArchiveFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, series.getOrElse("Unknown"), updatedIdFields)
               val asset =
                 AssetMetadataObject(
                   assetId,
@@ -392,7 +371,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                   ).flatten
                 )
               val files = List(
-                FileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1, URI.create("s3://bucket/key"), "fileChecksum"),
+                FileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1, URI.create("s3://bucket/key"), "abcde"),
                 FileMetadataObject(
                   metadataId,
                   Option(assetId),
@@ -459,7 +438,6 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
       s3.upload(
         ArgumentMatchers.eq("upload"),
         ArgumentMatchers.eq(s"ref/$fileName"),
-        any[Long],
         argThat(publisherMatcher)
       )
     )
