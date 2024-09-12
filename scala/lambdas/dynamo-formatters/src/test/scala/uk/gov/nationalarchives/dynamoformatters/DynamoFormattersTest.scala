@@ -244,7 +244,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     ),
     (
       invalidTypeAttributeValue,
-      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'checksum': missing, 'fileExtension': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing, 'location': missing",
+      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'checksum': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing, 'location': missing",
       File
     ),
     (
@@ -418,7 +418,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     fileRow.fileSize should equal(1)
     fileRow.sortOrder should equal(2)
     fileRow.checksums.head.fingerprint should equal("testChecksumAlgo1")
-    fileRow.fileExtension should equal("testFileExtension")
+    fileRow.fileExtension.get should equal("testFileExtension")
     fileRow.location.toString should equal("s3://bucket/key")
   }
 
@@ -439,7 +439,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     fileRow.checksums.size should equal(2)
     fileRow.checksums.find(_.algorithm.equals("Algorithm1")).get.fingerprint should equal("testChecksumAlgo1")
     fileRow.checksums.find(_.algorithm.equals("Algorithm2")).get.fingerprint should equal("testChecksumAlgo2")
-    fileRow.fileExtension should equal("testFileExtension")
+    fileRow.fileExtension.get should equal("testFileExtension")
     fileRow.location.toString should equal("s3://bucket/key")
   }
 
@@ -724,7 +724,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       1,
       2,
       List(Checksum("Algorithm1", "testChecksumAlgo1")),
-      "ext",
+      Option("ext"),
       PreservationRepresentationType,
       1,
       ingestedPreservica,

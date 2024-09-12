@@ -54,10 +54,10 @@ object DynamoWriteUtils {
   def writeFileTable(fileDynamoTable: FileDynamoTable): DynamoValue =
     DynamoObject {
       commonFieldsToMap(fileDynamoTable) ++
+        fileDynamoTable.fileExtension.map(extension => Map(fileExtension -> DynamoValue.fromString(extension))).getOrElse(Map()) ++
         Map(
           sortOrder -> DynamoValue.fromNumber[Int](fileDynamoTable.sortOrder),
           fileSize -> DynamoValue.fromNumber[Long](fileDynamoTable.fileSize),
-          fileExtension -> DynamoValue.fromString(fileDynamoTable.fileExtension),
           representationType -> DynamoValue.fromString(fileDynamoTable.representationType.toString),
           representationSuffix -> DynamoValue.fromNumber(fileDynamoTable.representationSuffix),
           ingestedPreservica -> DynamoValue.fromString(fileDynamoTable.ingestedPreservica.toString),

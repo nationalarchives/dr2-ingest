@@ -181,7 +181,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       suffix,
       1,
       List(Checksum("Algorithm2", "testChecksumAlgo2"), Checksum("Algorithm1", "testChecksumAlgo1")),
-      s"ext$suffix",
+      Option(s"ext$suffix"),
       representationTypes(suffix)._1,
       representationTypes(suffix)._2,
       true,

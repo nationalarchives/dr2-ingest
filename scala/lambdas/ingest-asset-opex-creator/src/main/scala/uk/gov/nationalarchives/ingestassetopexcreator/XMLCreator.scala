@@ -11,7 +11,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
     s"Representation_Preservation/${child.id}/Generation_1"
 
   private[nationalarchives] def childFileName(child: FileDynamoTable) =
-    s"${child.id}.${child.fileExtension}"
+    child.fileExtension.map(extension => s"${child.id}.$extension").getOrElse(child.id)
 
   private def getAllPaths(path: String): List[String] = {
     def generator(path: String, paths: List[String]): List[String] = {
