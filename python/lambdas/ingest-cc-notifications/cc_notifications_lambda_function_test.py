@@ -1,25 +1,24 @@
-import json
 import os
 import unittest
 from unittest.mock import Mock
 
-from boto3 import resource, client
+from boto3 import client
 from moto import mock_aws
-from lambda_function import (get_messages_from_json_event, get_items_with_id, add_true_to_ingest_cc_attribute,
-                             lambda_handler)
 
-from urllib3.exceptions import ConnectTimeoutError
+from cc_notifications import lambda_function
 
 
 @mock_aws
 class TestCcNotificationHandler(unittest.TestCase):
     table_name = "file-table-name"
 
-    dynamodb_client = client("dynamodb",
-                             region_name="eu-west-2",
-                             aws_access_key_id="test-access-key",
-                             aws_secret_access_key="test-secret-key",
-                             aws_session_token="test-session-token2")
+    def setUp(self):
+        self.set_aws_credentials()
+        self.dynamodb_client = client("dynamodb",
+                                 region_name="eu-west-2",
+                                 aws_access_key_id="test-access-key",
+                                 aws_secret_access_key="test-secret-key",
+                                 aws_session_token="test-session-token2")
 
     @staticmethod
     def set_aws_credentials():
@@ -53,7 +52,7 @@ class TestCcNotificationHandler(unittest.TestCase):
             self):
         event = self.default_event
 
-        messages_with_identifier = get_messages_from_json_event(event)
+        messages_with_identifier = lambda_function.get_messages_from_json_event(event)
 
         self.assertEqual(
             messages_with_identifier,
@@ -66,20 +65,20 @@ class TestCcNotificationHandler(unittest.TestCase):
     def test_get_messages_from_json_event_should_raise_error_if_message_not_present(self):
         event = {"Records": [{}]}
 
-        self.assertRaises(KeyError, get_messages_from_json_event, event)
+        self.assertRaises(KeyError, lambda_function.get_messages_from_json_event, event)
 
     def test_get_items_with_id_should_return_expected_item(self):
         self.create_table()
         self.put_item_in_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
 
-        items_with_id = get_items_with_id(self.dynamodb_client, self.table_name, "id", "identifier")
+        items_with_id = lambda_function.get_items_with_id(self.dynamodb_client, self.table_name, "id", "identifier")
 
         self.assertEqual(items_with_id, [{'id': {'S': 'identifier'}, 'batchId': {'S': 'batchIdValue'}}])
 
     def test_get_items_with_id_should_return_an_empty_list__if_item_not_in_table(self):
         self.create_table()
 
-        items_with_id = get_items_with_id(self.dynamodb_client, self.table_name, "id", "wrongIdentifier")
+        items_with_id = lambda_function.get_items_with_id(self.dynamodb_client, self.table_name, "id", "wrongIdentifier")
 
         self.assertEqual(items_with_id, [])
 
@@ -88,7 +87,7 @@ class TestCcNotificationHandler(unittest.TestCase):
         item = {"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}}
         self.put_item_in_table(item)
 
-        add_true_to_ingest_cc_attribute(self.dynamodb_client, self.table_name, "id", "batchId", [item])
+        lambda_function.add_true_to_ingest_cc_attribute(self.dynamodb_client, self.table_name, "id", "batchId", [item])
 
         item_response = self.get_item_from_table({"id": {"S": "identifier"}})
         new_ingested_cc_value = item_response["Item"]["ingested_CC"]
@@ -103,7 +102,7 @@ class TestCcNotificationHandler(unittest.TestCase):
         table = Mock()
         table.update_item = Mock()
 
-        add_true_to_ingest_cc_attribute(self.dynamodb_client, self.table_name, "id", "batchId", [item])
+        lambda_function.add_true_to_ingest_cc_attribute(self.dynamodb_client, self.table_name, "id", "batchId", [item])
 
         table.update_item.assert_not_called()
 
@@ -118,7 +117,7 @@ class TestCcNotificationHandler(unittest.TestCase):
         self.put_item_in_table(identifier2)
         self.put_item_in_table(identifier3)
 
-        add_true_to_ingest_cc_attribute(
+        lambda_function.add_true_to_ingest_cc_attribute(
             self.dynamodb_client, self.table_name, "id", "batchId", [identifier1, identifier2, identifier3]
         )
 
@@ -137,7 +136,7 @@ class TestCcNotificationHandler(unittest.TestCase):
         self.create_table()
         self.put_item_in_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
 
-        lambda_handler(self.default_event, None)
+        lambda_function.lambda_handler(self.default_event, None)
         item_response = self.get_item_from_table({"id": {"S": "identifier"}})
         new_ingested_cc_value = item_response["Item"]["ingested_CC"]
 
@@ -149,7 +148,7 @@ class TestCcNotificationHandler(unittest.TestCase):
         self.put_item_in_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
 
         with self.assertRaises(ValueError) as context:
-            lambda_handler(self.empty_table_identifier_event, None)
+            lambda_function.lambda_handler(self.empty_table_identifier_event, None)
 
         expected_error = "Table identifier is missing for message {'tableItemIdentifier': '', 'status': 'Updated'}"
         self.assertEqual(expected_error, str(context.exception))

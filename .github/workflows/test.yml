@@ -13,7 +13,7 @@ jobs:
     with:
       repo-name: dr2-ingest
       test-command: |
-        find . -name requirements.txt -exec pip install -r {} +
+        find . -name requirements.txt | xargs -I {} pip install -r {}
         AWS_DEFAULT_REGION=eu-west-2 pytest
         sbt scalafmtCheckAll test
     secrets:
