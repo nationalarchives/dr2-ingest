@@ -6,9 +6,12 @@ updates:
     schedule:
       # Check for updates to GitHub Actions every week
       interval: "weekly"
+<<<<<<< HEAD
   - package-ecosystem: "pip"
     directory: "/python"
     schedule:
       # Check for updates to python packages every week
       interval: "weekly"
 
+=======
+>>>>>>> python/lambdas/ingest-cc-notifications/move-to-monorepo

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # macOS
 .DS_Store
 
@@ -35,3 +36,10 @@ metals.sbt
 venv/
 __pycache__/
 
+=======
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+.DS_Store
+.idea/
+>>>>>>> python/lambdas/ingest-cc-notifications/move-to-monorepo

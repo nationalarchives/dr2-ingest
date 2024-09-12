@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 name: Deploy DR2 Ingest Lambdas
+=======
+name: DR2 Deploy Ingest CC Notifications Handler Lambda
+>>>>>>> python/lambdas/ingest-cc-notifications/move-to-monorepo
 on:
   workflow_dispatch:
     inputs:
@@ -20,6 +24,7 @@ permissions:
   contents: write
 jobs:
   deploy:
+<<<<<<< HEAD
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:
@@ -41,3 +46,16 @@ jobs:
           git branch -f release-${{ github.event.inputs.environment }} HEAD
           git push -f origin release-${{ github.event.inputs.environment }}
           python .github/scripts/deploy.py ${{ github.event.inputs.environment }} ${{ github.event.inputs.to-deploy }}
+=======
+    uses: nationalarchives/dr2-github-actions/.github/workflows/lambda_deploy.yml@main
+    with:
+      lambda-name: ${{ github.event.inputs.environment }}-dr2-ingest-cc-notifications
+      deployment-package: ingest_cc_notification_handler_lambda.zip
+      environment: ${{ github.event.inputs.environment }}
+      to-deploy: ${{ github.event.inputs.to-deploy }}
+    secrets:
+      ACCOUNT_NUMBER: ${{ secrets.ACCOUNT_NUMBER }}
+      MANAGEMENT_ACCOUNT: ${{ secrets.MANAGEMENT_ACCOUNT }}
+      WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+>>>>>>> python/lambdas/ingest-cc-notifications/move-to-monorepo
