@@ -227,64 +227,60 @@ class MetadataJsonValueValidator {
     }
   }
 
-  private def checkIfAssetReferencesCorrectFiles(
-      entryWithUpdatedParentId: ValidatedEntry,
-      assetId: String,
-      entryTypesGrouped: Map[EntryTypeAndParent, List[(String, EntryTypeAndParent)]]
-  ) = {
-    val fileTypesAndTheirIds: Map[FieldName, List[FieldName]] =
+  private def checkIfAssetReferencesCorrectFiles(assetEntry: ValidatedEntry, assetId: String, entryTypesGrouped: Map[EntryTypeAndParent, List[(String, EntryTypeAndParent)]]) = {
+    val fileArrayNamesAndExpectedFileIds: Map[FieldName, List[FieldName]] =
       entryTypesGrouped.collect {
-        case (FileEntry(Some(`assetId`)), ids)            => "expectedOriginalFiles" -> ids.map(_._1)
-        case (MetadataFileEntry(Some(`assetId`)), ids)    => "expectedOriginalMetadataFiles" -> ids.map(_._1)
-        case (UnknownFileTypeEntry(Some(`assetId`)), ids) => "unexpectedFilesWithNoCategory" -> ids.map(_._1)
+        case (FileEntry(Some(`assetId`)), idsAndEntryType)            => "expectedOriginalFiles" -> idsAndEntryType.map(_._1)
+        case (MetadataFileEntry(Some(`assetId`)), idsAndEntryType)    => "expectedOriginalMetadataFiles" -> idsAndEntryType.map(_._1)
+        case (UnknownFileTypeEntry(Some(`assetId`)), idsAndEntryType) => "unexpectedFilesWithNoCategory" -> idsAndEntryType.map(_._1)
       }
-    val originalFilesUpdate = verifyAssetHasCorrectFiles(assetId, entryWithUpdatedParentId, fileTypesAndTheirIds, "Files")
-    val originalMetadataFilesUpdate = verifyAssetHasCorrectFiles(assetId, entryWithUpdatedParentId, fileTypesAndTheirIds, "MetadataFiles")
-    entryWithUpdatedParentId ++ originalFilesUpdate ++ originalMetadataFilesUpdate
+    val originalFilesUpdate = verifyAssetHasCorrectFiles(assetId, assetEntry, fileArrayNamesAndExpectedFileIds, "Files")
+    val originalMetadataFilesUpdate = verifyAssetHasCorrectFiles(assetId, assetEntry, fileArrayNamesAndExpectedFileIds, "MetadataFiles")
+    assetEntry ++ originalFilesUpdate ++ originalMetadataFilesUpdate
   }
 
   private def verifyAssetHasCorrectFiles(
       assetId: String,
-      entryWithUpdatedParentId: ValidatedEntry,
-      allFileTypesAndTheirIds: Map[String, List[String]],
+      assetEntry: ValidatedEntry,
+      expectedFileArrayNamesAndFileIds: Map[String, List[String]],
       fileTypeToCheck: "Files" | "MetadataFiles"
   ) = {
-    val filesFieldName = s"original$fileTypeToCheck"
-    val filesNel = entryWithUpdatedParentId(filesFieldName)
-    filesNel match {
-      case Validated.Valid(filesValue) =>
-        val actualFilesAsList = filesValue.arr.toList.map(_.str)
-        val expectedFileIds = allFileTypesAndTheirIds.getOrElse(s"expectedOriginal$fileTypeToCheck", Nil)
+    val filesArrayFieldName = s"original$fileTypeToCheck"
+    val filesArrayNel = assetEntry(filesArrayFieldName)
+    filesArrayNel match {
+      case Validated.Valid(filesArrayAsValue) =>
+        val actualFilesAsList = filesArrayAsValue.arr.toList.map(_.str)
+        val expectedFileIds = expectedFileArrayNamesAndFileIds.getOrElse(s"expectedOriginal$fileTypeToCheck", Nil)
         val idsMissingFromFilesList = expectedFileIds.diff(actualFilesAsList)
         val idsInFilesListButNotInJson = actualFilesAsList.diff(expectedFileIds)
 
         val idsMissingFromFilesListPotentialError =
-          if idsMissingFromFilesList.isEmpty then filesNel
+          if idsMissingFromFilesList.isEmpty then filesArrayNel
           else
             HierarchyLinkingError(
               idsMissingFromFilesList.mkString(", "),
-              s"There are files in the JSON that have the parentId of this Asset ($assetId) but do not appear in '$filesFieldName'"
+              s"There are files in the JSON that have the parentId of this Asset ($assetId) but do not appear in '$filesArrayFieldName'"
             ).invalidNel[Value]
 
         val idsInFilesListButNotInJsonPotentialError =
-          if idsInFilesListButNotInJson.isEmpty then filesNel
+          if idsInFilesListButNotInJson.isEmpty then filesArrayNel
           else
-            val idsForUncategorisedFileType = allFileTypesAndTheirIds.getOrElse("unexpectedFilesWithNoCategory", Nil)
+            val idsForUncategorisedFileType = expectedFileArrayNamesAndFileIds.getOrElse("unexpectedFilesWithNoCategory", Nil)
             val additionalErrorMessage =
               if idsForUncategorisedFileType.isEmpty then ""
               else
-                s"\n\nIt's also possible that the files are in the JSON but whether they were $filesFieldName or not, " +
+                s"\n\nIt's also possible that the files are in the JSON but whether they were $filesArrayFieldName or not, " +
                   s"could not be determined, these files are: $idsForUncategorisedFileType"
             HierarchyLinkingError(
               idsInFilesListButNotInJson.mkString(", "),
-              s"There are files in the '$filesFieldName' array that don't appear in the JSON or their parentId is not the same as this Asset's ('$assetId')" +
+              s"There are files in the '$filesArrayFieldName' array that don't appear in the JSON or their parentId is not the same as this Asset's ('$assetId')" +
                 additionalErrorMessage
             ).invalidNel[Value]
 
         val filesValidatedNel = idsMissingFromFilesListPotentialError.combine(idsInFilesListButNotInJsonPotentialError)
 
-        Map(filesFieldName -> filesValidatedNel)
-      case invalidNel => Map(filesFieldName -> filesNel)
+        Map(filesArrayFieldName -> filesValidatedNel)
+      case invalidNel => Map(filesArrayFieldName -> filesArrayNel)
     }
   }
 

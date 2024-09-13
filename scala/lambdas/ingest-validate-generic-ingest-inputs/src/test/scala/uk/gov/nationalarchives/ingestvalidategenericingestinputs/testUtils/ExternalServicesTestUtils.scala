@@ -109,7 +109,7 @@ object ExternalServicesTestUtils {
   def convertUjsonObjToGenericValidatedMap(entry: Obj): ValidatedEntry =
     entry.obj.toMap.map { case (property, value) => property -> Validated.Valid(value) }
 
-  def testAllEntryIds(allEntries: List[Obj] = testValidMetadataJson()): List[(String, EntryTypeAndParent)] =
+  def generateListOfIdsAndEntries(allEntries: List[Obj] = testValidMetadataJson()): List[(String, EntryTypeAndParent)] =
     allEntries.map(entry => (entry(id).str, generateEntry(entry)))
 
   private def generateEntry(entry: Obj) = {

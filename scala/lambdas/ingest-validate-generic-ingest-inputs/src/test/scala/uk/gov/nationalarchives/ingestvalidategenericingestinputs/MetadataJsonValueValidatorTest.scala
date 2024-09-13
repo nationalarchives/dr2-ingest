@@ -251,7 +251,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     entriesWithValidatedName should equal(allEntriesAsValidatedMaps)
   }
 
-  "checkIfAllIdsAreUuids" should "return a IdIsNotAUuidError if the entries' ids, are not UUIDs" in {
+  "checkIfAllIdsAreUuids" should "return an IdIsNotAUuidError if the entries' ids, are not UUIDs" in {
     val entriesWithIncorrectIds = allEntries.map { entry =>
       Obj.from(entry.value ++ Map(id -> Str("notAUuid")))
     }
@@ -288,7 +288,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     val entriesGroupedByType = allEntries.groupBy(_(entryType).str)
     val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
     val entriesGroupedById = validator.getIdsOfAllEntries(allEntriesAsValidatedMaps).sortBy(_._1)
-    entriesGroupedById should equal(testAllEntryIds(allEntries).sortBy(_._1))
+    entriesGroupedById should equal(generateListOfIdsAndEntries(allEntries).sortBy(_._1))
   }
 
   "getIdsOfAllEntries" should "still assign a file to an 'MetadataType' if it doesn't end in '-metadata.json' but is contained " +
@@ -339,7 +339,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     )
   }
 
-  "getIdsOfAllEntries" should "not return ids if the id field has a error" in {
+  "getIdsOfAllEntries" should "not return ids if the id field has an error" in {
     val entriesWithIncorrectIds = allEntries.map { entry =>
       Obj.from(entry.value ++ Map(id -> Num(123)))
     }
@@ -388,7 +388,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
   "checkIfAllIdsAreUnique" should "return 0 IdIsNotUniqueErrors if the values of the 'id' field in the entries are all unique" in {
     val entriesGroupedByType = allEntries.groupBy(_(entryType).str)
     val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
-    val entriesWithValidatedName = validator.checkIfAllIdsAreUnique(allEntriesAsValidatedMaps, testAllEntryIds(allEntries))
+    val entriesWithValidatedName = validator.checkIfAllIdsAreUnique(allEntriesAsValidatedMaps, generateListOfIdsAndEntries(allEntries))
     entriesWithValidatedName should equal(allEntriesAsValidatedMaps)
   }
 
@@ -396,7 +396,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     val entriesWithIncorrectIds = allEntries.map { entry =>
       Obj.from(entry.value ++ Map(id -> Str("cbf14cb2-1cb3-43a4-8310-2ac295a130c5")))
     }
-    val duplicateEntryIdsAndTypes = testAllEntryIds(entriesWithIncorrectIds)
+    val duplicateEntryIdsAndTypes = generateListOfIdsAndEntries(entriesWithIncorrectIds)
     val entriesGroupedByType = entriesWithIncorrectIds.groupBy(_(entryType).str)
     val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
 
@@ -430,7 +430,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
   "checkIfEntriesHaveCorrectParentIds" should "return 0 HierarchyLinkingError if the values of the 'id' field in the entries are all unique" in {
     val entriesGroupedByType = allEntries.groupBy(_(entryType).str)
     val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
-    val allEntryIds = testAllEntryIds(allEntries)
+    val allEntryIds = generateListOfIdsAndEntries(allEntries)
     val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
     val entriesWithValidatedParentId = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
     entriesWithValidatedParentId should equal(allEntriesAsValidatedMaps)
@@ -451,7 +451,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       val entriesGroupedByType = entryAndParent.groupBy(_(entryType).str)
       val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
 
-      val allEntryIds = testAllEntryIds(entriesWithoutASeries)
+      val allEntryIds = generateListOfIdsAndEntries(entriesWithoutASeries)
       val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
 
       val entriesWithValidatedParentId = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
@@ -486,7 +486,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       val entriesGroupedByType = entryAndParent.groupBy(_(entryType).str)
       val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
 
-      val allEntryIds = testAllEntryIds(entriesWithoutASeriesAndANullParentIds)
+      val allEntryIds = generateListOfIdsAndEntries(entriesWithoutASeriesAndANullParentIds)
       val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
 
       val entriesWithValidatedParentId = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
@@ -537,7 +537,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
 
       // allEntryIds is generated by 'getIdsOfAllEntries'; if parentIds failed a previous check, they will now become 'Some(errorMessage)'
       val allEntryIdsWithParentsThatAreNone =
-        testAllEntryIds(allEntries.map(entry => Obj.from(entry.value ++ Map(parentId -> Str("parentId undetermined, due to validation error")))))
+        generateListOfIdsAndEntries(allEntries.map(entry => Obj.from(entry.value ++ Map(parentId -> Str("parentId undetermined, due to validation error")))))
       val entryTypesGrouped = allEntryIdsWithParentsThatAreNone.groupBy { case (_, entryType) => entryType }
       val entriesWithValidatedParentId = validator.checkIfEntriesHaveCorrectParentIds(
         allEntriesWithParentIdsChangedToError,
@@ -554,7 +554,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       (entryType, entries.map(convertUjsonObjToSchemaValidatedMap))
     }
 
-    val allEntryIds = testAllEntryIds(entriesWithParentIdSameAsId)
+    val allEntryIds = generateListOfIdsAndEntries(entriesWithParentIdSameAsId)
 
     val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
     val entriesWithValidatedParentId = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
@@ -579,7 +579,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
         (entryType, entries.map(convertUjsonObjToSchemaValidatedMap))
       }
 
-      val allEntryIds = testAllEntryIds().filterNot { case (id, entryType) => entryType.getClass.getSimpleName == parentEntryTypeToRemove + "Entry" }
+      val allEntryIds = generateListOfIdsAndEntries().filterNot { case (id, entryType) => entryType.getClass.getSimpleName == parentEntryTypeToRemove + "Entry" }
 
       val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
       val entriesWithValidatedParentId = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
@@ -620,7 +620,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
         (entryType, entries.map(convertUjsonObjToSchemaValidatedMap))
       }
 
-      val allEntryIds = testAllEntryIds(entriesWithoutIncorrectParentType) ::: List(
+      val allEntryIds = generateListOfIdsAndEntries(entriesWithoutIncorrectParentType) ::: List(
         additionalAsset(id).str -> AssetEntry(additionalAsset(parentId).strOpt)
       )
       val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
@@ -656,7 +656,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     }
     val entriesGroupedByType = entriesWithAssetWithNoFiles.groupBy(_(entryType).str)
     val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
-    val allEntryIds = testAllEntryIds(entriesWithAssetWithNoFiles)
+    val allEntryIds = generateListOfIdsAndEntries(entriesWithAssetWithNoFiles)
     val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
 
     val entriesWithValidatedName = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
@@ -687,7 +687,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
 
     val entriesGroupedByType = entriesWithoutFiles.groupBy(_(entryType).str)
     val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
-    val allEntryIds = testAllEntryIds().dropRight(2)
+    val allEntryIds = generateListOfIdsAndEntries().dropRight(2)
     val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
 
     val entriesWithValidatedName = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
@@ -711,7 +711,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
 
       val entriesGroupedByType = entriesWithFilesWithNoExtensions.groupBy(_(entryType).str)
       val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
-      val allEntryIds = testAllEntryIds(entriesWithFilesWithNoExtensions).map { case (id, entryTypeAndParent) =>
+      val allEntryIds = generateListOfIdsAndEntries(entriesWithFilesWithNoExtensions).map { case (id, entryTypeAndParent) =>
         id -> (
           if entryTypeAndParent.getClass.getSimpleName.endsWith("FileEntry") then UnknownFileTypeEntry(entryTypeAndParent.potentialParentId)
           else entryTypeAndParent
@@ -749,7 +749,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
           )
         }
     }
-    val allEntryIds = testAllEntryIds()
+    val allEntryIds = generateListOfIdsAndEntries()
     val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
     val entriesWithValidatedName = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
 
@@ -767,7 +767,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
           convertUjsonObjToSchemaValidatedMap(entry) ++ Map(id -> IdIsNotUniqueError(entry(id).str, "This id occurs 5 times").invalidNel[Value])
         }
     }
-    val allEntryIds = testAllEntryIds(entriesWithIncorrectIds)
+    val allEntryIds = generateListOfIdsAndEntries(entriesWithIncorrectIds)
     val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
     val entriesWithValidatedName = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
 
