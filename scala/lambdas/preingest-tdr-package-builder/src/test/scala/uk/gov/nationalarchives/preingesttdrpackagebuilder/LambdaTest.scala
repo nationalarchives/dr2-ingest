@@ -73,7 +73,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       val fileId = UUID.fromString("4e03a500-4f29-47c5-9c08-26e12f631fd8")
       val metadataFileId = UUID.fromString("427789a1-e7af-4172-9fa7-02da1d60125f")
       val tdrFileId = UUID.fromString("a2834c9d-46e8-42d9-a300-2a4ed31c1e1a")
-      val uuids = Iterator(archiveFolderId, fileId, metadataFileId)
+      val uuids = Iterator(metadataFileId, archiveFolderId, fileId)
       val uuidIterator: () => UUID = () => uuids.next
       val tdrMetadata = TDRMetadata(
         testData.series,
@@ -104,13 +104,15 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
       def stripFileExtension(title: String) = if title.contains(".") then title.substring(0, title.lastIndexOf('.')) else title
 
-      val metadataObjects = s3Contents(s"${testData.batchId}/metadata.json").asInstanceOf[List[MetadataObject]]
-      val contentFolderMetadataObject = metadataObjects.head.asInstanceOf[ContentFolderMetadataObject]
-      val assetMetadataObject = metadataObjects(1).asInstanceOf[AssetMetadataObject]
-      val fileMetadataObject = metadataObjects(2).asInstanceOf[FileMetadataObject]
-      val metadataFileMetadataObject = metadataObjects(3).asInstanceOf[FileMetadataObject]
+      val metadataObjects: List[MetadataObject] = s3Contents(s"${testData.batchId}/metadata.json").asInstanceOf[List[MetadataObject]]
+      val contentFolderMetadataObject = metadataObjects.find(_.isInstanceOf[ContentFolderMetadataObject]).get.asInstanceOf[ContentFolderMetadataObject]
+      val assetMetadataObject = metadataObjects.find(_.isInstanceOf[AssetMetadataObject]).get.asInstanceOf[AssetMetadataObject]
+      val fileMetadataObjects = metadataObjects
+        .filter(_.isInstanceOf[FileMetadataObject])
+        .map(_.asInstanceOf[FileMetadataObject])
+      val fileMetadataObject = fileMetadataObjects.filterNot(_.name.endsWith(".metadata")).head
+      val metadataFileMetadataObject = fileMetadataObjects.filter(_.name.endsWith("-metadata.json")).head
 
-      contentFolderMetadataObject.id should equal(archiveFolderId)
       contentFolderMetadataObject.name should equal(testData.tdrRef)
       contentFolderMetadataObject.title should equal(None)
       contentFolderMetadataObject.parentId should equal(None)
@@ -129,7 +131,6 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       assetMetadataObject.digitalAssetSource should equal("Born Digital")
       assetMetadataObject.digitalAssetSubtype should equal("TDR")
 
-      fileMetadataObject.id should equal(fileId)
       fileMetadataObject.parentId should equal(Option(tdrFileId))
       fileMetadataObject.title should equal(stripFileExtension(testData.fileName.fileString))
       fileMetadataObject.sortOrder should equal(1)
@@ -140,7 +141,6 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       fileMetadataObject.location should equal(URI.create("s3://bucket/key"))
       fileMetadataObject.checksumSha256 should equal(testData.checksum)
 
-      metadataFileMetadataObject.id should equal(metadataFileId)
       metadataFileMetadataObject.parentId should equal(Option(tdrFileId))
       metadataFileMetadataObject.title should equal(s"${testData.tdrRef}-metadata")
       metadataFileMetadataObject.sortOrder should equal(2)

@@ -6,7 +6,7 @@ import fs2.hashing.{HashAlgorithm, Hashing}
 import fs2.interop.reactivestreams.*
 import fs2.{Chunk, Stream}
 import io.circe
-import io.circe.Printer
+import io.circe.Json
 import io.circe.fs2.{decoder as fs2Decoder, *}
 import io.circe.generic.auto.*
 import io.circe.syntax.*
@@ -34,74 +34,92 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
 
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
-    def processTdrMetadata(tdrMetadataStream: Stream[IO, TDRMetadata], fileLocation: URI): Stream[IO, MetadataObject] = {
-      tdrMetadataStream.flatMap { tdrMetadata =>
-        val contentFolderId = dependencies.uuidGenerator()
-        val assetId = tdrMetadata.UUID
-        val fileId = dependencies.uuidGenerator()
-        val metadataId = dependencies.uuidGenerator()
-        val contentFolder = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, tdrMetadata.Series, Nil)
-        val assetMetadata = AssetMetadataObject(
-          assetId,
-          Option(contentFolderId),
-          stripFileExtension(tdrMetadata.Filename),
-          tdrMetadata.Filename,
-          List(fileId),
-          List(metadataId),
-          None,
-          tdrMetadata.TransferringBody,
-          LocalDateTime.parse(tdrMetadata.TransferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
-          "TDR",
-          "Born Digital",
-          "TDR",
-          List(
-            IdField("UpstreamSystemReference", tdrMetadata.FileReference),
-            IdField("BornDigitalRef", tdrMetadata.FileReference),
-            IdField("ConsignmentReference", tdrMetadata.ConsignmentReference),
-            IdField("RecordID", assetId.toString)
-          )
-        )
-        val file = FileMetadataObject(
-          fileId,
-          Option(assetId),
-          stripFileExtension(tdrMetadata.Filename),
-          1,
-          tdrMetadata.Filename,
-          tdrMetadata.ClientSideFileSize,
-          Preservation,
-          1,
-          fileLocation,
-          tdrMetadata.SHA256ServerSideChecksum
-        )
-        val metadataFileBytes = tdrMetadata.asJson.printWith(Printer.noSpaces).getBytes
-
-        val metadataChecksum = Stream
-          .emits(metadataFileBytes)
-          .through(fs2.hashing.Hashing[IO].hash(HashAlgorithm.SHA256))
-          .flatMap(hash => Stream.emits(hash.bytes.toList))
-          .through(fs2.text.hex.encode)
-          .compile
-          .to(string)
-
-        Stream.evals {
-          metadataChecksum.map { checksum =>
-            val metadataFileSize = metadataFileBytes.length
-            val metadata = FileMetadataObject(
-              metadataId,
-              Option(assetId),
-              s"${tdrMetadata.ConsignmentReference}-metadata",
-              2,
-              s"${tdrMetadata.ConsignmentReference}-metadata.json",
-              metadataFileSize,
-              Preservation,
-              1,
-              getMetadataUri(fileLocation),
-              checksum
+    def processNonMetadataFiles(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI, metadataId: UUID): Stream[IO, MetadataObject] = {
+      tdrMetadataJsonStream
+        .through(fs2Decoder[IO, TDRMetadata])
+        .flatMap { tdrMetadata =>
+          val contentFolderId = dependencies.uuidGenerator()
+          val assetId = tdrMetadata.UUID
+          val fileId = dependencies.uuidGenerator()
+          val contentFolder = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, tdrMetadata.Series, Nil)
+          val assetMetadata = AssetMetadataObject(
+            assetId,
+            Option(contentFolderId),
+            stripFileExtension(tdrMetadata.Filename),
+            tdrMetadata.Filename,
+            List(fileId),
+            List(metadataId),
+            None,
+            tdrMetadata.TransferringBody,
+            LocalDateTime.parse(tdrMetadata.TransferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
+            "TDR",
+            "Born Digital",
+            "TDR",
+            List(
+              IdField("UpstreamSystemReference", tdrMetadata.FileReference),
+              IdField("BornDigitalRef", tdrMetadata.FileReference),
+              IdField("ConsignmentReference", tdrMetadata.ConsignmentReference),
+              IdField("RecordID", assetId.toString)
             )
-            List(contentFolder, assetMetadata, file, metadata)
+          )
+          val file = FileMetadataObject(
+            fileId,
+            Option(assetId),
+            stripFileExtension(tdrMetadata.Filename),
+            1,
+            tdrMetadata.Filename,
+            tdrMetadata.ClientSideFileSize,
+            Preservation,
+            1,
+            fileLocation,
+            tdrMetadata.SHA256ServerSideChecksum
+          )
+          Stream.emits(List(contentFolder, assetMetadata, file))
+        }
+    }
+
+    def metadataChecksum(metadataFileBytes: Array[Byte]) = Stream
+      .emits(metadataFileBytes)
+      .through(fs2.hashing.Hashing[IO].hash(HashAlgorithm.SHA256))
+      .flatMap(hash => Stream.emits(hash.bytes.toList))
+      .through(fs2.text.hex.encode)
+      .compile
+      .to(string)
+
+    def processMetadataFiles(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI, metadataId: UUID): Stream[IO, MetadataObject] = {
+      tdrMetadataJsonStream
+        .flatMap { tdrMetadataJson =>
+          Stream.evals {
+            val fileBytes = tdrMetadataJson.noSpaces.getBytes
+            for {
+              tdrMetadata <- IO.fromEither(tdrMetadataJson.as[TDRMetadata])
+              checksum <- metadataChecksum(fileBytes)
+            } yield {
+              val metadataFileSize = fileBytes.length
+              val metadata = FileMetadataObject(
+                metadataId,
+                Option(tdrMetadata.UUID),
+                s"${tdrMetadata.ConsignmentReference}-metadata",
+                2,
+                s"${tdrMetadata.ConsignmentReference}-metadata.json",
+                metadataFileSize,
+                Preservation,
+                1,
+                getMetadataUri(fileLocation),
+                checksum
+              )
+              List(metadata)
+            }
           }
         }
-      }
+    }
+
+    def processTdrMetadata(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI): Stream[IO, MetadataObject] = {
+      val metadataId = dependencies.uuidGenerator()
+      tdrMetadataJsonStream.broadcastThrough(
+        jsonStream => processNonMetadataFiles(jsonStream, fileLocation, metadataId),
+        jsonStream => processMetadataFiles(jsonStream, fileLocation, metadataId)
+      )
     }
 
     def downloadMetadataFile(lockTableMessage: LockTableMessage) = {
@@ -114,7 +132,6 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             .toStreamBuffered[IO](bufferSize)
             .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
             .through(byteStreamParser[IO])
-            .through(fs2Decoder[IO, TDRMetadata])
             .through(metadataStream => processTdrMetadata(metadataStream, fileLocation))
         }
     }
