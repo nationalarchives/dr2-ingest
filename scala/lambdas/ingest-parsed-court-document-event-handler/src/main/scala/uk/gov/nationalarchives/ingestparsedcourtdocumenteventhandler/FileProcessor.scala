@@ -2,9 +2,7 @@ package uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler
 
 import cats.effect.IO
 import cats.effect.kernel.Resource
-import fs2.Collector.string
 import fs2.compression.Compression
-import fs2.hashing.HashAlgorithm
 import fs2.io.*
 import fs2.{Chunk, Pipe, Stream, text}
 import io.circe.Decoder.Result
