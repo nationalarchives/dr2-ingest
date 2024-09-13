@@ -22,6 +22,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
 import java.net.URI
 import java.nio.ByteBuffer
+import java.time.OffsetDateTime
 import java.util.UUID
 
 object TestUtils:
@@ -98,7 +99,44 @@ object TestUtils:
 
   given Decoder[ContentFolderMetadataObject] = Decoder.derivedConfigured[ContentFolderMetadataObject]
 
-  given Decoder[AssetMetadataObject] = Decoder.derivedConfigured[AssetMetadataObject]
+  given Decoder[AssetMetadataObject] = (c: HCursor) =>
+    for {
+      id <- c.downField("id").as[UUID]
+      parentId <- c.downField("parentId").as[Option[UUID]]
+      title <- c.downField("title").as[String]
+      name <- c.downField("name").as[String]
+      originalFiles <- c.downField("originalFiles").as[List[UUID]]
+      originalMetadataFiles <- c.downField("originalMetadataFiles").as[List[UUID]]
+      description <- c.downField("description").as[Option[String]]
+      transferringBody <- c.downField("transferringBody").as[String]
+      transferCompleteDatetime <- c.downField("transferCompleteDatetime").as[String]
+      upstreamSystem <- c.downField("upstreamSystem").as[String]
+      digitalAssetSource <- c.downField("digitalAssetSource").as[String]
+      digitalAssetSubtype <- c.downField("digitalAssetSubtype").as[String]
+      idFields = c.keys
+        .map(_.toList)
+        .getOrElse(Nil)
+        .filter(_.startsWith("id_"))
+        .flatMap { key =>
+          c.downField(key).as[String].toOption.map { value =>
+            IdField(key.drop(3), value)
+          }
+        }
+    } yield AssetMetadataObject(
+      id,
+      parentId,
+      title,
+      name,
+      originalFiles,
+      originalMetadataFiles,
+      description,
+      transferringBody,
+      OffsetDateTime.parse(transferCompleteDatetime),
+      upstreamSystem,
+      digitalAssetSource,
+      digitalAssetSubtype,
+      idFields
+    )
 
   given Decoder[FileMetadataObject] = (c: HCursor) =>
     for {

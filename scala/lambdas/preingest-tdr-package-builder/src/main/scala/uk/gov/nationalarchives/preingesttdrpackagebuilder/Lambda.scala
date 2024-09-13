@@ -56,6 +56,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             "Born Digital",
             "TDR",
             List(
+              IdField("Code", s"${tdrMetadata.Series}/${tdrMetadata.FileReference}"),
               IdField("UpstreamSystemReference", tdrMetadata.FileReference),
               IdField("BornDigitalRef", tdrMetadata.FileReference),
               IdField("ConsignmentReference", tdrMetadata.ConsignmentReference),
@@ -99,9 +100,9 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               val metadata = FileMetadataObject(
                 metadataId,
                 Option(tdrMetadata.UUID),
-                s"${tdrMetadata.ConsignmentReference}-metadata",
+                s"${tdrMetadata.UUID}-metadata",
                 2,
-                s"${tdrMetadata.ConsignmentReference}-metadata.json",
+                s"${tdrMetadata.UUID}-metadata.json",
                 metadataFileSize,
                 Preservation,
                 1,

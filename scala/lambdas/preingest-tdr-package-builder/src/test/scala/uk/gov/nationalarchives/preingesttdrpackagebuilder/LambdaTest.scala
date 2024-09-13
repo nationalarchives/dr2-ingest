@@ -130,6 +130,13 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       assetMetadataObject.upstreamSystem should equal("TDR")
       assetMetadataObject.digitalAssetSource should equal("Born Digital")
       assetMetadataObject.digitalAssetSubtype should equal("TDR")
+      def checkIdField(name: String, value: String) =
+        assetMetadataObject.idFields.find(_.name == name).map(_.value).get should equal(value)
+      checkIdField("Code", s"${testData.series}/${testData.fileRef}")
+      checkIdField("UpstreamSystemReference", testData.fileRef)
+      checkIdField("BornDigitalRef", testData.fileRef)
+      checkIdField("ConsignmentReference", testData.tdrRef)
+      checkIdField("RecordID", tdrFileId.toString)
 
       fileMetadataObject.parentId should equal(Option(tdrFileId))
       fileMetadataObject.title should equal(stripFileExtension(testData.fileName.fileString))
@@ -142,9 +149,9 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       fileMetadataObject.checksumSha256 should equal(testData.checksum)
 
       metadataFileMetadataObject.parentId should equal(Option(tdrFileId))
-      metadataFileMetadataObject.title should equal(s"${testData.tdrRef}-metadata")
+      metadataFileMetadataObject.title should equal(s"$tdrFileId-metadata")
       metadataFileMetadataObject.sortOrder should equal(2)
-      metadataFileMetadataObject.name should equal(s"${testData.tdrRef}-metadata.json")
+      metadataFileMetadataObject.name should equal(s"$tdrFileId-metadata.json")
       metadataFileMetadataObject.fileSize should equal(tdrMetadata.asJson.noSpaces.getBytes.length)
       metadataFileMetadataObject.representationType should equal(RepresentationType.Preservation)
       metadataFileMetadataObject.representationSuffix should equal(1)
