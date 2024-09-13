@@ -8,7 +8,7 @@ This project is for a lambda that is triggered by a notification, sent via our C
    corresponds to that id
 4. it then calls `add_true_to_ingest_cc_attribute` which takes the `id` and `batchId` of the item and then writes 
    `true` to the `ingest_CC` attribute on the item. If the `ingest_CC` attribute doesn't already exist, it will add 
-   it (add give it the value of `true`)
+   it (give it the value of `true`)
 
 # Troubleshooting
    When it comes to the tests, avoid using `import boto3` and instead do `from boto3 import ...` because something in
