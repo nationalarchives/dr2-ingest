@@ -11,4 +11,3 @@ updates:
     schedule:
       # Check for updates to python packages every week
       interval: "weekly"
-
