@@ -35,7 +35,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       tableName: String,
       gsiName: String
   ): IO[List[FileDynamoTable]] = {
-    val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
+    val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
     daDynamoDBClient
       .queryItems[FileDynamoTable](
         tableName,
@@ -49,7 +49,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   private def coTitleMatchesAssetChildTitle(potentialCoTitle: Option[String], assetChild: FileDynamoTable): Boolean =
     potentialCoTitle.exists { titleOfCo => // DDB titles don't have file extensions, CO titles do
       lazy val fileNameWithoutExtension = assetChild.name
-      val potentialAssetChildTitleOrFileName = assetChild.title.getOrElse("")
+      val potentialAssetChildTitleOrFileName = assetChild.potentialTitle.getOrElse("")
       val assetChildTitleOrFileName = if potentialAssetChildTitleOrFileName.isEmpty then fileNameWithoutExtension else potentialAssetChildTitleOrFileName
 
       val numOfDotsInTitleOrFileName = assetChildTitleOrFileName.count(_ == '.')

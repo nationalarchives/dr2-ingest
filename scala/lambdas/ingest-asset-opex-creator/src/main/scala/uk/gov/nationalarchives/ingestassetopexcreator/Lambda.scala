@@ -83,7 +83,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     )
   }
 
-  private def parentPath(input: Input, asset: AssetDynamoTable) = s"opex/${input.executionName}${asset.parentPath.map(path => s"/$path").getOrElse("")}"
+  private def parentPath(input: Input, asset: AssetDynamoTable) = s"opex/${input.executionName}${asset.potentialParentPath.map(path => s"/$path").getOrElse("")}"
 
   private def assetPath(input: Input, asset: AssetDynamoTable) = s"${parentPath(input, asset)}/${asset.id}.pax"
 
@@ -91,7 +91,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     s"${assetPath(input, asset)}/${xmlCreator.bitstreamPath(child)}/${xmlCreator.childFileName(child)}"
 
   private def childrenOfAsset(dynamoClient: DADynamoDBClient[IO], asset: AssetDynamoTable, tableName: String, gsiName: String): IO[List[FileDynamoTable]] = {
-    val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
+    val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
     dynamoClient
       .queryItems[FileDynamoTable](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
   }

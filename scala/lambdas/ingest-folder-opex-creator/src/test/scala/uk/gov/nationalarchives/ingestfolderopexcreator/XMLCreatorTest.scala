@@ -153,7 +153,7 @@ class XMLCreatorTest extends AnyFlatSpec {
   }
 
   "createFolderOpex" should "create the correct opex xml, using the name if the title is blank" in {
-    val xml = XMLCreator().createFolderOpex(archiveFolder.copy(title = None), childAssets, childFolders, Nil).unsafeRunSync()
+    val xml = XMLCreator().createFolderOpex(archiveFolder.copy(potentialTitle = None), childAssets, childFolders, Nil).unsafeRunSync()
     xml should equal(expectedXmlNoTitle)
   }
 }
