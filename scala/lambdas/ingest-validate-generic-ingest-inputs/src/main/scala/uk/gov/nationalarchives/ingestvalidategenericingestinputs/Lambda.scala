@@ -9,18 +9,16 @@ import io.circe.*
 import io.circe.generic.auto.*
 import io.circe.syntax.*
 import org.reactivestreams.FlowAdapters
-import org.scanamo.*
 import org.scanamo.generic.semiauto.*
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryValidationError.{MissingPropertyError, SchemaValueError, ValidationError, ValueError}
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryValidationError.{MissingPropertyError, ValidationError, ValueError}
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.EntryTypeSchema.*
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonValueValidator
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.net.URI

@@ -3,7 +3,6 @@ package uk.gov.nationalarchives.ingestvalidategenericingestinputs
 import cats.data.*
 import cats.effect.IO
 import cats.implicits.*
-import org.scanamo.*
 import org.scanamo.generic.semiauto.*
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
