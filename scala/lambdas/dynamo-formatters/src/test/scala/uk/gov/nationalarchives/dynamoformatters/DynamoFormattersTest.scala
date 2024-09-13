@@ -311,10 +311,14 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       }
       val dynamoTableFields = tableElementNames.toList
       val dynamoTableFieldsMapped = dynamoTableFields.map {
-        case "identifiers"           => "id_Test"
-        case "ingestedPreservica"    => "ingested_PS"
-        case "ingestedCustodialCopy" => "ingested_CC"
-        case theRest                 => theRest
+        case "potentialParentPath"    => "parentPath"
+        case "potentialTitle"         => "title"
+        case "potentialDescription"   => "description"
+        case "potentialFileExtension" => "fileExtension"
+        case "identifiers"            => "id_Test"
+        case "ingestedPreservica"     => "ingested_PS"
+        case "ingestedCustodialCopy"  => "ingested_CC"
+        case theRest                  => theRest
       }
 
       val fieldsPopulated = populatedFields(rowType)
