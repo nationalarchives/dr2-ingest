@@ -341,7 +341,7 @@ class MetadataJsonValueValidator {
     }
   }
 
-  def getIdsOfAllEntries(allEntries: Map[String, List[ValidatedEntry]]): List[(FieldName, EntryTypeAndParent)] = {
+  def getIdsOfAllEntries(allEntries: Map[String, List[ValidatedEntry]], metadataFileIds: List[String] = Nil): List[(FieldName, EntryTypeAndParent)] = {
     def getEntryType(entryTypeAsString: String, potentialParentId: Option[String]): EntryTypeAndParent =
       entryTypeAsString match {
         case "File"            => FileEntry(potentialParentId)
@@ -362,8 +362,9 @@ class MetadataJsonValueValidator {
             val nameNel = entry("name")
             nameNel match {
               case Validated.Valid(nameValue) =>
+                val idOfFile = idNel.getOrElse(Str("idFieldHasErrorInIt")).str
                 val nameAsString = nameValue.str
-                if nameAsString.endsWith("-metadata.json") then "MetadataFile" else entryType
+                if nameAsString.endsWith("-metadata.json") || metadataFileIds.contains(idOfFile) then "MetadataFile" else entryType
               case invalidNel => "UnknownFileType"
             }
           else entryType

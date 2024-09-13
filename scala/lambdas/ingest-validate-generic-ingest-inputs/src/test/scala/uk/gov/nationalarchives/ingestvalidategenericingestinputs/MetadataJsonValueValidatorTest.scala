@@ -291,7 +291,29 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     entriesGroupedById should equal(testAllEntryIds(allEntries).sortBy(_._1))
   }
 
-  "getIdsOfAllEntries" should "assign a file to an 'UnknownFileType' if the name field has a error" in {
+  "getIdsOfAllEntries" should "still assign a file to an 'MetadataType' if it doesn't end in '-metadata.json' but is contained " +
+    "within the Asset's 'originalMetadataFiles' array" in {
+      val entriesWithMetadataFileWithNoExt = allEntries.map { entry =>
+        if entry(id).str == "d4f8613d-2d2a-420d-a729-700c841244f3" then Obj.from(entry.value ++ Map(name -> Str("TDD-2023-ABC-metadata"))) else entry
+      }
+      val entriesGroupedByType = entriesWithMetadataFileWithNoExt.groupBy(_(entryType).str)
+      val entriesAsValidatedMap = entriesGroupedByType.map { case (entryType, entries) =>
+        entryType -> entries.map(convertUjsonObjToSchemaValidatedMap)
+      }
+
+      val fileEntriesWithValidatedName = validator.getIdsOfAllEntries(entriesAsValidatedMap, List("d4f8613d-2d2a-420d-a729-700c841244f3")).sortBy(_._1)
+      fileEntriesWithValidatedName should equal(
+        List(
+          ("b7329714-4753-4bf5-a802-1c126bad1ad6", ArchiveFolderEntry(None)),
+          ("27354aa8-975f-48d1-af79-121b9a349cbe", ContentFolderEntry(Some("b7329714-4753-4bf5-a802-1c126bad1ad6"))),
+          ("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6", AssetEntry(Some("27354aa8-975f-48d1-af79-121b9a349cbe"))),
+          ("d4f8613d-2d2a-420d-a729-700c841244f3", MetadataFileEntry(Some("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6"))),
+          ("b0147dea-878b-4a25-891f-66eba66194ca", FileEntry(Some("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6")))
+        ).sortBy(_._1)
+      )
+    }
+
+  "getIdsOfAllEntries" should "assign a file to an 'UnknownFileType' if the name field has an error" in {
     val entriesWithIncorrectFileNames = allEntries.map { entry =>
       if entry(entryType).str == "File" then Obj.from(entry.value ++ Map(name -> Num(123))) else entry
     }
