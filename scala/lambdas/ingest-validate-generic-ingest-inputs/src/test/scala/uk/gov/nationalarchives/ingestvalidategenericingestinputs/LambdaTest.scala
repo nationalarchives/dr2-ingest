@@ -42,7 +42,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       downloadResponseError: Boolean = false,
       metadataJsonAsObj: List[Obj],
       headObjectResponseError: Boolean = false,
-      stringsExpectedInJson: List[String] = List(stringArgToCauseTestToFail)
+      stringsExpectedInJson: List[String] = List(stringArgToCauseTestToFail),
+      stringsNotExpectedInJson: List[String] = Nil
   ) = {
     new DAS3Client[IO]():
       override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = {
@@ -62,6 +63,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           .compile
           .string
         _ <- IO(stringsExpectedInJson.foreach(expectedSubString => assert(actualUploadedJson.contains(expectedSubString))))
+        _ <- IO(stringsNotExpectedInJson.foreach(unexpectedSubString => assert(!actualUploadedJson.contains(unexpectedSubString))))
 
       } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build
 
@@ -181,27 +183,59 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       )
     }
 
-  "the lambda" should "call the 'checkFileNamesHaveExtensions', 'checkIfAllIdsAreUnique' and 'checkIfAllIdsAreUuids' methods" in {
+  "the lambda" should "call the 'checkFileNamesHaveExtensions' method with only metadata files" in {
+    val entriesWithFileNamesWithoutExtensions = testValidMetadataJson().map { entry =>
+      val typeOfEntry = entry(entryType).str
+      if typeOfEntry == "File" then
+        val entryName = entry("name").str
+        val nameWithoutExtension = entryName.split('.').dropRight(1).mkString(".")
+        Obj.from(entry.value ++ Map("name" -> Str(nameWithoutExtension)))
+      else entry
+    }
+
+    val expectedExtensionMethodString = List(
+      """"name":{"Invalid":[{"errorType":"MissingFileExtensionError","valueThatCausedError":"TDD-2023-ABC-metadata","errorMessage":"The file name does not have an extension at the end of it"}]}"""
+    )
+    val unexpectedExtensionMethodString = List(
+      """"name":{"Invalid":[{"errorType":"MissingFileExtensionError","valueThatCausedError":"test name","errorMessage":"The file name does not have an extension at the end of it"}]}"""
+    )
+
+    val s3Client = getS3Client(
+      metadataJsonAsObj = entriesWithFileNamesWithoutExtensions,
+      stringsExpectedInJson = expectedExtensionMethodString,
+      stringsNotExpectedInJson = unexpectedExtensionMethodString
+    )
+    val logMessageCallbackSpy = spy(logMessageCallback)
+
+    val ex = intercept[JsonValidationException] {
+      new LambdaWithLogSpy(logMessageCallbackSpy).handler(input, config, dependencies(s3Client)).unsafeRunSync()
+    }
+
+    verify(logMessageCallbackSpy).apply(
+      "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+    )
+    verify(logMessageCallbackSpy).apply(
+      """{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"name, title","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+    )
+
+    ex.getMessage should equal(
+      "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+    )
+  }
+
+  "the lambda" should "call the 'checkIfAllIdsAreUnique' and 'checkIfAllIdsAreUuids' methods" in {
     val unknownTypeEntry = testValidMetadataJson().collect {
       case entry if entry(entryType).str == "ContentFolder" => Obj.from(entry.value ++ Map("type" -> Str("UnknownType")))
     }
 
-    val entriesWithoutNamesAndUniqueIds = testValidMetadataJson(unknownTypeEntry).map { entry =>
+    val entriesWithoutUuidsAndUniqueIds = testValidMetadataJson(unknownTypeEntry).map { entry =>
       val typeOfEntry = entry(entryType).str
-      if typeOfEntry == "ContentFolder" then Obj.from(entry.value ++ Map("name" -> Str(""), "id" -> Str("non-uuid id")))
-      else if typeOfEntry == "File" then
-        val entryName = entry("name").str
-        val nameWithoutExtension = entryName.split('.').dropRight(1).mkString(".")
-        Obj.from(entry.value ++ Map("name" -> Str(nameWithoutExtension), "id" -> Str("29dc3d9b-e451-4a92-bbcd-88ba3a8d1935")))
+      if typeOfEntry == "ContentFolder" then Obj.from(entry.value ++ Map("id" -> Str("non-uuid id")))
+      else if typeOfEntry == "File" then Obj.from(entry.value ++ Map("id" -> Str("29dc3d9b-e451-4a92-bbcd-88ba3a8d1935")))
       else entry
     }
 
     val expectedErrorsPerMethod = Map(
-      "checkFileNamesHaveExtensions" ->
-        List(
-          """"name":{"Invalid":[{"errorType":"MissingFileExtensionError","valueThatCausedError":"test name","errorMessage":"The file name does not have an extension at the end of it"}]}""",
-          """"name":{"Invalid":[{"errorType":"MissingFileExtensionError","valueThatCausedError":"TDD-2023-ABC-metadata","errorMessage":"The file name does not have an extension at the end of it"}]}"""
-        ),
       "checkIfAllIdsAreUnique" ->
         List(
           """"id":{"Invalid":[{"errorType":"IdIsNotUniqueError","valueThatCausedError":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","errorMessage":"This id occurs 2 times"}]}""",
@@ -215,7 +249,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
     val expectedJsonErrors = expectedErrorsPerMethod.values.toList.flatten
 
-    val s3Client = getS3Client(metadataJsonAsObj = entriesWithoutNamesAndUniqueIds, stringsExpectedInJson = expectedJsonErrors)
+    val s3Client = getS3Client(metadataJsonAsObj = entriesWithoutUuidsAndUniqueIds, stringsExpectedInJson = expectedJsonErrors)
     val logMessageCallbackSpy = spy(logMessageCallback)
 
     val ex = intercept[JsonValidationException] {
@@ -228,17 +262,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     verify(logMessageCallbackSpy).apply(
       """{"id":"\"27354aa8-975f-48d1-af79-121b9a349cbe\"","fieldNamesWithErrors":"type","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
     )
-    verify(logMessageCallbackSpy).apply(
-      """{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"name, id, title","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
-    )
-    verify(logMessageCallbackSpy).apply(
-      """{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"name, id","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+    verify(logMessageCallbackSpy, times(2)).apply(
+      """{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"id","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
     )
     verify(logMessageCallbackSpy).apply(
       """{"id":"\"b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6\"","fieldNamesWithErrors":"originalMetadataFiles, originalFiles","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
     )
     verify(logMessageCallbackSpy).apply(
-      """{"id":"non-uuid id","fieldNamesWithErrors":"name, id","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+      """{"id":"non-uuid id","fieldNamesWithErrors":"id","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
     )
 
     ex.getMessage should equal(

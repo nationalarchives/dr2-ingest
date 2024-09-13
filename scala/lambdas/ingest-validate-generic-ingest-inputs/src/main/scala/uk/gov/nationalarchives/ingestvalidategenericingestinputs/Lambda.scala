@@ -95,9 +95,24 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
       fileEntriesWithValidatedLocation = fileEntries.zip(validatedLocations).map { case (entries, locationNel) => entries + (location -> locationNel) }
 
-      fileEntriesWithValidatedExtensions = valueValidator.checkFileNamesHaveExtensions(fileEntriesWithValidatedLocation)
+      (fileEntriesWithValidatedExtensions, metadataFileIds) = {
+        val idsOfMetadataFiles = validatedEntries("Asset").flatMap { entry =>
+          entry.collect {
+            case (fieldName, validatedValue) if fieldName == "originalMetadataFiles" =>
+              val listOfValues = validatedValue.getOrElse(Arr()).arr.toList
+              listOfValues.map(_.str)
+          }.flatten
+        }
+        val (metadataEntries, nonMetadataEntries) = fileEntriesWithValidatedLocation.partition { fileEntry =>
+          val fileEntryId = fileEntry(id).getOrElse(Str("idFieldHasErrorInIt")).str
+          idsOfMetadataFiles.contains(fileEntryId)
+        }
+        val metadataEntriesWithValidatedExtensions = valueValidator.checkFileNamesHaveExtensions(metadataEntries)
+
+        (metadataEntriesWithValidatedExtensions ::: nonMetadataEntries, idsOfMetadataFiles)
+      }
       updatedEntries = validatedEntries ++ Map("File" -> fileEntriesWithValidatedExtensions)
-      allEntryIds = valueValidator.getIdsOfAllEntries(updatedEntries)
+      allEntryIds = valueValidator.getIdsOfAllEntries(updatedEntries, metadataFileIds)
       entriesWithValidatedUniqueIds = valueValidator.checkIfAllIdsAreUnique(updatedEntries, allEntryIds)
       entriesWithValidatedUuids = valueValidator.checkIfAllIdsAreUuids(entriesWithValidatedUniqueIds)
 
