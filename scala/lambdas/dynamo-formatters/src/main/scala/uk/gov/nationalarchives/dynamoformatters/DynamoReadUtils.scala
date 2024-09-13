@@ -219,11 +219,11 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       ArchiveFolderDynamoTable(
         batchId,
         id,
-        allValidatedFileTableFields.parentPath,
+        allValidatedFileTableFields.potentialParentPath,
         name,
         rowType,
-        allValidatedFileTableFields.title,
-        allValidatedFileTableFields.description,
+        allValidatedFileTableFields.potentialTitle,
+        allValidatedFileTableFields.potentialDescription,
         allValidatedFileTableFields.identifiers,
         childCount
       )
@@ -242,11 +242,11 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       ContentFolderDynamoTable(
         batchId,
         id,
-        allValidatedFileTableFields.parentPath,
+        allValidatedFileTableFields.potentialParentPath,
         name,
         rowType,
-        allValidatedFileTableFields.title,
-        allValidatedFileTableFields.description,
+        allValidatedFileTableFields.potentialTitle,
+        allValidatedFileTableFields.potentialDescription,
         allValidatedFileTableFields.identifiers,
         childCount
       )
@@ -288,11 +288,11 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
         AssetDynamoTable(
           batchId,
           id,
-          allValidatedFileTableFields.parentPath,
+          allValidatedFileTableFields.potentialParentPath,
           name,
           rowType,
-          allValidatedFileTableFields.title,
-          allValidatedFileTableFields.description,
+          allValidatedFileTableFields.potentialTitle,
+          allValidatedFileTableFields.potentialDescription,
           transferringBody,
           transferCompletedDatetime,
           upstreamSystem,
@@ -341,11 +341,11 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
         FileDynamoTable(
           batchId,
           id,
-          allValidatedFileTableFields.parentPath,
+          allValidatedFileTableFields.potentialParentPath,
           name,
           rowType,
-          allValidatedFileTableFields.title,
-          allValidatedFileTableFields.description,
+          allValidatedFileTableFields.potentialTitle,
+          allValidatedFileTableFields.potentialDescription,
           sortOrder,
           fileSize,
           checksumList,

@@ -213,7 +213,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
 
       val assetWithTitleWithChars = asset.copy(
-        title = Some("""Title_with_ASCII_Chars_!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~""")
+        potentialTitle = Some("""Title_with_ASCII_Chars_!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~""")
       )
       val xml = XMLCreator(ingestDateTime).createOpex(assetWithTitleWithChars, children, 4, identifiers).unsafeRunSync()
       val expectedOpexXmlWithNewTitle =
@@ -228,7 +228,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     "(with relevant chars escaped) even if the title has multiple spaces" in {
       val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
 
-      val assetWithTitleWithChars = asset.copy(title = Some("A title     with   spaces  in            it"))
+      val assetWithTitleWithChars = asset.copy(potentialTitle = Some("A title     with   spaces  in            it"))
       val xml = XMLCreator(ingestDateTime).createOpex(assetWithTitleWithChars, children, 4, identifiers).unsafeRunSync()
       val expectedOpexXmlWithNewTitle =
         expectedOpexXml.toString.replace("<opex:Title>title</opex:Title>", "<opex:Title>A title     with   spaces  in            it</opex:Title>")

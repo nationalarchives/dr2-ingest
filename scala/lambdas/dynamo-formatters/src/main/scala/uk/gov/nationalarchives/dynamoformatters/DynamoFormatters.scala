@@ -129,11 +129,11 @@ object DynamoFormatters {
   sealed trait DynamoTable {
     def batchId: String
     def id: UUID
-    def parentPath: Option[String]
+    def potentialParentPath: Option[String]
     def name: String
     def `type`: Type
-    def title: Option[String]
-    def description: Option[String]
+    def potentialTitle: Option[String]
+    def potentialDescription: Option[String]
     def identifiers: List[Identifier]
     def childCount: Int
   }
@@ -150,9 +150,9 @@ object DynamoFormatters {
       batchId: ValidatedField[String],
       id: ValidatedField[UUID],
       name: ValidatedField[String],
-      parentPath: Option[String],
-      title: Option[String],
-      description: Option[String],
+      potentialParentPath: Option[String],
+      potentialTitle: Option[String],
+      potentialDescription: Option[String],
       `type`: ValidatedField[Type],
       transferringBody: ValidatedField[String],
       transferCompleteDatetime: ValidatedField[OffsetDateTime],
@@ -179,11 +179,11 @@ object DynamoFormatters {
   case class ArchiveFolderDynamoTable(
       batchId: String,
       id: UUID,
-      parentPath: Option[String],
+      potentialParentPath: Option[String],
       name: String,
       `type`: Type,
-      title: Option[String],
-      description: Option[String],
+      potentialTitle: Option[String],
+      potentialDescription: Option[String],
       identifiers: List[Identifier],
       childCount: Int
   ) extends DynamoTable
@@ -191,11 +191,11 @@ object DynamoFormatters {
   case class ContentFolderDynamoTable(
       batchId: String,
       id: UUID,
-      parentPath: Option[String],
+      potentialParentPath: Option[String],
       name: String,
       `type`: Type,
-      title: Option[String],
-      description: Option[String],
+      potentialTitle: Option[String],
+      potentialDescription: Option[String],
       identifiers: List[Identifier],
       childCount: Int
   ) extends DynamoTable
@@ -203,11 +203,11 @@ object DynamoFormatters {
   case class AssetDynamoTable(
       batchId: String,
       id: UUID,
-      parentPath: Option[String],
+      potentialParentPath: Option[String],
       name: String,
       `type`: Type,
-      title: Option[String],
-      description: Option[String],
+      potentialTitle: Option[String],
+      potentialDescription: Option[String],
       transferringBody: String,
       transferCompleteDatetime: OffsetDateTime,
       upstreamSystem: String,
@@ -226,15 +226,15 @@ object DynamoFormatters {
   case class FileDynamoTable(
       batchId: String,
       id: UUID,
-      parentPath: Option[String],
+      potentialParentPath: Option[String],
       name: String,
       `type`: Type,
-      title: Option[String],
-      description: Option[String],
+      potentialTitle: Option[String],
+      potentialDescription: Option[String],
       sortOrder: Int,
       fileSize: Long,
       checksums: List[Checksum],
-      fileExtension: Option[String],
+      potentialFileExtension: Option[String],
       representationType: FileRepresentationType,
       representationSuffix: Int,
       ingestedPreservica: Boolean,

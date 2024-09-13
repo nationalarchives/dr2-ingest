@@ -374,7 +374,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
     assetRow.batchId should equal("testBatchId")
     assetRow.id should equal(UUID.fromString(allAssetFieldsPopulated(id).s()))
-    assetRow.parentPath.get should equal("testParentPath")
+    assetRow.potentialParentPath.get should equal("testParentPath")
     assetRow.name should equal("testName")
     assetRow.`type` should equal(Asset)
     assetRow.transferringBody should equal("testTransferringBody")
@@ -384,8 +384,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     assetRow.digitalAssetSubtype should equal("testDigitalAssetSubtype")
     assetRow.originalFiles should equal(List(UUID.fromString("dec2b921-20e3-41e8-a299-f3cbc13131a2")))
     assetRow.originalMetadataFiles should equal(List(UUID.fromString("3f42e3f2-fffe-4fe9-87f7-262e95b86d75")))
-    assetRow.title.get should equal("testTitle")
-    assetRow.description.get should equal("testDescription")
+    assetRow.potentialTitle.get should equal("testTitle")
+    assetRow.potentialDescription.get should equal("testDescription")
     assetRow.correlationId.get should equal("correlationId")
     assetRow.identifiers.sortBy(_.identifierName) should equal(
       List(Identifier("Test2", "testIdentifier2"), Identifier("Test", "testIdentifier")).sortBy(_.identifierName)
@@ -410,15 +410,15 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
     fileRow.batchId should equal("testBatchId")
     fileRow.id should equal(UUID.fromString(allFileFieldsPopulated(id).s()))
-    fileRow.parentPath.get should equal("testParentPath")
+    fileRow.potentialParentPath.get should equal("testParentPath")
     fileRow.name should equal("testName")
     fileRow.`type` should equal(File)
-    fileRow.title.get should equal("testTitle")
-    fileRow.description.get should equal("testDescription")
+    fileRow.potentialTitle.get should equal("testTitle")
+    fileRow.potentialDescription.get should equal("testDescription")
     fileRow.fileSize should equal(1)
     fileRow.sortOrder should equal(2)
     fileRow.checksums.head.fingerprint should equal("testChecksumAlgo1")
-    fileRow.fileExtension.get should equal("testFileExtension")
+    fileRow.potentialFileExtension.get should equal("testFileExtension")
     fileRow.location.toString should equal("s3://bucket/key")
   }
 
@@ -429,17 +429,17 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
     fileRow.batchId should equal("testBatchId")
     fileRow.id should equal(UUID.fromString(allFileFieldsPopulated(id).s()))
-    fileRow.parentPath.get should equal("testParentPath")
+    fileRow.potentialParentPath.get should equal("testParentPath")
     fileRow.name should equal("testName")
     fileRow.`type` should equal(File)
-    fileRow.title.get should equal("testTitle")
-    fileRow.description.get should equal("testDescription")
+    fileRow.potentialTitle.get should equal("testTitle")
+    fileRow.potentialDescription.get should equal("testDescription")
     fileRow.fileSize should equal(1)
     fileRow.sortOrder should equal(2)
     fileRow.checksums.size should equal(2)
     fileRow.checksums.find(_.algorithm.equals("Algorithm1")).get.fingerprint should equal("testChecksumAlgo1")
     fileRow.checksums.find(_.algorithm.equals("Algorithm2")).get.fingerprint should equal("testChecksumAlgo2")
-    fileRow.fileExtension.get should equal("testFileExtension")
+    fileRow.potentialFileExtension.get should equal("testFileExtension")
     fileRow.location.toString should equal("s3://bucket/key")
   }
 
@@ -472,11 +472,11 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
     folderRow.batchId should equal("testBatchId")
     folderRow.id should equal(UUID.fromString(allFolderFieldsPopulated(id).s()))
-    folderRow.parentPath.get should equal("testParentPath")
+    folderRow.potentialParentPath.get should equal("testParentPath")
     folderRow.name should equal("testName")
     folderRow.`type` should equal(ArchiveFolder)
-    folderRow.title.get should equal("title")
-    folderRow.description.get should equal("description")
+    folderRow.potentialTitle.get should equal("title")
+    folderRow.potentialDescription.get should equal("description")
   }
 
   "archiveFolderTableFormat write" should "write all mandatory fields and ignore any optional ones" in {
@@ -555,11 +555,11 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
     folderRow.batchId should equal("testBatchId")
     folderRow.id should equal(UUID.fromString(allFolderFieldsPopulated(id).s()))
-    folderRow.parentPath.get should equal("testParentPath")
+    folderRow.potentialParentPath.get should equal("testParentPath")
     folderRow.name should equal("testName")
     folderRow.`type` should equal(ArchiveFolder)
-    folderRow.title.get should equal("title")
-    folderRow.description.get should equal("description")
+    folderRow.potentialTitle.get should equal("title")
+    folderRow.potentialDescription.get should equal("description")
     folderRow.identifiers should equal(List(Identifier("Test", "testIdentifier")))
   }
 

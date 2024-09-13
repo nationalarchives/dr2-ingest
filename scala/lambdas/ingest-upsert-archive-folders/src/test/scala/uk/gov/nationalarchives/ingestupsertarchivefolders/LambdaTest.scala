@@ -157,7 +157,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
     "and a folder row's Entity was not returned from the 'entitiesByIdentifier' call " in {
       val folderIdsAndRows1stIdModified = folderIdsAndRows.map { case (folderId, response) =>
         if (folderId == UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2"))
-          folderId -> response.copy(name = "mock name_1_1_1", title = None)
+          folderId -> response.copy(name = "mock name_1_1_1", potentialTitle = None)
         else folderId -> response
       }
       val responseWithNoEntity = IO.pure(Seq())
@@ -393,7 +393,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
   "handler" should "call the DDB client's 'getItems' method and throw an exception when sorted parent folder path length isn't '0, 1, 2'" in {
     val lastElementFolderRow = folderIdsAndRows(UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2"))
     val lastElementFolderRowsWithTooShortOfAParentPath =
-      lastElementFolderRow.copy(parentPath = Option("e88e433a-1f3e-48c5-b15f-234c0e663c27"))
+      lastElementFolderRow.copy(potentialParentPath = Option("e88e433a-1f3e-48c5-b15f-234c0e663c27"))
     val folderIdsAndRowsWithParentPathMistake =
       folderIdsAndRows + (UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2") -> lastElementFolderRowsWithTooShortOfAParentPath)
 
@@ -414,7 +414,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
     "does not match folder before it (after sorting)" in {
       val lastElementFolderRow = folderIdsAndRows(UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2"))
       val lastElementFolderRowsWithIncorrectParentPath =
-        lastElementFolderRow.copy(parentPath = Option("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176/137bb3f9-3ae4-4e69-9d06-e7d569968ed2"))
+        lastElementFolderRow.copy(potentialParentPath = Option("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176/137bb3f9-3ae4-4e69-9d06-e7d569968ed2"))
       val folderIdsAndRowsWithParentPathMistake =
         folderIdsAndRows + (UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2") -> lastElementFolderRowsWithIncorrectParentPath)
 
@@ -722,7 +722,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
 
     val folderIdsAndRows1stIdModified = folderIdsAndRows.map { case (folderId, response) =>
       if (folderId == UUID.fromString("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176"))
-        folderId -> response.copy(title = titleFromDb, description = descriptionFromDb)
+        folderId -> response.copy(potentialTitle = titleFromDb, potentialDescription = descriptionFromDb)
       else folderId -> response
     }
 
