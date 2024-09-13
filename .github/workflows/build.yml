@@ -33,7 +33,7 @@ jobs:
           sbt ingestLambdasRoot/assembly
           zip -jA copy-files-from-tdr python/lambdas/copy-files-from-tdr/lambda_function.py
           zip -jA ingest-cc-notifications python/lambdas/ingest-cc-notifications/cc_notifications/lambda_function.py
-          cp copy-files-from-tdr target/outputs/
+          cp copy-files-from-tdr ingest-cc-notifications target/outputs
           cd target/outputs
           aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
           git tag ${{ steps.next-tag.outputs.next-version }}
