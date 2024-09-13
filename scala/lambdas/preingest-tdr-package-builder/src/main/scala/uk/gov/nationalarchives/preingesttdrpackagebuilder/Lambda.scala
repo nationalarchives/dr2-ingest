@@ -46,7 +46,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             assetId,
             Option(contentFolderId),
             stripFileExtension(tdrMetadata.Filename),
-            tdrMetadata.Filename,
+            assetId.toString,
             List(fileId),
             List(metadataId),
             None,
