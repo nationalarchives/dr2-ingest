@@ -69,7 +69,7 @@ object Utils {
       1,
       2,
       List(Checksum("checksum_SHA512", "checksum")),
-      "ext",
+      Option("ext"),
       PreservationRepresentationType,
       1,
       row.ingestedPreservica,

@@ -1,11 +1,7 @@
-import os
 import json
-import urllib3
+import os
+
 import boto3
-from urllib3.exceptions import ConnectTimeoutError
-from boto3 import resource
-from botocore.exceptions import ClientError
-from boto3.dynamodb.conditions import Key, Attr
 
 convert_value_to_bool = {"true": True, "false": False}
 attribute_to_add = "ingested_CC"
@@ -15,7 +11,8 @@ def get_items_with_id(client, table_name, primary_key, primary_key_value):
     response = client.query(
         TableName=table_name,
         KeyConditionExpression=f"{primary_key} = :value",
-        ExpressionAttributeValues={":value": {"S": primary_key_value}}
+        ExpressionAttributeValues={":value": {"S": primary_key_value}},
+        ProjectionExpression=f"id,batchId,{attribute_to_add}"
     )
     items = response["Items"]
 
