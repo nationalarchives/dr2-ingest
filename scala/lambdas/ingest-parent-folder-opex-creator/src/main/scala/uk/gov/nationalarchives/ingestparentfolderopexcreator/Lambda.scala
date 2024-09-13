@@ -43,7 +43,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       .map(_.toByteBuffer)
       .toPublisherResource
       .use { publisher =>
-        dAS3Client.upload(bucketName, fileName, opexXmlContent.getBytes.length, FlowAdapters.toPublisher(publisher))
+        dAS3Client.upload(bucketName, fileName, FlowAdapters.toPublisher(publisher))
       }
   }
   override def handler: (

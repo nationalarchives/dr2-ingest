@@ -92,22 +92,30 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
             }
 
           val batchId = "batchId"
-          val folderId = UUID.randomUUID()
-          val assetId = UUID.randomUUID()
+          val folderIdOne = UUID.randomUUID()
+          val assetIdOne = UUID.randomUUID()
           val fileIdOne = UUID.randomUUID()
+          val metadataFileOne = UUID.randomUUID()
+          val folderIdTwo = UUID.randomUUID()
+          val assetIdTwo = UUID.randomUUID()
           val fileIdTwo = UUID.randomUUID()
+          val metadataFileTwo = UUID.randomUUID()
           val departmentTableItem = tableItem(departmentId, "department", "")
           val seriesTableItem = seriesIdOpt.map(id => tableItem(id, "series", departmentId.toString))
           val departmentAndSeries = DepartmentAndSeriesTableItems(departmentTableItem, seriesTableItem)
 
           val expectedTimeInSecs = 1712707200
-          val originalFileId = UUID.randomUUID()
-          val originalMetadataFileId = UUID.randomUUID()
           val metadata =
-            s"""[{"id":"$folderId","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "series": null},
-           |{"id":"$assetId","parentId":"$folderId","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalFiles" : ["$originalFileId"], "originalMetadataFiles": ["$originalMetadataFileId"], "customMetadataAttribute1": "customMetadataAttributeValue"},
-           |{"id":"$fileIdOne","parentId":"$assetId","title":"Test","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
-           |{"id":"$fileIdTwo","parentId":"$assetId","title":"","type":"File","name":"TEST-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"}]
+            s"""[
+           |{"id":"$folderIdTwo","parentId":null,"title":"TestTitle2","type":"ArchiveFolder","name":"TestName2","fileSize":null, "series": null},
+           |{"id":"$assetIdTwo","parentId":"$folderIdTwo","title":"TestAssetTitle2","type":"Asset","name":"TestAssetName2","fileSize":null, "originalFiles" : ["$fileIdTwo"], "originalMetadataFiles": ["$metadataFileTwo"], "customMetadataAttribute1": "customMetadataAttributeValue"},
+           |{"id":"$fileIdTwo","parentId":"$assetIdTwo","title":"Test2","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
+           |{"id":"$metadataFileTwo","parentId":"$assetIdTwo","title":"","type":"File","name":"TEST2-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"},
+           |{"id":"$folderIdOne","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "series": null},
+           |{"id":"$assetIdOne","parentId":"$folderIdOne","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalFiles" : ["$fileIdOne"], "originalMetadataFiles": ["$metadataFileOne"], "customMetadataAttribute1": "customMetadataAttributeValue"},
+           |{"id":"$fileIdOne","parentId":"$assetIdOne","title":"Test","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
+           |{"id":"$metadataFileOne","parentId":"$assetIdOne","title":"","type":"File","name":"TEST-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"}
+           |]
            |""".stripMargin.replaceAll("\n", "")
           val s3 = mockS3(metadata)
           val input = Input(batchId, URI.create("s3://bucket/prefix/metadata.json"))
@@ -121,7 +129,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           val result =
             new MetadataService(s3, discoveryService).parseMetadataJson(input).unsafeRunSync()
 
-          result.size should equal(5 + seriesIdOpt.size)
+          result.size should equal(9 + seriesIdOpt.size)
 
           val prefix = s"$departmentId${seriesIdOpt.map(id => s"/$id").getOrElse("")}"
           checkTableItems(
@@ -136,14 +144,14 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               DynamoFilesTableItem(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"), 1, expectedTimeInSecs)
             )
           )
-          checkTableItems(result, List(folderId), DynamoFilesTableItem(batchId, folderId, prefix, "TestName", ArchiveFolder, "TestTitle", "", None, 1, expectedTimeInSecs))
+          checkTableItems(result, List(folderIdOne), DynamoFilesTableItem(batchId, folderIdOne, prefix, "TestName", ArchiveFolder, "TestTitle", "", None, 1, expectedTimeInSecs))
           checkTableItems(
             result,
-            List(assetId),
+            List(assetIdOne),
             DynamoFilesTableItem(
               batchId,
-              assetId,
-              s"$prefix/$folderId",
+              assetIdOne,
+              s"$prefix/$folderIdOne",
               "TestAssetName",
               Asset,
               "TestAssetTitle",
@@ -152,8 +160,8 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               1,
               expectedTimeInSecs,
               customMetadataAttribute1 = Option("customMetadataAttributeValue"),
-              originalFiles = List(originalFileId.toString),
-              originalMetadataFiles = List(originalMetadataFileId.toString)
+              originalFiles = List(fileIdOne.toString),
+              originalMetadataFiles = List(metadataFileOne.toString)
             )
           )
           checkTableItems(
@@ -161,8 +169,8 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
             List(fileIdOne),
             DynamoFilesTableItem(
               batchId,
-              assetId,
-              s"$prefix/$folderId/$assetId",
+              assetIdOne,
+              s"$prefix/$folderIdOne/$assetIdOne",
               name,
               File,
               "Test",
@@ -177,11 +185,11 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
           )
           checkTableItems(
             result,
-            List(fileIdTwo),
+            List(metadataFileOne),
             DynamoFilesTableItem(
               batchId,
-              assetId,
-              s"$prefix/$folderId/$assetId",
+              assetIdOne,
+              s"$prefix/$folderIdOne/$assetIdOne",
               "TEST-metadata.json",
               File,
               "",

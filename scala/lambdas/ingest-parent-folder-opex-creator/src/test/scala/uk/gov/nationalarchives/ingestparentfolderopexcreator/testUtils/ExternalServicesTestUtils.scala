@@ -54,7 +54,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec {
         mockS3Client.upload(
           any[String],
           any[String],
-          any[Long],
           any[Publisher[ByteBuffer]]
         )
       ).thenReturn(s3UploadResult)
@@ -71,7 +70,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec {
 
       val uploadBucketCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
       val keyToUploadCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-      val opexFileContentLengthCaptor: ArgumentCaptor[Long] = ArgumentCaptor.forClass(classOf[Long])
 
       verify(mockS3Client, times(1)).listCommonPrefixes(
         stagingCacheBucketCaptor.capture(),
@@ -84,7 +82,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec {
       verify(mockS3Client, times(numberOfUploads)).upload(
         uploadBucketCaptor.capture(),
         keyToUploadCaptor.capture(),
-        opexFileContentLengthCaptor.capture(),
         any[Publisher[ByteBuffer]]
       )
 
@@ -93,7 +90,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec {
 
         uploadBucketCaptor.getValue should be("stagingCacheBucketName")
         keysToUpload should equal("opex/9e32383f-52a7-4591-83dc-e3e598a6f1a7/9e32383f-52a7-4591-83dc-e3e598a6f1a7.opex")
-        opexFileContentLengthCaptor.getValue should be(358)
 
       }
     }

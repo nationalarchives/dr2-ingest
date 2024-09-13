@@ -9,7 +9,6 @@ import org.scanamo.syntax.*
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
-import uk.gov.nationalarchives.DADynamoDBClient.{*, given}
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd.PreservicaSchema.{OpexMetadataSchema, XipXsdSchemaV7}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
@@ -17,7 +16,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
-
+import uk.gov.nationalarchives.DADynamoDBClient.given
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -65,7 +64,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def uploadXMLToS3(s3Client: DAS3Client[IO], xmlString: String, destinationBucket: String, key: String): IO[CompletedUpload] =
     Stream.emits[IO, Byte](xmlString.getBytes).chunks.map(_.toByteBuffer).toPublisherResource.use { publisher =>
-      s3Client.upload(destinationBucket, key, xmlString.getBytes.length, FlowAdapters.toPublisher(publisher))
+      s3Client.upload(destinationBucket, key, FlowAdapters.toPublisher(publisher))
     }
 
   private def copyFromSourceToDestination(
@@ -84,7 +83,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     )
   }
 
-  private def parentPath(input: Input, asset: AssetDynamoTable) = s"opex/${input.executionName}${asset.parentPath.map(path => s"/$path").getOrElse("")}"
+  private def parentPath(input: Input, asset: AssetDynamoTable) = s"opex/${input.executionName}${asset.potentialParentPath.map(path => s"/$path").getOrElse("")}"
 
   private def assetPath(input: Input, asset: AssetDynamoTable) = s"${parentPath(input, asset)}/${asset.id}.pax"
 
@@ -92,7 +91,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     s"${assetPath(input, asset)}/${xmlCreator.bitstreamPath(child)}/${xmlCreator.childFileName(child)}"
 
   private def childrenOfAsset(dynamoClient: DADynamoDBClient[IO], asset: AssetDynamoTable, tableName: String, gsiName: String): IO[List[FileDynamoTable]] = {
-    val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
+    val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
     dynamoClient
       .queryItems[FileDynamoTable](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
   }

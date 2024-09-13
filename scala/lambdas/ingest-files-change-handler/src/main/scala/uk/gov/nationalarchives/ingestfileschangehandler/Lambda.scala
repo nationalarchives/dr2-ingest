@@ -2,21 +2,22 @@ package uk.gov.nationalarchives.ingestfileschangehandler
 
 import cats.effect.IO
 import cats.syntax.all.*
+import io.circe.*
 import io.circe.Decoder.Result
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-import io.circe.*
-import org.scanamo.{DynamoArray, DynamoObject, DynamoReadError, DynamoValue}
 import org.scanamo.syntax.*
+import org.scanamo.{DynamoArray, DynamoObject, DynamoReadError, DynamoValue}
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
-import uk.gov.nationalarchives.DADynamoDBClient.{*, given}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.given
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.*
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.MessageType.*
 import uk.gov.nationalarchives.utils.LambdaRunner
+
 import java.time.Instant
 import java.util.UUID
 
@@ -48,14 +49,14 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     }
 
     def childrenOfAsset(asset: AssetDynamoTable): IO[List[FileDynamoTable]] = {
-      val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
+      val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
       dependencies.daDynamoDbClient
         .queryItems[FileDynamoTable](config.dynamoTableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.dynamoGsiName))
     }
 
     def getParentAsset(fileRow: FileDynamoTable): IO[AssetDynamoTable] = for {
       parentId <- IO.fromOption {
-        fileRow.parentPath
+        fileRow.potentialParentPath
           .flatMap(_.split('/').lastOption)
           .map(UUID.fromString)
       }(new Exception(s"Cannot find a direct parent for file ${fileRow.id}"))
@@ -103,7 +104,9 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       .map(_ => ())
   }
 
-  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DADynamoDBClient[IO](), DASNSClient[IO](), () => Instant.now, () => UUID.randomUUID))
+  override def dependencies(config: Config): IO[Dependencies] = IO(
+    Dependencies(DADynamoDBClient[IO](), DASNSClient[IO](), () => Generators().generateInstant, () => Generators().generateRandomUuid)
+  )
 
 object Lambda:
   given Decoder[DynamodbEvent] = deriveDecoder[DynamodbEvent]

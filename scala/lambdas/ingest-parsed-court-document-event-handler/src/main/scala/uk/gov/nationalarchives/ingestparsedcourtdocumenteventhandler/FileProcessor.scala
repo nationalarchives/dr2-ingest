@@ -2,16 +2,16 @@ package uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler
 
 import cats.effect.IO
 import cats.effect.kernel.Resource
-import cats.implicits.*
+import fs2.Collector.string
 import fs2.compression.Compression
+import fs2.hashing.HashAlgorithm
 import fs2.io.*
 import fs2.{Chunk, Pipe, Stream, text}
 import io.circe.Decoder.Result
-import io.circe.Json.Null
 import io.circe.generic.auto.*
 import io.circe.parser.decode
 import io.circe.syntax.*
-import io.circe.{Decoder, Encoder, HCursor, Json, Printer}
+import io.circe.{Decoder, Encoder, HCursor, Printer}
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.reactivestreams.{FlowAdapters, Publisher}
@@ -20,6 +20,7 @@ import pureconfig.generic.derivation.default.*
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
+import uk.gov.nationalarchives.utils.ExternalUtils.*
 
 import java.io.{BufferedInputStream, InputStream}
 import java.net.URI
@@ -110,7 +111,7 @@ class FileProcessor(
     val fileTitle = fileInfo.fileName.split('.').dropRight(1).mkString(".")
     val folderId = uuidGenerator()
     val assetId = UUID.fromString(tdrUuid)
-    val folderMetadataObject = FolderMetadataObject(folderId, None, potentialFolderTitle, folderName, potentialSeries.getOrElse("Unknown"), folderMetadataIdFields)
+    val archiveFolderMetadataObject = ArchiveFolderMetadataObject(folderId, None, potentialFolderTitle, folderName, potentialSeries.getOrElse("Unknown"), folderMetadataIdFields)
     val assetMetadataObject =
       AssetMetadataObject(
         assetId,
@@ -138,7 +139,7 @@ class FileProcessor(
         RepresentationType.Preservation,
         1,
         fileInfo.location,
-        fileInfo.checksum
+        treMetadata.parameters.TDR.`Document-Checksum-sha256`
       )
     val fileMetadataObject = FileMetadataObject(
       metadataFileInfo.id,
@@ -152,7 +153,7 @@ class FileProcessor(
       metadataFileInfo.location,
       metadataFileInfo.checksum
     )
-    List(folderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
+    List(archiveFolderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
   }
 
   private def extractMetadataFromJson(str: Stream[IO, Byte]): Stream[IO, TREMetadata] = {
@@ -173,14 +174,21 @@ class FileProcessor(
           .flatMap { stream =>
             if (!tarEntry.isDirectory) {
               val id = uuidGenerator()
+              val checksumResult = stream
+                .through(fs2.hashing.Hashing[IO].hash(HashAlgorithm.SHA256))
+                .flatMap(hash => Stream.emits(hash.bytes.toList))
+                .through(fs2.text.hex.encode)
+                .compile
+                .to(string)
               Stream.eval[IO, (String, FileInfo)](
                 stream.chunks
                   .map(_.toByteBuffer)
                   .toPublisherResource
-                  .use(pub => s3.upload(uploadBucket, id.toString, tarEntry.getSize, FlowAdapters.toPublisher(pub)))
-                  .map { res =>
-                    val checksum = checksumToString(res.response().checksumSHA256())
-                    tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
+                  .use(pub => s3.upload(uploadBucket, id.toString, FlowAdapters.toPublisher(pub)))
+                  .flatMap { res =>
+                    checksumResult.map { checksum =>
+                      tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
+                    }
                   }
               )
             } else Stream.empty
@@ -203,7 +211,7 @@ class FileProcessor(
       .map(s => ByteBuffer.wrap(s.getBytes()))
       .toPublisherResource
       .use { pub =>
-        s3.upload(s3Location.getHost, s3Location.getPath.drop(1), fileContent.getBytes.length, FlowAdapters.toPublisher(pub))
+        s3.upload(s3Location.getHost, s3Location.getPath.drop(1), FlowAdapters.toPublisher(pub))
       }
       .map(_ => ())
   }
@@ -220,10 +228,6 @@ class FileProcessor(
 
 object FileProcessor {
   private val chunkSize: Int = 1024 * 64
-  private val convertIdFieldsToJson = (idFields: List[IdField]) =>
-    idFields.map { idField =>
-      (s"id_${idField.name}", Json.fromString(idField.value))
-    }
 
   given Decoder[TREInputParameters] = (c: HCursor) =>
     for {
@@ -233,140 +237,8 @@ object FileProcessor {
       s3Key <- c.downField("s3Key").as[String]
       skipSeriesLookup <- c.getOrElse("skipSeriesLookup")(false)
     } yield TREInputParameters(status, reference, skipSeriesLookup, s3Bucket, s3Key)
-  given Encoder[MetadataObject] = {
-    case FolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields) =>
-      jsonFromMetadataObject(id, parentId, title, Type.ArchiveFolder, name)
-        .deepMerge {
-          Json.fromFields(convertIdFieldsToJson(folderMetadataIdFields))
-        }
-        .deepMerge {
-          Json
-            .obj(
-              ("series", Json.fromString(series))
-            )
-        }
-    case AssetMetadataObject(
-          id,
-          parentId,
-          title,
-          name,
-          originalFilesUuids,
-          originalMetadataFilesUuids,
-          description,
-          transferringBody,
-          transferCompleteDatetime,
-          upstreamSystem,
-          digitalAssetSource,
-          digitalAssetSubtype,
-          assetMetadataIdFields
-        ) =>
-      val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) => fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
-
-      jsonFromMetadataObject(id, parentId, Option(title), Type.Asset, name)
-        .deepMerge {
-          Json.fromFields(convertIdFieldsToJson(assetMetadataIdFields))
-        }
-        .deepMerge {
-          Json
-            .obj(
-              ("originalFiles", Json.fromValues(convertListOfUuidsToJsonStrArray(originalFilesUuids))),
-              ("originalMetadataFiles", Json.fromValues(convertListOfUuidsToJsonStrArray(originalMetadataFilesUuids))),
-              ("description", description.map(Json.fromString).getOrElse(Null)),
-              ("transferringBody", Json.fromString(transferringBody)),
-              ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
-              ("upstreamSystem", Json.fromString(upstreamSystem)),
-              ("digitalAssetSource", Json.fromString(digitalAssetSource)),
-              ("digitalAssetSubtype", Json.fromString(digitalAssetSubtype))
-            )
-            .deepDropNullValues
-        }
-
-    case FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksumSha256) =>
-      Json
-        .obj(
-          ("sortOrder", Json.fromInt(sortOrder)),
-          ("fileSize", Json.fromLong(fileSize)),
-          ("representationType", Json.fromString(representationType.toString)),
-          ("representationSuffix", Json.fromInt(representationSuffix)),
-          ("location", Json.fromString(location.toString)),
-          ("checksum_sha256", Json.fromString(checksumSha256))
-        )
-        .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), Type.File, name))
-  }
-
-  private def jsonFromMetadataObject(
-      id: UUID,
-      parentId: Option[UUID],
-      title: Option[String],
-      objectType: Type,
-      name: String
-  ) = {
-    Json.obj(
-      ("id", Json.fromString(id.toString)),
-      ("parentId", parentId.map(_.toString).map(Json.fromString).getOrElse(Null)),
-      ("title", title.map(Json.fromString).getOrElse(Null)),
-      ("type", objectType.asJson),
-      ("name", Json.fromString(name))
-    )
-  }
-
-  given Encoder[Type] = {
-    case Type.ArchiveFolder => Json.fromString("ArchiveFolder")
-    case Type.Asset         => Json.fromString("Asset")
-    case Type.File          => Json.fromString("File")
-  }
-
-  enum RepresentationType:
-    case Preservation
-
-  enum Type:
-    case ArchiveFolder, Asset, File
 
   case class AdditionalMetadata(key: String, value: String)
-  sealed trait MetadataObject {
-    def id: UUID
-    def parentId: Option[UUID]
-  }
-
-  case class IdField(name: String, value: String)
-
-  case class FolderMetadataObject(
-      id: UUID,
-      parentId: Option[UUID],
-      title: Option[String],
-      name: String,
-      series: String,
-      idFields: List[IdField] = Nil
-  ) extends MetadataObject
-
-  case class AssetMetadataObject(
-      id: UUID,
-      parentId: Option[UUID],
-      title: String,
-      name: String,
-      originalFiles: List[UUID],
-      originalMetadataFiles: List[UUID],
-      description: Option[String],
-      transferringBody: String,
-      transferCompleteDatetime: OffsetDateTime,
-      upstreamSystem: String,
-      digitalAssetSource: String,
-      digitalAssetSubtype: String,
-      idFields: List[IdField] = Nil
-  ) extends MetadataObject
-
-  case class FileMetadataObject(
-      id: UUID,
-      parentId: Option[UUID],
-      title: String,
-      sortOrder: Int,
-      name: String,
-      fileSize: Long,
-      representationType: RepresentationType,
-      representationSuffix: Int,
-      location: URI,
-      checksumSha256: String
-  ) extends MetadataObject
 
   case class FileInfo(id: UUID, fileSize: Long, fileName: String, checksum: String, location: URI)
 

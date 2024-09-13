@@ -180,7 +180,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
         archiveFolderTableName
       )
 
-    getItemsResponse.map(_.sortBy(folderRow => folderRow.parentPath))
+    getItemsResponse.map(_.sortBy(folderRow => folderRow.potentialParentPath))
   }
 
   private def checkNumOfParentPathSlashesPerFolderIncrease(
@@ -188,7 +188,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   ): IO[List[Int]] = {
     val numberOfSlashesInParentPathPerFolder: List[Int] =
       folderRowsSortedByParentPath.map { folderRow =>
-        val parentPathSplitBySlash: Array[String] = folderRow.parentPath.getOrElse("").split('/')
+        val parentPathSplitBySlash: Array[String] = folderRow.potentialParentPath.getOrElse("").split('/')
         if (parentPathSplitBySlash.head.isEmpty || parentPathSplitBySlash.isEmpty) 0 else parentPathSplitBySlash.length
       }
 
@@ -216,7 +216,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       folderRowsSortedByLongestParentPath.zip(folderRowsSortedByLongestParentPath.drop(1))
 
     subfoldersWithPresumedParents.map { case (subfolderInfo, presumedParentFolderInfo) =>
-      val directParentRefOfSubfolder: String = subfolderInfo.parentPath.getOrElse("").split('/').last
+      val directParentRefOfSubfolder: String = subfolderInfo.potentialParentPath.getOrElse("").split('/').last
 
       if (directParentRefOfSubfolder != presumedParentFolderInfo.id.toString) {
         IO.raiseError {
@@ -257,7 +257,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   ): IO[List[FullFolderInfo]] =
     IO {
       folderIdAndInfo.map { case (_, fullFolderInfo) =>
-        val directParent = fullFolderInfo.folderRow.parentPath
+        val directParent = fullFolderInfo.folderRow.potentialParentPath
           .flatMap(_.split('/').lastOption)
           .map(UUID.fromString)
         directParent.flatMap(folderIdAndInfo.get) match {
@@ -282,7 +282,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       val potentialParentRef =
         if (folderInfo.expectedParentRef.isEmpty) {
           // 'expectedParentRef' is empty either because parent was not in Preservica at start of Lambda, or folder is top-level
-          val parentId = folderInfo.folderRow.parentPath
+          val parentId = folderInfo.folderRow.potentialParentPath
             .flatMap(_.split('/').lastOption)
             .map(UUID.fromString)
           parentId.flatMap(previouslyCreatedEntityIdsWithFolderRowIdsAsKeys.get)
@@ -290,8 +290,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
 
       val addFolderRequest = AddEntityRequest(
         None,
-        folderInfo.folderRow.title.getOrElse(folderInfo.folderRow.name),
-        folderInfo.folderRow.description,
+        folderInfo.folderRow.potentialTitle.getOrElse(folderInfo.folderRow.name),
+        folderInfo.folderRow.potentialDescription,
         structuralObject,
         Open,
         potentialParentRef
@@ -389,8 +389,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       val folderRow = folderInfo.folderRow
       val entity = folderInfo.entity.get
 
-      val potentialNewTitle = folderRow.title.orElse(entity.title)
-      val potentialNewDescription = folderRow.description
+      val potentialNewTitle = folderRow.potentialTitle.orElse(entity.title)
+      val potentialNewDescription = folderRow.potentialDescription
 
       val titleHasChanged = potentialNewTitle != entity.title && potentialNewTitle.nonEmpty
       val descriptionHasChanged = potentialNewDescription != entity.description && potentialNewDescription.nonEmpty

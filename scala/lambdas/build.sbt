@@ -20,6 +20,8 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestUpsertArchiveFolders,
     ingestValidateGenericIngestInputs,
     ingestWorkflowMonitor,
+    preingestTdrAggregator,
+    preIngestTdrPackageBuilder,
     preservicaConfig,
     rotatePreservationSystemPassword,
     startWorkflow
@@ -49,7 +51,7 @@ lazy val commonSettings = Seq(
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
     case _                                                   => MergeStrategy.first
   },
-  scalacOptions ++= Seq("-Wunused:imports", "-Werror", "-deprecation", "-feature", "-language:implicitConversions"),
+  scalacOptions ++= Seq("-Yretain-trees", "-Xmax-inlines", "33", "-Wunused:imports", "-Werror", "-deprecation", "-feature", "-language:implicitConversions"),
   (Test / fork) := true,
   (Test / envVars) := Map(
     "AWS_ACCESS_KEY_ID" -> "accesskey",
@@ -250,6 +252,32 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
       sttpCirce,
       upickle,
       reactorTest % Test
+    )
+  )
+
+
+lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      circeFs2,
+      dynamoClient,
+      fs2Reactive,
+      s3Client,
+      reactorTest % Test,
+      scalaCheck % Test,
+      scalaCheckPlus % Test
+    )
+  )
+
+lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      sfnClient
     )
   )
 

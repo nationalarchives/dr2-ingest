@@ -7,7 +7,7 @@ import org.scanamo.syntax.*
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DADynamoDBClient.{*, given}
+import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.DADynamoDBClient
@@ -35,7 +35,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       tableName: String,
       gsiName: String
   ): IO[List[FileDynamoTable]] = {
-    val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
+    val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
     daDynamoDBClient
       .queryItems[FileDynamoTable](
         tableName,
@@ -49,7 +49,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   private def coTitleMatchesAssetChildTitle(potentialCoTitle: Option[String], assetChild: FileDynamoTable): Boolean =
     potentialCoTitle.exists { titleOfCo => // DDB titles don't have file extensions, CO titles do
       lazy val fileNameWithoutExtension = assetChild.name
-      val potentialAssetChildTitleOrFileName = assetChild.title.getOrElse("")
+      val potentialAssetChildTitleOrFileName = assetChild.potentialTitle.getOrElse("")
       val assetChildTitleOrFileName = if potentialAssetChildTitleOrFileName.isEmpty then fileNameWithoutExtension else potentialAssetChildTitleOrFileName
 
       val numOfDotsInTitleOrFileName = assetChildTitleOrFileName.count(_ == '.')
@@ -66,11 +66,11 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     }
 
   private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoTable, fixities: List[Client.Fixity]): Boolean = {
-    val sortedChecksums = item.checksums.sortBy(_.algorithm)
+    val sortedChecksums = item.checksums.sortBy(_.algorithm.toUpperCase)
     val sortedFixities = fixities.sortBy(_.algorithm)
 
     sortedChecksums.zip(sortedFixities).forall { case (dynamoItemChecksum, preservedFixity) =>
-      dynamoItemChecksum.algorithm == preservedFixity.algorithm && dynamoItemChecksum.fingerprint == preservedFixity.value
+      dynamoItemChecksum.algorithm.toUpperCase == preservedFixity.algorithm && dynamoItemChecksum.fingerprint == preservedFixity.value
     }
   }
 

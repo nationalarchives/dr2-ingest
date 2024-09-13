@@ -10,7 +10,6 @@ import org.typelevel.log4cats.{LoggerName, SelfAwareStructuredLogger}
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import pureconfig._
 import pureconfig.module.catseffect.syntax._
-
 import java.io.{InputStream, OutputStream}
 import scala.reflect.ClassTag
 

@@ -30,7 +30,17 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         val skipIngest = table match
           case asset: AssetDynamoTable => asset.skipIngest
           case _                       => false
-        FolderOrAssetTable(table.batchId, table.id, table.parentPath, table.name, table.`type`, table.title, table.description, table.identifiers, skipIngest)
+        FolderOrAssetTable(
+          table.batchId,
+          table.id,
+          table.potentialParentPath,
+          table.name,
+          table.`type`,
+          table.potentialTitle,
+          table.potentialDescription,
+          table.identifiers,
+          skipIngest
+        )
       }
     }
 
@@ -53,13 +63,13 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   private def isFolder(rowType: Type) = List(ContentFolder, ArchiveFolder).contains(rowType)
 
   private def generateKey(executionName: String, folder: DynamoTable) =
-    s"opex/$executionName/${formatParentPath(folder.parentPath)}${folder.id}/${folder.id}.opex"
+    s"opex/$executionName/${formatParentPath(folder.potentialParentPath)}${folder.id}/${folder.id}.opex"
 
   private def formatParentPath(potentialParentPath: Option[String]): String = potentialParentPath.map(parentPath => s"$parentPath/").getOrElse("")
 
   private def uploadXMLToS3(s3Client: DAS3Client[IO], xmlString: String, destinationBucket: String, key: String): IO[CompletedUpload] =
     Stream.emits[IO, Byte](xmlString.getBytes).chunks.map(_.toByteBuffer).toPublisherResource.use { publisher =>
-      s3Client.upload(destinationBucket, key, xmlString.getBytes.length, FlowAdapters.toPublisher(publisher))
+      s3Client.upload(destinationBucket, key, FlowAdapters.toPublisher(publisher))
     }
 
   private def getAssetRowsWithFileSize(s3Client: DAS3Client[IO], children: List[FolderOrAssetTable], bucketName: String, executionName: String): IO[List[AssetWithFileSize]] = {
@@ -73,7 +83,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   }
 
   private def childrenOfFolder(dynamoClient: DADynamoDBClient[IO], asset: ArchiveFolderDynamoTable, tableName: String, gsiName: String): IO[List[FolderOrAssetTable]] = {
-    val childrenParentPath = s"${asset.parentPath.getOrElse("")}/${asset.id}".stripPrefix("/")
+    val childrenParentPath = s"${asset.potentialParentPath.getOrElse("")}/${asset.id}".stripPrefix("/")
     dynamoClient
       .queryItems[FolderOrAssetTable](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
   }

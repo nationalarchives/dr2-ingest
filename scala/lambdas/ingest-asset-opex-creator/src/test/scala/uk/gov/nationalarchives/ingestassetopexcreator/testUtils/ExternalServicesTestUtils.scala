@@ -19,14 +19,40 @@ import java.util.UUID
 import scala.xml.Elem
 
 class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer) extends TableDrivenPropertyChecks {
+
   def stubPutRequest(): (String, String) = {
+    val bucket = "test-destination-bucket"
+
     val xipPath = s"/opex/$executionName/$assetParentPath/$assetId.pax/$assetId.xip"
     val opexPath = s"/opex/$executionName/$assetParentPath/$assetId.pax.opex"
     List(xipPath, opexPath).foreach { itemPath =>
+      val postResponse = <InitiateMultipartUploadResult>
+        <Bucket>{bucket}</Bucket>
+        <Key>{itemPath}</Key>
+        <UploadId>id</UploadId>
+      </InitiateMultipartUploadResult>.toString
       s3Server.stubFor(
-        put(urlEqualTo(itemPath))
-          .withHost(equalTo("test-destination-bucket.localhost"))
+        post(urlEqualTo(s"$itemPath?uploads"))
+          .withHost(equalTo(s"$bucket.localhost"))
+          .willReturn(okXml(postResponse))
+      )
+      s3Server.stubFor(
+        post(urlPathEqualTo(itemPath))
+          .withQueryParam("uploadId", equalTo("id"))
+          .withHost(equalTo(s"$bucket.localhost"))
+          .willReturn(okXml(postResponse))
+      )
+      s3Server.stubFor(
+        delete(urlPathEqualTo(itemPath))
+          .withQueryParam("uploadId", equalTo("id"))
+          .withHost(equalTo(s"$bucket.localhost"))
           .willReturn(ok())
+      )
+      s3Server.stubFor(
+        put(urlPathEqualTo(itemPath))
+          .withQueryParam("uploadId", equalTo("id"))
+          .withHost(equalTo(s"$bucket.localhost"))
+          .willReturn(ok().withHeader("ETag", "ETag"))
       )
       s3Server.stubFor(
         head(urlEqualTo(s"/$itemPath"))
@@ -144,7 +170,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |  "Count": 2,
        |  "Items": [
        |    {
-       |      "checksum_SHA256": {
+       |      "checksum_sha256": {
        |        "S": "checksumdocx"
        |      },
        |      "fileExtension": {
@@ -212,7 +238,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |      }
        |    },
        |    {
-       |      "checksum_SHA256": {
+       |      "checksum_sha256": {
        |        "S": "checksum"
        |      },
        |      "fileExtension": {
@@ -282,6 +308,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
        |  ]
        |}
        |""".stripMargin
+
   def dynamoGetResponse(childCount: Int = 2): String =
     s"""{
        |  "Responses": {
