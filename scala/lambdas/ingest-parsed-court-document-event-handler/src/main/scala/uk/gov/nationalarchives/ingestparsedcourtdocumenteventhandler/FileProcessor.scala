@@ -13,6 +13,7 @@ import io.circe.parser.decode
 import io.circe.syntax.*
 import io.circe.{Decoder, Encoder, HCursor, Printer}
 import org.apache.commons.codec.binary.Hex
+import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.reactivestreams.{FlowAdapters, Publisher}
 import pureconfig.ConfigReader
@@ -174,22 +175,17 @@ class FileProcessor(
           .flatMap { stream =>
             if (!tarEntry.isDirectory) {
               val id = uuidGenerator()
-              val checksumResult = stream
-                .through(fs2.hashing.Hashing[IO].hash(HashAlgorithm.SHA256))
-                .flatMap(hash => Stream.emits(hash.bytes.toList))
-                .through(fs2.text.hex.encode)
-                .compile
-                .to(string)
               Stream.eval[IO, (String, FileInfo)](
-                stream.chunks
-                  .map(_.toByteBuffer)
-                  .toPublisherResource
-                  .use(pub => s3.upload(uploadBucket, id.toString, FlowAdapters.toPublisher(pub)))
-                  .flatMap { res =>
-                    checksumResult.map { checksum =>
+                stream.compile.toList.flatMap { bytes =>
+                  Stream
+                    .emit[IO, ByteBuffer](ByteBuffer.wrap(bytes.toArray))
+                    .toPublisherResource
+                    .use(pub => s3.upload(uploadBucket, id.toString, FlowAdapters.toPublisher(pub)))
+                    .map { _ =>
+                      val checksum = DigestUtils.sha256Hex(bytes.toArray)
                       tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
                     }
-                  }
+                }
               )
             } else Stream.empty
           } ++
