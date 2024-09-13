@@ -30,8 +30,8 @@ class XMLCreator {
         </opex:Manifest>
       </opex:Transfer>
       <opex:Properties>
-        <opex:Title>{folder.title.getOrElse(folder.name)}</opex:Title>
-        <opex:Description>{folder.description.getOrElse("")}</opex:Description>
+        <opex:Title>{folder.potentialTitle.getOrElse(folder.name)}</opex:Title>
+        <opex:Description>{folder.potentialDescription.getOrElse("")}</opex:Description>
         <opex:SecurityDescriptor>{securityDescriptor}</opex:SecurityDescriptor>
         {
       if identifiers.nonEmpty then <opex:Identifiers>

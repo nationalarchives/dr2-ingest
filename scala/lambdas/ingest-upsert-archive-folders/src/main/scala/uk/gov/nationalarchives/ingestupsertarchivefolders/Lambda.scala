@@ -23,12 +23,12 @@ import java.util.UUID
 class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   private val sourceId = "SourceID"
 
-  given Ordering[ArchiveFolderDynamoTable] = (x: ArchiveFolderDynamoTable, y: ArchiveFolderDynamoTable) => x.parentPath.compare(y.parentPath)
+  given Ordering[ArchiveFolderDynamoTable] = (x: ArchiveFolderDynamoTable, y: ArchiveFolderDynamoTable) => x.potentialParentPath.compare(y.potentialParentPath)
 
   extension [T](potentialValue: Option[T]) private def toStringOrEmpty: String = potentialValue.map(_.toString).getOrElse("")
 
   extension (archiveFolderDynamoTable: ArchiveFolderDynamoTable)
-    private def directParentId: Option[UUID] = archiveFolderDynamoTable.parentPath.flatMap(_.split("/").lastOption).map(UUID.fromString)
+    private def directParentId: Option[UUID] = archiveFolderDynamoTable.potentialParentPath.flatMap(_.split("/").lastOption).map(UUID.fromString)
 
   override def handler: (
       StepFnInput,
@@ -82,8 +82,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       } yield entityRef
       val addFolderRequest = AddEntityRequest(
         None,
-        folderRow.title.getOrElse(folderRow.name),
-        folderRow.description,
+        folderRow.potentialTitle.getOrElse(folderRow.name),
+        folderRow.potentialDescription,
         StructuralObject,
         Open,
         potentialParentRef
@@ -177,8 +177,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       entity: Entity,
       sourceMap: Map[String, Entity]
   ): Option[UpdateEntityRequest] = {
-    val potentialNewTitle = folderRow.title.orElse(entity.title)
-    val potentialNewDescription = folderRow.description
+    val potentialNewTitle = folderRow.potentialTitle.orElse(entity.title)
+    val potentialNewDescription = folderRow.potentialDescription
 
     val titleHasChanged = potentialNewTitle != entity.title && potentialNewTitle.nonEmpty
     val descriptionHasChanged = potentialNewDescription != entity.description && potentialNewDescription.nonEmpty

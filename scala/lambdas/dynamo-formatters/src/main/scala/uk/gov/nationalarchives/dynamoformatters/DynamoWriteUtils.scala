@@ -8,9 +8,9 @@ object DynamoWriteUtils {
 
   private def commonFieldsToMap(table: DynamoTable): Map[String, DynamoValue] = {
     val optionalFields: Map[FieldName, DynamoValue] = Map(
-      "title" -> table.title.map(DynamoValue.fromString),
-      "description" -> table.description.map(DynamoValue.fromString),
-      "parentPath" -> table.parentPath.map(DynamoValue.fromString)
+      "title" -> table.potentialTitle.map(DynamoValue.fromString),
+      "description" -> table.potentialDescription.map(DynamoValue.fromString),
+      "parentPath" -> table.potentialParentPath.map(DynamoValue.fromString)
     ).flatMap {
       case (fieldName, Some(potentialValue)) => Map(fieldName -> potentialValue)
       case _                                 => Map.empty
@@ -54,10 +54,10 @@ object DynamoWriteUtils {
   def writeFileTable(fileDynamoTable: FileDynamoTable): DynamoValue =
     DynamoObject {
       commonFieldsToMap(fileDynamoTable) ++
+        fileDynamoTable.potentialFileExtension.map(extension => Map(fileExtension -> DynamoValue.fromString(extension))).getOrElse(Map()) ++
         Map(
           sortOrder -> DynamoValue.fromNumber[Int](fileDynamoTable.sortOrder),
           fileSize -> DynamoValue.fromNumber[Long](fileDynamoTable.fileSize),
-          fileExtension -> DynamoValue.fromString(fileDynamoTable.fileExtension),
           representationType -> DynamoValue.fromString(fileDynamoTable.representationType.toString),
           representationSuffix -> DynamoValue.fromNumber(fileDynamoTable.representationSuffix),
           ingestedPreservica -> DynamoValue.fromString(fileDynamoTable.ingestedPreservica.toString),
