@@ -110,7 +110,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       val fileMetadataObjects = metadataObjects
         .filter(_.isInstanceOf[FileMetadataObject])
         .map(_.asInstanceOf[FileMetadataObject])
-      val fileMetadataObject = fileMetadataObjects.filterNot(_.name.endsWith(".metadata")).head
+      val fileMetadataObject = fileMetadataObjects.filterNot(_.name.endsWith("-metadata.json")).head
       val metadataFileMetadataObject = fileMetadataObjects.filter(_.name.endsWith("-metadata.json")).head
 
       contentFolderMetadataObject.name should equal(testData.tdrRef)
