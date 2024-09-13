@@ -11,7 +11,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
     s"Representation_Preservation/${child.id}/Generation_1"
 
   private[nationalarchives] def childFileName(child: FileDynamoTable) =
-    s"${child.id}.${child.fileExtension}"
+    child.potentialFileExtension.map(extension => s"${child.id}.$extension").getOrElse(child.id)
 
   private def getAllPaths(path: String): List[String] = {
     def generator(path: String, paths: List[String]): List[String] = {
@@ -65,8 +65,8 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
             </opex:Manifest>
           </opex:Transfer>
           <opex:Properties>
-            <opex:Title>{asset.title.getOrElse(asset.name)}</opex:Title>
-            <opex:Description>{asset.description.getOrElse("")}</opex:Description>
+            <opex:Title>{asset.potentialTitle.getOrElse(asset.name)}</opex:Title>
+            <opex:Description>{asset.potentialDescription.getOrElse("")}</opex:Description>
             <opex:SecurityDescriptor>{securityDescriptor}</opex:SecurityDescriptor>
             {
           if identifiers.nonEmpty then

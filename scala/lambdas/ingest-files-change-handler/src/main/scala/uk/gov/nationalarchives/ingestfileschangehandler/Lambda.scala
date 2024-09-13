@@ -49,14 +49,14 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     }
 
     def childrenOfAsset(asset: AssetDynamoTable): IO[List[FileDynamoTable]] = {
-      val childrenParentPath = s"${asset.parentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
+      val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
       dependencies.daDynamoDbClient
         .queryItems[FileDynamoTable](config.dynamoTableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.dynamoGsiName))
     }
 
     def getParentAsset(fileRow: FileDynamoTable): IO[AssetDynamoTable] = for {
       parentId <- IO.fromOption {
-        fileRow.parentPath
+        fileRow.potentialParentPath
           .flatMap(_.split('/').lastOption)
           .map(UUID.fromString)
       }(new Exception(s"Cannot find a direct parent for file ${fileRow.id}"))
