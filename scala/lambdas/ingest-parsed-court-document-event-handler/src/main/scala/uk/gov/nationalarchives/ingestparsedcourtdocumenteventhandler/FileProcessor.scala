@@ -150,7 +150,7 @@ class FileProcessor(
       RepresentationType.Preservation,
       1,
       metadataFileInfo.location,
-      metadataFileInfo.checksum
+      metadataFileInfo.sha256Checksum
     )
     List(archiveFolderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
   }
@@ -175,13 +175,14 @@ class FileProcessor(
               val id = uuidGenerator()
               Stream.eval[IO, (String, FileInfo)](
                 stream.compile.toList.flatMap { bytes =>
+                  val byteArray = bytes.toArray
                   Stream
-                    .emit[IO, ByteBuffer](ByteBuffer.wrap(bytes.toArray))
+                    .emit[IO, ByteBuffer](ByteBuffer.wrap(byteArray))
                     .toPublisherResource
                     .use(pub => s3.upload(uploadBucket, id.toString, FlowAdapters.toPublisher(pub)))
                     .map { _ =>
-                      val checksum = DigestUtils.sha256Hex(bytes.toArray)
-                      tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
+                      val sha256Checksum = DigestUtils.sha256Hex(byteArray)
+                      tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, sha256Checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
                     }
                 }
               )
@@ -234,7 +235,7 @@ object FileProcessor {
 
   case class AdditionalMetadata(key: String, value: String)
 
-  case class FileInfo(id: UUID, fileSize: Long, fileName: String, checksum: String, location: URI)
+  case class FileInfo(id: UUID, fileSize: Long, fileName: String, sha256Checksum: String, location: URI)
 
   case class TREInputParameters(status: String, reference: String, skipSeriesLookup: Boolean, s3Bucket: String, s3Key: String)
 
