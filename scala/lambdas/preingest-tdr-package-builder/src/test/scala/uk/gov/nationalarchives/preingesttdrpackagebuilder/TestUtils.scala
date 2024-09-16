@@ -31,7 +31,9 @@ object TestUtils:
 
   given Encoder[TDRMetadata] = deriveEncoder[TDRMetadata]
 
-  type S3Objects = TDRMetadata | List[MetadataObject]
+  case class MockTdrFile(fileSize: Long)
+
+  type S3Objects = TDRMetadata | List[MetadataObject] | MockTdrFile
 
   def mockDynamoClient(ref: Ref[IO, List[IngestLockTable]], failedQuery: Boolean = false): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
     override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = IO.pure(Nil)
@@ -70,7 +72,10 @@ object TestUtils:
               case _                     => IO.raiseError(new Exception("Expecting TDR Metadata Json"))
           } yield Flux.just(ByteBuffer.wrap(metadata))
 
-      override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = IO.pure(HeadObjectResponse.builder.build)
+      override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = ref.get.map { objectsMap =>
+        val fileSize = objectsMap.get(key).collect({ case mockTdrFile: MockTdrFile => mockTdrFile }).get.fileSize
+        HeadObjectResponse.builder.contentLength(fileSize).build
+      }
 
       override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = IO.pure(SdkPublisher.fromIterable(java.util.List.of()))
 

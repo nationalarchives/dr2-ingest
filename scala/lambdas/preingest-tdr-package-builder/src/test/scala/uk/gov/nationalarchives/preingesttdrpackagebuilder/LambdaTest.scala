@@ -83,7 +83,6 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
         testData.date,
         testData.tdrRef,
         s"${testData.fileName.prefix}.${testData.fileName.suffix}",
-        testData.fileSize,
         testData.checksum,
         testData.fileRef
       )
@@ -96,7 +95,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
         .to(string)
         .unsafeRunSync()
 
-      val initialS3Objects = Map("key.metadata" -> tdrMetadata)
+      val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(testData.fileSize))
       val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
       val initialDynamoObjects = List(IngestLockTable(UUID.randomUUID(), testData.groupId, lockTableMessage))
       val input = Input(testData.groupId, testData.batchId, 1, 2)
@@ -184,8 +183,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTable(UUID.randomUUID(), "TST-123", lockTableMessage))
 
-    val tdrMetadata = TDRMetadata("", UUID.randomUUID, None, "", "2024-10-04 10:00:00", "", "test.txt", 1, "", "")
-    val initialS3Objects = Map("key.metadata" -> tdrMetadata)
+    val tdrMetadata = TDRMetadata("", UUID.randomUUID, None, "", "2024-10-04 10:00:00", "", "test.txt", "", "")
+    val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(1))
     val ex = intercept[Throwable] {
       runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)
     }
@@ -203,7 +202,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
   private def runHandler(
       uuidIterator: () => UUID = () => UUID.randomUUID,
-      initialS3Objects: Map[String, TDRMetadata] = Map.empty,
+      initialS3Objects: Map[String, S3Objects] = Map.empty,
       initialDynamoObjects: List[IngestLockTable] = Nil,
       input: Input = Input("TST-123", "", 1, 1),
       downloadError: Boolean = false,

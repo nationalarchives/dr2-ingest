@@ -63,19 +63,25 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               IdField("RecordID", assetId.toString)
             )
           )
-          val fileMetadata = FileMetadataObject(
-            fileId,
-            Option(assetId),
-            stripFileExtension(tdrMetadata.Filename),
-            1,
-            tdrMetadata.Filename,
-            tdrMetadata.ClientSideFileSize,
-            Preservation,
-            1,
-            fileLocation,
-            tdrMetadata.SHA256ServerSideChecksum
-          )
-          Stream.emits(List(contentFolderMetadata, assetMetadata, fileMetadata))
+          Stream.evals {
+            dependencies.s3Client
+              .headObject(fileLocation.getHost, fileLocation.getPath.drop(1))
+              .map { headObjectResponse =>
+                val fileMetadata = FileMetadataObject(
+                  fileId,
+                  Option(assetId),
+                  stripFileExtension(tdrMetadata.Filename),
+                  1,
+                  tdrMetadata.Filename,
+                  headObjectResponse.contentLength(),
+                  Preservation,
+                  1,
+                  fileLocation,
+                  tdrMetadata.SHA256ServerSideChecksum
+                )
+                List(contentFolderMetadata, assetMetadata, fileMetadata)
+              }
+          }
         }
     }
 
@@ -183,7 +189,6 @@ object Lambda:
       TransferInitiatedDatetime: String,
       ConsignmentReference: String,
       Filename: String,
-      ClientSideFileSize: Long,
       SHA256ServerSideChecksum: String,
       FileReference: String
   )
