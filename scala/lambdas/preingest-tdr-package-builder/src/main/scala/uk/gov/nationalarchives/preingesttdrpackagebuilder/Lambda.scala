@@ -34,14 +34,14 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
 
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
-    def processNonMetadataFiles(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI, metadataId: UUID): Stream[IO, MetadataObject] = {
+    def processNonMetadataObjects(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI, metadataId: UUID): Stream[IO, MetadataObject] = {
       tdrMetadataJsonStream
         .through(fs2Decoder[IO, TDRMetadata])
         .flatMap { tdrMetadata =>
           val contentFolderId = dependencies.uuidGenerator()
           val assetId = tdrMetadata.UUID
           val fileId = dependencies.uuidGenerator()
-          val contentFolder = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, tdrMetadata.Series, Nil)
+          val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, tdrMetadata.Series, Nil)
           val assetMetadata = AssetMetadataObject(
             assetId,
             Option(contentFolderId),
@@ -63,7 +63,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               IdField("RecordID", assetId.toString)
             )
           )
-          val file = FileMetadataObject(
+          val fileMetadata = FileMetadataObject(
             fileId,
             Option(assetId),
             stripFileExtension(tdrMetadata.Filename),
@@ -75,7 +75,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             fileLocation,
             tdrMetadata.SHA256ServerSideChecksum
           )
-          Stream.emits(List(contentFolder, assetMetadata, file))
+          Stream.emits(List(contentFolderMetadata, assetMetadata, fileMetadata))
         }
     }
 
@@ -118,7 +118,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     def processTdrMetadata(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI): Stream[IO, MetadataObject] = {
       val metadataId = dependencies.uuidGenerator()
       tdrMetadataJsonStream.broadcastThrough(
-        jsonStream => processNonMetadataFiles(jsonStream, fileLocation, metadataId),
+        jsonStream => processNonMetadataObjects(jsonStream, fileLocation, metadataId),
         jsonStream => processMetadataFiles(jsonStream, fileLocation, metadataId)
       )
     }
@@ -133,7 +133,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             .toStreamBuffered[IO](bufferSize)
             .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
             .through(byteStreamParser[IO])
-            .through(metadataStream => processTdrMetadata(metadataStream, fileLocation))
+            .through(metadataJsonStream => processTdrMetadata(metadataJsonStream, fileLocation))
         }
     }
 

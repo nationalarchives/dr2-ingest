@@ -105,11 +105,9 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       def stripFileExtension(title: String) = if title.contains(".") then title.substring(0, title.lastIndexOf('.')) else title
 
       val metadataObjects: List[MetadataObject] = s3Contents(s"${testData.batchId}/metadata.json").asInstanceOf[List[MetadataObject]]
-      val contentFolderMetadataObject = metadataObjects.find(_.isInstanceOf[ContentFolderMetadataObject]).get.asInstanceOf[ContentFolderMetadataObject]
-      val assetMetadataObject = metadataObjects.find(_.isInstanceOf[AssetMetadataObject]).get.asInstanceOf[AssetMetadataObject]
-      val fileMetadataObjects = metadataObjects
-        .filter(_.isInstanceOf[FileMetadataObject])
-        .map(_.asInstanceOf[FileMetadataObject])
+      val contentFolderMetadataObject = metadataObjects.collect { case contentFolderMetadataObject: ContentFolderMetadataObject => contentFolderMetadataObject }.head
+      val assetMetadataObject = metadataObjects.collect { case assetMetadataObject: AssetMetadataObject => assetMetadataObject }.head
+      val fileMetadataObjects = metadataObjects.collect { case fileMetadataObject: FileMetadataObject => fileMetadataObject }
       val fileMetadataObject = fileMetadataObjects.filterNot(_.name.endsWith("-metadata.json")).head
       val metadataFileMetadataObject = fileMetadataObjects.filter(_.name.endsWith("-metadata.json")).head
 
