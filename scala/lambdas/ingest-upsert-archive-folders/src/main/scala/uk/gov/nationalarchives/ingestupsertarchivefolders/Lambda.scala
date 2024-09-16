@@ -39,7 +39,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     val folderIdPartitionKeysAndValues: List[FilesTablePrimaryKey] =
       stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(id => FilesTablePrimaryKey(FilesTablePartitionKey(id), FilesTableSortKey(stepFnInput.batchId)))
 
-    def getFolderRows: IO[List[ArchiveFolderDynamoTable]] =
+    def getFolderRows(using Ordering[ArchiveFolderDynamoTable]): IO[List[ArchiveFolderDynamoTable]] =
       dependencies.dADynamoDBClient
         .getItems[ArchiveFolderDynamoTable, FilesTablePrimaryKey](
           folderIdPartitionKeysAndValues,
@@ -47,38 +47,39 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
         )
         .map(_.sorted)
 
-    def getIdToEntityMap(folderRows: List[ArchiveFolderDynamoTable], sourceMap: Map[String, Entity]) =
-      folderRows.foldLeft(IO(Map.empty[UUID, UUID])) { (entityMapIO, folderRow) =>
-        sourceMap
-          .get(folderRow.name)
-          .map { entity =>
-            val expectedParent = getExpectedParent(folderRow, folderRows, sourceMap)
-            for {
-              _ <- IO.raiseWhen(!entity.entityType.contains(StructuralObject))(
-                new Exception(s"The entity type for folder id ${folderRow.id} should be 'StructuralObject' but it is ${entity.entityType.toStringOrEmpty}")
-              )
-              _ <- IO.raiseWhen(entity.parent != expectedParent)(
-                new Exception(s"API returned a parent ref of '${entity.parent.toStringOrEmpty}' for entity ${entity.ref} instead of expected '${expectedParent.toStringOrEmpty}'")
-              )
-              _ <- IO.raiseWhen(entity.securityTag.isEmpty || entity.securityTag.flatMap(Option.apply).isEmpty)(
-                new Exception(s"Security tag '${entity.securityTag}' is unexpected for SO ref '${entity.ref}'")
-              )
-              mapping <- entityMapIO.map(_ + (folderRow.id -> entity.ref))
-            } yield mapping
-          }
-          .getOrElse {
-            for {
-              entityMap <- entityMapIO
-              entityId <- addFolder(folderRow, entityMap)
-            } yield entityMap + (folderRow.id -> entityId)
+    def createNonExistentFolders(folderRows: List[ArchiveFolderDynamoTable], entitiesByIdentifier: Map[String, Entity]): IO[Unit] =
+      folderRows
+        .foldLeft(IO(Map.empty[UUID, UUID])) { (idToEntityRefMapIO, folderRow) =>
+          entitiesByIdentifier
+            .get(folderRow.name)
+            .map { entity =>
+              val expectedParent = getExpectedParentRef(folderRow, folderRows, entitiesByIdentifier)
+              for {
+                _ <- IO.raiseWhen(!entity.entityType.contains(StructuralObject))(
+                  new Exception(s"The entity type for folder id ${folderRow.id} should be 'StructuralObject' but it is ${entity.entityType.toStringOrEmpty}")
+                )
+                _ <- IO.raiseWhen(entity.parent != expectedParent)(
+                  new Exception(s"API returned a parent ref of '${entity.parent.toStringOrEmpty}' for entity ${entity.ref} instead of expected '${expectedParent.toStringOrEmpty}'")
+                )
+                _ <- IO.raiseWhen(entity.securityTag.isEmpty || entity.securityTag.flatMap(Option.apply).isEmpty)(
+                  new Exception(s"Security tag '${entity.securityTag}' is unexpected for SO ref '${entity.ref}'")
+                )
+                updatedEntityMap <- idToEntityRefMapIO.map(_ + (folderRow.id -> entity.ref))
+              } yield updatedEntityMap
+            }
+            .getOrElse {
+              for {
+                entityMap <- idToEntityRefMapIO
+                entityId <- addFolder(folderRow, entityMap)
+              } yield entityMap + (folderRow.id -> entityId)
+            }
+        }
+        .map(_ => ())
 
-          }
-      }
-
-    def addFolder(folderRow: ArchiveFolderDynamoTable, entityMap: Map[UUID, UUID]) = {
+    def addFolder(folderRow: ArchiveFolderDynamoTable, idToEntityRefMap: Map[UUID, UUID]) = {
       val potentialParentRef = for {
         directParent <- folderRow.directParentId
-        entityRef <- entityMap.get(directParent)
+        entityRef <- idToEntityRefMap.get(directParent)
       } yield entityRef
       val addFolderRequest = AddEntityRequest(
         None,
@@ -115,8 +116,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
           dependencies.entityClient.entitiesByIdentifier(identifier).flatMap {
             case head :: next =>
               if next.nonEmpty then IO.raiseError(new Exception(s"There is more than 1 entity with the same SourceID ${identifier.value}"))
-              else IO(identifier.value -> Option(head))
-            case Nil => IO(identifier.value -> None)
+              else IO.pure(identifier.value -> Option(head))
+            case Nil => IO.pure(identifier.value -> None)
           }
         )
         .map {
@@ -131,7 +132,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     for {
       folderRows <- getFolderRows
       entitiesByIdentifier <- getEntitiesByIdentifier(folderRows)
-      idToEntityRef <- getIdToEntityMap(folderRows, entitiesByIdentifier)
+      _ <- createNonExistentFolders(folderRows, entitiesByIdentifier)
       _ <- folderRows.filter(row => entitiesByIdentifier.contains(row.name)).traverse { folderRow =>
         val entity = entitiesByIdentifier(folderRow.name)
         for {
@@ -163,7 +164,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     } yield ()
   }
 
-  private def getExpectedParent(folderRow: ArchiveFolderDynamoTable, folderRows: List[ArchiveFolderDynamoTable], sourceMap: Map[String, Entity]) = {
+  private def getExpectedParentRef(folderRow: ArchiveFolderDynamoTable, folderRows: List[ArchiveFolderDynamoTable], sourceMap: Map[String, Entity]) = {
     folderRows
       .find(row => folderRow.directParentId.contains(row.id))
       .map(_.name)
@@ -182,7 +183,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
 
     val titleHasChanged = potentialNewTitle != entity.title && potentialNewTitle.nonEmpty
     val descriptionHasChanged = potentialNewDescription != entity.description && potentialNewDescription.nonEmpty
-    val parentRef = getExpectedParent(folderRow, folderRows, sourceMap)
+    val parentRef = getExpectedParentRef(folderRow, folderRows, sourceMap)
     val updateEntityRequest =
       if (titleHasChanged || descriptionHasChanged) {
         val updatedTitleOrDescriptionRequest =
