@@ -73,7 +73,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       val fileId = UUID.fromString("4e03a500-4f29-47c5-9c08-26e12f631fd8")
       val metadataFileId = UUID.fromString("427789a1-e7af-4172-9fa7-02da1d60125f")
       val tdrFileId = UUID.fromString("a2834c9d-46e8-42d9-a300-2a4ed31c1e1a")
-      val uuids = Iterator(archiveFolderId, fileId, metadataFileId)
+      val uuids = Iterator(metadataFileId, archiveFolderId, fileId)
       val uuidIterator: () => UUID = () => uuids.next
       val tdrMetadata = TDRMetadata(
         testData.series,
@@ -83,7 +83,6 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
         testData.date,
         testData.tdrRef,
         s"${testData.fileName.prefix}.${testData.fileName.suffix}",
-        testData.fileSize,
         testData.checksum,
         testData.fileRef
       )
@@ -96,7 +95,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
         .to(string)
         .unsafeRunSync()
 
-      val initialS3Objects = Map("key.metadata" -> tdrMetadata)
+      val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(testData.fileSize))
       val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
       val initialDynamoObjects = List(IngestLockTable(UUID.randomUUID(), testData.groupId, lockTableMessage))
       val input = Input(testData.groupId, testData.batchId, 1, 2)
@@ -104,13 +103,13 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
       def stripFileExtension(title: String) = if title.contains(".") then title.substring(0, title.lastIndexOf('.')) else title
 
-      val metadataObjects = s3Contents(s"${testData.batchId}/metadata.json").asInstanceOf[List[MetadataObject]]
-      val contentFolderMetadataObject = metadataObjects.head.asInstanceOf[ContentFolderMetadataObject]
-      val assetMetadataObject = metadataObjects(1).asInstanceOf[AssetMetadataObject]
-      val fileMetadataObject = metadataObjects(2).asInstanceOf[FileMetadataObject]
-      val metadataFileMetadataObject = metadataObjects(3).asInstanceOf[FileMetadataObject]
+      val metadataObjects: List[MetadataObject] = s3Contents(s"${testData.batchId}/metadata.json").asInstanceOf[List[MetadataObject]]
+      val contentFolderMetadataObject = metadataObjects.collect { case contentFolderMetadataObject: ContentFolderMetadataObject => contentFolderMetadataObject }.head
+      val assetMetadataObject = metadataObjects.collect { case assetMetadataObject: AssetMetadataObject => assetMetadataObject }.head
+      val fileMetadataObjects = metadataObjects.collect { case fileMetadataObject: FileMetadataObject => fileMetadataObject }
+      val fileMetadataObject = fileMetadataObjects.filterNot(_.name.endsWith("-metadata.json")).head
+      val metadataFileMetadataObject = fileMetadataObjects.filter(_.name.endsWith("-metadata.json")).head
 
-      contentFolderMetadataObject.id should equal(archiveFolderId)
       contentFolderMetadataObject.name should equal(testData.tdrRef)
       contentFolderMetadataObject.title should equal(None)
       contentFolderMetadataObject.parentId should equal(None)
@@ -119,7 +118,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       assetMetadataObject.id should equal(tdrFileId)
       assetMetadataObject.parentId should equal(Option(archiveFolderId))
       assetMetadataObject.title should equal(stripFileExtension(testData.fileName.fileString))
-      assetMetadataObject.name should equal(testData.fileName.fileString)
+      assetMetadataObject.name should equal(tdrFileId.toString)
       assetMetadataObject.originalFiles should equal(List(fileId))
       assetMetadataObject.originalMetadataFiles should equal(List(metadataFileId))
       assetMetadataObject.description should equal(None)
@@ -128,8 +127,14 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       assetMetadataObject.upstreamSystem should equal("TDR")
       assetMetadataObject.digitalAssetSource should equal("Born Digital")
       assetMetadataObject.digitalAssetSubtype should equal("TDR")
+      def checkIdField(name: String, value: String) =
+        assetMetadataObject.idFields.find(_.name == name).map(_.value).get should equal(value)
+      checkIdField("Code", s"${testData.series}/${testData.fileRef}")
+      checkIdField("UpstreamSystemReference", testData.fileRef)
+      checkIdField("BornDigitalRef", testData.fileRef)
+      checkIdField("ConsignmentReference", testData.tdrRef)
+      checkIdField("RecordID", tdrFileId.toString)
 
-      fileMetadataObject.id should equal(fileId)
       fileMetadataObject.parentId should equal(Option(tdrFileId))
       fileMetadataObject.title should equal(stripFileExtension(testData.fileName.fileString))
       fileMetadataObject.sortOrder should equal(1)
@@ -140,11 +145,10 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       fileMetadataObject.location should equal(URI.create("s3://bucket/key"))
       fileMetadataObject.checksumSha256 should equal(testData.checksum)
 
-      metadataFileMetadataObject.id should equal(metadataFileId)
       metadataFileMetadataObject.parentId should equal(Option(tdrFileId))
-      metadataFileMetadataObject.title should equal(s"${testData.tdrRef}-metadata")
+      metadataFileMetadataObject.title should equal(s"$tdrFileId-metadata")
       metadataFileMetadataObject.sortOrder should equal(2)
-      metadataFileMetadataObject.name should equal(s"${testData.tdrRef}-metadata.json")
+      metadataFileMetadataObject.name should equal(s"$tdrFileId-metadata.json")
       metadataFileMetadataObject.fileSize should equal(tdrMetadata.asJson.noSpaces.getBytes.length)
       metadataFileMetadataObject.representationType should equal(RepresentationType.Preservation)
       metadataFileMetadataObject.representationSuffix should equal(1)
@@ -179,8 +183,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTable(UUID.randomUUID(), "TST-123", lockTableMessage))
 
-    val tdrMetadata = TDRMetadata("", UUID.randomUUID, None, "", "2024-10-04 10:00:00", "", "test.txt", 1, "", "")
-    val initialS3Objects = Map("key.metadata" -> tdrMetadata)
+    val tdrMetadata = TDRMetadata("", UUID.randomUUID, None, "", "2024-10-04 10:00:00", "", "test.txt", "", "")
+    val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(1))
     val ex = intercept[Throwable] {
       runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)
     }
@@ -198,7 +202,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
   private def runHandler(
       uuidIterator: () => UUID = () => UUID.randomUUID,
-      initialS3Objects: Map[String, TDRMetadata] = Map.empty,
+      initialS3Objects: Map[String, S3Objects] = Map.empty,
       initialDynamoObjects: List[IngestLockTable] = Nil,
       input: Input = Input("TST-123", "", 1, 1),
       downloadError: Boolean = false,
