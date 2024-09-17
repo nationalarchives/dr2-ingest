@@ -29,8 +29,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   val fileBOne: DynamoRow = DynamoRow(UUID.randomUUID, "B", File, Option(s"${folderB.id}/${assetB.id}"))
   val fileBTwo: DynamoRow = DynamoRow(UUID.randomUUID, "B", File, Option(s"${folderB.id}/${assetB.id}"))
 
-  def outputBuilder(id: UUID, messageType: MessageType): OutputMessage =
-    OutputMessage(OutputProperties(messageId, Option("correlationId"), instant, messageType), OutputParameters(id))
+  def outputBuilder(asset: DynamoRow, messageType: MessageType): OutputMessage =
+    OutputMessage(OutputProperties(asset.batchId, messageId, Option("correlationId"), instant, messageType), OutputParameters(asset.id))
 
   val handlerOutputsTable: TableFor4[String, List[DynamoRow], DynamoRow, List[OutputMessage]] = Table(
     ("title", "rowsInTable", "newRowInput", "expectedOutput"),
@@ -43,7 +43,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileATwo
       ),
       assetA,
-      List(outputBuilder(assetA.id, IngestUpdate))
+      List(outputBuilder(assetA, IngestUpdate))
     ),
     (
       "skipIngest for 1 item, only sends no message",
@@ -65,7 +65,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileATwo
       ),
       assetA.copy(skipIngest = true, ingestedPreservica = true),
-      List(outputBuilder(assetA.id, IngestComplete))
+      List(outputBuilder(assetA, IngestComplete))
     ),
     (
       "ingested_PS and skipIngest for multiple items, sends update message",
@@ -80,7 +80,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileBTwo
       ),
       assetB.copy(skipIngest = true, ingestedPreservica = true),
-      List(outputBuilder(assetB.id, IngestUpdate))
+      List(outputBuilder(assetB, IngestUpdate))
     ),
     (
       "ingested_PS and ingested_CC for 1 Asset only where all files are complete, sends complete message",
@@ -91,7 +91,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileATwo.copy(ingestedCustodialCopy = true)
       ),
       assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
-      List(outputBuilder(assetA.id, IngestComplete))
+      List(outputBuilder(assetA, IngestComplete))
     ),
     (
       "ingested_PS and ingested_CC for 1 Asset only where all files are not complete, sends no message",
@@ -124,7 +124,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileATwo.copy(ingestedCustodialCopy = true)
       ),
       fileATwo.copy(ingestedCustodialCopy = true),
-      List(outputBuilder(assetA.id, IngestComplete))
+      List(outputBuilder(assetA, IngestComplete))
     ),
     (
       "ingested_PS and ingested_CC for an Asset where all files are complete, and the asset has been in multiple ingest batches, sends two complete messages",
@@ -139,7 +139,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileBTwo
       ),
       assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
-      List(outputBuilder(assetA.id, IngestComplete), outputBuilder(assetB.id, IngestComplete))
+      List(outputBuilder(assetA, IngestComplete), outputBuilder(assetB, IngestComplete))
     ),
     (
       "ingested_CC for a File where all files are complete, and the asset has been in multiple ingest batches, sends two complete messages",
@@ -154,7 +154,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileBTwo
       ),
       fileAOne.copy(ingestedCustodialCopy = true),
-      List(outputBuilder(assetA.id, IngestComplete), outputBuilder(assetB.id, IngestComplete))
+      List(outputBuilder(assetA, IngestComplete), outputBuilder(assetB, IngestComplete))
     )
   )
 

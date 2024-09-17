@@ -28,7 +28,10 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       FilesTablePrimaryKey(FilesTablePartitionKey(row.id), FilesTableSortKey(row.batchId))
 
     def sendOutputMessage(asset: AssetDynamoTable, messageType: MessageType): IO[Unit] = {
-      val message = OutputMessage(OutputProperties(dependencies.uuidGenerator(), asset.correlationId, dependencies.instantGenerator(), messageType), OutputParameters(asset.id))
+      val message = OutputMessage(
+        OutputProperties(asset.batchId, dependencies.uuidGenerator(), asset.correlationId, dependencies.instantGenerator(), messageType),
+        OutputParameters(asset.id)
+      )
       dependencies.daSnsClient.publish(config.topicArn)(message :: Nil).map(_ => ())
     }
 
@@ -189,6 +192,6 @@ object Lambda:
   given Encoder[OutputParameters] = deriveEncoder[OutputParameters]
   given Encoder[OutputMessage] = deriveEncoder[OutputMessage]
 
-  case class OutputProperties(messageId: UUID, parentMessageId: Option[String], timestamp: Instant, `type`: MessageType)
+  case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, `type`: MessageType)
   case class OutputParameters(assetId: UUID)
   case class OutputMessage(properties: OutputProperties, parameters: OutputParameters)
