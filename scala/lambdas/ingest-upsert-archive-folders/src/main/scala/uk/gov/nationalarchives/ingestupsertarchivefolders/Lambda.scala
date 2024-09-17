@@ -74,7 +74,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
               } yield entityMap + (folderRow.id -> entityId)
             }
         }
-        .map(_ => ())
+        .void
 
     def addFolder(folderRow: ArchiveFolderDynamoTable, idToEntityRefMap: Map[UUID, UUID]) = {
       val potentialParentRef = for {
