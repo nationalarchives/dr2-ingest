@@ -348,7 +348,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           RepresentationType.Preservation,
           1,
           URI.create(s"s3://$testOutputBucket/$metadataFileId"),
-          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          "78380a854ce3af9caa6448e25190a8867242adf82af6f7e3909a2242c66b3487"
         )
       )
 
