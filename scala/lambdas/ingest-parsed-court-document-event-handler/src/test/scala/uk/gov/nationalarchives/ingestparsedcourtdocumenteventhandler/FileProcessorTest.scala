@@ -113,19 +113,19 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
     docxInfo.id should equal(uuids(1))
     docxInfo.fileName should equal("Test.docx")
     docxInfo.fileSize should equal(15684)
-    docxInfo.checksum should equal("9b38180e4a1e60b35c3310e038ba5db2ff08021afe091ddc325410e6e0f4d210")
+    docxInfo.sha256Checksum should equal("9b38180e4a1e60b35c3310e038ba5db2ff08021afe091ddc325410e6e0f4d210")
 
     val unusedTreFileInfo = unusedTreFile.get
     unusedTreFileInfo.id should equal(uuids.head)
     unusedTreFileInfo.fileName should equal("unused-tre-file")
     unusedTreFileInfo.fileSize should equal(0)
-    unusedTreFileInfo.checksum should equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+    unusedTreFileInfo.sha256Checksum should equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
     val metadataInfo = metadata.get
     metadataInfo.id should equal(uuids.last)
     metadataInfo.fileName should equal(s"TRE-$reference-metadata.json")
     metadataInfo.fileSize should equal(215)
-    metadataInfo.checksum should equal("78380a854ce3af9caa6448e25190a8867242adf82af6f7e3909a2242c66b3487")
+    metadataInfo.sha256Checksum should equal("78380a854ce3af9caa6448e25190a8867242adf82af6f7e3909a2242c66b3487")
   }
 
   "copyFilesFromDownloadToUploadBucket" should "return an error if the downloaded file is not a valid tar.gz" in {
