@@ -184,7 +184,7 @@ object Lambda:
       case IngestComplete => "preserve.digital.asset.ingest.complete"
     case IngestUpdate, IngestComplete
 
-  given Encoder[MessageType] = deriveEncoder[MessageType]
+  given Encoder[MessageType] = (messageType: MessageType) => Json.fromString(messageType.toString)
   given Encoder[OutputProperties] = deriveEncoder[OutputProperties]
   given Encoder[OutputParameters] = deriveEncoder[OutputParameters]
   given Encoder[OutputMessage] = deriveEncoder[OutputMessage]
