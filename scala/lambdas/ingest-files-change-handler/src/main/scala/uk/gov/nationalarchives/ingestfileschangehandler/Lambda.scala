@@ -65,6 +65,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       }(new Exception(s"Cannot find a direct parent for file ${fileRow.id}"))
       parentPrimaryKey <- IO.pure(FilesTablePrimaryKey(FilesTablePartitionKey(parentId), FilesTableSortKey(fileRow.batchId)))
       parentAssets <- dependencies.daDynamoDbClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](List(parentPrimaryKey), config.dynamoTableName)
+      _ <- IO.raiseWhen(parentAssets.length != 1)(new Exception(s"Expected 1 parent asset, found ${parentAssets.length} assets for file $parentId"))
     } yield parentAssets.head
 
     def processIngestedPreservica(asset: AssetDynamoTable) =
