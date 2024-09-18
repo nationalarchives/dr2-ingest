@@ -23,11 +23,11 @@ class MetadataJsonSchemaValidator(validationType: EntryTypeSchema) {
   private val resource = getResource(schemaLocation)
 
   def validateMetadataJsonObject(jsonObject: Obj): IO[Map[String, ValidatedNel[ValidationError, Value]]] = {
-    val jsonObjectAsString = convertUjsonObjectToString(jsonObject)
+    val jsonObjectAsString = write(jsonObject)
 
     for (errors <- resource.use(schemaInputStream => validateAgainstSchema(jsonObjectAsString, schemaInputStream)))
       yield {
-        val originalJsonMap = convertUjsonObjectToMap(jsonObject)
+        val originalJsonMap = jsonObject.obj.view.mapValues(_.validNel[ValidationError]).toMap
         val jsonObjectValidated =
           errors.foldLeft(originalJsonMap) { case (jsonMap, error) =>
             val missingProperty = Option(error.getProperty)
@@ -50,15 +50,6 @@ class MetadataJsonSchemaValidator(validationType: EntryTypeSchema) {
         sortJsonObjectByFieldName(jsonObjectValidated)
       }
   }
-
-  private def convertUjsonObjectToMap(jsonObject: Obj): Map[String, ValidatedNel[ValidationError, Value]] = {
-    val objectAsMap = jsonObject.obj.toMap
-    objectAsMap.map { case (property, value) =>
-      property -> Validated.Valid[Value](value).toValidatedNel[ValidationError, Value]
-    }
-  }
-
-  private def convertUjsonObjectToString(jsonObject: Obj): String = write(jsonObject)
 }
 
 object MetadataJsonSchemaValidator:
@@ -93,9 +84,7 @@ object MetadataJsonSchemaValidator:
     sortedValidatedJsonObjects.map { case (field, value) => (field, value.leftMap(_.sortBy(_.errorMessage))) }.toMap
   }
 
-  private def getResource(schemaLocation: String) = for {
-    is <- Resource.make(IO(getClass.getResourceAsStream(schemaLocation)))(is => IO(is.close()))
-  } yield is
+  private def getResource(schemaLocation: String) = Resource.make(IO(getClass.getResourceAsStream(schemaLocation)))(is => IO(is.close()))
 
   private def validateAgainstSchema(jsonToValidate: String, schemaInputStream: InputStream): IO[List[ValidationMessage]] = IO {
     val jsonFactory = JsonSchemaFactory.getInstance(VersionFlag.V202012)
