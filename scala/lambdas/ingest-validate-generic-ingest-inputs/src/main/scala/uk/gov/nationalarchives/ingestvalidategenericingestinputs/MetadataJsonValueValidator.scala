@@ -16,7 +16,6 @@ import java.net.URI
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.Map
-import scala.util.{Failure, Success, Try}
 
 class MetadataJsonValueValidator {
   private val parentId = "parentId"
@@ -28,21 +27,22 @@ class MetadataJsonValueValidator {
       locationNel match {
         case Validated.Valid(locationObject) =>
           val fileLocation = locationObject.str
-          val potentialFileUri = Try(URI.create(fileLocation))
-          potentialFileUri match {
-            case Success(fileUri) if fileUri.getHost != null =>
-              s3Client
-                .headObject(fileUri.getHost, fileUri.getPath.drop(1))
-                .redeem(
-                  exception => NoFileAtS3LocationError(fileLocation, exception.getMessage).invalidNel[Value],
-                  headResponse =>
-                    val statusCode = headResponse.sdkHttpResponse().statusCode()
-                    if statusCode == 200 then locationNel
-                    else NoFileAtS3LocationError(fileLocation, s"Head Object request returned a Status code of $statusCode").invalidNel[Value]
-                )
-            case Success(_) => IO.pure(UriIsNotValid(fileLocation, s"'$location' could not be transformed into a URI").invalidNel[Value])
-            case Failure(e) => IO.pure(UriIsNotValid(fileLocation, e.getMessage).invalidNel[Value])
-          }
+          IO(URI.create(fileLocation))
+            .flatMap { fileUri =>
+              if fileUri.getHost != null then
+                s3Client
+                  .headObject(fileUri.getHost, fileUri.getPath.drop(1))
+                  .redeem(
+                    exception => NoFileAtS3LocationError(fileLocation, exception.getMessage).invalidNel[Value],
+                    headResponse =>
+                      val statusCode = headResponse.sdkHttpResponse().statusCode()
+                      if statusCode == 200 then locationNel
+                      else NoFileAtS3LocationError(fileLocation, s"Head Object request returned a Status code of $statusCode").invalidNel[Value]
+                  )
+              else IO.pure(UriIsNotValid(fileLocation, s"'$location' could not be transformed into a URI").invalidNel[Value])
+            }
+            .recoverWith(err => IO.pure(UriIsNotValid(fileLocation, err.getMessage).invalidNel[Value]))
+
         case locationInvalidNel => IO.pure(locationInvalidNel)
       }
     }.sequence
@@ -72,10 +72,9 @@ class MetadataJsonValueValidator {
           val validatedId = idNel match {
             case Validated.Valid(idValue) =>
               val idAsString = idValue.str
-              Try(UUID.fromString(idAsString)) match {
-                case Success(uuid) => idNel
-                case _             => IdIsNotAUuidError(idAsString, s"The id is not a valid UUID").invalidNel[Value]
-              }
+              Validated.catchNonFatal(UUID.fromString(idAsString)) match
+                case Validated.Valid(_)   => idNel
+                case Validated.Invalid(_) => IdIsNotAUuidError(idAsString, s"The id is not a valid UUID").invalidNel[Value]
             case invalidNel => invalidNel
           }
           entry + (id -> validatedId)
