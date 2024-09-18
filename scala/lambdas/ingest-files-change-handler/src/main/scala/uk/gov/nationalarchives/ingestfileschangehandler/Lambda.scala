@@ -67,7 +67,6 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       parentAssets <- dependencies.daDynamoDbClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](List(parentPrimaryKey), config.dynamoTableName)
     } yield parentAssets.head
 
-
     def processIngestedPreservica(asset: AssetDynamoTable) =
       if asset.ingestedPreservica && !asset.skipIngest then sendOutputMessage(asset, IngestUpdate)
       else if asset.ingestedPreservica && asset.skipIngest then
@@ -84,7 +83,6 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           }
         } yield ()
       else IO.unit
-
 
     def processIngestedPreservicaCC(asset: AssetDynamoTable) =
       if asset.ingestedPreservica && asset.ingestedCustodialCopy then
