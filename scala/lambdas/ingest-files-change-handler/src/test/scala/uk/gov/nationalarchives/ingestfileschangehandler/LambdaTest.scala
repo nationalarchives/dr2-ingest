@@ -83,7 +83,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       List(outputBuilder(assetB, IngestUpdate))
     ),
     (
-      "ingested_PS and ingested_CC for 1 Asset only where all files are complete, sends complete message",
+      "ingested_PS and ingested_CC for 1 Asset only where all files are complete, sends complete and update message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
@@ -91,10 +91,10 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileATwo.copy(ingestedCustodialCopy = true)
       ),
       assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
-      List(outputBuilder(assetA, IngestComplete))
+      List(outputBuilder(assetA, IngestUpdate), outputBuilder(assetA, IngestComplete))
     ),
     (
-      "ingested_PS and ingested_CC for 1 Asset only where all files are not complete, sends no message",
+      "ingested_PS and ingested_CC for 1 Asset only where all files are not complete, sends an ingest update message",
       List(
         folderA,
         assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
@@ -102,7 +102,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileATwo.copy(ingestedCustodialCopy = true)
       ),
       assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
-      Nil
+      List(outputBuilder(assetA, IngestUpdate))
     ),
     (
       "ingested_CC for 1 File only where not all files are complete, sends no message",
@@ -113,7 +113,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileATwo.copy(ingestedCustodialCopy = true)
       ),
       fileATwo.copy(ingestedCustodialCopy = true),
-      Nil
+      List(outputBuilder(assetA, IngestUpdate))
     ),
     (
       "ingested_CC for 1 File only where all files are complete, sends complete message",
@@ -124,7 +124,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileATwo.copy(ingestedCustodialCopy = true)
       ),
       fileATwo.copy(ingestedCustodialCopy = true),
-      List(outputBuilder(assetA, IngestComplete))
+      List(outputBuilder(assetA, IngestUpdate), outputBuilder(assetA, IngestComplete))
     ),
     (
       "ingested_PS and ingested_CC for an Asset where all files are complete, and the asset has been in multiple ingest batches, sends two complete messages",
@@ -139,7 +139,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileBTwo
       ),
       assetA.copy(ingestedPreservica = true, ingestedCustodialCopy = true),
-      List(outputBuilder(assetA, IngestComplete), outputBuilder(assetB, IngestComplete))
+      List(outputBuilder(assetA, IngestUpdate), outputBuilder(assetA, IngestComplete), outputBuilder(assetB, IngestComplete))
     ),
     (
       "ingested_CC for a File where all files are complete, and the asset has been in multiple ingest batches, sends two complete messages",
@@ -154,7 +154,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         fileBTwo
       ),
       fileAOne.copy(ingestedCustodialCopy = true),
-      List(outputBuilder(assetA, IngestComplete), outputBuilder(assetB, IngestComplete))
+      List(outputBuilder(assetA, IngestUpdate), outputBuilder(assetA, IngestComplete), outputBuilder(assetB, IngestComplete))
     )
   )
 

@@ -401,6 +401,20 @@ Custodial Copy, where all the child Files are downloaded to Custodial Copy.
 }
 ```
 
+```json
+{
+  "properties": {
+    "messageId": "e2f8a9a9-4935-4f4f-96f8-7bdfa75960e3",
+    "parentMessageId": null,
+    "timestamp": "2024-05-23T10:13:16.925Z",
+    "type": "preserve.digital.asset.ingest.update"
+  },
+  "parameters": {
+    "assetId": "1"
+  }
+}
+```
+
 ## 6. `ingested_PS`+`ingested_CC` for 1 Asset only where all files are not complete
 
 This test models the action of adding `ingested_PS` or `ingested_CC` to the Asset after reconciling/downloading to
@@ -467,8 +481,19 @@ Custodial Copy, where **not** all the child Files are downloaded to Custodial Co
 
 ### Output (messages sent)
 
-No output.
-
+```json
+{
+  "properties": {
+    "messageId": "e2f8a9a9-4935-4f4f-96f8-7bdfa75960e3",
+    "parentMessageId": null,
+    "timestamp": "2024-05-23T10:13:16.925Z",
+    "type": "preserve.digital.asset.ingest.update"
+  },
+  "parameters": {
+    "assetId": "1"
+  }
+}
+```
 ## 7. `ingested_CC` for 1 File only where not all files are complete
 
 This test models the action of adding `ingested_CC` to a File after downloading to Custodial Copy, where the Asset is
@@ -532,7 +557,19 @@ but **not** all the Files are downloaded to Custodial Copy.
 
 ### Output (messages sent)
 
-No output.
+```json
+{
+  "properties": {
+    "messageId": "e2f8a9a9-4935-4f4f-96f8-7bdfa75960e3",
+    "parentMessageId": null,
+    "timestamp": "2024-05-23T10:13:16.925Z",
+    "type": "preserve.digital.asset.ingest.update"
+  },
+  "parameters": {
+    "assetId": "3"
+  }
+}
+```
 
 ## 8. `ingested_CC` for 1 File only where all files are complete
 
@@ -604,6 +641,20 @@ all the Files are downloaded to Custodial Copy.
     "parentMessageId": null,
     "timestamp": "2024-05-23T10:13:16.925Z",
     "type": "preserve.digital.asset.ingest.complete"
+  },
+  "parameters": {
+    "assetId": "1"
+  }
+}
+```
+
+```json
+{
+  "properties": {
+    "messageId": "e2f8a9a9-4935-4f4f-96f8-7bdfa75960e3",
+    "parentMessageId": null,
+    "timestamp": "2024-05-23T10:13:16.925Z",
+    "type": "preserve.digital.asset.ingest.update"
   },
   "parameters": {
     "assetId": "1"
@@ -715,6 +766,21 @@ passthrough, hence 2 messages.
 }
 ```
 
+```JSON
+{
+  "properties": {
+    "messageId": "e2f8a9a9-4935-4f4f-96f8-7bdfa75960e3",
+    "parentMessageId": null,
+    "timestamp": "2024-05-23T10:13:16.925Z",
+    "type": "preserve.digital.asset.ingest.update"
+  },
+  "parameters": {
+    "assetId": "1"
+  }
+}
+```
+
+
 ## 10. `ingested_CC` for a File where all files are complete, and the asset has been in multiple ingest batches
 
 This test models the action of adding `ingested_CC` to a File after downloading to Custodial Copy, where all the child
@@ -805,6 +871,19 @@ after the IO has already been processed by the CC application.
     "parentMessageId": null,
     "timestamp": "2024-05-23T10:13:16.925Z",
     "type": "preserve.digital.asset.ingest.complete"
+  },
+  "parameters": {
+    "assetId": "1"
+  }
+}
+```
+```JSON
+{
+  "properties": {
+    "messageId": "e2f8a9a9-4935-4f4f-96f8-7bdfa75960e3",
+    "parentMessageId": null,
+    "timestamp": "2024-05-23T10:13:16.925Z",
+    "type": "preserve.digital.asset.ingest.update"
   },
   "parameters": {
     "assetId": "1"

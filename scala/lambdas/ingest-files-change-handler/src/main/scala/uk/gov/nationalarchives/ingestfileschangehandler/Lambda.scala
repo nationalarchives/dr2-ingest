@@ -65,16 +65,11 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       }(new Exception(s"Cannot find a direct parent for file ${fileRow.id}"))
       parentPrimaryKey <- IO.pure(FilesTablePrimaryKey(FilesTablePartitionKey(parentId), FilesTableSortKey(fileRow.batchId)))
       parentAssets <- dependencies.daDynamoDbClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](List(parentPrimaryKey), config.dynamoTableName)
-      _ <- IO.raiseWhen(parentAssets.length != 1)(new Exception(s"Expected 1 parent asset, found ${parentAssets.length} assets for file $parentId"))
     } yield parentAssets.head
 
-    def processAsset(asset: AssetDynamoTable): IO[Unit] = {
-      if asset.ingestedPreservica && asset.ingestedCustodialCopy then
-        for {
-          children <- childrenOfAsset(asset)
-          _ <- IO.whenA(children.forall(_.ingestedCustodialCopy))(sendMessageAndDelete(asset, children) >> sendMessageAndDeleteSkippedAssets(asset))
 
-        } yield ()
+    def processIngestedPreservica(asset: AssetDynamoTable) =
+      if asset.ingestedPreservica && !asset.skipIngest then sendOutputMessage(asset, IngestUpdate)
       else if asset.ingestedPreservica && asset.skipIngest then
         for {
           children <- childrenOfAsset(asset)
@@ -88,9 +83,22 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
             dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, childKeys) >> sendOutputMessage(asset, IngestUpdate)
           }
         } yield ()
-      else if asset.ingestedPreservica then sendOutputMessage(asset, IngestUpdate)
       else IO.unit
-    }
+
+
+    def processIngestedPreservicaCC(asset: AssetDynamoTable) =
+      if asset.ingestedPreservica && asset.ingestedCustodialCopy then
+        for {
+          children <- childrenOfAsset(asset)
+          _ <- IO.whenA(children.forall(_.ingestedCustodialCopy))(sendMessageAndDelete(asset, children) >> sendMessageAndDeleteSkippedAssets(asset))
+
+        } yield ()
+      else IO.unit
+
+    def processAsset(asset: AssetDynamoTable): IO[Unit] = for {
+      _ <- processIngestedPreservica(asset)
+      _ <- processIngestedPreservicaCC(asset)
+    } yield ()
 
     event.Records
       .filter(_.eventName == EventName.MODIFY)
