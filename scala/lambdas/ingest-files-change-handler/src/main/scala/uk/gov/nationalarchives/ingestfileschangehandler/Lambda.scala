@@ -57,7 +57,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         .queryItems[FileDynamoTable](config.dynamoTableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.dynamoGsiName))
     }
 
-    def getParentAsset(fileRow: FileDynamoTable): IO[AssetDynamoTable] = for {
+    def getParentAsset(fileRow: FileDynamoTable): IO[Option[AssetDynamoTable]] = for {
       parentId <- IO.fromOption {
         fileRow.potentialParentPath
           .flatMap(_.split('/').lastOption)
@@ -65,8 +65,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       }(new Exception(s"Cannot find a direct parent for file ${fileRow.id}"))
       parentPrimaryKey <- IO.pure(FilesTablePrimaryKey(FilesTablePartitionKey(parentId), FilesTableSortKey(fileRow.batchId)))
       parentAssets <- dependencies.daDynamoDbClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](List(parentPrimaryKey), config.dynamoTableName)
-      _ <- IO.raiseWhen(parentAssets.length != 1)(new Exception(s"Expected 1 parent asset, found ${parentAssets.length} assets for file $parentId"))
-    } yield parentAssets.head
+    } yield parentAssets.headOption
 
     def processAsset(asset: AssetDynamoTable): IO[Unit] = {
       if asset.ingestedPreservica && asset.ingestedCustodialCopy then
@@ -99,7 +98,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           case Some(newImage) =>
             newImage match
               case assetRow: AssetDynamoTable => logger.info(s"Processing asset ${assetRow.id}") >> processAsset(assetRow)
-              case fileRow: FileDynamoTable   => logger.info(s"Processing file ${fileRow.id}") >> getParentAsset(fileRow).flatMap(processAsset)
+              case fileRow: FileDynamoTable   => logger.info(s"Processing file ${fileRow.id}") >> getParentAsset(fileRow).flatMap(_.traverse(processAsset))
               case _                          => IO.unit
           case None => IO.unit
       }
