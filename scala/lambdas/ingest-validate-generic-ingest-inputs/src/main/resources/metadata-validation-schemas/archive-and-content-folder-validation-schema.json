@@ -49,7 +49,6 @@
   },
   "required": [
     "id_Code",
-    "id_URI",
     "id",
     "parentId",
     "title",
