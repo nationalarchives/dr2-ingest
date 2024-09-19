@@ -67,13 +67,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       parentAssets <- dependencies.daDynamoDbClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](List(parentPrimaryKey), config.dynamoTableName)
     } yield parentAssets.headOption
 
-    def processAsset(asset: AssetDynamoTable): IO[Unit] = {
-      if asset.ingestedPreservica && asset.ingestedCustodialCopy then
-        for {
-          children <- childrenOfAsset(asset)
-          _ <- IO.whenA(children.forall(_.ingestedCustodialCopy))(sendMessageAndDelete(asset, children) >> sendMessageAndDeleteSkippedAssets(asset))
-
-        } yield ()
+    def processIngestedPreservica(asset: AssetDynamoTable) =
+      if asset.ingestedPreservica && !asset.skipIngest then sendOutputMessage(asset, IngestUpdate)
       else if asset.ingestedPreservica && asset.skipIngest then
         for {
           children <- childrenOfAsset(asset)
@@ -87,9 +82,21 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
             dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, childKeys) >> sendOutputMessage(asset, IngestUpdate)
           }
         } yield ()
-      else if asset.ingestedPreservica then sendOutputMessage(asset, IngestUpdate)
       else IO.unit
-    }
+
+    def processIngestedPreservicaCC(asset: AssetDynamoTable) =
+      if asset.ingestedPreservica && asset.ingestedCustodialCopy then
+        for {
+          children <- childrenOfAsset(asset)
+          _ <- IO.whenA(children.forall(_.ingestedCustodialCopy))(sendMessageAndDelete(asset, children) >> sendMessageAndDeleteSkippedAssets(asset))
+
+        } yield ()
+      else IO.unit
+
+    def processAsset(asset: AssetDynamoTable): IO[Unit] = for {
+      _ <- processIngestedPreservica(asset)
+      _ <- processIngestedPreservicaCC(asset)
+    } yield ()
 
     event.Records
       .filter(_.eventName == EventName.MODIFY)
