@@ -161,16 +161,12 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   val errorsTable: TableFor4[String, List[DynamoRow], DynamoRow, String] = Table(
     ("title", "rowsInTable", "newRowInput", "expectedErrorMessage"),
     (
-      "Multiple assets found for file parent",
+      "Parent path missing from file",
       List(
-        folderA,
-        assetA,
-        assetA,
-        fileAOne,
-        fileATwo
+        folderA
       ),
-      fileAOne,
-      s"Expected 1 parent asset, found 2 assets for file ${assetA.id}"
+      fileAOne.copy(parentPath = None),
+      s"Cannot find a direct parent for file ${fileAOne.id}"
     )
   )
 
