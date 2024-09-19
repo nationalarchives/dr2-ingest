@@ -213,14 +213,14 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       contentFolderEntries <- validateJsonObjects(ContentFolder)
       unknownTypeEntries <- validateJsonObjects(UnknownType)
 
-      allEntriesValidatedAndNot = Map(
+      allValidatedEntries = Map(
         "File" -> fileEntries,
         "Asset" -> assetEntries,
         "ArchiveFolder" -> archivedFolderEntries,
         "ContentFolder" -> contentFolderEntries,
         "UnknownType" -> unknownTypeEntries
       )
-    } yield allEntriesValidatedAndNot
+    } yield allValidatedEntries
 
   private def validateJsonPerType(
       entriesGroupedByType: Map[String, List[Value]]
