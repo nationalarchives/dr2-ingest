@@ -15,7 +15,7 @@ import pureconfig.generic.derivation.default.*
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryValidationError.{MissingPropertyError, ValidationError, ValueError}
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryValidationError.{MissingPropertyError, SchemaValidationError, ValidationError, ValueError}
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.EntryTypeSchema.*
@@ -119,13 +119,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       entriesCompletelyValidated = valueValidator.checkForCircularDependenciesInFolders(entriesWithValidatedParentIds)
 
       jsonStructuralErrors = {
-        minimumAssetsAndFilesErrors.zip(LazyList.from(1)).map { (error, errorNum) =>
-          s"MinimumAssetsAndFilesError $errorNum:" -> error.swap.toOption.map(nel => InvalidValidationResult(nel.toList)).get
-        } :::
-          atLeastOneEntryWithSeriesAndNullParentErrors.zip(LazyList.from(1)).map { (error, errorNum) =>
-            s"AtLeastOneEntryWithSeriesAndNullParentError $errorNum:" ->
-              error.swap.toOption.map(nel => InvalidValidationResult(nel.toList)).get
-          }
+        toListOfInvalidValidationResult(minimumAssetsAndFilesErrors) :::
+          toListOfInvalidValidationResult(atLeastOneEntryWithSeriesAndNullParentErrors)
       }.toMap
 
       entriesThatFailedValidation = entriesCompletelyValidated.flatMap { case (_, entries) =>
@@ -240,6 +235,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         .compile
         .string
     } yield s3FileString
+
+  private def toListOfInvalidValidationResult(listOfErrors: List[ValidatedNel[SchemaValidationError, String]]) =
+    listOfErrors.zipWithIndex.map { (error, errorNum) =>
+      val nelOfErrors = error.swap.toOption.get
+      val errorName = nelOfErrors.head.getClass.getSimpleName
+      s"$errorName $errorNum:" -> InvalidValidationResult(nelOfErrors.toList)
+    }
 }
 object Lambda {
   sealed trait ValidationResult:

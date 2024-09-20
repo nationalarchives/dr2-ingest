@@ -111,7 +111,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val jsonWithoutAsset = testValidMetadataJson().filterNot(entry => entry(entryType).str == "Asset")
 
     val errorThatJsonShouldContain =
-      """{"MinimumAssetsAndFilesError 1:":{"Invalid":[{"errorType":"MinimumAssetsAndFilesError","errorMessage":"$: """ +
+      """{"MinimumAssetsAndFilesError 0:":{"Invalid":[{"errorType":"MinimumAssetsAndFilesError","errorMessage":"$: """ +
         """must contain at least 1 element(s) that passes these validations: {\"title\":\"Asset\",\"description\":\"JSON must contain at least one object with all and only these properties, """ +
         """one of which is 'type': 'Asset'\",\"properties\":{\"type\":{\"type\":\"string\",\"const\":\"Asset\"}}}"}]}}"""
 
@@ -131,7 +131,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   "the lambda" should "call the 'atLeastOneEntryWithSeriesAndNullParentErrors' method" in {
     val jsonWithoutAsset = testValidMetadataJson().filterNot(entry => entry(entryType).str == "ArchiveFolder")
     val errorThatJsonShouldContain =
-      """{"AtLeastOneEntryWithSeriesAndNullParentError 1:":{"Invalid":[{"errorType":"AtLeastOneEntryWithSeriesAndNullParentError","errorMessage":"$: """ +
+      """{"AtLeastOneEntryWithSeriesAndNullParentError 0:":{"Invalid":[{"errorType":"AtLeastOneEntryWithSeriesAndNullParentError","errorMessage":"$: """ +
         """must contain at least 1 element(s) that passes these validations: {\"title\":\"At least one top-level entry in the JSON\",""" +
         """\"description\":\"There must be at least one object in the JSON that has both a series and a parent that is null\",""" +
         """\"properties\":{\"parentId\":{\"type\":\"null\",\"const\":null},\"series\":true},\"required\":[\"series\",\"parentId\"]}"}]}}"""
