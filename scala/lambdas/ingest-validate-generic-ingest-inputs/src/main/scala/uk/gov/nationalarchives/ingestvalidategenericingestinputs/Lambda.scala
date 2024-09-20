@@ -19,6 +19,7 @@ import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryValidation
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.EntryTypeSchema.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.ValidatedUtils.ValidatedEntry
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.net.URI
@@ -90,24 +91,15 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       fileEntries = validatedEntries("File")
       fileEntriesWithValidatedLocation <- valueValidator.checkFileIsInCorrectS3Location(s3Client, fileEntries)
 
-      (fileEntriesWithValidatedExtensions, metadataFileIds) = {
-        val idsOfMetadataFiles = validatedEntries("Asset").flatMap { entry =>
-          entry.collect {
-            case (fieldName, validatedValue) if fieldName == "originalMetadataFiles" =>
-              val listOfValues = validatedValue.getOrElse(Arr()).arr.toList
-              listOfValues.map(_.str)
-          }.flatten
-        }
-        val (metadataEntries, nonMetadataEntries) = fileEntriesWithValidatedLocation.partition { fileEntry =>
-          val fileEntryId = fileEntry(id).getOrElse(Str("idFieldHasErrorInIt")).str
-          idsOfMetadataFiles.contains(fileEntryId)
-        }
-        val metadataEntriesWithValidatedExtensions = valueValidator.checkFileNamesHaveExtensions(metadataEntries)
+      idsOfMetadataFiles = getIdsOfMetadataFiles(validatedEntries("Asset"))
+      (metadataEntries, nonMetadataEntries) =
+        separateMetadataFilesFromNonMetadataFiles(fileEntriesWithValidatedLocation, idsOfMetadataFiles)
+      metadataEntriesWithValidatedExtensions = valueValidator.checkFileNamesHaveExtensions(metadataEntries)
 
-        (metadataEntriesWithValidatedExtensions ::: nonMetadataEntries, idsOfMetadataFiles)
-      }
+      fileEntriesWithValidatedExtensions = metadataEntriesWithValidatedExtensions ::: nonMetadataEntries
+
       updatedEntries = validatedEntries ++ Map("File" -> fileEntriesWithValidatedExtensions)
-      allEntryIds = valueValidator.getIdsOfAllEntries(updatedEntries, metadataFileIds)
+      allEntryIds = valueValidator.getIdsOfAllEntries(updatedEntries, idsOfMetadataFiles)
       entriesWithValidatedUniqueIds = valueValidator.checkIfAllIdsAreUnique(updatedEntries, allEntryIds)
       entriesWithValidatedUuids = valueValidator.checkIfAllIdsAreUuids(entriesWithValidatedUniqueIds)
 
@@ -245,7 +237,22 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       val errorName = nelOfErrors.head.getClass.getSimpleName
       s"$errorName $errorNum:" -> InvalidValidationResult(nelOfErrors.toList)
     }
+
+  private def getIdsOfMetadataFiles(assets: List[ValidatedEntry]) = assets.flatMap { assetEntry =>
+    assetEntry.collect {
+      case (fieldName, validatedValue) if fieldName == "originalMetadataFiles" =>
+        val listOfValues = validatedValue.getOrElse(Arr()).arr.toList
+        listOfValues.map(_.str)
+    }.flatten
+  }
+
+  private def separateMetadataFilesFromNonMetadataFiles(fileEntries: List[ValidatedEntry], idsOfMetadataFiles: List[String]) =
+    fileEntries.partition { fileEntry =>
+      val fileEntryId = fileEntry(id).getOrElse(Str("idFieldHasErrorInIt")).str
+      idsOfMetadataFiles.contains(fileEntryId)
+    }
 }
+
 object Lambda {
   sealed trait ValidationResult:
     val result: String | List[ValidationError | MissingPropertyError | ValueError]
