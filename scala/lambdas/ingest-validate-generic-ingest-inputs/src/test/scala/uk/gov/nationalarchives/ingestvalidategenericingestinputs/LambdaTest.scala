@@ -173,10 +173,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
       )
       verify(logMessageCallbackSpy).apply(
-        """{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"location","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+        """{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"location"}"""
       )
       verify(logMessageCallbackSpy).apply(
-        """{"id":"\"b0147dea-878b-4a25-891f-66eba66194ca\"","fieldNamesWithErrors":"location","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+        """{"id":"\"b0147dea-878b-4a25-891f-66eba66194ca\"","fieldNamesWithErrors":"location"}"""
       )
       ex.getMessage should equal(
         "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
@@ -215,7 +215,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
     )
     verify(logMessageCallbackSpy).apply(
-      """{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"name, title","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+      """{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"name, title"}"""
     )
 
     ex.getMessage should equal(
@@ -260,16 +260,16 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       "5 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
     )
     verify(logMessageCallbackSpy).apply(
-      """{"id":"\"27354aa8-975f-48d1-af79-121b9a349cbe\"","fieldNamesWithErrors":"type","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+      """{"id":"\"27354aa8-975f-48d1-af79-121b9a349cbe\"","fieldNamesWithErrors":"type"}"""
     )
     verify(logMessageCallbackSpy, times(2)).apply(
-      """{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"id","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+      """{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"id"}"""
     )
     verify(logMessageCallbackSpy).apply(
-      """{"id":"\"b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6\"","fieldNamesWithErrors":"originalMetadataFiles, originalFiles","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+      """{"id":"\"b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6\"","fieldNamesWithErrors":"originalMetadataFiles, originalFiles"}"""
     )
     verify(logMessageCallbackSpy).apply(
-      """{"id":"non-uuid id","fieldNamesWithErrors":"id","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+      """{"id":"non-uuid id","fieldNamesWithErrors":"id"}"""
     )
 
     ex.getMessage should equal(
@@ -315,13 +315,13 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       "3 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
     )
     verify(logMessageCallbackSpy).apply(
-      """{"id":"\"b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6\"","fieldNamesWithErrors":"originalFiles","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+      """{"id":"\"b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6\"","fieldNamesWithErrors":"originalFiles"}"""
     )
     verify(logMessageCallbackSpy).apply(
-      """{"id":"\"1c751e2f-3c9e-4c12-b06e-c0917b0ba3ec\"","fieldNamesWithErrors":"parentId","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+      """{"id":"\"1c751e2f-3c9e-4c12-b06e-c0917b0ba3ec\"","fieldNamesWithErrors":"parentId"}"""
     )
     verify(logMessageCallbackSpy).apply(
-      """{"id":"\"3ede334c-b1ea-4642-ba31-d4574b0ddf5b\"","fieldNamesWithErrors":"parentId","locationOfFile":"outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"}"""
+      """{"id":"\"3ede334c-b1ea-4642-ba31-d4574b0ddf5b\"","fieldNamesWithErrors":"parentId"}"""
     )
 
     ex.getMessage should equal(

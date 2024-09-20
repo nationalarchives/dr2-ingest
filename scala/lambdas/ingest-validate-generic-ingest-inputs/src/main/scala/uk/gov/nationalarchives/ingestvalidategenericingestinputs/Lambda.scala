@@ -125,12 +125,14 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
             }
         }
       }.toList
+      numOfJsonStructureErrors = jsonStructuralErrors.size
+      numOfEntriesWithFailures = entriesThatFailedValidation.length
 
-      (numOfJsonStructureErrors, numOfEntriesWithFailures) = (jsonStructuralErrors.size, entriesThatFailedValidation.length)
       _ <- IO.whenA((numOfJsonStructureErrors + numOfEntriesWithFailures) > 0) {
         lazy val keyWithoutOriginalFileName = key.split('/').dropRight(1).mkString("/")
         lazy val keyOfResultsFile = s"$keyWithoutOriginalFileName/metadata-entries-with-errors.json"
-        lazy val fullLocationOfResultsFile = s"${bucket}/$keyOfResultsFile"
+        lazy val fullLocationOfResultsFile = s"$bucket/$keyOfResultsFile"
+
         val jsonStructureErrorMessage =
           if numOfJsonStructureErrors > 0 then
             val s = if numOfJsonStructureErrors == 1 then "" else "s"
@@ -143,38 +145,11 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
             s"$numOfEntriesWithFailures $entryOrEntries (objects) in the metadata.json for batchId '${input.batchId}' $hasOrHave failed validation; the results can be found here: $fullLocationOfResultsFile"
           else ""
 
-        for {
-          _ <- if jsonStructureErrorMessage.isEmpty then IO.unit else log(jsonStructureErrorMessage)
-          _ <-
-            if entriesErrorMessage.isEmpty then IO.unit
-            else
-              log(entriesErrorMessage) >> entriesThatFailedValidation.parTraverse { entry =>
-                val entryId = entry("id") match {
-                  case ValidValidationResult(id) => id
-                  case InvalidValidationResult(listOfErrors) =>
-                    val potentialIdValues = listOfErrors.collect { case valueError: ValueError => valueError.valueThatCausedError }
-                    potentialIdValues.headOption.getOrElse("idUnknown")
-                }
-
-                val fieldNamesWithErrors = entry.collect { case (name, value) if value.getClass.getSimpleName == "InvalidValidationResult" => name }.mkString(", ")
-                val mapToSendAsJson = Map("id" -> entryId, "fieldNamesWithErrors" -> fieldNamesWithErrors, "locationOfFile" -> fullLocationOfResultsFile)
-
-                log(mapToSendAsJson.asJson.noSpaces)
-              }
-          allJsonErrors = entriesThatFailedValidation.+:(jsonStructuralErrors)
-          _ <- Stream
-            .eval(IO.pure(allJsonErrors.asJson.noSpaces))
-            .map(s => ByteBuffer.wrap(s.getBytes()))
-            .toPublisherResource
-            .use { pub =>
-              s3Client.upload(bucket, keyOfResultsFile, FlowAdapters.toPublisher(pub))
-            }
-            .map(_ => ())
-
-          _ <- IO.raiseError(JsonValidationException(jsonStructureErrorMessage + entriesErrorMessage))
-        } yield ()
+        val allJsonErrors = entriesThatFailedValidation.+:(jsonStructuralErrors)
+        logErrorMessages(jsonStructureErrorMessage, entriesErrorMessage, log, entriesThatFailedValidation) >>
+          uploadResults(s3Client, bucket, keyOfResultsFile, allJsonErrors) >>
+          IO.raiseError(JsonValidationException(jsonStructureErrorMessage + entriesErrorMessage))
       }
-
     } yield StateOutput(input.batchId, input.metadataPackage)
 
   private def validateAgainstSchema(metadataJson: String) =
@@ -251,6 +226,40 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       val fileEntryId = fileEntry(id).getOrElse(Str("idFieldHasErrorInIt")).str
       idsOfMetadataFiles.contains(fileEntryId)
     }
+
+  private def logErrorMessages(
+      jsonStructureErrorMessage: String,
+      entriesErrorMessage: String,
+      log: String => IO[Unit],
+      entriesThatFailedValidation: List[Map[String, ValidValidationResult | InvalidValidationResult]]
+  ) =
+    for {
+      _ <- if jsonStructureErrorMessage.isEmpty then IO.unit else log(jsonStructureErrorMessage)
+      _ <-
+        if entriesErrorMessage.isEmpty then IO.unit
+        else
+          log(entriesErrorMessage) >> entriesThatFailedValidation.parTraverse { entry =>
+            val entryId = entry("id") match {
+              case ValidValidationResult(id) => id
+              case InvalidValidationResult(listOfErrors) =>
+                val potentialIdValues = listOfErrors.collect { case valueError: ValueError => valueError.valueThatCausedError }
+                potentialIdValues.headOption.getOrElse("idUnknown")
+            }
+
+            val fieldNamesWithErrors = entry.collect { case (name, value) if value.getClass.getSimpleName == "InvalidValidationResult" => name }.mkString(", ")
+            val mapToSendAsJson = Map("id" -> entryId, "fieldNamesWithErrors" -> fieldNamesWithErrors)
+
+            log(mapToSendAsJson.asJson.noSpaces)
+          }
+    } yield ()
+
+  private def uploadResults(s3Client: DAS3Client[IO], bucket: String, keyOfResultsFile: String, allJsonErrors: List[Map[String, ValidValidationResult | InvalidValidationResult]]) =
+    Stream
+      .eval(IO.pure(allJsonErrors.asJson.noSpaces))
+      .map(s => ByteBuffer.wrap(s.getBytes()))
+      .toPublisherResource
+      .use(pub => s3Client.upload(bucket, keyOfResultsFile, FlowAdapters.toPublisher(pub)))
+      .void
 }
 
 object Lambda {
