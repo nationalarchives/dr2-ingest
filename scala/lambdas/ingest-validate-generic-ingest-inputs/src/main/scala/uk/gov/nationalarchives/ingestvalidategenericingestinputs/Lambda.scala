@@ -23,7 +23,6 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.net.URI
 import java.nio.ByteBuffer
-import scala.util.{Success, Try}
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   lazy private val bufferSize = 1024 * 5
@@ -191,15 +190,21 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   private def validateAgainstSchema(metadataJson: String) =
     for {
       metadataJsonAsUjson <- IO(read(metadataJson).arr.toList)
-      entriesGroupedByType = metadataJsonAsUjson.foldLeft(Map[String, List[Value]]()) { (typesGrouped, entry) =>
-        val entryType =
-          Try(entry(typeField).str) match {
-            case Success(expectedType) if List("ArchiveFolder", "ContentFolder", "Asset", "File").contains(expectedType) => expectedType
-            case _                                                                                                       => "UnknownType"
-          }
+      entriesGroupedByType <- metadataJsonAsUjson.foldLeft(IO(Map[String, List[Value]]())) { (typesGroupedIo, entry) =>
+        val entryTypeIO =
+          IO(entry(typeField).str)
+            .map {
+              case expectedType if List("ArchiveFolder", "ContentFolder", "Asset", "File").contains(expectedType) => expectedType
+              case _                                                                                              => "UnknownType"
+            }
+            .recoverWith(_ => IO.pure("UnknownType"))
 
-        val entriesBelongingToType = typesGrouped.getOrElse(entryType, Nil)
-        typesGrouped + (entryType -> (entry :: entriesBelongingToType))
+        typesGroupedIo.flatMap { typesGrouped =>
+          entryTypeIO.map { entryType =>
+            val entriesBelongingToType = typesGrouped.getOrElse(entryType, Nil)
+            typesGrouped + (entryType -> (entry :: entriesBelongingToType))
+          }
+        }
       }
       validateJsonObjects = validateJsonPerType(entriesGroupedByType)
       fileEntries <- validateJsonObjects(File)
