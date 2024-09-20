@@ -97,7 +97,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     fileEntries.foreach { fileEntry =>
       val key = fileEntry(id).str
       lazy val response = SdkHttpResponse.builder().statusCode(statusCode).build()
-      lazy val headObjectResponse = if throwError then IO(throw new Exception("Key could not be found")) else IO(HeadObjectResponse.builder().sdkHttpResponse(response).build)
+      lazy val headObjectResponse = if throwError then IO.raiseError(new Exception("Key could not be found")) else IO(HeadObjectResponse.builder().sdkHttpResponse(response).build)
       when(s3.headObject(ArgumentMatchers.eq("test-source-bucket"), ArgumentMatchers.eq(key)))
         .thenReturn(headObjectResponse)
     }
