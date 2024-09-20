@@ -88,9 +88,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
       valueValidator = new MetadataJsonValueValidator
       fileEntries = validatedEntries("File")
-      validatedLocations <- valueValidator.checkFileIsInCorrectS3Location(s3Client, fileEntries)
-
-      fileEntriesWithValidatedLocation = fileEntries.zip(validatedLocations).map { case (entries, locationNel) => entries + (location -> locationNel) }
+      fileEntriesWithValidatedLocation <- valueValidator.checkFileIsInCorrectS3Location(s3Client, fileEntries)
 
       (fileEntriesWithValidatedExtensions, metadataFileIds) = {
         val idsOfMetadataFiles = validatedEntries("Asset").flatMap { entry =>

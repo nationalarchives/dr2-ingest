@@ -21,10 +21,10 @@ class MetadataJsonValueValidator {
   private val parentId = "parentId"
   private val series = "series"
 
-  def checkFileIsInCorrectS3Location(s3Client: DAS3Client[IO], fileEntries: List[ValidatedEntry]): IO[List[ValidatedNel[ValidationError, Value]]] =
+  def checkFileIsInCorrectS3Location(s3Client: DAS3Client[IO], fileEntries: List[ValidatedEntry]): IO[List[ValidatedEntry]] =
     fileEntries.map { fileEntry =>
       val locationNel = fileEntry(location)
-      locationNel match {
+      (locationNel match {
         case Validated.Valid(locationObject) =>
           val fileLocation = locationObject.str
           IO(URI.create(fileLocation))
@@ -44,7 +44,7 @@ class MetadataJsonValueValidator {
             .recoverWith(err => IO.pure(UriIsNotValid(fileLocation, err.getMessage).invalidNel[Value]))
 
         case locationInvalidNel => IO.pure(locationInvalidNel)
-      }
+      }).map(nel => fileEntry + (location -> nel))
     }.sequence
 
   def checkFileNamesHaveExtensions(fileEntries: List[ValidatedEntry]): List[ValidatedEntry] =

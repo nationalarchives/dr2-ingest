@@ -109,11 +109,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     val fileEntries = allEntries.filter(_(entryType).str == "File")
     val s3Client = mockS3Client(fileEntries)
     val entriesAsValidatedMap = fileEntries.map(convertUjsonObjToSchemaValidatedMap)
-    val validatedLocations = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
-
-    val fileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map { case (entryAsValidatedMap, validatedLocation) =>
-      entryAsValidatedMap + ("location" -> validatedLocation)
-    }
+    val fileEntriesWithValidatedLocation = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
 
     fileEntriesWithValidatedLocation should equal(entriesAsValidatedMap)
     verify(s3Client, times(entriesAsValidatedMap.length)).headObject(any[String], any[String])
@@ -128,11 +124,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
         "location" -> MissingPropertyError("location", "$: required property 'location' not found").invalidNel[Value]
       )
     }
-    val validatedLocations = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
-
-    val fileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map { case (entryAsValidatedMap, validatedLocation) =>
-      entryAsValidatedMap + ("location" -> validatedLocation)
-    }
+    val fileEntriesWithValidatedLocation = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
 
     fileEntriesWithValidatedLocation should equal(entriesAsValidatedMap)
     verify(s3Client, times(0)).headObject(any[String], any[String])
@@ -148,11 +140,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
         val s3Client = mock[DAS3Client[IO]]
 
         val entriesAsValidatedMap = fileEntries.map(convertUjsonObjToSchemaValidatedMap)
-        val validatedLocations = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
-
-        val fileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map { case (entryAsValidatedMap, validatedLocation) =>
-          entryAsValidatedMap + ("location" -> validatedLocation)
-        }
+        val fileEntriesWithValidatedLocation = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
 
         val expectedEntriesAsValidatedMap = fileEntries.map { entry =>
           convertUjsonObjToSchemaValidatedMap(entry) ++ Map("location" -> expectedError)
@@ -167,13 +155,9 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     val fileEntries = allEntries.filter(_(entryType).str == "File")
     val s3Client = mockS3Client(fileEntries, 404)
     val entriesAsValidatedMap = fileEntries.map(convertUjsonObjToSchemaValidatedMap)
-    val validatedLocations = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
+    val fileEntriesWithValidatedLocation = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
 
-    val fileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map { case (entryAsValidatedMap, validatedLocation) =>
-      entryAsValidatedMap + ("location" -> validatedLocation)
-    }
-
-    val expectedFileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map { case (entry, validatedLocation) =>
+    val expectedFileEntriesWithValidatedLocation = entriesAsValidatedMap.map { entry =>
       val expectedFileLocation = entry("location").getOrElse(Str("")).str
       entry + ("location" -> NoFileAtS3LocationError(expectedFileLocation, "Head Object request returned a Status code of 404").invalidNel[Value])
     }
@@ -186,11 +170,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     val fileEntries = allEntries.filter(_(entryType).str == "File")
     val s3Client = mockS3Client(fileEntries, throwError = true)
     val entriesAsValidatedMap = fileEntries.map(convertUjsonObjToSchemaValidatedMap)
-    val validatedLocations = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
-
-    val fileEntriesWithValidatedLocation = entriesAsValidatedMap.zip(validatedLocations).map { case (entryAsValidatedMap, validatedLocation) =>
-      entryAsValidatedMap + ("location" -> validatedLocation)
-    }
+    val fileEntriesWithValidatedLocation = validator.checkFileIsInCorrectS3Location(s3Client, entriesAsValidatedMap).unsafeRunSync()
 
     val expectedFileEntriesWithValidatedLocation = entriesAsValidatedMap.map { entry =>
       entry + ("location" -> NoFileAtS3LocationError(entry("location").getOrElse(Str("")).str, "Key could not be found").invalidNel[Value])
