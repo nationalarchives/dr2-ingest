@@ -59,14 +59,7 @@ object Utils:
       }
       .map(_ => SendMessageResponse.builder.build)
 
-    override def deleteMessage(queueUrl: String, receiptHandle: String): IO[DeleteMessageResponse] = sqsMessagesRef
-      .update { messagesMap =>
-        messagesMap.map {
-          case (queue, messages) if queue == queueUrl => queue -> messages.filter(_.getReceiptHandle != receiptHandle)
-          case (queue, messages)                      => queue -> messages
-        }
-      }
-      .map(_ => DeleteMessageResponse.builder.build)
+    override def deleteMessage(queueUrl: String, receiptHandle: String): IO[DeleteMessageResponse] = IO.pure(DeleteMessageResponse.builder.build)
 
     override def receiveMessages[T](queueUrl: String, maxNumberOfMessages: Int)(using dec: Decoder[T]): IO[List[DASQSClient.MessageResponse[T]]] = IO.pure(Nil)
 

@@ -26,7 +26,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
     val sqsMessages = runLambda(List(message), Nil)
 
-    sqsMessages(inputQueue).size should equal(0)
     sqsMessages(outputQueue).size should equal(1)
 
     val sqsMessage = sqsMessages(outputQueue).head
@@ -45,7 +44,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val id = UUID.randomUUID
     message.setBody(s"""{"id": "co:$id", "deleted": false}""")
     val sqsMessages = runLambda(List(message), List(createEntity(ContentObject, id)))
-    sqsMessages(inputQueue).size should equal(0)
     sqsMessages(outputQueue).size should equal(1)
 
     val sqsMessage = sqsMessages(outputQueue).head
@@ -64,7 +62,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     message.setBody(s"""{"id": "co:$coId", "deleted": false}""")
 
     val sqsMessages = runLambda(List(message), List(createEntity(ContentObject, coId, ioId.some)))
-    sqsMessages(inputQueue).size should equal(0)
     sqsMessages(outputQueue).size should equal(1)
 
     val sqsMessage = sqsMessages(outputQueue).head
@@ -95,7 +92,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     message.setBody(s"""{"id": "co:$coId", "deleted": true}""")
 
     val sqsMessages = runLambda(List(message), Nil)
-    sqsMessages(inputQueue).size should equal(0)
     sqsMessages(outputQueue).size should equal(1)
 
     val sqsMessage = sqsMessages(outputQueue).head
@@ -109,7 +105,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val id = UUID.randomUUID
     message.setBody(s"""{"id": "so:$id", "deleted": false}""")
     val sqsMessages = runLambda(List(message), Nil)
-    sqsMessages(inputQueue).size should equal(0)
     sqsMessages(outputQueue).size should equal(0)
   }
 

@@ -26,6 +26,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
   override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = { (sqsEvent, config, dependencies) =>
     sqsEvent.getRecords.asScala.toList.parTraverse { record =>
       for {
+        _ <- IO.println(s"AAAAAAAAAAAAAAAAAAA ${record.getReceiptHandle}")
         messageBody <- IO.fromEither(decode[MessageBody](record.getBody))
         potentialMessageGroupId <- messageBody match
           case IoMessageBody(id, _) => IO.pure(id.some)
@@ -43,7 +44,6 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
           val fifoConfiguration = potentialMessageGroupId.map(messageGroupId => FifoQueueConfiguration(messageGroupId.toString, dependencies.uuidGenerator().toString))
           dependencies.sqsClient.sendMessage(config.outputQueue)(messageBody, fifoConfiguration).void
         }
-        _ <- dependencies.sqsClient.deleteMessage(config.inputQueue, record.getReceiptHandle)
       } yield ()
     }.void
   }
