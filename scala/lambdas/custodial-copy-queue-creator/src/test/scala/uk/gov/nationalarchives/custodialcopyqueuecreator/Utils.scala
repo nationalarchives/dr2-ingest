@@ -1,19 +1,20 @@
-package uk.gov.nationalarchives.entityeventqueuecreator
+package uk.gov.nationalarchives.custodialcopyqueuecreator
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
-import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
+import com.amazonaws.services.lambda.runtime.events.SQSEvent.{MessageAttribute, SQSMessage}
 import io.circe.syntax.*
 import io.circe.{Decoder, Encoder}
 import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, SendMessageResponse}
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DASQSClient
+import uk.gov.nationalarchives.DASQSClient.FifoQueueConfiguration
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient.StandardEntityMetadata
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
-import uk.gov.nationalarchives.entityeventqueuecreator.Lambda.*
+import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.*
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -24,6 +25,7 @@ object Utils:
   val inputQueue = "input-queue"
   val outputQueue = "output-queue"
   val config: Config = Config("", "", inputQueue, outputQueue)
+  val dedupeUuid: UUID = UUID.randomUUID
 
   def runLambda(sqsMessages: List[SQSMessage], entities: List[Entity]): Map[String, List[SQSMessage]] = {
     val sqsEvent = new SQSEvent()
@@ -31,31 +33,42 @@ object Utils:
     for {
       sqsMessagesRef <- Ref.of[IO, Map[String, List[SQSMessage]]](Map(inputQueue -> sqsMessages, outputQueue -> Nil))
       entitiesRef <- Ref.of[IO, List[Entity]](entities)
-      _ <- new Lambda().handler(sqsEvent, config, Dependencies(entityClient(entitiesRef), sqsClient(sqsMessagesRef)))
+      _ <- new Lambda().handler(sqsEvent, config, Dependencies(entityClient(entitiesRef), sqsClient(sqsMessagesRef), () => dedupeUuid))
       messages <- sqsMessagesRef.get
     } yield messages
   }.unsafeRunSync()
 
   def sqsClient(sqsMessagesRef: Ref[IO, Map[String, List[SQSMessage]]]): DASQSClient[IO] = new DASQSClient[IO]:
-    override def sendMessage[T <: Product](queueUrl: String)(message: T, potentialMessageGroupId: Option[String])(using enc: Encoder[T]): IO[SendMessageResponse] = sqsMessagesRef.update { messagesMap =>
-      val newMessage = new SQSMessage()
-      newMessage.setBody(message.asJson.noSpaces)
-      potentialMessageGroupId.foreach(newMessage.setMessageId)
-      messagesMap.map {
-        case (queue, messages) if queue == queueUrl => queue -> (newMessage :: messages)
-        case (queue, messages) => queue -> messages
-      }
-    }.map(_ => SendMessageResponse.builder.build)
+    override def sendMessage[T <: Product](
+        queueUrl: String
+    )(message: T, potentialFifoQueueConfiguration: Option[FifoQueueConfiguration])(using enc: Encoder[T]): IO[SendMessageResponse] = sqsMessagesRef
+      .update { messagesMap =>
+        val newMessage = new SQSMessage()
+        newMessage.setBody(message.asJson.noSpaces)
+        potentialFifoQueueConfiguration.foreach { queueConfig =>
+          newMessage.setMessageId(queueConfig.messageGroupId)
 
-    override def deleteMessage(queueUrl: String, receiptHandle: String): IO[DeleteMessageResponse] = sqsMessagesRef.update { messagesMap =>
-      messagesMap.map {
-        case (queue, messages) if queue == queueUrl => queue -> messages.filter(_.getReceiptHandle != receiptHandle)
-        case (queue, messages) => queue -> messages
+          val messageAttribute = new MessageAttribute()
+          messageAttribute.setStringValue(queueConfig.messageDeduplicationId)
+          newMessage.setMessageAttributes(Map("deduplicationId" -> messageAttribute).asJava)
+        }
+        messagesMap.map {
+          case (queue, messages) if queue == queueUrl => queue -> (newMessage :: messages)
+          case (queue, messages)                      => queue -> messages
+        }
       }
-    }.map(_ => DeleteMessageResponse.builder.build)
+      .map(_ => SendMessageResponse.builder.build)
+
+    override def deleteMessage(queueUrl: String, receiptHandle: String): IO[DeleteMessageResponse] = sqsMessagesRef
+      .update { messagesMap =>
+        messagesMap.map {
+          case (queue, messages) if queue == queueUrl => queue -> messages.filter(_.getReceiptHandle != receiptHandle)
+          case (queue, messages)                      => queue -> messages
+        }
+      }
+      .map(_ => DeleteMessageResponse.builder.build)
 
     override def receiveMessages[T](queueUrl: String, maxNumberOfMessages: Int)(using dec: Decoder[T]): IO[List[DASQSClient.MessageResponse[T]]] = IO.pure(Nil)
-
 
   def entityClient(entitiesRef: Ref[IO, List[Entity]]): EntityClient[IO, Fs2Streams[IO]] = new EntityClient[IO, Fs2Streams[IO]]:
     val entityMetadata: StandardEntityMetadata = StandardEntityMetadata(<A></A>, Seq(<A></A>), Seq(<A></A>), Seq(<A></A>), Seq(<A></A>))
@@ -73,7 +86,8 @@ object Utils:
 
     override def getUrlsToIoRepresentations(ioEntityRef: UUID, representationType: Option[EntityClient.RepresentationType]): IO[Seq[String]] = IO.pure(Nil)
 
-    override def getContentObjectsFromRepresentation(ioEntityRef: UUID, representationType: EntityClient.RepresentationType, repTypeIndex: Int): IO[Seq[Entities.Entity]] = IO.pure(Nil)
+    override def getContentObjectsFromRepresentation(ioEntityRef: UUID, representationType: EntityClient.RepresentationType, repTypeIndex: Int): IO[Seq[Entities.Entity]] =
+      IO.pure(Nil)
 
     override def addEntity(addEntityRequest: EntityClient.AddEntityRequest): IO[UUID] = IO.pure(UUID.randomUUID)
 
@@ -92,5 +106,3 @@ object Utils:
     override def addIdentifierForEntity(entityRef: UUID, entityType: EntityClient.EntityType, identifier: EntityClient.Identifier): IO[String] = IO.pure("")
 
     override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = IO(1.0f)
-
-

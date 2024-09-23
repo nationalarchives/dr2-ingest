@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.entityeventqueuecreator
+package uk.gov.nationalarchives.custodialcopyqueuecreator
 
 import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
@@ -11,9 +11,9 @@ import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.{Entities, EntityClient}
-import uk.gov.nationalarchives.entityeventqueuecreator.Lambda.*
-import uk.gov.nationalarchives.entityeventqueuecreator.Lambda.MessageBody.*
-import uk.gov.nationalarchives.entityeventqueuecreator.Utils.*
+import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.*
+import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.MessageBody.*
+import uk.gov.nationalarchives.custodialcopyqueuecreator.Utils.*
 
 import java.util.UUID
 
@@ -29,9 +29,11 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     sqsMessages(inputQueue).size should equal(0)
     sqsMessages(outputQueue).size should equal(1)
 
-    val sqsMessage =sqsMessages(outputQueue).head
+    val sqsMessage = sqsMessages(outputQueue).head
 
     sqsMessage.getMessageId should equal(id.toString)
+    sqsMessage.getMessageAttributes.get("deduplicationId").getStringValue should equal(dedupeUuid.toString)
+
     val messageBody = decode[MessageBody](sqsMessage.getBody).value
     messageBody.isInstanceOf[IoMessageBody] should equal(true)
     messageBody.id should equal(id)
@@ -47,6 +49,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     sqsMessages(outputQueue).size should equal(1)
 
     val sqsMessage = sqsMessages(outputQueue).head
+    sqsMessage.getMessageAttributes.get("deduplicationId").getStringValue should equal(dedupeUuid.toString)
+
     val messageBody = decode[MessageBody](sqsMessage.getBody).value
     messageBody.isInstanceOf[CoMessageBody] should equal(true)
     messageBody.id should equal(id)
@@ -66,6 +70,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val sqsMessage = sqsMessages(outputQueue).head
 
     sqsMessage.getMessageId should equal(ioId.toString)
+    sqsMessage.getMessageAttributes.get("deduplicationId").getStringValue should equal(dedupeUuid.toString)
+
     val messageBody = decode[MessageBody](sqsMessage.getBody).value
     messageBody.isInstanceOf[CoMessageBody] should equal(true)
     messageBody.id should equal(coId)
@@ -95,6 +101,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val sqsMessage = sqsMessages(outputQueue).head
 
     sqsMessage.getMessageId should equal(coId.toString)
+    sqsMessage.getMessageAttributes.get("deduplicationId").getStringValue should equal(dedupeUuid.toString)
   }
 
   "lambda handler" should "not send a message if this is an SO message" in {
