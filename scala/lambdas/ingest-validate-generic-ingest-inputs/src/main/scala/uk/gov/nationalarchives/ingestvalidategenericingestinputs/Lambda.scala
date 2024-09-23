@@ -155,21 +155,9 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   private def validateAgainstSchema(metadataJson: String) =
     for {
       metadataJsonAsUjson <- IO(read(metadataJson).arr.toList)
-      entriesGroupedByType <- metadataJsonAsUjson.foldLeft(IO(Map[String, List[Value]]())) { (typesGroupedIo, entry) =>
-        val entryTypeIO =
-          IO(entry(typeField).str)
-            .map {
-              case expectedType if List("ArchiveFolder", "ContentFolder", "Asset", "File").contains(expectedType) => expectedType
-              case _                                                                                              => "UnknownType"
-            }
-            .recoverWith(_ => IO.pure("UnknownType"))
-
-        typesGroupedIo.flatMap { typesGrouped =>
-          entryTypeIO.map { entryType =>
-            val entriesBelongingToType = typesGrouped.getOrElse(entryType, Nil)
-            typesGrouped + (entryType -> (entry :: entriesBelongingToType))
-          }
-        }
+      entriesGroupedByType = metadataJsonAsUjson.groupBy {
+        case value if value.obj.contains("type") && List("ArchiveFolder", "ContentFolder", "Asset", "File").contains(value("type").str) => value("type").str
+        case value                                                                                                                      => "UnknownType"
       }
       validateJsonObjects = validateJsonPerType(entriesGroupedByType)
       fileEntries <- validateJsonObjects(File)
