@@ -6,6 +6,7 @@ name := "lambdas"
 
 lazy val ingestLambdasRoot = (project in file("."))
   .aggregate(
+    custodialCopyQueueCreator,
     dynamoFormatters,
     entityEventGenerator,
     getLatestPreservicaVersion,
@@ -261,6 +262,17 @@ lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
       sfnClient
     )
   )
+
+lazy val custodialCopyQueueCreator = (project in file("custodial-copy-queue-creator"))
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(
+    libraryDependencies ++= Seq(
+      preservicaClient,
+      sqsClient
+    )
+  )
+
 
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)

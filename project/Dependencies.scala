@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.24.0"
   lazy val pureConfigVersion = "0.17.7"
-  lazy val daAwsClientsVersion = "0.1.83"
+  lazy val daAwsClientsVersion = "0.1.86-SNAPSHOT"
   private val fs2Version = "3.11.0"
   private val sttpVersion = "3.9.8"
   private val circeVersion = "0.14.10"
@@ -41,6 +41,7 @@ object Dependencies {
   lazy val scalaCheckPlus = "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0"
   lazy val scanamo = "org.scanamo" %% "scanamo" % "2.0.0"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
+  lazy val sqsClient = "uk.gov.nationalarchives" %% "da-sqs-client" % daAwsClientsVersion
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
   lazy val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "2.3.0"
