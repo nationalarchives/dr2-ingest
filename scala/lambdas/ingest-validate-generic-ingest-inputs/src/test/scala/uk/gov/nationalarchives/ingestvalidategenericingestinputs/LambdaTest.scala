@@ -1,10 +1,8 @@
 package uk.gov.nationalarchives.ingestvalidategenericingestinputs
 
-import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import cats.effect.{IO, Ref}
 import fs2.interop.reactivestreams.*
-import org.mockito.Mockito.{spy, times, verify}
-import org.mockito.{ArgumentCaptor, Mockito}
 import org.reactivestreams.Publisher
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
@@ -24,6 +22,7 @@ import java.net.URI
 import java.nio.ByteBuffer
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPropertyChecks {
+  type OutputOrError = StateOutput | Throwable
   val config: Config = Config()
   val batchId = "TEST-ID"
   val metadataPackage: URI = URI.create("s3://outputBucket/TEST-REFERENCE/metadata.json")
@@ -85,18 +84,21 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     Flux.just(ByteBuffer.wrap(jsonAsString.getBytes()))
   }
 
-  class LambdaWithLogSpy(logMessageCallbackSpy: String => IO[Unit]) extends Lambda() {
-    override def log(logCtx: Map[String, String]): String => IO[Unit] = logMessageCallbackSpy
-  }
+  class LambdaWithLogSpy(ref: Ref[IO, List[String]]) extends Lambda():
+    override def log(logCtx: Map[String, String]): String => IO[Unit] = msg => ref.update(loggedMsgs => msg :: loggedMsgs)
+
+  object LambdaWithLogSpy:
+    def apply(input: Input, config: Config, dependencies: Dependencies): (List[String], OutputOrError) = (for {
+      ref <- Ref.of[IO, List[String]](Nil)
+      outputOrErr: OutputOrError <- new LambdaWithLogSpy(ref).handler(input, config, dependencies).recover(err => err)
+      loggedMsgs <- ref.get
+    } yield (loggedMsgs, outputOrErr)).unsafeRunSync()
+  end LambdaWithLogSpy
 
   "the lambda" should "not throw an exception nor log any entries if there were no error encountered" in {
-    val logMessageCallbackSpy = spy(logMessageCallback)
+    val (logs: List[String], _) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
-    new LambdaWithLogSpy(logMessageCallbackSpy).handler(input, config, dependencies(s3Client)).unsafeRunSync()
-
-    val logCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-
-    verify(logMessageCallbackSpy, times(5)).apply(logCaptor.capture())
+    logs.length should equal(5)
   }
 
   "the lambda" should "error if S3 returns an error when trying to download the json file" in {
@@ -116,16 +118,15 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         """one of which is 'type': 'Asset'\",\"properties\":{\"type\":{\"type\":\"string\",\"const\":\"Asset\"}}}"}]}}"""
 
     val s3Client = getS3Client(metadataJsonAsObj = jsonWithoutAsset, stringsExpectedInJson = List(errorThatJsonShouldContain))
-    val logMessageCallbackSpy = spy(logMessageCallback)
+    val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
-    val ex = intercept[JsonValidationException] {
-      new LambdaWithLogSpy(logMessageCallbackSpy).handler(input, config, dependencies(s3Client)).unsafeRunSync()
-    }
-
-    verify(logMessageCallbackSpy).apply(
+    loggedMsgs.contains(
       "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json\n\n"
-    )
-    ex.getMessage.contains("1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'") should equal(true)
+    ) should equal(true)
+
+    outputOrErr match {
+      case ex: Throwable => ex.getMessage.contains("1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'") should equal(true)
+    }
   }
 
   "the lambda" should "call the 'atLeastOneEntryWithSeriesAndNullParentErrors' method" in {
@@ -136,20 +137,17 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         """\"description\":\"There must be at least one object in the JSON that has both a series and a parent that is null\",""" +
         """\"properties\":{\"parentId\":{\"type\":\"null\",\"const\":null},\"series\":true},\"required\":[\"series\",\"parentId\"]}"}]}}"""
     val s3Client = getS3Client(metadataJsonAsObj = jsonWithoutAsset, stringsExpectedInJson = List(errorThatJsonShouldContain))
-    val logMessageCallbackSpy = spy(logMessageCallback)
+    val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
-    val ex = intercept[Exception] {
-      new LambdaWithLogSpy(logMessageCallbackSpy).handler(input, config, dependencies(s3Client)).unsafeRunSync()
-    }
-
-    verify(logMessageCallbackSpy).apply(
+    loggedMsgs.contains(
       "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json\n\n"
-    )
-    assert(
-      ex.getMessage.contains(
-        "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
-      )
-    )
+    ) should equal(true)
+    outputOrErr match {
+      case ex: Throwable =>
+        ex.getMessage.contains(
+          "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+        ) should equal(true)
+    }
   }
 
   "the lambda" should "continue if S3 returns an error when trying to get the headObject at the location it has been given" +
@@ -163,24 +161,20 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         metadataJsonAsObj = testValidMetadataJson(),
         stringsExpectedInJson = List(expectedLocationJsonError1, expectedLocationJsonError2)
       )
-      val logMessageCallbackSpy = spy(logMessageCallback)
+      val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
-      val ex = intercept[JsonValidationException] {
-        new LambdaWithLogSpy(logMessageCallbackSpy).handler(input, config, dependencies(s3Client)).unsafeRunSync()
+      loggedMsgs.contains(
+        "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+      ) should equal(true)
+      loggedMsgs.contains("""{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"location"}""") should equal(true)
+      loggedMsgs.contains("""{"id":"\"b0147dea-878b-4a25-891f-66eba66194ca\"","fieldNamesWithErrors":"location"}""") should equal(true)
+
+      outputOrErr match {
+        case ex: Throwable =>
+          ex.getMessage should equal(
+            "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+          )
       }
-
-      verify(logMessageCallbackSpy).apply(
-        "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
-      )
-      verify(logMessageCallbackSpy).apply(
-        """{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"location"}"""
-      )
-      verify(logMessageCallbackSpy).apply(
-        """{"id":"\"b0147dea-878b-4a25-891f-66eba66194ca\"","fieldNamesWithErrors":"location"}"""
-      )
-      ex.getMessage should equal(
-        "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
-      )
     }
 
   "the lambda" should "call the 'checkFileNamesHaveExtensions' method with only metadata files" in {
@@ -205,22 +199,19 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       stringsExpectedInJson = expectedExtensionMethodString,
       stringsNotExpectedInJson = unexpectedExtensionMethodString
     )
-    val logMessageCallbackSpy = spy(logMessageCallback)
+    val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
-    val ex = intercept[JsonValidationException] {
-      new LambdaWithLogSpy(logMessageCallbackSpy).handler(input, config, dependencies(s3Client)).unsafeRunSync()
+    loggedMsgs.contains(
+      "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+    ) should equal(true)
+    loggedMsgs.contains("""{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"name, title"}""") should equal(true)
+
+    outputOrErr match {
+      case ex: Throwable =>
+        ex.getMessage should equal(
+          "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+        )
     }
-
-    verify(logMessageCallbackSpy).apply(
-      "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
-    )
-    verify(logMessageCallbackSpy).apply(
-      """{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"name, title"}"""
-    )
-
-    ex.getMessage should equal(
-      "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
-    )
   }
 
   "the lambda" should "call the 'checkIfAllIdsAreUnique' and 'checkIfAllIdsAreUuids' methods" in {
@@ -250,31 +241,24 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val expectedJsonErrors = expectedErrorsPerMethod.values.toList.flatten
 
     val s3Client = getS3Client(metadataJsonAsObj = entriesWithoutUuidsAndUniqueIds, stringsExpectedInJson = expectedJsonErrors)
-    val logMessageCallbackSpy = spy(logMessageCallback)
+    val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
-    val ex = intercept[JsonValidationException] {
-      new LambdaWithLogSpy(logMessageCallbackSpy).handler(input, config, dependencies(s3Client)).unsafeRunSync()
-    }
-
-    verify(logMessageCallbackSpy).apply(
+    loggedMsgs.contains(
       "5 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
-    )
-    verify(logMessageCallbackSpy).apply(
-      """{"id":"\"27354aa8-975f-48d1-af79-121b9a349cbe\"","fieldNamesWithErrors":"type"}"""
-    )
-    verify(logMessageCallbackSpy, times(2)).apply(
-      """{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"id"}"""
-    )
-    verify(logMessageCallbackSpy).apply(
+    ) should equal(true)
+    loggedMsgs.contains("""{"id":"\"27354aa8-975f-48d1-af79-121b9a349cbe\"","fieldNamesWithErrors":"type"}""") should equal(true)
+    loggedMsgs.count(_.contains("""{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"id"}""")) should equal(2)
+    loggedMsgs.contains(
       """{"id":"\"b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6\"","fieldNamesWithErrors":"originalMetadataFiles, originalFiles"}"""
-    )
-    verify(logMessageCallbackSpy).apply(
-      """{"id":"non-uuid id","fieldNamesWithErrors":"id"}"""
-    )
+    ) should equal(true)
+    loggedMsgs.contains("""{"id":"non-uuid id","fieldNamesWithErrors":"id"}""") should equal(true)
 
-    ex.getMessage should equal(
-      "5 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
-    )
+    outputOrErr match {
+      case ex: Throwable =>
+        ex.getMessage should equal(
+          "5 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+        )
+    }
   }
 
   "the lambda" should "call the 'checkIfEntriesHaveCorrectParentIds' and 'checkForCircularDependenciesInFolders' methods" in {
@@ -305,27 +289,25 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val expectedJsonErrors = expectedErrorsPerMethod.values.toList.flatten
 
     val s3Client = getS3Client(metadataJsonAsObj = entriesWithAdditionalFoldersAndAssetWithNoFiles, stringsExpectedInJson = expectedJsonErrors)
-    val logMessageCallbackSpy = spy(logMessageCallback)
+    val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
-    val ex = intercept[JsonValidationException] {
-      new LambdaWithLogSpy(logMessageCallbackSpy).handler(input, config, dependencies(s3Client)).unsafeRunSync()
-    }
-
-    verify(logMessageCallbackSpy).apply(
+    loggedMsgs.contains(
       "3 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
-    )
-    verify(logMessageCallbackSpy).apply(
+    ) should equal(true)
+    loggedMsgs.contains(
       """{"id":"\"b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6\"","fieldNamesWithErrors":"originalFiles"}"""
-    )
-    verify(logMessageCallbackSpy).apply(
+    ) should equal(true)
+    loggedMsgs.contains(
       """{"id":"\"1c751e2f-3c9e-4c12-b06e-c0917b0ba3ec\"","fieldNamesWithErrors":"parentId"}"""
-    )
-    verify(logMessageCallbackSpy).apply(
+    ) should equal(true)
+    loggedMsgs.contains(
       """{"id":"\"3ede334c-b1ea-4642-ba31-d4574b0ddf5b\"","fieldNamesWithErrors":"parentId"}"""
-    )
-
-    ex.getMessage should equal(
-      "3 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
-    )
+    ) should equal(true)
+    outputOrErr match {
+      case ex: Throwable =>
+        ex.getMessage should equal(
+          "3 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+        )
+    }
   }
 }
