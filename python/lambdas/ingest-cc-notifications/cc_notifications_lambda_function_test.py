@@ -15,10 +15,10 @@ class TestCcNotificationHandler(unittest.TestCase):
     def setUp(self):
         self.set_aws_credentials()
         self.dynamodb_client = client("dynamodb",
-                                 region_name="eu-west-2",
-                                 aws_access_key_id="test-access-key",
-                                 aws_secret_access_key="test-secret-key",
-                                 aws_session_token="test-session-token2")
+                                      region_name="eu-west-2",
+                                      aws_access_key_id="test-access-key",
+                                      aws_secret_access_key="test-secret-key",
+                                      aws_session_token="test-session-token2")
 
     @staticmethod
     def set_aws_credentials():
@@ -32,8 +32,23 @@ class TestCcNotificationHandler(unittest.TestCase):
     def create_table(self):
         self.set_aws_credentials()
         self.dynamodb_client.create_table(TableName=self.table_name,
-                                          KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
-                                          AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
+                                          KeySchema=[
+                                              {"AttributeName": "id", "KeyType": "HASH"},
+                                              {"AttributeName": "batchId", "KeyType": "RANGE"}
+                                          ],
+                                          AttributeDefinitions=[
+                                              {"AttributeName": "batchId", "AttributeType": "S"},
+                                              {"AttributeName": "id", "AttributeType": "S"},
+                                              {"AttributeName": "parentPath", "AttributeType": "S"}
+                                          ],
+                                          GlobalSecondaryIndexes=[{
+                                              "IndexName": "BatchParentPathIdx",
+                                              "KeySchema": [
+                                                  {"AttributeName": "batchId", "KeyType": "HASH"},
+                                                  {"AttributeName": "parentPath", "KeyType": "RANGE"}
+                                              ],
+                                              "Projection": {"ProjectionType": "ALL"}
+                                          }],
                                           BillingMode="PAY_PER_REQUEST")
 
     def put_item_in_table(self, item):
@@ -78,7 +93,8 @@ class TestCcNotificationHandler(unittest.TestCase):
     def test_get_items_with_id_should_return_an_empty_list__if_item_not_in_table(self):
         self.create_table()
 
-        items_with_id = lambda_function.get_items_with_id(self.dynamodb_client, self.table_name, "id", "wrongIdentifier")
+        items_with_id = lambda_function.get_items_with_id(self.dynamodb_client, self.table_name, "id",
+                                                          "wrongIdentifier")
 
         self.assertEqual(items_with_id, [])
 
@@ -87,14 +103,16 @@ class TestCcNotificationHandler(unittest.TestCase):
         item = {"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}}
         self.put_item_in_table(item)
 
-        lambda_function.add_true_to_ingest_cc_attribute(self.dynamodb_client, self.table_name, "id", "batchId", [item])
+        lambda_function.add_true_to_ingest_cc_attribute(self.dynamodb_client, self.table_name, "id", "batchId",
+                                                        [item])
 
-        item_response = self.get_item_from_table({"id": {"S": "identifier"}})
+        item_response = self.get_item_from_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
         new_ingested_cc_value = item_response["Item"]["ingested_CC"]
 
         self.assertEqual(new_ingested_cc_value, {"S": "true"})
 
-    def test_add_true_to_ingest_cc_attribute_should_not_add_ingest_cc_attr_with_true_value_if_it_already_exists(self):
+    def test_add_true_to_ingest_cc_attribute_should_not_add_ingest_cc_attr_with_true_value_if_it_already_exists(
+            self):
         self.create_table()
         item = {"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}, "ingested_CC": {"S": "true"}}
         self.put_item_in_table(item)
@@ -102,7 +120,8 @@ class TestCcNotificationHandler(unittest.TestCase):
         table = Mock()
         table.update_item = Mock()
 
-        lambda_function.add_true_to_ingest_cc_attribute(self.dynamodb_client, self.table_name, "id", "batchId", [item])
+        lambda_function.add_true_to_ingest_cc_attribute(self.dynamodb_client, self.table_name, "id", "batchId",
+                                                        [item])
 
         table.update_item.assert_not_called()
 
@@ -121,9 +140,9 @@ class TestCcNotificationHandler(unittest.TestCase):
             self.dynamodb_client, self.table_name, "id", "batchId", [identifier1, identifier2, identifier3]
         )
 
-        item_response1 = self.get_item_from_table({"id": {"S": "identifier1"}})
-        item_response2 = self.get_item_from_table({"id": {"S": "identifier2"}})
-        item_response3 = self.get_item_from_table({"id": {"S": "identifier3"}})
+        item_response1 = self.get_item_from_table({"id": {"S": "identifier1"}, "batchId": {"S": "batchIdValue"}})
+        item_response2 = self.get_item_from_table({"id": {"S": "identifier2"}, "batchId": {"S": "batchIdValue"}})
+        item_response3 = self.get_item_from_table({"id": {"S": "identifier3"}, "batchId": {"S": "batchIdValue"}})
 
         responses = [item_response1, item_response2, item_response3]
 
@@ -137,7 +156,7 @@ class TestCcNotificationHandler(unittest.TestCase):
         self.put_item_in_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
 
         lambda_function.lambda_handler(self.default_event, None)
-        item_response = self.get_item_from_table({"id": {"S": "identifier"}})
+        item_response = self.get_item_from_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
         new_ingested_cc_value = item_response["Item"]["ingested_CC"]
 
         self.assertEqual(new_ingested_cc_value, {"S": "true"})
@@ -187,7 +206,6 @@ class TestCcNotificationHandler(unittest.TestCase):
             }
         ]
     }
-
 
 if __name__ == "__main__":
     unittest.main()
