@@ -52,7 +52,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
 
 object Lambda:
 
-  case class Config(apiUrl: String, secretName: String, inputQueue: String, outputQueue: String) derives ConfigReader
+  case class Config(apiUrl: String, secretName: String, outputQueue: String) derives ConfigReader
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], sqsClient: DASQSClient[IO], uuidGenerator: () => UUID)
 
   private def toJson(id: UUID, deleted: Boolean, messageType: String): Json =
