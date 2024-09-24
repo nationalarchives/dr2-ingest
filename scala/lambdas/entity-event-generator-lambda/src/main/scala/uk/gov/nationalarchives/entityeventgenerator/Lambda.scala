@@ -58,8 +58,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         else IO.pure(numOfRecentlyUpdatedEntities)
     } yield numOfRecentlyUpdatedEntities
 
-  def entityToString(entity: Entity) = s"${entity.entityType.map(_.entityTypeShort).getOrElse("")}:${entity.ref} "
-
   private def getEntitiesUpdatedAndUpdateDB(
       config: Config,
       entitiesClient: EntityClient[IO, Fs2Streams[IO]],
@@ -77,19 +75,15 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
       updatedSinceAsDate = OffsetDateTime.parse(updatedSinceResponse.datetime).toZonedDateTime
       recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, startFrom)
       _ <- logger.info(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
-      _ <- logger.info(s"The updated entity refs are ${recentlyUpdatedEntities.map(entityToString).mkString("\n")}")
 
       entityLastEventActionDate <-
         if (recentlyUpdatedEntities.nonEmpty) {
           val lastUpdatedEntity: Entity = recentlyUpdatedEntities.last
-          entitiesClient.entityEventActions(lastUpdatedEntity).flatMap { entityEventActions =>
-            for {
-              _ <- logger
-                .info(s"Found ${entityEventActions.map(action => s"${action.eventType}, ${action.dateOfEvent}").mkString("\n")} for entity ${entityToString(lastUpdatedEntity)}")
-            } yield Some(entityEventActions.head.dateOfEvent.toOffsetDateTime)
-
+          entitiesClient.entityEventActions(lastUpdatedEntity).map { entityEventActions =>
+            Some(entityEventActions.head.dateOfEvent.toOffsetDateTime)
           }
         } else IO.pure(None)
+
       _ <- IO.whenA(entityLastEventActionDate.exists(_.isBefore(eventTriggeredDatetime))) {
         for {
           _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
@@ -121,7 +115,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
     val eventTriggeredDatetime: OffsetDateTime =
       OffsetDateTime.ofInstant(Instant.ofEpochMilli(event.getTime.getMillis), event.getTime.getZone.toTimeZone.toZoneId)
     for {
-      _ <- IO.println(s"Event triggered date time $eventTriggeredDatetime")
       numOfEntitiesUpdated <- publishUpdatedEntitiesAndUpdateDateTime(
         config,
         dependencies.entityClient,
