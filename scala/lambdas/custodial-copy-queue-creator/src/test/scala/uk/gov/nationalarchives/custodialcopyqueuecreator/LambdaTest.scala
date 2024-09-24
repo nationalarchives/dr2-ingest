@@ -39,20 +39,12 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     messageBody.deleted should equal(false)
   }
 
-  "lambda handler" should "send a message with the CO id if the CO has no parent" in {
+  "lambda handler" should "not send a message with the CO id if the CO has no parent" in {
     val message = new SQSMessage()
     val id = UUID.randomUUID
     message.setBody(s"""{"id": "co:$id", "deleted": false}""")
     val sqsMessages = runLambda(List(message), List(createEntity(ContentObject, id)))
-    sqsMessages(outputQueue).size should equal(1)
-
-    val sqsMessage = sqsMessages(outputQueue).head
-    sqsMessage.getMessageAttributes.get("deduplicationId").getStringValue should equal(dedupeUuid.toString)
-
-    val messageBody = decode[MessageBody](sqsMessage.getBody).value
-    messageBody.isInstanceOf[CoMessageBody] should equal(true)
-    messageBody.id should equal(id)
-    messageBody.deleted should equal(false)
+    sqsMessages(outputQueue).size should equal(0)
   }
 
   "lambda handler" should "send a message with the parent ID for a CO if there is a parent ID" in {
@@ -86,18 +78,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     ex.getMessage should equal(s"Entity $coId not found")
   }
 
-  "lambda handler" should "use the CO for the message group ID if the entity is deleted" in {
+  "lambda handler" should "not send a message if the CO entity is deleted" in {
     val message = new SQSMessage()
     val coId = UUID.randomUUID
     message.setBody(s"""{"id": "co:$coId", "deleted": true}""")
 
     val sqsMessages = runLambda(List(message), Nil)
-    sqsMessages(outputQueue).size should equal(1)
-
-    val sqsMessage = sqsMessages(outputQueue).head
-
-    sqsMessage.getMessageId should equal(coId.toString)
-    sqsMessage.getMessageAttributes.get("deduplicationId").getStringValue should equal(dedupeUuid.toString)
+    sqsMessages(outputQueue).size should equal(0)
   }
 
   "lambda handler" should "not send a message if this is an SO message" in {

@@ -30,14 +30,11 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
         potentialMessageGroupId <- messageBody match
           case IoMessageBody(id, _) => IO.pure(id.some)
           case CoMessageBody(id, deleted) =>
-            if deleted then IO.pure(id.some)
+            if deleted then IO.none
             else
               dependencies.entityClient
                 .getEntity(id, EntityType.ContentObject)
-                .map(_.parent match
-                  case Some(parent) => parent.some
-                  case None         => id.some
-                )
+                .map(_.parent)
           case SoMessageBody(id, _) => IO.none
         _ <- IO.whenA(potentialMessageGroupId.nonEmpty) {
           val fifoConfiguration = potentialMessageGroupId.map(messageGroupId => FifoQueueConfiguration(messageGroupId.toString, dependencies.uuidGenerator().toString))
