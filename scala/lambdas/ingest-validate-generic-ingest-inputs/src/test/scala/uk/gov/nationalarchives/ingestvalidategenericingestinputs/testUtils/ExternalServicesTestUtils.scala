@@ -124,20 +124,13 @@ object ExternalServicesTestUtils {
     }
   }
 
-  def parentIdError(parentIdMessage: String): Map[String, ValidatedNel[HierarchyLinkingError, Value]] =
-    if parentIdMessage.isEmpty then Map()
-    else Map(parentId -> HierarchyLinkingError("null", s"The parentId value is 'null' $parentIdMessage").invalidNel[Value])
+  def parentIdError(parentIdMessage: String = ""): Map[String, ValidatedNel[HierarchyLinkingError, Value]] =
+    Map(parentId -> HierarchyLinkingError("null", s"The parentId value is 'null'$parentIdMessage").invalidNel[Value])
 
   def seriesError(seriesCaseClassName: String): ValidatedEntry =
     if seriesCaseClassName.isEmpty then Map()
     else if seriesCaseClassName == "SeriesExistsError" then Map("series" -> SeriesExistsError("A file can not have a Series").invalidNel[Value])
-    else
-      Map(
-        "series" -> SeriesDoesNotExistError(
-          "The parentId is null and since only top-level entries can have a null parentId " +
-            "and a series, this entry should have a 'series' (if it is indeed top-level)"
-        ).invalidNel[Value]
-      )
+    else Map("series" -> SeriesDoesNotExistError("A series cannot be missing if parentId is 'null'").invalidNel[Value])
 
   def circularDependencyError(incorrectBreadcrumbTrail: List[String]): ValidatedNel[HierarchyLinkingError, Value] = {
     val parentThatReferencesChild = incorrectBreadcrumbTrail.dropRight(1).last

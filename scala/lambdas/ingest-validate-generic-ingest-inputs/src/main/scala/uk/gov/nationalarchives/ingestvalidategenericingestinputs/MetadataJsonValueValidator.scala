@@ -123,27 +123,14 @@ class MetadataJsonValueValidator {
       entriesWithAParentType.toSet
     }
 
-    def getErrorMessageIfSeriesDoesNotExist(entry: ValidatedEntry, entryType: String) = {
-      if entry.contains(series) && entryType == "File" then Map(series -> SeriesExistsError("A file can not have a Series").invalidNel[Value])
-      else if entry.contains(series) || entryType == "File" then Map()
-      else
-        Map(
-          series -> SeriesDoesNotExistError(
-            "The parentId is null and since only top-level entries can have a null parentId " +
-              "and a series, this entry should have a 'series' (if it is indeed top-level)"
-          ).invalidNel[Value]
-        )
-    }
-
-    def getErrorMessageIfASeriesExists(entry: ValidatedEntry) = {
+    def getErrorMessageIfASeriesExists(entry: ValidatedEntry) =
       if entry.contains(series) then
         Map(
           series -> SeriesExistsError(
             "This entry has a series but has a parentId that's not null; only a top-level entry can have this"
           ).invalidNel[Value]
         )
-      else Map()
-    }
+      else Map.empty
 
     allEntries.map { case (entryType, entriesOfSpecificType) =>
       val updatedEntries =
@@ -154,30 +141,31 @@ class MetadataJsonValueValidator {
               val idAsString = idValue.str
               val entryTypeAndParent = allEntryIds(idAsString)
               val parentIdNel = entry(parentId)
+              val getErrorIfFileHasSeries =
+                (entry: ValidatedEntry) => if entry.contains("series") then Map(series -> SeriesExistsError("A file can not have a Series").invalidNel[Value]) else Map.empty
+              lazy val defaultParentResult = Map(parentId -> parentIdNel)
 
-              val (validatedParentId, potentialSeriesError) =
+              val validatedParentIdAndPotentialSeriesError =
                 entryTypeAndParent.potentialParentId match {
                   case None =>
-                    val parentIdValidatedNel = entryTypeAndParent match {
-                      // It's hard to determine whether an ArchiveFolderEntry's parent is null/None because it's a top-level entry or it's a mistake
-                      case ArchiveFolderEntry(_) => parentIdNel
-                      case ContentFolderEntry(_) =>
-                        val potentialParent = checkIfParentTypeExists(2)
-                        if potentialParent.nonEmpty then generateParentIdErrorMessage(parentIdNel, potentialParent) else parentIdNel
-                      case AssetEntry(_) =>
-                        val potentialParent = checkIfParentTypeExists(1)
-                        if potentialParent.nonEmpty then generateParentIdErrorMessage(parentIdNel, potentialParent) else parentIdNel
-                      case _ => // For a file, a parentId could be 'None', either because its value in the JSON is 'null' or
-                        // it failed an earlier validation and 'getIdsOfAllEntries' made the parent 'None' because the value was unavailable
-                        val potentialParent = checkIfParentTypeExists(0)
-                        generateParentIdErrorMessage(parentIdNel, potentialParent)
+                    entryTypeAndParent match {
+                      case FileEntry(_) | MetadataFileEntry(_) | UnknownFileTypeEntry(_) =>
+                        val updatedParentIdNel = HierarchyLinkingError("null", "The parentId value is 'null'").invalidNel[Value]
+                        Map(parentId -> updatedParentIdNel) ++ getErrorIfFileHasSeries(entry)
+                      case _ if !entry.contains("series") =>
+                        val updatedParentIdNel = HierarchyLinkingError("null", "The parentId value is 'null' but there is no series").invalidNel[Value]
+                        val updatedSeriesNel = SeriesDoesNotExistError("A series cannot be missing if parentId is 'null'").invalidNel[Value]
+                        Map(parentId -> updatedParentIdNel, series -> updatedSeriesNel)
+                      case _ => defaultParentResult
                     }
-                    val potentialSeriesErrorMessage = getErrorMessageIfSeriesDoesNotExist(entry, entryType)
-                    (parentIdValidatedNel, potentialSeriesErrorMessage)
-                  case Some("parentId undetermined, due to validation error") => (parentIdNel, Map())
+                  case Some("parentId undetermined, due to validation error") =>
+                    entryTypeAndParent match {
+                      case FileEntry(_) | MetadataFileEntry(_) | UnknownFileTypeEntry(_) => defaultParentResult ++ getErrorIfFileHasSeries(entry)
+                      case _                                                             => defaultParentResult
+                    }
                   case Some(idThatMightBelongToAnEntry) => // check if parentId refers to an entry that is actually in the JSON
                     if idThatMightBelongToAnEntry == idAsString then
-                      (HierarchyLinkingError(idThatMightBelongToAnEntry, "The parentId is the same as the id").invalidNel[Value], Map())
+                      Map(parentId -> HierarchyLinkingError(idThatMightBelongToAnEntry, "The parentId is the same as the id").invalidNel[Value])
                     else
                       val potentialEntryType = allEntryIds.get(idThatMightBelongToAnEntry)
                       val parentIdValidatedNel = potentialEntryType match {
@@ -197,10 +185,9 @@ class MetadataJsonValueValidator {
                             case _ => parentIdNel
                           }
                       }
-                      val potentialSeriesErrorMessage = getErrorMessageIfASeriesExists(entry)
-                      (parentIdValidatedNel, potentialSeriesErrorMessage)
+                      Map(parentId -> parentIdValidatedNel) ++ getErrorMessageIfASeriesExists(entry)
                 }
-              val entryWithUpdatedParentId = entry ++ potentialSeriesError + (parentId -> validatedParentId)
+              val entryWithUpdatedParentId = entry ++ validatedParentIdAndPotentialSeriesError
 
               if entryType == "Asset" then checkIfAssetReferencesCorrectFiles(entryWithUpdatedParentId, idAsString, entryTypesGrouped)
               else entryWithUpdatedParentId
@@ -208,20 +195,6 @@ class MetadataJsonValueValidator {
           }
         }
       entryType -> updatedEntries
-    }
-  }
-
-  private def generateParentIdErrorMessage(parentIdNel: ValidatedNel[ValidationError, Value], parentType: Set[String]) = {
-    val parentTypeMessage =
-      if parentType.isEmpty then "and no parent entry exists in the JSON to refer to"
-      else s"despite at least one ${parentType.mkString(" and ")} existing"
-    parentIdNel match {
-      case Validated.Valid(parentIdThatIsNull) =>
-        HierarchyLinkingError(
-          parentIdThatIsNull.strOpt.getOrElse("null"),
-          s"The parentId value is 'null' $parentTypeMessage"
-        ).invalidNel[Value]
-      case invalidNel => invalidNel
     }
   }
 
@@ -308,33 +281,6 @@ class MetadataJsonValueValidator {
     allEntries ++ updatedFolderEntries
   }
 
-  @tailrec
-  private def getCircularDependencyErrors(
-      allFolderTypeEntryIds: Map[FieldName, EntryTypeAndParent],
-      originalId: String,
-      idToLookUpNext: String,
-      idsOfParents: List[String],
-      parentIdNel: ValidatedNel[ValidationError, Value]
-  ): ValidatedNel[ValidationError, Value] = {
-    val entryTypeAndParent = allFolderTypeEntryIds(idToLookUpNext)
-    entryTypeAndParent.potentialParentId match {
-      case None | Some("parentId undetermined, due to validation error") => parentIdNel
-      // E.g. (if starting folder is 'f1' and its parents increment by 1) if f2's parentId is f3 and f3's is f2,
-      // don't return error as it will be caught when its f2/f3's turn
-      case Some(parentId) if idsOfParents.contains(parentId) => parentIdNel
-      case Some(parentId) if parentId == originalId =>
-        val parentIdThatReferencesEntry = idsOfParents.last
-        val idsOfParentsWithId = List(parentId) ::: idsOfParents ::: List(parentId)
-        val breadcrumbOfIds = idsOfParentsWithId.mkString(" > ")
-        HierarchyLinkingError(
-          parentIdThatReferencesEntry,
-          s"Circular dependency! A parent entry (id '$parentIdThatReferencesEntry') references this entry as its parentId.\n\n" +
-            s"The breadcrumb trail looks like this $breadcrumbOfIds"
-        ).invalidNel[Value]
-      case Some(parentId) => getCircularDependencyErrors(allFolderTypeEntryIds, originalId, parentId, idsOfParents ::: List(parentId), parentIdNel)
-    }
-  }
-
   def getIdsOfAllEntries(allEntries: Map[String, List[ValidatedEntry]], metadataFileIds: List[String] = Nil): List[(FieldName, EntryTypeAndParent)] = {
     def getEntryType(entryTypeAsString: String, potentialParentId: Option[String]): EntryTypeAndParent =
       entryTypeAsString match {
@@ -376,6 +322,47 @@ class MetadataJsonValueValidator {
           case invalidNel => Nil
         }
       }
+    }
+  }
+
+  private def generateParentIdErrorMessage(parentIdNel: ValidatedNel[ValidationError, Value], parentType: Set[String]) = {
+    val parentTypeMessage =
+      if parentType.isEmpty then "and no parent entry exists in the JSON to refer to"
+      else s"despite at least one ${parentType.mkString(" and ")} existing"
+    parentIdNel match {
+      case Validated.Valid(parentIdThatIsNull) =>
+        HierarchyLinkingError(
+          parentIdThatIsNull.strOpt.getOrElse("null"),
+          s"The parentId value is 'null' $parentTypeMessage"
+        ).invalidNel[Value]
+      case invalidNel => invalidNel
+    }
+  }
+
+  @tailrec
+  private def getCircularDependencyErrors(
+      allFolderTypeEntryIds: Map[FieldName, EntryTypeAndParent],
+      originalId: String,
+      idToLookUpNext: String,
+      idsOfParents: List[String],
+      parentIdNel: ValidatedNel[ValidationError, Value]
+  ): ValidatedNel[ValidationError, Value] = {
+    val entryTypeAndParent = allFolderTypeEntryIds(idToLookUpNext)
+    entryTypeAndParent.potentialParentId match {
+      case None | Some("parentId undetermined, due to validation error") => parentIdNel
+      // E.g. (if starting folder is 'f1' and its parents increment by 1) if f2's parentId is f3 and f3's is f2,
+      // don't return error as it will be caught when its f2/f3's turn
+      case Some(parentId) if idsOfParents.contains(parentId) => parentIdNel
+      case Some(parentId) if parentId == originalId =>
+        val parentIdThatReferencesEntry = idsOfParents.last
+        val idsOfParentsWithId = List(parentId) ::: idsOfParents ::: List(parentId)
+        val breadcrumbOfIds = idsOfParentsWithId.mkString(" > ")
+        HierarchyLinkingError(
+          parentIdThatReferencesEntry,
+          s"Circular dependency! A parent entry (id '$parentIdThatReferencesEntry') references this entry as its parentId.\n\n" +
+            s"The breadcrumb trail looks like this $breadcrumbOfIds"
+        ).invalidNel[Value]
+      case Some(parentId) => getCircularDependencyErrors(allFolderTypeEntryIds, originalId, parentId, idsOfParents ::: List(parentId), parentIdNel)
     }
   }
 }

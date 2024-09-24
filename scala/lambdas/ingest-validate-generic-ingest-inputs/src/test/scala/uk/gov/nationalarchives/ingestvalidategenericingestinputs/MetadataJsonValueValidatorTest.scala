@@ -44,33 +44,18 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     ("Asset and Files", Map(2 -> 0, 3 -> 0, 4 -> 0), "ArchiveFolder")
   )
 
-  private val entryTypesThatHaveParents: TableFor1[String] = Table("entryType", "ContentFolder", "Asset", "File")
+  private val entryTypesThatCanHaveNoParent: TableFor1[String] = Table("entryType", "ArchiveFolder", "ContentFolder", "Asset")
 
-  private val archiveFolderParentIdIsNullStates: TableFor3[String, Boolean, String] = Table(
+  private val nonFileEntryParentIdIsNullStates: TableFor3[String, Boolean, String] = Table(
     ("parentId state", "Series is in entry?", "Series error message case class name"),
     ("the parentId of entry is null and there is no series", false, "SeriesDoesNotExistError"),
     ("the parentId of entry is null and there is a series", true, "")
   )
-  private val nullStatesDescriptions = List(
-    "a parent exists in the JSON but the parentId of entry is null and there is no series",
-    "a parent exists in the JSON but the parentId of entry is null and there is a series",
-    "a parent does not exist in the JSON but the parentId of entry is null and there is no series",
-    "a parent does not exist in the JSON but the parentId of entry is null and there is a series"
-  )
-  private val nonArchiveFolderParentIdIsNullStates: TableFor6[String, String, Boolean, Boolean, String, String] = Table(
-    ("entryType", "parentId state", "parent exists", "Series is in entry?", "parentId error message", "Series error message case class name"),
-    ("ContentFolder", nullStatesDescriptions.head, true, false, "despite at least one ArchiveFolder existing", "SeriesDoesNotExistError"),
-    ("ContentFolder", nullStatesDescriptions(1), true, true, "despite at least one ArchiveFolder existing", ""),
-    ("ContentFolder", nullStatesDescriptions(2), false, false, "", "SeriesDoesNotExistError"),
-    ("ContentFolder", nullStatesDescriptions(3), false, true, "", ""),
-    ("Asset", nullStatesDescriptions.head, true, false, "despite at least one ContentFolder existing", "SeriesDoesNotExistError"),
-    ("Asset", nullStatesDescriptions(1), true, true, "despite at least one ContentFolder existing", ""),
-    ("Asset", nullStatesDescriptions(2), false, false, "", "SeriesDoesNotExistError"),
-    ("Asset", nullStatesDescriptions(3), false, true, "", ""),
-    ("File", nullStatesDescriptions.head, true, false, "despite at least one Asset existing", ""),
-    ("File", nullStatesDescriptions(1), true, true, "despite at least one Asset existing", "SeriesExistsError"),
-    ("File", nullStatesDescriptions(2), false, false, "and no parent entry exists in the JSON to refer to", ""),
-    ("File", nullStatesDescriptions(3), false, true, "and no parent entry exists in the JSON to refer to", "SeriesExistsError")
+
+  private val fileEntryParentIdIsNullStates: TableFor3[String, Boolean, String] = Table(
+    ("parentId state", "Series is in entry?", "Series error message case class name"),
+    ("the parentId of entry is null and there is no series", false, ""),
+    ("the parentId of entry is null and there is a series", true, "SeriesExistsError")
   )
 
   // 4 folders in List. Child folder is index 3, it's parent is 2 > 1 > 0
@@ -416,85 +401,78 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     entriesWithValidatedParentId should equal(allEntriesAsValidatedMaps)
   }
 
-  forAll(archiveFolderParentIdIsNullStates) { (parentIdIsNullState, seriesIsInEntry, seriesErrorMessageName) =>
-    val numOfErrorsExpected = List(seriesErrorMessageName).count(_.nonEmpty)
-    "checkIfEntriesHaveCorrectParentIds" should s"for an entry of type 'ArchiveFolder', return $numOfErrorsExpected errors if $parentIdIsNullState" in {
-      val entriesWithoutASeries = allEntries.map {
-        case entry if entry(entryType).str == "ArchiveFolder" =>
-          Obj.from {
-            val entryWithNullParent = entry.value.toMap ++ Map(parentId -> Null)
-            if seriesIsInEntry then entryWithNullParent ++ Map("series" -> Str(randomSeries)) else entryWithNullParent - "series"
-          }
-        case entry => entry
+  forAll(entryTypesThatCanHaveNoParent) { entryTypeThatCanHaveNoParent =>
+    forAll(nonFileEntryParentIdIsNullStates) { (parentIdIsNullState, seriesIsInEntry, seriesErrorMessageName) =>
+      val numOfErrorsExpected = if seriesErrorMessageName.nonEmpty then 2 else 0
+      "checkIfEntriesHaveCorrectParentIds" should s"for an entry of type '$entryTypeThatCanHaveNoParent', return $numOfErrorsExpected errors if $parentIdIsNullState" in {
+        val entriesWithOneWithoutAParentAndSeries = allEntries.map {
+          case entry if entry(entryType).str == entryTypeThatCanHaveNoParent =>
+            Obj.from {
+              val entryWithNullParent = entry.value.toMap ++ Map(parentId -> Null)
+              if seriesIsInEntry then entryWithNullParent ++ Map("series" -> Str(randomSeries)) else entryWithNullParent - "series"
+            }
+          case entry => entry
+        }
+        val entriesGroupedByType = entriesWithOneWithoutAParentAndSeries.groupBy(_(entryType).str)
+        val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
+
+        val allEntryIds = generateListOfIdsAndEntries(entriesWithOneWithoutAParentAndSeries)
+        val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
+
+        val entriesWithValidatedParentId = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
+
+        val entriesWhereParentIdAndSeriesHaveErrors = allEntriesAsValidatedMaps.map { case (entryType, entries) =>
+          entryType ->
+            entries.map { entry =>
+              if entryType == entryTypeThatCanHaveNoParent then
+                val updatedSeriesAndParentId = if seriesIsInEntry then Map.empty else seriesError(seriesErrorMessageName) ++ parentIdError(" but there is no series")
+                entry ++ updatedSeriesAndParentId
+              else entry
+            }
+        }
+        entriesWithValidatedParentId should equal(entriesWhereParentIdAndSeriesHaveErrors)
       }
-      val entryAndParent = entriesWithoutASeries.filter(entry => entry(entryType).str == "ArchiveFolder")
-      val entriesGroupedByType = entryAndParent.groupBy(_(entryType).str)
-      val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
-
-      val allEntryIds = generateListOfIdsAndEntries(entriesWithoutASeries)
-      val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
-
-      val entriesWithValidatedParentId = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
-
-      val entriesWhereParentIdHasErrors = allEntriesAsValidatedMaps.map { case (entryType, entries) =>
-        entryType ->
-          entries.map { entry =>
-            val updatedSeries = seriesError(seriesErrorMessageName)
-            entry ++ updatedSeries
-          }
-      }
-      entriesWithValidatedParentId should equal(entriesWhereParentIdHasErrors)
     }
   }
 
-  forAll(nonArchiveFolderParentIdIsNullStates) { (entryTypeThatHasParent, parentIdIsNullState, parentExists, seriesIsInEntry, parentIdErrorMessage, seriesErrorMessageName) =>
-    val parentTypes = Map("File" -> "Asset", "Asset" -> "ContentFolder", "ContentFolder" -> "ArchiveFolder")
-    val parentType = if parentExists then parentTypes(entryTypeThatHasParent) else ""
+  forAll(fileEntryParentIdIsNullStates) { (parentIdIsNullState, seriesIsInEntry, seriesErrorMessageName) =>
     val series = "series"
-    val numOfErrorsExpected = List(parentIdErrorMessage, seriesErrorMessageName).count(_.nonEmpty)
-    "checkIfEntriesHaveCorrectParentIds" should s"for an entry of type '$entryTypeThatHasParent', return $numOfErrorsExpected errors if $parentIdIsNullState" in {
-      val entriesWithoutASeriesAndANullParentIds = allEntries.map {
-        case entry if entry("type").str == parentType => Obj.from(entry.value.toMap ++ Map(series -> Str(randomSeries), parentId -> Null))
-        case entry if entry("type").str == entryTypeThatHasParent =>
+    val numOfErrorsExpected = if seriesErrorMessageName.nonEmpty then "2 errors" else "1 error"
+    "checkIfEntriesHaveCorrectParentIds" should s"for an entry of type 'File', return $numOfErrorsExpected if $parentIdIsNullState" in {
+      val entriesWithOneWithoutAParentAndSeries = allEntries.map {
+        case entry if entry("type").str == "File" =>
           Obj.from {
             val entryWithNullParent = entry.value.toMap ++ Map(parentId -> Null)
             if seriesIsInEntry then entryWithNullParent ++ Map(series -> Str(randomSeries)) else entryWithNullParent - series
           }
         case entry => entry
       }
-      val entryAndParent = entriesWithoutASeriesAndANullParentIds.filter(entry => List(parentType, entryTypeThatHasParent).contains(entry("type").str))
-      val entriesGroupedByType = entryAndParent.groupBy(_(entryType).str)
+      val entriesGroupedByType = entriesWithOneWithoutAParentAndSeries.groupBy(_(entryType).str)
       val allEntriesAsValidatedMaps = convertAllUjsonObjsToSchemaValidatedMaps(entriesGroupedByType)
 
-      val allEntryIds = generateListOfIdsAndEntries(entriesWithoutASeriesAndANullParentIds)
+      val allEntryIds = generateListOfIdsAndEntries(entriesWithOneWithoutAParentAndSeries)
       val entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
 
       val entriesWithValidatedParentId = validator.checkIfEntriesHaveCorrectParentIds(allEntriesAsValidatedMaps, allEntryIds.toMap, entryTypesGrouped)
 
-      val entriesWhereParentIdHasErrors = allEntriesAsValidatedMaps.map { case (entryType, entries) =>
+      val entriesWhereParentIdAndSeriesHaveErrors = allEntriesAsValidatedMaps.map { case (entryType, entries) =>
         entryType ->
           entries.map { entry =>
-            val updatedEntry =
-              if entryType != parentType then
-                val updatedParentId = parentIdError(parentIdErrorMessage)
-                val updatedSeries = seriesError(seriesErrorMessageName)
-                entry ++ updatedParentId ++ updatedSeries
-              else entry
-
-            val updatedFiles =
-              if entryType == "Asset" && parentType == "Asset" then assetFilesErrorMessage("originalFiles") ++ assetFilesErrorMessage("originalMetadataFiles")
-              else Map()
-            updatedEntry ++ updatedFiles
+            if entryType == "File" then
+              val updatedSeries = if seriesIsInEntry then seriesError(seriesErrorMessageName) else Map.empty
+              entry ++ updatedSeries ++ parentIdError()
+            else if entryType == "Asset" then entry ++ assetFilesErrorMessage("originalFiles") ++ assetFilesErrorMessage("originalMetadataFiles")
+            else entry
           }
       }
-      entriesWithValidatedParentId should equal(entriesWhereParentIdHasErrors)
+      entriesWithValidatedParentId should equal(entriesWhereParentIdAndSeriesHaveErrors)
     }
   }
 
   "checkIfEntriesHaveCorrectParentIds" should "not check (validate) the parentId fields if the parentId fields already " +
-    "have errors in them (non-ArchiveFolders)" in {
+    "have errors in them (non-ArchiveFolders) but return an error if a file has a series" in {
       val entriesWithIncorrectIds = allEntries.map { entry =>
-        Obj.from(entry.value ++ Map(parentId -> Str("cbf14cb2-1cb3-43a4-8310-2ac295a130c5")))
+        Obj.from(entry.value ++ Map(parentId -> Str("cbf14cb2-1cb3-43a4-8310-2ac295a130c5"), "series" -> Str(randomSeries)))
       }
       val entriesGroupedByType = entriesWithIncorrectIds.groupBy(_(entryType).str)
       val allEntriesAsValidatedMaps = entriesGroupedByType.map { case (entryType, entries) =>
@@ -507,11 +485,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
               if "ArchiveFolder" == entryType then Map()
               else Map(parentId -> IdIsNotUniqueError(entry(parentId).getOrElse(Str("")).str, "This id occurs 5 times").invalidNel[Value])
 
-            val updatedFiles =
-              if entryType == "Asset" then assetFilesErrorMessage("originalFiles") ++ assetFilesErrorMessage("originalMetadataFiles")
-              else Map()
-
-            entry ++ updatedParentId ++ updatedFiles
+            entry ++ updatedParentId
           }
       }
 
@@ -524,7 +498,23 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
         allEntryIdsWithParentsThatAreNone.toMap,
         entryTypesGrouped
       )
-      entriesWithValidatedParentId should equal(allEntriesWithParentIdsChangedToError)
+
+      val allEntriesWithErrorsExpectedWhenParentIdIsInvalid = allEntriesWithParentIdsChangedToError.map { case (entryType, entries) =>
+        entryType ->
+          entries.map { entry =>
+            val updatedSeries =
+              if entryType == "File" then seriesError("SeriesExistsError")
+              else Map()
+
+            val updatedFiles =
+              if entryType == "Asset" then assetFilesErrorMessage("originalFiles") ++ assetFilesErrorMessage("originalMetadataFiles")
+              else Map()
+
+            entry ++ updatedSeries ++ updatedFiles
+          }
+      }
+
+      entriesWithValidatedParentId should equal(allEntriesWithErrorsExpectedWhenParentIdIsInvalid)
     }
 
   "checkIfEntriesHaveCorrectParentIds" should s"return a HierarchyLinkingError if the parentId of an entry is the same as the id" in {
