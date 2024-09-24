@@ -207,6 +207,46 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
       }
   }
 
+  forAll(entryTypeSchemas) { entryTypeSchema =>
+    "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return ValueErrors if the JSON has all the required properties but" +
+      "the format of the optional properties is incorrect" in {
+        val entry = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == entryTypeSchema.toString).head
+        val entryWithInvalidOptionalProperty = Obj.from {
+          entry.value ++
+            (entry(entryType).str match {
+              case "ArchiveFolder" => Map("id_URI" -> Str(""))
+              case "ContentFolder" => Map("id_URI" -> Str(""))
+              case "Asset"         => Map("series" -> Str(""))
+              case "File"          => Map("checksum_sha256" -> Str(""))
+              case "UnknownType"   => Map("checksum_" -> Str("fa2d0b0345b9dcc4e68eac7f4b9bc76"))
+            })
+        }
+        val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithInvalidOptionalProperty).unsafeRunSync()
+        validatedJsonObjectAsMap should equal(
+          convertUjsonObjToSchemaValidatedMap(entryWithInvalidOptionalProperty) ++
+            (entry(entryType).str match {
+              case "ArchiveFolder" => Map("id_URI" -> SchemaValueError("", "$.id_URI: must be at least 1 characters long").invalidNel[Value])
+              case "ContentFolder" => Map("id_URI" -> SchemaValueError("", "$.id_URI: must be at least 1 characters long").invalidNel[Value])
+              case "Asset" =>
+                Map(
+                  "series" -> NonEmptyList(
+                    SchemaValueError("", "$.series: does not match the regex pattern ^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown)$"),
+                    List(SchemaValueError("", "$.series: must be at least 1 characters long"))
+                  ).invalid[Value]
+                )
+              case "File" =>
+                Map(
+                  "checksum_sha256" -> NonEmptyList(
+                    SchemaValueError("", "$.checksum_sha256: must be at least 32 characters long"),
+                    List(SchemaValueError("", "$.checksum_sha256: must be at least 64 characters long"))
+                  ).invalid[Value]
+                )
+              case "UnknownType" => Map("checksum_" -> SchemaValueError("fa2d0b0345b9dcc4e68eac7f4b9bc76", "$.checksum_: must be at least 32 characters long").invalidNel[Value])
+            })
+        )
+      }
+  }
+
   forAll(entryTypeSchemas.filter(_.toString != "UnknownType")) { entryTypeSchema =>
     "validateMetadataJsonObject" should s", for an entry of type '$entryTypeSchema', return ValueErrors for all of the properties " +
       "with incorrect types and multiple ValueErrors for properties with multiple criteria" in {
