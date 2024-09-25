@@ -47,21 +47,18 @@ class MetadataJsonValueValidator {
       }).map(nel => fileEntry + (location -> nel))
     }.sequence
 
-  def checkFileNamesHaveExtensions(fileEntries: List[ValidatedEntry]): List[ValidatedEntry] =
-    fileEntries.map { fileEntry =>
-      val nameNel = fileEntry(name)
+  def checkMetadataFileNamesHaveJsonExtensions(metadataFileEntries: List[ValidatedEntry]): List[ValidatedEntry] =
+    metadataFileEntries.map { metadataFileEntry =>
+      val nameNel = metadataFileEntry(name)
       val nameValidationResult =
         nameNel match {
           case Validated.Valid(nameValue) =>
             val fileName = nameValue.str
-            fileName.split('.').toList.reverse match {
-              case ext :: _ :: _ => nameNel
-              case _ =>
-                MissingFileExtensionError(fileName, s"The file name does not have an extension at the end of it").invalidNel[Value]
-            }
+            if fileName.endsWith(".json") then nameNel
+            else MissingFileExtensionError(fileName, "The metadata file name does not end with a '.json'").invalidNel[Value]
           case invalidatedNel => invalidatedNel
         }
-      fileEntry + (name -> nameValidationResult)
+      metadataFileEntry + (name -> nameValidationResult)
     }
 
   def checkIfAllIdsAreUuids(allEntries: Map[String, List[ValidatedEntry]]): Map[FieldName, List[ValidatedEntry]] =

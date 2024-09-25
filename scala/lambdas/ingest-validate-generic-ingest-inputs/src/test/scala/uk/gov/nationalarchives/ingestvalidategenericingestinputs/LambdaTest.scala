@@ -177,21 +177,21 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       }
     }
 
-  "the lambda" should "call the 'checkFileNamesHaveExtensions' method with only metadata files" in {
+  "the lambda" should "call the 'checkMetadataFileNamesHaveJsonExtensions' method with only metadata files" in {
     val entriesWithFileNamesWithoutExtensions = testValidMetadataJson().map { entry =>
-      val typeOfEntry = entry(entryType).str
-      if typeOfEntry == "File" then
+      val idOfMetadataEntry = entry("id").str
+      if idOfMetadataEntry == "d4f8613d-2d2a-420d-a729-700c841244f3" then
         val entryName = entry("name").str
-        val nameWithoutExtension = entryName.split('.').dropRight(1).mkString(".")
+        val nameWithoutExtension = entryName.replace(".json", "")
         Obj.from(entry.value ++ Map("name" -> Str(nameWithoutExtension)))
       else entry
     }
 
     val expectedExtensionMethodString = List(
-      """"name":{"Invalid":[{"errorType":"MissingFileExtensionError","valueThatCausedError":"TDD-2023-ABC-metadata","errorMessage":"The file name does not have an extension at the end of it"}]}"""
+      """"name":{"Invalid":[{"errorType":"MissingFileExtensionError","valueThatCausedError":"TDD-2023-ABC-metadata","errorMessage":"The metadata file name does not end with a '.json'"}]}"""
     )
     val unexpectedExtensionMethodString = List(
-      """"name":{"Invalid":[{"errorType":"MissingFileExtensionError","valueThatCausedError":"test name","errorMessage":"The file name does not have an extension at the end of it"}]}"""
+      """"name":{"Invalid":[{"errorType":"MissingFileExtensionError","valueThatCausedError":"test name","errorMessage":"The metadata file name does not end with a '.json'"}]}"""
     )
 
     val s3Client = getS3Client(

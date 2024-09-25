@@ -165,35 +165,38 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     verify(s3Client, times(entriesAsValidatedMap.length)).headObject(any[String], any[String])
   }
 
-  "checkFileNamesHaveExtensions" should "return 0 MissingFileExtensionErrors if the value of the 'name' in the File entries, end with an extension" in {
-    val fileEntries = allEntries.filter(_(entryType).str == "File")
-    val entriesAsValidatedMap = fileEntries.map(convertUjsonObjToSchemaValidatedMap)
-    val fileEntriesWithValidatedName = validator.checkFileNamesHaveExtensions(entriesAsValidatedMap)
-    fileEntriesWithValidatedName should equal(entriesAsValidatedMap)
+  "checkMetadataFileNamesHaveJsonExtensions" should "return 0 MissingFileExtensionErrors if the value of the 'name' for a metadata file entry, ends with '.json'" in {
+    val metadataFileEntry = allEntries.filter(_(id).str == "d4f8613d-2d2a-420d-a729-700c841244f3")
+    val entryAsValidatedMap = metadataFileEntry.map(convertUjsonObjToSchemaValidatedMap)
+    val metadataFileEntryWithValidatedName = validator.checkMetadataFileNamesHaveJsonExtensions(entryAsValidatedMap)
+    metadataFileEntryWithValidatedName should equal(entryAsValidatedMap)
   }
 
-  "checkFileNamesHaveExtensions" should "return a MissingFileExtensionError if the File entries' names, don't end with an extension" in {
-    val fileEntries = allEntries.filter(_(entryType).str == "File")
-    val fileEntriesWithExtsRemovedFromName = fileEntries.map { fileEntry =>
-      val nameVal = fileEntry.value(name)
-      val nameValWithExtensionRemoved = nameVal.str.split('.').dropRight(1).mkString
-      Obj.from(fileEntry.value ++ Map(name -> Str(nameValWithExtensionRemoved)))
-    }
-    val entriesAsValidatedMap = fileEntriesWithExtsRemovedFromName.map(convertUjsonObjToSchemaValidatedMap)
-    val fileEntriesWithValidatedName = validator.checkFileNamesHaveExtensions(entriesAsValidatedMap)
-    val expectedEntriesAsValidatedMap = entriesAsValidatedMap.map {
-      _.map { case (property, value) =>
-        (
-          property,
-          if property == name then MissingFileExtensionError(value.getOrElse(Str("")).str, "The file name does not have an extension at the end of it").invalidNel[Value]
-          else value
-        )
+  List("json", ".jsom", ".jso", ".js", ".", "..", ".docx", "").foreach { nonDotJsonExtension =>
+    "checkMetadataFileNamesHaveJsonExtensions" should "return a MissingFileExtensionError if the value of the 'name' for a metadata file entry, " +
+      s"ends with '$nonDotJsonExtension', instead of '.json'" in {
+        val metadataFileEntry = allEntries.filter(_(id).str == "d4f8613d-2d2a-420d-a729-700c841244f3")
+        val fileEntriesWithExtsRemovedFromName = metadataFileEntry.map { fileEntry =>
+          val nameVal = fileEntry.value(name)
+          val nameValWithExtensionRemoved = nameVal.str.replace(".json", nonDotJsonExtension)
+          Obj.from(fileEntry.value ++ Map(name -> Str(nameValWithExtensionRemoved)))
+        }
+        val entriesAsValidatedMap = fileEntriesWithExtsRemovedFromName.map(convertUjsonObjToSchemaValidatedMap)
+        val fileEntriesWithValidatedName = validator.checkMetadataFileNamesHaveJsonExtensions(entriesAsValidatedMap)
+        val expectedEntriesAsValidatedMap = entriesAsValidatedMap.map {
+          _.map { case (property, value) =>
+            (
+              property,
+              if property == name then MissingFileExtensionError(value.getOrElse(Str("")).str, "The metadata file name does not end with a '.json'").invalidNel[Value]
+              else value
+            )
+          }
+        }
+        fileEntriesWithValidatedName should equal(expectedEntriesAsValidatedMap)
       }
-    }
-    fileEntriesWithValidatedName should equal(expectedEntriesAsValidatedMap)
   }
 
-  "checkFileNamesHaveExtensions" should "not check (validate) the name field if it already has an error on it" in {
+  "checkMetadataFileNamesHaveJsonExtensions" should "not check (validate) the name field if it already has an error on it" in {
     val fileEntries = allEntries.filter(_(entryType).str == "File")
     val fileEntriesWithExtsRemovedFromName = fileEntries.map { fileEntry =>
       val nameVal = fileEntry.value(name)
@@ -205,7 +208,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
         name -> SchemaValueError("123", s"$$.$name: integer found, string expected").invalidNel[Value]
       )
     }
-    val fileEntriesWithValidatedName = validator.checkFileNamesHaveExtensions(entriesAsValidatedMap)
+    val fileEntriesWithValidatedName = validator.checkMetadataFileNamesHaveJsonExtensions(entriesAsValidatedMap)
     fileEntriesWithValidatedName should equal(entriesAsValidatedMap)
   }
 

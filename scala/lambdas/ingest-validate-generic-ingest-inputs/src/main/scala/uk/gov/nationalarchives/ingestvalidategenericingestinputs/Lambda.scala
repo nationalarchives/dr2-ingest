@@ -94,7 +94,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       idsOfMetadataFiles = getIdsOfMetadataFiles(validatedEntries("Asset"))
       (metadataEntries, nonMetadataEntries) =
         separateMetadataFilesFromNonMetadataFiles(fileEntriesWithValidatedLocation, idsOfMetadataFiles)
-      metadataEntriesWithValidatedExtensions = valueValidator.checkFileNamesHaveExtensions(metadataEntries)
+      metadataEntriesWithValidatedExtensions = valueValidator.checkMetadataFileNamesHaveJsonExtensions(metadataEntries)
 
       fileEntriesWithValidatedExtensions = metadataEntriesWithValidatedExtensions ::: nonMetadataEntries
 
