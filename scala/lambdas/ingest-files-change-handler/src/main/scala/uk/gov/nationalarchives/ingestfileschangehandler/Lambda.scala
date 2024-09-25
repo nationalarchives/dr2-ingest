@@ -28,7 +28,10 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       FilesTablePrimaryKey(FilesTablePartitionKey(row.id), FilesTableSortKey(row.batchId))
 
     def sendOutputMessage(asset: AssetDynamoTable, messageType: MessageType): IO[Unit] = {
-      val message = OutputMessage(OutputProperties(dependencies.uuidGenerator(), asset.correlationId, dependencies.instantGenerator(), messageType), OutputParameters(asset.id))
+      val message = OutputMessage(
+        OutputProperties(asset.batchId, dependencies.uuidGenerator(), asset.correlationId, dependencies.instantGenerator(), messageType),
+        OutputParameters(asset.id)
+      )
       dependencies.daSnsClient.publish(config.topicArn)(message :: Nil).map(_ => ())
     }
 
@@ -54,7 +57,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         .queryItems[FileDynamoTable](config.dynamoTableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(config.dynamoGsiName))
     }
 
-    def getParentAsset(fileRow: FileDynamoTable): IO[AssetDynamoTable] = for {
+    def getParentAsset(fileRow: FileDynamoTable): IO[Option[AssetDynamoTable]] = for {
       parentId <- IO.fromOption {
         fileRow.potentialParentPath
           .flatMap(_.split('/').lastOption)
@@ -62,16 +65,10 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       }(new Exception(s"Cannot find a direct parent for file ${fileRow.id}"))
       parentPrimaryKey <- IO.pure(FilesTablePrimaryKey(FilesTablePartitionKey(parentId), FilesTableSortKey(fileRow.batchId)))
       parentAssets <- dependencies.daDynamoDbClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](List(parentPrimaryKey), config.dynamoTableName)
-      _ <- IO.raiseWhen(parentAssets.length != 1)(new Exception(s"Expected 1 parent asset, found ${parentAssets.length} assets for file $parentId"))
-    } yield parentAssets.head
+    } yield parentAssets.headOption
 
-    def processAsset(asset: AssetDynamoTable): IO[Unit] = {
-      if asset.ingestedPreservica && asset.ingestedCustodialCopy then
-        for {
-          children <- childrenOfAsset(asset)
-          _ <- IO.whenA(children.forall(_.ingestedCustodialCopy))(sendMessageAndDelete(asset, children) >> sendMessageAndDeleteSkippedAssets(asset))
-
-        } yield ()
+    def processIngestedPreservica(asset: AssetDynamoTable) =
+      if asset.ingestedPreservica && !asset.skipIngest then sendOutputMessage(asset, IngestUpdate)
       else if asset.ingestedPreservica && asset.skipIngest then
         for {
           children <- childrenOfAsset(asset)
@@ -85,9 +82,21 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
             dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, childKeys) >> sendOutputMessage(asset, IngestUpdate)
           }
         } yield ()
-      else if asset.ingestedPreservica then sendOutputMessage(asset, IngestUpdate)
       else IO.unit
-    }
+
+    def processIngestedPreservicaCC(asset: AssetDynamoTable) =
+      if asset.ingestedPreservica && asset.ingestedCustodialCopy then
+        for {
+          children <- childrenOfAsset(asset)
+          _ <- IO.whenA(children.forall(_.ingestedCustodialCopy))(sendMessageAndDelete(asset, children) >> sendMessageAndDeleteSkippedAssets(asset))
+
+        } yield ()
+      else IO.unit
+
+    def processAsset(asset: AssetDynamoTable): IO[Unit] = for {
+      _ <- processIngestedPreservica(asset)
+      _ <- processIngestedPreservicaCC(asset)
+    } yield ()
 
     event.Records
       .filter(_.eventName == EventName.MODIFY)
@@ -96,7 +105,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           case Some(newImage) =>
             newImage match
               case assetRow: AssetDynamoTable => logger.info(s"Processing asset ${assetRow.id}") >> processAsset(assetRow)
-              case fileRow: FileDynamoTable   => logger.info(s"Processing file ${fileRow.id}") >> getParentAsset(fileRow).flatMap(processAsset)
+              case fileRow: FileDynamoTable   => logger.info(s"Processing file ${fileRow.id}") >> getParentAsset(fileRow).flatMap(_.traverse(processAsset))
               case _                          => IO.unit
           case None => IO.unit
       }
@@ -184,11 +193,11 @@ object Lambda:
       case IngestComplete => "preserve.digital.asset.ingest.complete"
     case IngestUpdate, IngestComplete
 
-  given Encoder[MessageType] = deriveEncoder[MessageType]
+  given Encoder[MessageType] = (messageType: MessageType) => Json.fromString(messageType.toString)
   given Encoder[OutputProperties] = deriveEncoder[OutputProperties]
   given Encoder[OutputParameters] = deriveEncoder[OutputParameters]
   given Encoder[OutputMessage] = deriveEncoder[OutputMessage]
 
-  case class OutputProperties(messageId: UUID, parentMessageId: Option[String], timestamp: Instant, `type`: MessageType)
+  case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, `type`: MessageType)
   case class OutputParameters(assetId: UUID)
   case class OutputMessage(properties: OutputProperties, parameters: OutputParameters)

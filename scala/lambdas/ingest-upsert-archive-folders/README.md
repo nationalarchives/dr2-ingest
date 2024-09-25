@@ -20,6 +20,18 @@ The input to this lambda is provided by the step function.
 }
 ```
 
+## Lambda steps
+The lambda carries out the following steps.
+
+* Get the folder rows for a batch ID and sort by parent path with the shortest first.
+* Get existing Preservica entities with a SourceID matching any row name and create a `Map[String, Entity]`
+* Use `foldLeft` with a `Map[UUID, UUID]` on the folder rows. For each row:
+    * Check the SourceId to entity map to see if the entity already exists.
+    * If it does, check the entity type, parent ref and security tag and raise errors if they are invalid and add folderId -> entityRef to the `Map[UUID, UUID]`
+    * If it doesn't, get the parent ref from the `Map[UUID, UUID]` This will be there because by sorting the parent paths shortest first, we guarantee to create entities higher in the tree first.
+    * Use this to create the entity in Preservica
+    * Add folderId -> entityRef to the `Map[UUID, UUID]`
+* Calculate any updated or added entities and send the Slack message out if any are found.
 There is no output from this Lambda.
 
 [Link to the infrastructure code](https://github.com/nationalarchives/dp-terraform-environments)

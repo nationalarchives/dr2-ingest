@@ -348,8 +348,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       if (numOfEntitiesByIdentifierInvocations > 0) {
         val folderRows: Iterator[ArchiveFolderDynamoTable] = folderIdsAndRows.values.iterator
 
-        entitiesByIdentifierIdentifierToGetCaptor.getAllValues.toArray.toList should be(
-          List.fill(numOfEntitiesByIdentifierInvocations)(Identifier("SourceID", folderRows.next().name))
+        entitiesByIdentifierIdentifierToGetCaptor.getAllValues.asScala.toList.sortBy(_.value) should be(
+          List.fill(numOfEntitiesByIdentifierInvocations)(Identifier("SourceID", folderRows.next().name)).sortBy(_.value)
         )
       }
 

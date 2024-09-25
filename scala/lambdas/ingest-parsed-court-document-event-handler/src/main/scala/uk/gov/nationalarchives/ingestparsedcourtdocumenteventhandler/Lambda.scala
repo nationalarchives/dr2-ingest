@@ -65,7 +65,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             parsedUri.flatMap(_.potentialCourt),
             treInput.parameters.skipSeriesLookup
           )
-          fileInfoWithUpdatedChecksum = fileInfo.copy(checksum = treMetadata.parameters.TDR.`Document-Checksum-sha256`)
+          fileInfoWithUpdatedChecksum = fileInfo.copy(sha256Checksum = treMetadata.parameters.TDR.`Document-Checksum-sha256`)
           tdrUuid = treMetadata.parameters.TDR.`UUID`.toString
           metadata = fileProcessor.createMetadata(
             fileInfoWithUpdatedChecksum,

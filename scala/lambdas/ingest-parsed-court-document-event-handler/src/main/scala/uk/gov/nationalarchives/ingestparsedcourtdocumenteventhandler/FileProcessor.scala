@@ -2,9 +2,7 @@ package uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler
 
 import cats.effect.IO
 import cats.effect.kernel.Resource
-import fs2.Collector.string
 import fs2.compression.Compression
-import fs2.hashing.HashAlgorithm
 import fs2.io.*
 import fs2.{Chunk, Pipe, Stream, text}
 import io.circe.Decoder.Result
@@ -13,6 +11,7 @@ import io.circe.parser.decode
 import io.circe.syntax.*
 import io.circe.{Decoder, Encoder, HCursor, Printer}
 import org.apache.commons.codec.binary.Hex
+import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.reactivestreams.{FlowAdapters, Publisher}
 import pureconfig.ConfigReader
@@ -151,7 +150,7 @@ class FileProcessor(
       RepresentationType.Preservation,
       1,
       metadataFileInfo.location,
-      metadataFileInfo.checksum
+      metadataFileInfo.sha256Checksum
     )
     List(archiveFolderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
   }
@@ -174,22 +173,18 @@ class FileProcessor(
           .flatMap { stream =>
             if (!tarEntry.isDirectory) {
               val id = uuidGenerator()
-              val checksumResult = stream
-                .through(fs2.hashing.Hashing[IO].hash(HashAlgorithm.SHA256))
-                .flatMap(hash => Stream.emits(hash.bytes.toList))
-                .through(fs2.text.hex.encode)
-                .compile
-                .to(string)
               Stream.eval[IO, (String, FileInfo)](
-                stream.chunks
-                  .map(_.toByteBuffer)
-                  .toPublisherResource
-                  .use(pub => s3.upload(uploadBucket, id.toString, FlowAdapters.toPublisher(pub)))
-                  .flatMap { res =>
-                    checksumResult.map { checksum =>
-                      tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
+                stream.compile.toList.flatMap { bytes =>
+                  val byteArray = bytes.toArray
+                  Stream
+                    .emit[IO, ByteBuffer](ByteBuffer.wrap(byteArray))
+                    .toPublisherResource
+                    .use(pub => s3.upload(uploadBucket, id.toString, FlowAdapters.toPublisher(pub)))
+                    .map { _ =>
+                      val sha256Checksum = DigestUtils.sha256Hex(byteArray)
+                      tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, sha256Checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
                     }
-                  }
+                }
               )
             } else Stream.empty
           } ++
@@ -240,7 +235,7 @@ object FileProcessor {
 
   case class AdditionalMetadata(key: String, value: String)
 
-  case class FileInfo(id: UUID, fileSize: Long, fileName: String, checksum: String, location: URI)
+  case class FileInfo(id: UUID, fileSize: Long, fileName: String, sha256Checksum: String, location: URI)
 
   case class TREInputParameters(status: String, reference: String, skipSeriesLookup: Boolean, s3Bucket: String, s3Key: String)
 
