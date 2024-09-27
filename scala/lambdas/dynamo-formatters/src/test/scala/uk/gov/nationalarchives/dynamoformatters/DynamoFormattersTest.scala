@@ -277,14 +277,14 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
   )
 
   forAll(invalidDynamoAttributeValues) { (attributeValue, expectedErrors, rowType) =>
-    "dynamoTableFormat read" should s"return an error $expectedErrors for row type $rowType" in {
-      val dynamoTableFormat = rowType match
-        case ArchiveFolder => archiveFolderTableFormat
-        case ContentFolder => contentFolderTableFormat
-        case Asset         => assetTableFormat
-        case File          => fileTableFormat
+    "dynamoItemFormat read" should s"return an error $expectedErrors for row type $rowType" in {
+      val dynamoItemFormat = rowType match
+        case ArchiveFolder => archiveFolderItemFormat
+        case ContentFolder => contentFolderItemFormat
+        case Asset         => assetItemFormat
+        case File          => fileItemFormat
 
-      val res = dynamoTableFormat.read(attributeValue)
+      val res = dynamoItemFormat.read(attributeValue)
       res.left.value.show should equal(expectedErrors)
     }
   }
@@ -298,18 +298,18 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
   )
 
   forAll(typeTable) { rowType =>
-    s"all${rowType}FieldsPopulated" should "contain all of the fields in DynamoTable" in {
-      val tableElementNames = rowType match {
-        case ArchiveFolder => generateFolderDynamoTable().productElementNames
-        case ContentFolder => generateFolderDynamoTable().productElementNames
-        case Asset         => generateAssetDynamoTable().productElementNames
+    s"all${rowType}FieldsPopulated" should "contain all of the attributes in DynamoItem" in {
+      val itemAttributeNames = rowType match {
+        case ArchiveFolder => generateFolderDynamoItem().productElementNames
+        case ContentFolder => generateFolderDynamoItem().productElementNames
+        case Asset         => generateAssetDynamoItem().productElementNames
         case File =>
-          val fileDynamoTable = generateFileDynamoTable()
-          fileDynamoTable.productElementNames.filterNot(_ == "checksums") ++
-            fileDynamoTable.checksums.map(checksumPrefix + _.algorithm)
+          val fileDynamoItem = generateFileDynamoItem()
+          fileDynamoItem.productElementNames.filterNot(_ == "checksums") ++
+            fileDynamoItem.checksums.map(checksumPrefix + _.algorithm)
       }
-      val dynamoTableFields = tableElementNames.toList
-      val dynamoTableFieldsMapped = dynamoTableFields.map {
+      val dynamoItemAttributeNames = itemAttributeNames.toList
+      val dynamoItemAttributeNamesMapped = dynamoItemAttributeNames.map {
         case "potentialParentPath"    => "parentPath"
         case "potentialTitle"         => "title"
         case "potentialDescription"   => "description"
@@ -322,58 +322,58 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
       val fieldsPopulated = populatedFields(rowType)
 
-      val dynamoFieldsNotAccountedFor =
-        dynamoTableFieldsMapped.filterNot(fieldsPopulated.contains)
+      val dynamoItemAttributesNotAccountedFor =
+        dynamoItemAttributeNamesMapped.filterNot(fieldsPopulated.contains)
 
-      dynamoFieldsNotAccountedFor should equal(Nil)
+      dynamoItemAttributesNotAccountedFor should equal(Nil)
     }
   }
 
-  "assetTableFormat read" should "return true for ingested_PS if the value is true and false otherwise" in {
-    val assetRowIngested = assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
+  "assetItemFormat read" should "return true for ingested_PS if the value is true and false otherwise" in {
+    val assetRowIngested = assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
     assetRowIngested.ingestedPreservica should equal(true)
 
     val assetRowNotIngested =
-      assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedPreservica -> fromS("false")))).value
+      assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedPreservica -> fromS("false")))).value
     assetRowNotIngested.ingestedPreservica should equal(false)
 
     val assetRowInvalidValue =
-      assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedPreservica -> fromS("1")))).value
+      assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedPreservica -> fromS("1")))).value
     assetRowInvalidValue.ingestedPreservica should equal(false)
   }
 
-  "assetTableFormat read" should "return true for ingested_CC if the value is true and false otherwise" in {
-    val assetRowIngested = assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
+  "assetItemFormat read" should "return true for ingested_CC if the value is true and false otherwise" in {
+    val assetRowIngested = assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
     assetRowIngested.ingestedCustodialCopy should equal(true)
 
-    val assetRowIngestedCCMissing = assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated.filter(_._1 != ingestedCustodialCopy))).value
+    val assetRowIngestedCCMissing = assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated.filter(_._1 != ingestedCustodialCopy))).value
     assetRowIngestedCCMissing.ingestedCustodialCopy should equal(false)
 
     val assetRowNotIngested =
-      assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedCustodialCopy -> fromS("false")))).value
+      assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedCustodialCopy -> fromS("false")))).value
     assetRowNotIngested.ingestedCustodialCopy should equal(false)
 
     val assetRowInvalidValue =
-      assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedCustodialCopy -> fromS("1")))).value
+      assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedCustodialCopy -> fromS("1")))).value
     assetRowInvalidValue.ingestedCustodialCopy should equal(false)
   }
 
-  "assetTableFormat read" should "return the value if skipIngest is present and false otherwise" in {
-    val skipIngestPresentFalse = assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
+  "assetItemFormat read" should "return the value if skipIngest is present and false otherwise" in {
+    val skipIngestPresentFalse = assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
     skipIngestPresentFalse.skipIngest should equal(false)
 
     val skipIngestPresentTrue =
-      assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated + (skipIngest -> fromBool(true)))).value
+      assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated + (skipIngest -> fromBool(true)))).value
 
     skipIngestPresentTrue.skipIngest should equal(true)
 
     val skipIngestMissing =
-      assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated.filter { case (field, _) => field != skipIngest })).value
+      assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated.filter { case (field, _) => field != skipIngest })).value
     skipIngestMissing.skipIngest should equal(false)
   }
 
-  "assetTableFormat read" should "return a valid object when all asset fields are populated" in {
-    val assetRow = assetTableFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
+  "assetItemFormat read" should "return a valid object when all asset fields are populated" in {
+    val assetRow = assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
 
     assetRow.batchId should equal("testBatchId")
     assetRow.id should equal(UUID.fromString(allAssetFieldsPopulated(id).s()))
@@ -395,21 +395,21 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     )
   }
 
-  "fileTableFormat read" should "return true for ingested_PS if the value is true and false otherwise" in {
-    val fileRowIngested = fileTableFormat.read(buildAttributeValue(allFileFieldsPopulated)).value
+  "fileItemFormat read" should "return true for ingested_PS if the value is true and false otherwise" in {
+    val fileRowIngested = fileItemFormat.read(buildAttributeValue(allFileFieldsPopulated)).value
     fileRowIngested.ingestedPreservica should equal(true)
 
     val fileRowNotIngested =
-      fileTableFormat.read(buildAttributeValue(allFileFieldsPopulated + (ingestedPreservica -> fromS("false")))).value
+      fileItemFormat.read(buildAttributeValue(allFileFieldsPopulated + (ingestedPreservica -> fromS("false")))).value
     fileRowNotIngested.ingestedPreservica should equal(false)
 
     val fileRowInvalidValue =
-      fileTableFormat.read(buildAttributeValue(allFileFieldsPopulated + (ingestedPreservica -> fromS("1")))).value
+      fileItemFormat.read(buildAttributeValue(allFileFieldsPopulated + (ingestedPreservica -> fromS("1")))).value
     fileRowInvalidValue.ingestedPreservica should equal(false)
   }
 
-  "fileTableFormat read" should "return a valid object when all file fields are populated" in {
-    val fileRow = fileTableFormat.read(buildAttributeValue(allFileFieldsPopulated)).value
+  "fileItemFormat read" should "return a valid object when all file fields are populated" in {
+    val fileRow = fileItemFormat.read(buildAttributeValue(allFileFieldsPopulated)).value
 
     fileRow.batchId should equal("testBatchId")
     fileRow.id should equal(UUID.fromString(allFileFieldsPopulated(id).s()))
@@ -425,10 +425,10 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     fileRow.location.toString should equal("s3://bucket/key")
   }
 
-  "fileTableFormat read" should "return a valid object when more than one checksum is provided in the file fields" in {
+  "fileItemFormat read" should "return a valid object when more than one checksum is provided in the file fields" in {
 
     val mapWithAdditionalChecksum = allFileFieldsPopulated + ("checksum_Algorithm2" -> fromS("testChecksumAlgo2"))
-    val fileRow = fileTableFormat.read(buildAttributeValue(mapWithAdditionalChecksum)).value
+    val fileRow = fileItemFormat.read(buildAttributeValue(mapWithAdditionalChecksum)).value
 
     fileRow.batchId should equal("testBatchId")
     fileRow.id should equal(UUID.fromString(allFileFieldsPopulated(id).s()))
@@ -446,10 +446,10 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     fileRow.location.toString should equal("s3://bucket/key")
   }
 
-  "fileTableFormat write" should "write all mandatory fields and ignore any optional ones" in {
+  "fileItemFormat write" should "write all mandatory fields and ignore any optional ones" in {
     val uuid = UUID.randomUUID()
-    val dynamoTable = generateFileDynamoTable(uuid)
-    val res = fileTableFormat.write(dynamoTable)
+    val dynamoItem = generateFileDynamoItem(uuid)
+    val res = fileItemFormat.write(dynamoItem)
     val resultMap = res.toAttributeValue.m().asScala
     resultMap(batchId).s() should equal(batchId)
     resultMap(id).s() should equal(uuid.toString)
@@ -470,22 +470,22 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(location).s() should equal("s3://bucket/key")
   }
 
-  "archiveFolderTableFormat read" should "return a valid object when all folder fields are populated" in {
-    val folderRow = archiveFolderTableFormat.read(buildAttributeValue(allFolderFieldsPopulated)).value
+  "archiveFolderItemFormat read" should "return a valid object when all folder fields are populated" in {
+    val folderItem = archiveFolderItemFormat.read(buildAttributeValue(allFolderFieldsPopulated)).value
 
-    folderRow.batchId should equal("testBatchId")
-    folderRow.id should equal(UUID.fromString(allFolderFieldsPopulated(id).s()))
-    folderRow.potentialParentPath.get should equal("testParentPath")
-    folderRow.name should equal("testName")
-    folderRow.`type` should equal(ArchiveFolder)
-    folderRow.potentialTitle.get should equal("title")
-    folderRow.potentialDescription.get should equal("description")
+    folderItem.batchId should equal("testBatchId")
+    folderItem.id should equal(UUID.fromString(allFolderFieldsPopulated(id).s()))
+    folderItem.potentialParentPath.get should equal("testParentPath")
+    folderItem.name should equal("testName")
+    folderItem.`type` should equal(ArchiveFolder)
+    folderItem.potentialTitle.get should equal("title")
+    folderItem.potentialDescription.get should equal("description")
   }
 
-  "archiveFolderTableFormat write" should "write all mandatory fields and ignore any optional ones" in {
+  "archiveFolderItemFormat write" should "write all mandatory fields and ignore any optional ones" in {
     val uuid = UUID.randomUUID()
-    val dynamoTable = generateFolderDynamoTable(uuid)
-    val res = archiveFolderTableFormat.write(dynamoTable)
+    val dynamoItem = generateFolderDynamoItem(uuid)
+    val res = archiveFolderItemFormat.write(dynamoItem)
     val resultMap = res.toAttributeValue.m().asScala
 
     resultMap(batchId).s() should equal(batchId)
@@ -497,11 +497,11 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(typeField).s() should equal("ArchiveFolder")
   }
 
-  "assetTableFormat write" should "write all mandatory fields and ignore any optional ones" in {
+  "assetItemFormat write" should "write all mandatory fields and ignore any optional ones" in {
     val uuid = UUID.randomUUID()
     val originalFilesUuid = UUID.randomUUID()
     val originalMetadataFilesUuid = UUID.randomUUID()
-    val dynamoTable = AssetDynamoTable(
+    val dynamoItem = AssetDynamoItem(
       batchId,
       uuid,
       None,
@@ -523,7 +523,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       false,
       None
     )
-    val res = assetTableFormat.write(dynamoTable)
+    val res = assetItemFormat.write(dynamoItem)
     val resultMap = res.toAttributeValue.m().asScala
     resultMap(batchId).s() should equal(batchId)
     resultMap(id).s() should equal(uuid.toString)
@@ -542,9 +542,9 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       .forall(resultMap.contains) should be(false)
   }
 
-  "assetTableFormat write" should "write skipIngest if set to true and not write it otherwise" in {
+  "assetItemFormat write" should "write skipIngest if set to true and not write it otherwise" in {
     def skipIngestValue(skipIngestValue: Boolean): Option[Boolean] = {
-      val res = assetTableFormat.write(generateAssetDynamoTable(skipIngest = skipIngestValue))
+      val res = assetItemFormat.write(generateAssetDynamoItem(skipIngest = skipIngestValue))
       val resultMap = res.toAttributeValue.m().asScala
       resultMap.get(skipIngest).map(_.bool().booleanValue())
     }
@@ -553,23 +553,23 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
   }
 
-  "contentFolderTableFormat read" should "return a valid object when all folder fields are populated" in {
-    val folderRow = contentFolderTableFormat.read(buildAttributeValue(allFolderFieldsPopulated)).value
+  "contentFolderItemFormat read" should "return a valid object when all folder fields are populated" in {
+    val folderItem = contentFolderItemFormat.read(buildAttributeValue(allFolderFieldsPopulated)).value
 
-    folderRow.batchId should equal("testBatchId")
-    folderRow.id should equal(UUID.fromString(allFolderFieldsPopulated(id).s()))
-    folderRow.potentialParentPath.get should equal("testParentPath")
-    folderRow.name should equal("testName")
-    folderRow.`type` should equal(ArchiveFolder)
-    folderRow.potentialTitle.get should equal("title")
-    folderRow.potentialDescription.get should equal("description")
-    folderRow.identifiers should equal(List(Identifier("Test", "testIdentifier")))
+    folderItem.batchId should equal("testBatchId")
+    folderItem.id should equal(UUID.fromString(allFolderFieldsPopulated(id).s()))
+    folderItem.potentialParentPath.get should equal("testParentPath")
+    folderItem.name should equal("testName")
+    folderItem.`type` should equal(ArchiveFolder)
+    folderItem.potentialTitle.get should equal("title")
+    folderItem.potentialDescription.get should equal("description")
+    folderItem.identifiers should equal(List(Identifier("Test", "testIdentifier")))
   }
 
-  "contentFolderTableFormat write" should "write all mandatory fields and ignore any optional ones" in {
+  "contentFolderItemFormat write" should "write all mandatory fields and ignore any optional ones" in {
     val uuid = UUID.randomUUID()
-    val dynamoTable = generateContentFolderDynamoTable(uuid)
-    val res = contentFolderTableFormat.write(dynamoTable)
+    val dynamoItem = generateContentFolderDynamoItem(uuid)
+    val res = contentFolderItemFormat.write(dynamoItem)
     val resultMap = res.toAttributeValue.m().asScala
 
     resultMap(batchId).s() should equal(batchId)
@@ -606,36 +606,36 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     attributeValueMap(batchId).s() should equal(batchId)
   }
 
-  "ingestLockTableFormat read" should "read the correct fields" in {
+  "ingestLockTableItemFormat read" should "read the correct fields" in {
     val assetId = UUID.randomUUID()
     val groupId = "groupId"
     val message = "{}"
 
     val input =
       fromM(Map("assetId" -> fromS(assetId.toString), "groupId" -> fromS(groupId), "message" -> fromS(message)).asJava)
-    val res = ingestLockTableFormat.read(input).value
+    val res = ingestLockTableItemFormat.read(input).value
     res.assetId should equal(assetId)
     res.groupId should equal(groupId)
     res.message should equal(res.message)
   }
 
-  "ingestLockTableFormat read" should "error if the field is missing" in {
+  "ingestLockTableItemFormat read" should "error if the field is missing" in {
     val assetId = UUID.randomUUID()
 
     val input = fromM(Map("invalidField" -> fromS(assetId.toString)).asJava)
-    val res = ingestLockTableFormat.read(input)
+    val res = ingestLockTableItemFormat.read(input)
 
     val dynamoReadError = res.left.value.asInstanceOf[InvalidPropertiesError].errors.head._2
     dynamoReadError should be(MissingProperty)
   }
 
-  "ingestLockTableFormat write" should "write the correct fields" in {
+  "ingestLockTableItemFormat write" should "write the correct fields" in {
     val assetId = UUID.randomUUID()
     val groupId = "groupId"
     val message = "{}"
 
     val attributeValueMap =
-      ingestLockTableFormat.write(IngestLockTable(assetId, groupId, message)).toAttributeValue.m().asScala
+      ingestLockTableItemFormat.write(IngestLockTableItem(assetId, groupId, message)).toAttributeValue.m().asScala
     UUID.fromString(attributeValueMap("assetId").s()) should equal(assetId)
     attributeValueMap("groupId").s() should equal("groupId")
     attributeValueMap("message").s() should equal("{}")
@@ -670,16 +670,16 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
         .asJava
     )
 
-  private def generateAssetDynamoTable(
+  private def generateAssetDynamoItem(
       uuid: UUID = UUID.randomUUID(),
       originalFilesUuid: UUID = UUID.randomUUID(),
       originalMetadataFilesUuid: UUID = UUID.randomUUID(),
       ingestedPreservica: Boolean = true,
       skipIngest: Boolean = true
-  ): AssetDynamoTable = {
+  ): AssetDynamoItem = {
 
     val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"))
-    AssetDynamoTable(
+    AssetDynamoItem(
       batchId,
       uuid,
       Option(parentPath),
@@ -703,11 +703,11 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     )
   }
 
-  private def generateFileDynamoTable(
+  private def generateFileDynamoItem(
       uuid: UUID = UUID.randomUUID(),
       ingestedPreservica: Boolean = true
-  ): FileDynamoTable = {
-    FileDynamoTable(
+  ): FileDynamoItem = {
+    FileDynamoItem(
       batchId,
       uuid,
       Option(parentPath),
@@ -729,8 +729,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     )
   }
 
-  private def generateFolderDynamoTable(uuid: UUID = UUID.randomUUID()): ArchiveFolderDynamoTable = {
-    ArchiveFolderDynamoTable(
+  private def generateFolderDynamoItem(uuid: UUID = UUID.randomUUID()): ArchiveFolderDynamoItem = {
+    ArchiveFolderDynamoItem(
       batchId,
       uuid,
       Option(parentPath),
@@ -743,8 +743,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     )
   }
 
-  private def generateContentFolderDynamoTable(uuid: UUID = UUID.randomUUID()): ContentFolderDynamoTable =
-    ContentFolderDynamoTable(
+  private def generateContentFolderDynamoItem(uuid: UUID = UUID.randomUUID()): ContentFolderDynamoItem =
+    ContentFolderDynamoItem(
       batchId,
       uuid,
       Option(parentPath),

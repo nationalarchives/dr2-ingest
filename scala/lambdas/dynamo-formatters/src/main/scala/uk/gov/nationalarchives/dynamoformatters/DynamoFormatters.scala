@@ -16,49 +16,49 @@ object DynamoFormatters {
   final val checksumPrefix = "checksum_"
 
   private def createReadDynamoUtils(dynamoValue: DynamoValue) = {
-    val folderRowAsMap = dynamoValue.toAttributeValue.m().asScala.toMap
-    new DynamoReadUtils(folderRowAsMap)
+    val folderItemAsMap = dynamoValue.toAttributeValue.m().asScala.toMap
+    new DynamoReadUtils(folderItemAsMap)
   }
 
-  given archiveFolderTableFormat: DynamoFormat[ArchiveFolderDynamoTable] =
-    new DynamoFormat[ArchiveFolderDynamoTable] {
-      override def read(dynamoValue: DynamoValue): Either[DynamoReadError, ArchiveFolderDynamoTable] =
-        createReadDynamoUtils(dynamoValue).readArchiveFolderRow
+  given archiveFolderItemFormat: DynamoFormat[ArchiveFolderDynamoItem] =
+    new DynamoFormat[ArchiveFolderDynamoItem] {
+      override def read(dynamoValue: DynamoValue): Either[DynamoReadError, ArchiveFolderDynamoItem] =
+        createReadDynamoUtils(dynamoValue).readArchiveFolderItem
 
-      override def write(table: ArchiveFolderDynamoTable): DynamoValue =
-        writeArchiveFolderTable(table)
+      override def write(table: ArchiveFolderDynamoItem): DynamoValue =
+        writeArchiveFolderItem(table)
     }
 
-  given contentFolderTableFormat: DynamoFormat[ContentFolderDynamoTable] =
-    new DynamoFormat[ContentFolderDynamoTable] {
-      override def read(dynamoValue: DynamoValue): Either[DynamoReadError, ContentFolderDynamoTable] =
-        createReadDynamoUtils(dynamoValue).readContentFolderRow
+  given contentFolderItemFormat: DynamoFormat[ContentFolderDynamoItem] =
+    new DynamoFormat[ContentFolderDynamoItem] {
+      override def read(dynamoValue: DynamoValue): Either[DynamoReadError, ContentFolderDynamoItem] =
+        createReadDynamoUtils(dynamoValue).readContentFolderItem
 
-      override def write(table: ContentFolderDynamoTable): DynamoValue =
-        writeContentFolderTable(table)
+      override def write(table: ContentFolderDynamoItem): DynamoValue =
+        writeContentFolderItem(table)
     }
 
-  given assetTableFormat: DynamoFormat[AssetDynamoTable] = new DynamoFormat[AssetDynamoTable] {
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, AssetDynamoTable] =
+  given assetItemFormat: DynamoFormat[AssetDynamoItem] = new DynamoFormat[AssetDynamoItem] {
+    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, AssetDynamoItem] =
       createReadDynamoUtils(dynamoValue).readAssetRow
 
-    override def write(table: AssetDynamoTable): DynamoValue =
-      writeAssetTable(table)
+    override def write(table: AssetDynamoItem): DynamoValue =
+      writeAssetItem(table)
   }
 
-  given fileTableFormat: DynamoFormat[FileDynamoTable] = new DynamoFormat[FileDynamoTable] {
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, FileDynamoTable] =
+  given fileItemFormat: DynamoFormat[FileDynamoItem] = new DynamoFormat[FileDynamoItem] {
+    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, FileDynamoItem] =
       createReadDynamoUtils(dynamoValue).readFileRow
 
-    override def write(table: FileDynamoTable): DynamoValue =
-      writeFileTable(table)
+    override def write(table: FileDynamoItem): DynamoValue =
+      writeFileItem(table)
   }
 
-  given ingestLockTableFormat: DynamoFormat[IngestLockTable] = new DynamoFormat[IngestLockTable] {
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, IngestLockTable] =
-      createReadDynamoUtils(dynamoValue).readLockTableRow
+  given ingestLockTableItemFormat: DynamoFormat[IngestLockTableItem] = new DynamoFormat[IngestLockTableItem] {
+    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, IngestLockTableItem] =
+      createReadDynamoUtils(dynamoValue).readLockTableItem
 
-    override def write(ingestLockTable: IngestLockTable): DynamoValue = writeLockTable(ingestLockTable)
+    override def write(ingestLockTableItem: IngestLockTableItem): DynamoValue = writeLockTableItem(ingestLockTableItem)
   }
 
   // Attribute names as defined in the dynamo table
@@ -119,14 +119,14 @@ object DynamoFormatters {
     override def write(t: Type): DynamoValue = DynamoValue.fromString(t.toString)
 
   enum Type:
-    def formatter: DynamoFormat[? >: ArchiveFolderDynamoTable & ContentFolderDynamoTable & AssetDynamoTable & FileDynamoTable <: DynamoTable] = this match
-      case ArchiveFolder => archiveFolderTableFormat
-      case ContentFolder => contentFolderTableFormat
-      case Asset         => assetTableFormat
-      case File          => fileTableFormat
+    def formatter: DynamoFormat[? >: ArchiveFolderDynamoItem & ContentFolderDynamoItem & AssetDynamoItem & FileDynamoItem <: DynamoItem] = this match
+      case ArchiveFolder => archiveFolderItemFormat
+      case ContentFolder => contentFolderItemFormat
+      case Asset         => assetItemFormat
+      case File          => fileItemFormat
     case ArchiveFolder, ContentFolder, Asset, File
 
-  sealed trait DynamoTable {
+  sealed trait DynamoItem {
     def batchId: String
     def id: UUID
     def potentialParentPath: Option[String]
@@ -138,45 +138,45 @@ object DynamoFormatters {
     def childCount: Int
   }
 
-  private type ValidatedField[T] = ValidatedNel[(FieldName, DynamoReadError), T]
+  private type ValidatedAttribute[T] = ValidatedNel[(FieldName, DynamoReadError), T]
 
-  case class LockTableValidatedFields(
-      assetId: ValidatedField[UUID],
-      groupId: ValidatedField[String],
-      message: ValidatedField[String]
+  case class LockTableValidatedAttributes(
+      assetId: ValidatedAttribute[UUID],
+      groupId: ValidatedAttribute[String],
+      message: ValidatedAttribute[String]
   )
 
-  case class FilesTableValidatedFields(
-      batchId: ValidatedField[String],
-      id: ValidatedField[UUID],
-      name: ValidatedField[String],
+  case class FilesTableValidatedAttributes(
+      batchId: ValidatedAttribute[String],
+      id: ValidatedAttribute[UUID],
+      name: ValidatedAttribute[String],
       potentialParentPath: Option[String],
       potentialTitle: Option[String],
       potentialDescription: Option[String],
-      `type`: ValidatedField[Type],
-      transferringBody: ValidatedField[String],
-      transferCompleteDatetime: ValidatedField[OffsetDateTime],
-      upstreamSystem: ValidatedField[String],
-      digitalAssetSource: ValidatedField[String],
-      digitalAssetSubtype: ValidatedField[String],
-      originalFiles: ValidatedField[List[UUID]],
-      originalMetadataFiles: ValidatedField[List[UUID]],
-      sortOrder: ValidatedField[Int],
-      fileSize: ValidatedField[Long],
-      checksums: ValidatedField[List[Checksum]],
+      `type`: ValidatedAttribute[Type],
+      transferringBody: ValidatedAttribute[String],
+      transferCompleteDatetime: ValidatedAttribute[OffsetDateTime],
+      upstreamSystem: ValidatedAttribute[String],
+      digitalAssetSource: ValidatedAttribute[String],
+      digitalAssetSubtype: ValidatedAttribute[String],
+      originalFiles: ValidatedAttribute[List[UUID]],
+      originalMetadataFiles: ValidatedAttribute[List[UUID]],
+      sortOrder: ValidatedAttribute[Int],
+      fileSize: ValidatedAttribute[Long],
+      checksums: ValidatedAttribute[List[Checksum]],
       fileExtension: Option[String],
-      representationType: ValidatedField[FileRepresentationType],
-      representationSuffix: ValidatedField[Int],
+      representationType: ValidatedAttribute[FileRepresentationType],
+      representationSuffix: ValidatedAttribute[Int],
       ingestedPreservica: Option[String],
       ingestedCustodialCopy: Option[String],
       identifiers: List[Identifier],
-      childCount: ValidatedField[Int],
-      skipIngest: ValidatedField[Boolean],
-      location: ValidatedField[URI],
+      childCount: ValidatedAttribute[Int],
+      skipIngest: ValidatedAttribute[Boolean],
+      location: ValidatedAttribute[URI],
       correlationId: Option[String]
   )
 
-  case class ArchiveFolderDynamoTable(
+  case class ArchiveFolderDynamoItem(
       batchId: String,
       id: UUID,
       potentialParentPath: Option[String],
@@ -186,9 +186,9 @@ object DynamoFormatters {
       potentialDescription: Option[String],
       identifiers: List[Identifier],
       childCount: Int
-  ) extends DynamoTable
+  ) extends DynamoItem
 
-  case class ContentFolderDynamoTable(
+  case class ContentFolderDynamoItem(
       batchId: String,
       id: UUID,
       potentialParentPath: Option[String],
@@ -198,9 +198,9 @@ object DynamoFormatters {
       potentialDescription: Option[String],
       identifiers: List[Identifier],
       childCount: Int
-  ) extends DynamoTable
+  ) extends DynamoItem
 
-  case class AssetDynamoTable(
+  case class AssetDynamoItem(
       batchId: String,
       id: UUID,
       potentialParentPath: Option[String],
@@ -221,9 +221,9 @@ object DynamoFormatters {
       childCount: Int,
       skipIngest: Boolean,
       correlationId: Option[String]
-  ) extends DynamoTable
+  ) extends DynamoItem
 
-  case class FileDynamoTable(
+  case class FileDynamoItem(
       batchId: String,
       id: UUID,
       potentialParentPath: Option[String],
@@ -242,7 +242,7 @@ object DynamoFormatters {
       identifiers: List[Identifier],
       childCount: Int,
       location: URI
-  ) extends DynamoTable
+  ) extends DynamoItem
 
   case class Identifier(identifierName: String, value: String)
 
@@ -253,7 +253,7 @@ object DynamoFormatters {
   case class FilesTablePrimaryKey(partitionKey: FilesTablePartitionKey, sortKey: FilesTableSortKey)
   case class LockTablePartitionKey(assetId: UUID)
 
-  case class IngestLockTable(assetId: UUID, groupId: String, message: String)
+  case class IngestLockTableItem(assetId: UUID, groupId: String, message: String)
 
   enum FileRepresentationType:
     override def toString: String = this match
