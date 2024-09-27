@@ -285,7 +285,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
         case File          => fileTableFormat
 
       val res = dynamoTableFormat.read(attributeValue)
-      res.isLeft should be(true)
       res.left.value.show should equal(expectedErrors)
     }
   }
@@ -593,14 +592,11 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
   "filesTablePkFormat read" should "error if the field is missing" in {
     val uuid = UUID.randomUUID()
-    val input = fromM(Map("invalid" -> fromS(uuid.toString)).asJava)
+    val input = fromM(Map("invalid" -> fromS(uuid.toString)).asJava) //
     val res = filesTablePkFormat.read(input)
-    res.isLeft should be(true)
-    val isMissingPropertyError = res.left.value.asInstanceOf[InvalidPropertiesError].errors.head._2 match {
-      case MissingProperty => true
-      case _               => false
-    }
-    isMissingPropertyError should be(true)
+
+    val dynamoReadError = res.left.value.asInstanceOf[InvalidPropertiesError].errors.head._2
+    dynamoReadError should be(MissingProperty)
   }
 
   "filesTablePkFormat write" should "write the correct fields" in {
@@ -628,12 +624,9 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
     val input = fromM(Map("invalidField" -> fromS(assetId.toString)).asJava)
     val res = ingestLockTableFormat.read(input)
-    res.isLeft should be(true)
-    val isMissingPropertyError = res.left.value.asInstanceOf[InvalidPropertiesError].errors.head._2 match {
-      case MissingProperty => true
-      case _               => false
-    }
-    isMissingPropertyError should be(true)
+
+    val dynamoReadError = res.left.value.asInstanceOf[InvalidPropertiesError].errors.head._2
+    dynamoReadError should be(MissingProperty)
   }
 
   "ingestLockTableFormat write" should "write the correct fields" in {
@@ -659,12 +652,9 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val uuid = UUID.randomUUID()
     val input = fromM(Map("invalid" -> fromS(uuid.toString)).asJava)
     val res = lockTablePkFormat.read(input)
-    res.isLeft should be(true)
-    val isMissingPropertyError = res.left.value.asInstanceOf[InvalidPropertiesError].errors.head._2 match {
-      case MissingProperty => true
-      case _               => false
-    }
-    isMissingPropertyError should be(true)
+
+    val dynamoReadError = res.left.value.asInstanceOf[InvalidPropertiesError].errors.head._2
+    dynamoReadError should be(MissingProperty)
   }
 
   "lockTablePkFormat write" should "write the correct fields" in {
