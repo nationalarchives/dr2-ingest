@@ -31,13 +31,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   private def childrenOfAsset(
       daDynamoDBClient: DADynamoDBClient[IO],
-      asset: AssetDynamoTable,
+      asset: AssetDynamoItem,
       tableName: String,
       gsiName: String
-  ): IO[List[FileDynamoTable]] = {
+  ): IO[List[FileDynamoItem]] = {
     val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
     daDynamoDBClient
-      .queryItems[FileDynamoTable](
+      .queryItems[FileDynamoItem](
         tableName,
         "batchId" === asset.batchId and "parentPath" === childrenParentPath,
         Option(gsiName)
@@ -46,7 +46,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   private def stripFileExtension(title: String) = title.split('.').dropRight(1).mkString(".")
 
-  private def coTitleMatchesAssetChildTitle(potentialCoTitle: Option[String], assetChild: FileDynamoTable): Boolean =
+  private def coTitleMatchesAssetChildTitle(potentialCoTitle: Option[String], assetChild: FileDynamoItem): Boolean =
     potentialCoTitle.exists { titleOfCo => // DDB titles don't have file extensions, CO titles do
       lazy val fileNameWithoutExtension = assetChild.name
       val potentialAssetChildTitleOrFileName = assetChild.potentialTitle.getOrElse("")
@@ -65,7 +65,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       titleOfCoWithoutExtension == assetChildTitleOrFileNameWithoutExtension
     }
 
-  private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoTable, fixities: List[Client.Fixity]): Boolean = {
+  private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoItem, fixities: List[Client.Fixity]): Boolean = {
     val sortedChecksums = item.checksums.sortBy(_.algorithm.toUpperCase)
     val sortedFixities = fixities.sortBy(_.algorithm)
 
@@ -75,7 +75,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   }
 
   private def verifyFilesInDdbAreInPreservica(
-      childrenForRepresentationType: List[FileDynamoTable],
+      childrenForRepresentationType: List[FileDynamoItem],
       bitstreamInfoPerContentObject: Seq[BitStreamInfo],
       assetId: UUID,
       representationType: RepresentationType,
@@ -111,7 +111,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
       assetId <- IO.pure(input.assetId)
-      assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](
+      assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoItem, FilesTablePrimaryKey](
         List(FilesTablePrimaryKey(FilesTablePartitionKey(assetId), FilesTableSortKey(input.batchId))),
         config.dynamoTableName
       )

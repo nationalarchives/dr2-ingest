@@ -23,12 +23,12 @@ import java.util.UUID
 class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   private val sourceId = "SourceID"
 
-  given Ordering[ArchiveFolderDynamoTable] = (x: ArchiveFolderDynamoTable, y: ArchiveFolderDynamoTable) => x.potentialParentPath.compare(y.potentialParentPath)
+  given Ordering[ArchiveFolderDynamoItem] = (x: ArchiveFolderDynamoItem, y: ArchiveFolderDynamoItem) => x.potentialParentPath.compare(y.potentialParentPath)
 
   extension [T](potentialValue: Option[T]) private def toStringOrEmpty: String = potentialValue.map(_.toString).getOrElse("")
 
-  extension (archiveFolderDynamoTable: ArchiveFolderDynamoTable)
-    private def directParentId: Option[UUID] = archiveFolderDynamoTable.potentialParentPath.flatMap(_.split("/").lastOption).map(UUID.fromString)
+  extension (archiveFolderDynamoItem: ArchiveFolderDynamoItem)
+    private def directParentId: Option[UUID] = archiveFolderDynamoItem.potentialParentPath.flatMap(_.split("/").lastOption).map(UUID.fromString)
 
   override def handler: (
       StepFnInput,
@@ -39,15 +39,15 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     val folderIdPartitionKeysAndValues: List[FilesTablePrimaryKey] =
       stepFnInput.archiveHierarchyFolders.map(UUID.fromString).map(id => FilesTablePrimaryKey(FilesTablePartitionKey(id), FilesTableSortKey(stepFnInput.batchId)))
 
-    def getFolderRows(using Ordering[ArchiveFolderDynamoTable]): IO[List[ArchiveFolderDynamoTable]] =
+    def getFolderRows(using Ordering[ArchiveFolderDynamoItem]): IO[List[ArchiveFolderDynamoItem]] =
       dependencies.dADynamoDBClient
-        .getItems[ArchiveFolderDynamoTable, FilesTablePrimaryKey](
+        .getItems[ArchiveFolderDynamoItem, FilesTablePrimaryKey](
           folderIdPartitionKeysAndValues,
           config.archiveFolderTableName
         )
         .map(_.sorted)
 
-    def createNonExistentFolders(folderRows: List[ArchiveFolderDynamoTable], entitiesByIdentifier: Map[String, Entity]): IO[Unit] =
+    def createNonExistentFolders(folderRows: List[ArchiveFolderDynamoItem], entitiesByIdentifier: Map[String, Entity]): IO[Unit] =
       folderRows
         .foldLeft(IO(Map.empty[UUID, UUID])) { (idToEntityRefMapIO, folderRow) =>
           entitiesByIdentifier
@@ -76,7 +76,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
         }
         .void
 
-    def addFolder(folderRow: ArchiveFolderDynamoTable, idToEntityRefMap: Map[UUID, UUID]) = {
+    def addFolder(folderRow: ArchiveFolderDynamoItem, idToEntityRefMap: Map[UUID, UUID]) = {
       val potentialParentRef = for {
         directParent <- folderRow.directParentId
         entityRef <- idToEntityRefMap.get(directParent)
@@ -105,7 +105,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     }
 
     def getEntitiesByIdentifier(
-        folderRows: List[DynamoTable]
+        folderRows: List[DynamoItem]
     ): IO[Map[String, Entity]] = {
       folderRows
         .map(_.name)
@@ -164,7 +164,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     } yield ()
   }
 
-  private def getExpectedParentRef(folderRow: ArchiveFolderDynamoTable, folderRows: List[ArchiveFolderDynamoTable], sourceMap: Map[String, Entity]) = {
+  private def getExpectedParentRef(folderRow: ArchiveFolderDynamoItem, folderRows: List[ArchiveFolderDynamoItem], sourceMap: Map[String, Entity]) = {
     folderRows
       .find(row => folderRow.directParentId.contains(row.id))
       .map(_.name)
@@ -173,8 +173,8 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   }
 
   private def createUpdateRequest(
-      folderRow: ArchiveFolderDynamoTable,
-      folderRows: List[ArchiveFolderDynamoTable],
+      folderRow: ArchiveFolderDynamoItem,
+      folderRows: List[ArchiveFolderDynamoItem],
       entity: Entity,
       sourceMap: Map[String, Entity]
   ): Option[UpdateEntityRequest] = {
