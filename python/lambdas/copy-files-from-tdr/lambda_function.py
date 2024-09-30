@@ -1,5 +1,7 @@
 import os
 import json
+import uuid
+
 import boto3
 import botocore
 import jsonschema
@@ -26,7 +28,6 @@ def lambda_handler(event, context):
         sqs_client.send_message(QueueUrl=destination_queue, MessageBody=sqs_body)
 
 def assert_objects_exist(source_bucket, file_id):
-    # FIXME: Find out if it is okay to throw the object UUID in the error message?
     try:
         s3_client.head_object(source_bucket, file_id)
     except botocore.exceptions.ClientError as ex:
@@ -38,7 +39,21 @@ def assert_objects_exist(source_bucket, file_id):
         raise Exception(f"Object {file_id}.metadata does not exist, underlying error is: {ex}")
 
 
+def validate_formats(bucket, s3_key):
+    response = s3_client.get_object(Bucket=bucket, Key=s3_key)
+    uuid_content = json.loads(response['Body'])['UUID']
+    try:
+        uuid_object = uuid.UUID(uuid_content)
+        return True
+    except ValueError:
+        raise Exception(f"Unable to parse UUID, '{uuid_content}'. Invalid format")
+
+
 def validate_metadata(bucket, s3_key):
+    validate_mandatory_fields_exist(bucket, s3_key)
+    validate_formats(bucket, s3_key)
+
+def validate_mandatory_fields_exist(bucket, s3_key):
     response = s3_client.get_object(Bucket=bucket, Key=s3_key)
     json_content = response['Body']
     data = json.loads(json_content)

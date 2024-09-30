@@ -6,7 +6,7 @@ incoming_schema = {
     "properties": {
         "Series": {"type": "string"},
         "ConsignmentReference" : {"type": "string"},
-        "UUID" : {"type": "string", "format": "uuid"},
+        "UUID" : {"type": "string"},
     },
     "required": ["Series", "UUID", "ConsignmentReference"],
 }

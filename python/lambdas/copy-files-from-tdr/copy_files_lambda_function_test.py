@@ -140,9 +140,9 @@ class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.s3_client.copy_object')
     @patch('lambda_function.sqs_client.send_message')
     @patch('lambda_function.validate_metadata')
-    def test_send_message_failure(self, mock_get_object,  mock_send_message, _, mock_head_object):
+    def test_send_message_failure(self, mock_validate_metadata,  mock_send_message, _, mock_head_object):
         mock_head_object.return_value = {'ContentLength': 1024}  # 1 KB
-        mock_get_object.return_value = True
+        mock_validate_metadata.return_value = True
         event = {
             'Records': [
                 {'body': '{"bucket": "source-bucket","fileId":"test-file"}'}
@@ -174,7 +174,7 @@ class TestLambdaFunction(unittest.TestCase):
                 '"SHA256ServerSideChecksum":"cbecda1c7d37d4c0aa5466243bb4a0018c31bf06d74fa7338290dd3068db4fed",'
                 '"FileType":"File","TitleClosed":"false","PublicRecordsConfirmed":"true","TransferringBody":"Mock 1 Department"}'
              }
-        result = lambda_function.validate_metadata('any_bucket_patched', 'any_key_patched')
+        result = lambda_function.validate_mandatory_fields_exist('any_bucket_patched', 'any_key_patched')
         self.assertEqual(True, result)
 
 
@@ -186,7 +186,7 @@ class TestLambdaFunction(unittest.TestCase):
                 '"TransferInitiatedDatetime": "2024-09-19 07:21:57","UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"}'
              }
         with self.assertRaises(Exception) as ex:
-            lambda_function.validate_metadata('any_bucket_patched', 'any_key_patched')
+            lambda_function.validate_mandatory_fields_exist('any_bucket_patched', 'any_key_patched')
         self.assertEqual("'Series' is a required property" , str(ex.exception))
 
     @patch('lambda_function.s3_client.get_object')
@@ -197,7 +197,7 @@ class TestLambdaFunction(unittest.TestCase):
                 '"TransferInitiatedDatetime": "2024-09-19 07:21:57","UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"}'
              }
         with self.assertRaises(Exception) as ex:
-            lambda_function.validate_metadata('any_bucket_patched', 'any_key_patched')
+            lambda_function.validate_mandatory_fields_exist('any_bucket_patched', 'any_key_patched')
         self.assertEqual("'ConsignmentReference' is a required property" , str(ex.exception))
 
     @patch('lambda_function.s3_client.get_object')
@@ -208,7 +208,7 @@ class TestLambdaFunction(unittest.TestCase):
                 '"TransferInitiatedDatetime": "2024-09-19 07:21:57"}'
              }
         with self.assertRaises(Exception) as ex:
-            lambda_function.validate_metadata('any_bucket_patched', 'any_key_patched')
+            lambda_function.validate_mandatory_fields_exist('any_bucket_patched', 'any_key_patched')
         self.assertEqual("'UUID' is a required property" , str(ex.exception))
 
     @patch('lambda_function.s3_client.head_object')
@@ -250,6 +250,17 @@ class TestLambdaFunction(unittest.TestCase):
 
         self.assertEqual('Object some_key.metadata does not exist, underlying error is: '
                          'An error occurred (404) when calling the HeadObject operation: Not Found' , str(ex.exception))
+
+    @patch('lambda_function.s3_client.get_object')
+    def test_should_raise_an_exception_when_UUID_is_invalid(self, mock_get_object):
+        mock_get_object.return_value = {
+            'Body':
+                '{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series":"MOCK1 123", '
+                '"TransferInitiatedDatetime": "2024-09-19 07:21:57", "UUID": "invalid-uuid-format"}'
+             }
+        with self.assertRaises(Exception) as ex:
+            lambda_function.validate_formats('any_bucket_patched', 'any_key_patched')
+        self.assertEqual("Unable to parse UUID, 'invalid-uuid-format'. Invalid format" , str(ex.exception))
 
 
 
