@@ -5,6 +5,7 @@ import cats.effect.{IO, Ref}
 import fs2.interop.reactivestreams.*
 import org.reactivestreams.Publisher
 import org.scalatest.BeforeAndAfterEach
+import org.scalatest.exceptions.TestFailedException
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -126,6 +127,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
     outputOrErr match {
       case ex: Throwable => ex.getMessage.contains("1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'") should equal(true)
+      case _             => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }
   }
 
@@ -147,6 +149,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         ex.getMessage.contains(
           "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
         ) should equal(true)
+      case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }
   }
 
@@ -174,6 +177,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
           ex.getMessage should equal(
             "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
           )
+        case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
       }
     }
 
@@ -211,6 +215,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         ex.getMessage should equal(
           "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
         )
+      case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }
   }
 
@@ -258,6 +263,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         ex.getMessage should equal(
           "5 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
         )
+      case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }
   }
 
@@ -308,6 +314,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         ex.getMessage should equal(
           "3 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
         )
+      case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }
   }
 }
