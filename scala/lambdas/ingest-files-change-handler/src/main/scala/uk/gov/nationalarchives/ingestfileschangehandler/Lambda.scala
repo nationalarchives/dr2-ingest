@@ -28,9 +28,12 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       FilesTablePrimaryKey(FilesTablePartitionKey(row.id), FilesTableSortKey(row.batchId))
 
     def sendOutputMessage(asset: AssetDynamoTable, messageType: MessageType): IO[Unit] = {
+      val status = messageType match
+        case MessageType.IngestUpdate   => MessageStatus.IngestedPreservation
+        case MessageType.IngestComplete => MessageStatus.IngestedCCDisk
       val message = OutputMessage(
         OutputProperties(asset.batchId, dependencies.uuidGenerator(), asset.correlationId, dependencies.instantGenerator(), messageType),
-        OutputParameters(asset.id)
+        OutputParameters(asset.id, status)
       )
       dependencies.daSnsClient.publish(config.topicArn)(message :: Nil).map(_ => ())
     }
@@ -191,13 +194,25 @@ object Lambda:
     override def toString: String = this match
       case IngestUpdate   => "preserve.digital.asset.ingest.update"
       case IngestComplete => "preserve.digital.asset.ingest.complete"
+
     case IngestUpdate, IngestComplete
 
+  enum MessageStatus(val value: String):
+    case IngestedPreservation extends MessageStatus("Asset has been ingested to the Preservation System.")
+    case IngestedCCDisk extends MessageStatus("Asset has been written to custodial copy disk.")
+
+  given Encoder[MessageStatus] = (messageStatus: MessageStatus) => Json.fromString(messageStatus.value)
+
   given Encoder[MessageType] = (messageType: MessageType) => Json.fromString(messageType.toString)
+
   given Encoder[OutputProperties] = deriveEncoder[OutputProperties]
+
   given Encoder[OutputParameters] = deriveEncoder[OutputParameters]
+
   given Encoder[OutputMessage] = deriveEncoder[OutputMessage]
 
   case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, `type`: MessageType)
-  case class OutputParameters(assetId: UUID)
+
+  case class OutputParameters(assetId: UUID, status: MessageStatus)
+
   case class OutputMessage(properties: OutputProperties, parameters: OutputParameters)
