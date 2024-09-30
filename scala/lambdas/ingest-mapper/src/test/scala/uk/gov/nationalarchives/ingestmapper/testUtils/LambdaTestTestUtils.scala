@@ -1,15 +1,20 @@
 package uk.gov.nationalarchives.ingestmapper.testUtils
 
-import cats.effect.IO
+import cats.effect.{IO, Ref}
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.*
+import fs2.interop.reactivestreams.*
 import org.mockito.Mockito.*
+import org.reactivestreams.Publisher
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
+import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
+import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3.SttpBackend
 import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
@@ -20,6 +25,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import upickle.default.write
 
 import java.net.URI
+import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.UUID
 
@@ -31,8 +37,8 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     "5364b309-aa11-4660-b518-f47b5b96a588",
     "0dcc4151-b1d0-44ac-a4a1-5415d7d50d65"
   )
-  val config: Config = Config("test", "http://localhost:9015")
-  val input: Input = Input("TEST", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"))
+  val config: Config = Config("test", "http://localhost:9015", "testInputStateBucket")
+  val input: Input = Input("TEST", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"), "executionName")
 
   type DynamoResponse = (UUID, UUID, UUID, UUID, List[String], List[String])
 
@@ -149,7 +155,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     list("originalMetadataFiles") should equal(expectedTable.originalMetadataFiles)
   }
 
-  def dependencies(discoveryServiceException: Boolean = false): Dependencies = {
+  def dependencies(discoveryServiceException: Boolean = false, ref: Ref[IO, List[(String, String)]]): Dependencies = {
     val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
     val asyncS3Client: S3AsyncClient = S3AsyncClient
       .crtBuilder()
@@ -170,7 +176,7 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     val metadataService: MetadataService = new MetadataService(DAS3Client[IO](asyncS3Client), discoveryService)
     val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO](asyncDynamoClient)
     val fixedTime = () => Instant.parse("2024-01-01T00:00:00.00Z")
-    Dependencies(metadataService, dynamo, fixedTime)
+    Dependencies(metadataService, dynamo, mocks3Client(ref), fixedTime)
   }
 
   case class MockDiscoveryService(discoveryApiUrl: String, backend: SttpBackend[IO, Fs2Streams[IO]], randomUuidGenerator: () => UUID, discoveryServiceException: Boolean)
@@ -186,4 +192,29 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
         val department = series.get.split(" ").head
         IO.pure(DepartmentAndSeriesCollectionAssets(Option(generateDiscoveryCollectionAsset(department)), Option(generateDiscoveryCollectionAsset(series.get))))
   }
+
+  def mocks3Client(ref: Ref[IO, List[(String, String)]]): DAS3Client[IO] =
+    new DAS3Client[IO]():
+      val s3KeysAndFileContentRef: Ref[IO, List[(String, String)]] = ref
+      override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = ???
+
+      override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = ???
+
+      override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] = for {
+        _ <- IO(assert(bucket == "testInputStateBucket"))
+        _ <- s3KeysAndFileContentRef.update(s3KeysAndFileContent => ("keys" -> key) :: s3KeysAndFileContent)
+        actualUploadedJson <- publisher
+          .toStreamBuffered[IO](1024)
+          .map(_.array().map(_.toChar).mkString)
+          .compile
+          .string
+        _ <- s3KeysAndFileContentRef.update(s3KeysAndFileContent => ("fileContent" -> actualUploadedJson) :: s3KeysAndFileContent)
+
+      } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build
+
+      override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = ???
+
+      override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = ???
+
+      override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = ???
 }
