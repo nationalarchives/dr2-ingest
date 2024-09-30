@@ -5,7 +5,7 @@ import cats.effect.unsafe.implicits.global
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito.{times, verify}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoTable, Identifier => DynamoIdentifier}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoItem, Identifier => DynamoIdentifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest, Identifier as PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
@@ -31,7 +31,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
 
   val input: StepFnInput = StepFnInput("TDD-2023-ABC", folderIds.map(_.toString), Nil, List("a8163bde-7daa-43a7-9363-644f93fe2f2b"))
 
-  private def convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows: ListMap[UUID, ArchiveFolderDynamoTable]) =
+  private def convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows: ListMap[UUID, ArchiveFolderDynamoItem]) =
     IO.pure(folderIdsAndRows.values.toList)
 
   "handler" should "call the DDB client's 'getAttributeValues' and entities client's 'entitiesByIdentifier' 3x, " +

@@ -29,7 +29,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     val dynamoClient = dependencies.dynamoClient
     val s3Client = dependencies.s3Client
     for {
-      assetItems <- dynamoClient.getItems[AssetDynamoTable, FilesTablePrimaryKey](
+      assetItems <- dynamoClient.getItems[AssetDynamoItem, FilesTablePrimaryKey](
         List(FilesTablePrimaryKey(FilesTablePartitionKey(input.id), FilesTableSortKey(input.batchId))),
         config.dynamoTableName
       )
@@ -71,8 +71,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       s3Client: DAS3Client[IO],
       input: Input,
       destinationBucket: String,
-      asset: AssetDynamoTable,
-      child: FileDynamoTable,
+      asset: AssetDynamoItem,
+      child: FileDynamoItem,
       xmlCreator: XMLCreator
   ) = {
     s3Client.copy(
@@ -83,17 +83,17 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     )
   }
 
-  private def parentPath(input: Input, asset: AssetDynamoTable) = s"opex/${input.executionName}${asset.potentialParentPath.map(path => s"/$path").getOrElse("")}"
+  private def parentPath(input: Input, asset: AssetDynamoItem) = s"opex/${input.executionName}${asset.potentialParentPath.map(path => s"/$path").getOrElse("")}"
 
-  private def assetPath(input: Input, asset: AssetDynamoTable) = s"${parentPath(input, asset)}/${asset.id}.pax"
+  private def assetPath(input: Input, asset: AssetDynamoItem) = s"${parentPath(input, asset)}/${asset.id}.pax"
 
-  private def destinationPath(input: Input, asset: AssetDynamoTable, child: FileDynamoTable, xmlCreator: XMLCreator) =
+  private def destinationPath(input: Input, asset: AssetDynamoItem, child: FileDynamoItem, xmlCreator: XMLCreator) =
     s"${assetPath(input, asset)}/${xmlCreator.bitstreamPath(child)}/${xmlCreator.childFileName(child)}"
 
-  private def childrenOfAsset(dynamoClient: DADynamoDBClient[IO], asset: AssetDynamoTable, tableName: String, gsiName: String): IO[List[FileDynamoTable]] = {
+  private def childrenOfAsset(dynamoClient: DADynamoDBClient[IO], asset: AssetDynamoItem, tableName: String, gsiName: String): IO[List[FileDynamoItem]] = {
     val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
     dynamoClient
-      .queryItems[FileDynamoTable](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
+      .queryItems[FileDynamoItem](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
   }
 }
 

@@ -145,7 +145,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     </Bitstream>
     </XIP>
 
-  val asset: AssetDynamoTable = AssetDynamoTable(
+  val asset: AssetDynamoItem = AssetDynamoItem(
     "TEST-ID",
     UUID.fromString("90730c77-8faa-4dbf-b20d-bba1046dac87"),
     Option("parentPath"),
@@ -169,8 +169,8 @@ class XMLCreatorTest extends AnyFlatSpec {
   )
   val uuids: List[UUID] = List(UUID.fromString("a814ee41-89f4-4975-8f92-303553fe9a02"), UUID.fromString("9ecbba86-437f-42c6-aeba-e28b678bbf4c"))
   val representationTypes: List[(FileRepresentationType, Int)] = List((PreservationRepresentationType, 1), (AccessRepresentationType, 1))
-  val children: List[FileDynamoTable] = uuids.zipWithIndex.map { case (uuid, suffix) =>
-    FileDynamoTable(
+  val children: List[FileDynamoItem] = uuids.zipWithIndex.map { case (uuid, suffix) =>
+    FileDynamoItem(
       "TEST-ID",
       uuid,
       Option(s"parentPath$suffix"),

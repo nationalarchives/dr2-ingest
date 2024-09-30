@@ -7,10 +7,10 @@ import java.time.OffsetDateTime
 
 class XMLCreator(ingestDateTime: OffsetDateTime) {
   private val opexNamespace = "http://www.openpreservationexchange.org/opex/v1.2"
-  private[nationalarchives] def bitstreamPath(child: DynamoTable) =
+  private[nationalarchives] def bitstreamPath(child: DynamoItem) =
     s"Representation_Preservation/${child.id}/Generation_1"
 
-  private[nationalarchives] def childFileName(child: FileDynamoTable) =
+  private[nationalarchives] def childFileName(child: FileDynamoItem) =
     child.potentialFileExtension.map(extension => s"${child.id}.$extension").getOrElse(child.id)
 
   private def getAllPaths(path: String): List[String] = {
@@ -26,8 +26,8 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
   }
 
   private[nationalarchives] def createOpex(
-      asset: AssetDynamoTable,
-      children: List[FileDynamoTable],
+      asset: AssetDynamoItem,
+      children: List[FileDynamoItem],
       assetXipSize: Long,
       identifiers: List[Identifier],
       securityDescriptor: String = "open"
@@ -104,7 +104,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
     }
   }
 
-  private[nationalarchives] def createXip(asset: AssetDynamoTable, children: List[FileDynamoTable], securityTag: String = "open"): IO[String] = {
+  private[nationalarchives] def createXip(asset: AssetDynamoItem, children: List[FileDynamoItem], securityTag: String = "open"): IO[String] = {
     val xip =
       <XIP xmlns="http://preservica.com/XIP/v7.0">
       <InformationObject>

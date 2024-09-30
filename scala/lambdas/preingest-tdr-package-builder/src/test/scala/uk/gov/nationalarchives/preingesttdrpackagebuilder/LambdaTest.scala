@@ -9,7 +9,7 @@ import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTable
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.TestUtils.{*, given}
 import uk.gov.nationalarchives.utils.ExternalUtils.*
@@ -97,7 +97,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
       val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(testData.fileSize))
       val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
-      val initialDynamoObjects = List(IngestLockTable(UUID.randomUUID(), testData.groupId, lockTableMessage))
+      val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), testData.groupId, lockTableMessage))
       val input = Input(testData.groupId, testData.batchId, 1, 2)
       val (s3Contents, output) = runHandler(uuidIterator, initialS3Objects, initialDynamoObjects, input)
 
@@ -171,7 +171,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
   "lambda handler" should "return an error if the s3 download fails" in {
     val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
-    val initialDynamoObjects = List(IngestLockTable(UUID.randomUUID(), "TST-123", lockTableMessage))
+    val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessage))
 
     val ex = intercept[Throwable] {
       runHandler(initialDynamoObjects = initialDynamoObjects, downloadError = true)
@@ -181,7 +181,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
   "lambda handler" should "return an error if the s3 upload fails" in {
     val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
-    val initialDynamoObjects = List(IngestLockTable(UUID.randomUUID(), "TST-123", lockTableMessage))
+    val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessage))
 
     val tdrMetadata = TDRMetadata("", UUID.randomUUID, None, "", "2024-10-04 10:00:00", "", "test.txt", "", "")
     val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(1))
@@ -203,7 +203,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   private def runHandler(
       uuidIterator: () => UUID = () => UUID.randomUUID,
       initialS3Objects: Map[String, S3Objects] = Map.empty,
-      initialDynamoObjects: List[IngestLockTable] = Nil,
+      initialDynamoObjects: List[IngestLockTableItem] = Nil,
       input: Input = Input("TST-123", "", 1, 1),
       downloadError: Boolean = false,
       uploadError: Boolean = false,
@@ -211,7 +211,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   ): (Map[String, S3Objects], Output) = {
     (for {
       initialS3Objects <- Ref.of[IO, Map[String, S3Objects]](initialS3Objects)
-      initialDynamoObjects <- Ref.of[IO, List[IngestLockTable]](initialDynamoObjects)
+      initialDynamoObjects <- Ref.of[IO, List[IngestLockTableItem]](initialDynamoObjects)
       dependencies = Dependencies(mockDynamoClient(initialDynamoObjects, queryError), mockS3(initialS3Objects, downloadError, uploadError), uuidIterator)
       output <- new Lambda().handler(input, config, dependencies)
       s3Objects <- initialS3Objects.get

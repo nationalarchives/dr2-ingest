@@ -10,8 +10,8 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.PreservationRepresentationType
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.{Asset, File}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{
-  AssetDynamoTable,
-  FileDynamoTable,
+  AssetDynamoItem,
+  FileDynamoItem,
   FilesTablePartitionKey,
   FilesTablePrimaryKey,
   FilesTableSortKey,
@@ -35,7 +35,7 @@ object Utils {
     def getPrimaryKey: FilesTablePrimaryKey =
       FilesTablePrimaryKey(FilesTablePartitionKey(row.id), FilesTableSortKey(row.batchId))
 
-    def createAsset(): AssetDynamoTable = AssetDynamoTable(
+    def createAsset(): AssetDynamoItem = AssetDynamoItem(
       row.batchId,
       row.id,
       row.parentPath,
@@ -58,7 +58,7 @@ object Utils {
       Option("correlationId")
     )
 
-    def createFile(): FileDynamoTable = FileDynamoTable(
+    def createFile(): FileDynamoItem = FileDynamoItem(
       row.batchId,
       row.id,
       row.parentPath,

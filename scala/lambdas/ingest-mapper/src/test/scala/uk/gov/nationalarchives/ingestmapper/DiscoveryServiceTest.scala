@@ -63,24 +63,24 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     col -> body
   }.toMap
 
-  private def checkDynamoTable(table: Obj, collection: String, expectedId: String, parentPath: Option[String], citableRefFound: Boolean = true): Assertion = {
+  private def checkDynamoItem(item: Obj, collection: String, expectedId: String, parentPath: Option[String], citableRefFound: Boolean = true): Assertion = {
     val expectedTitle = if citableRefFound then s"Test Title $collection" else collection
     val expectedDescription = if citableRefFound then s"TestDescription $collection 1          \nTestDescription $collection 2" else ""
 
-    table("id").str should equal(expectedId)
-    table("name").str should equal(collection)
-    table("batchId").str should equal("testBatch")
-    table("type").str should equal("ArchiveFolder")
-    !table.value.contains("fileSize") should be(true)
-    table.value.get("parentPath").map(_.str) should equal(parentPath)
+    item("id").str should equal(expectedId)
+    item("name").str should equal(collection)
+    item("batchId").str should equal("testBatch")
+    item("type").str should equal("ArchiveFolder")
+    !item.value.contains("fileSize") should be(true)
+    item.value.get("parentPath").map(_.str) should equal(parentPath)
     if (collection != "Unknown") {
-      table("title").str should equal(expectedTitle)
-      table("id_Code").str should equal(collection)
-      table("description").str should equal(expectedDescription)
+      item("title").str should equal(expectedTitle)
+      item("id_Code").str should equal(collection)
+      item("description").str should equal(expectedDescription)
     } else {
-      table.value.contains("title") should equal(false)
-      table.value.contains("id_Code") should equal(false)
-      table.value.contains("description") should equal(false)
+      item.value.contains("title") should equal(false)
+      item.value.contains("id_Code") should equal(false)
+      item.value.contains("description") should equal(false)
     }
   }
 
@@ -198,8 +198,8 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val departmentItem = result.departmentItem
     val seriesItem = result.potentialSeriesItem.head
 
-    checkDynamoTable(departmentItem, "T", uuids.head, None)
-    checkDynamoTable(seriesItem, "T TEST", uuids.head, Option(uuids.head))
+    checkDynamoItem(departmentItem, "T", uuids.head, None)
+    checkDynamoItem(seriesItem, "T TEST", uuids.head, Option(uuids.head))
   }
 
   "getDepartmentAndSeriesItems" should "return unknown for the department if the department is missing" in {
@@ -211,8 +211,8 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val departmentItem = result.departmentItem
     val seriesItem = result.potentialSeriesItem.head
 
-    checkDynamoTable(departmentItem, "Unknown", uuids.head, None)
-    checkDynamoTable(seriesItem, "T TEST", uuids.head, Option(uuids.head))
+    checkDynamoItem(departmentItem, "Unknown", uuids.head, None)
+    checkDynamoItem(seriesItem, "T TEST", uuids.head, Option(uuids.head))
   }
 
   "getDepartmentAndSeriesItems" should "return an empty series if the series is missing" in {
@@ -225,7 +225,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val seriesItem = result.potentialSeriesItem
 
     seriesItem.isEmpty should be(true)
-    checkDynamoTable(departmentItem, "T", uuids.head, None)
+    checkDynamoItem(departmentItem, "T", uuids.head, None)
 
   }
 
@@ -237,7 +237,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
 
     result.potentialSeriesItem.isDefined should equal(false)
     val departmentItem = result.departmentItem
-    checkDynamoTable(departmentItem, "Unknown", uuids.head, None)
+    checkDynamoItem(departmentItem, "Unknown", uuids.head, None)
   }
 
 }
