@@ -157,7 +157,7 @@ class TestLambdaFunction(unittest.TestCase):
 
 
     @patch('lambda_function.s3_client.get_object')
-    def test_incoming_metadata_validation_success(self, mock_get_object):
+    def test_should_successfully_validate_when_the_fields_are_valid(self, mock_get_object):
         mock_get_object.return_value = {
             'Body':
                 '{"FFID":[{"extension":null,"identificationBasis":"","puid":null,"extensionMismatch":false,"formatName":""}],'
@@ -273,6 +273,28 @@ class TestLambdaFunction(unittest.TestCase):
         with self.assertRaises(Exception) as ex:
             lambda_function.validate_formats('any_bucket_patched', 'any_key_patched')
         self.assertEqual("Unable to parse date, '2024-19-19 07:21:57'. Invalid format" , str(ex.exception))
+
+    @patch('lambda_function.s3_client.get_object')
+    def test_should_raise_an_exception_when_series_is_empty(self, mock_get_object):
+        mock_get_object.return_value = {
+            'Body':
+                '{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series":" ", '
+                '"TransferInitiatedDatetime": "2024-09-19 07:21:57", "UUID": "bb7bb923-b82c-4203-a3c1-ea3f362ef4da"}'
+             }
+        with self.assertRaises(Exception) as ex:
+            lambda_function.validate_formats('any_bucket_patched', 'any_key_patched')
+        self.assertEqual("Empty series value, unable to proceed" , str(ex.exception))
+
+    @patch('lambda_function.s3_client.get_object')
+    def test_should_raise_an_exception_when_consignment_reference_is_empty(self, mock_get_object):
+        mock_get_object.return_value = {
+            'Body':
+                '{"ConsignmentReference": " ", "FileReference": "ZDSCFC", "Series":"MOCK1 123", '
+                '"TransferInitiatedDatetime": "2024-09-19 07:21:57", "UUID": "bb7bb923-b82c-4203-a3c1-ea3f362ef4da"}'
+             }
+        with self.assertRaises(Exception) as ex:
+            lambda_function.validate_formats('any_bucket_patched', 'any_key_patched')
+        self.assertEqual("Empty consignment reference value, unable to proceed" , str(ex.exception))
 
 
 if __name__ == '__main__':
