@@ -5,7 +5,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
-import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetWithFileSize, FolderOrAssetTable}
+import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetWithFileSize, FolderOrAssetItem}
 
 import java.util.UUID
 import scala.xml.Elem
@@ -100,7 +100,7 @@ class XMLCreatorTest extends AnyFlatSpec {
   </opex:Transfer>
 </opex:OPEXMetadata>
 
-  val archiveFolder: ArchiveFolderDynamoTable = ArchiveFolderDynamoTable(
+  val archiveFolder: ArchiveFolderDynamoItem = ArchiveFolderDynamoItem(
     "TEST-ID",
     UUID.fromString("90730c77-8faa-4dbf-b20d-bba1046dac87"),
     Option("parentPath"),
@@ -115,7 +115,7 @@ class XMLCreatorTest extends AnyFlatSpec {
   val folderUuids: List[UUID] = List(UUID.fromString("7fcd94a9-be3f-456d-875f-bc697f7ed106"), UUID.fromString("9ecbba86-437f-42c6-aeba-e28b678bbf4c"))
   val childAssets: List[AssetWithFileSize] = assetUuids.zipWithIndex.map { case (uuid, suffix) =>
     AssetWithFileSize(
-      FolderOrAssetTable(
+      FolderOrAssetItem(
         "TEST-ID",
         uuid,
         Option(s"parentPath$suffix"),
@@ -129,8 +129,8 @@ class XMLCreatorTest extends AnyFlatSpec {
     )
   }
 
-  val childFolders: List[FolderOrAssetTable] = folderUuids.zipWithIndex.map { case (uuid, suffix) =>
-    FolderOrAssetTable(
+  val childFolders: List[FolderOrAssetItem] = folderUuids.zipWithIndex.map { case (uuid, suffix) =>
+    FolderOrAssetItem(
       "TEST-ID",
       uuid,
       Option(s"parentPath$suffix"),

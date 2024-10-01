@@ -6,72 +6,72 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 
 object DynamoWriteUtils {
 
-  private def commonFieldsToMap(table: DynamoTable): Map[String, DynamoValue] = {
+  private def commonFieldsToMap(item: DynamoItem): Map[String, DynamoValue] = {
     val optionalFields: Map[FieldName, DynamoValue] = Map(
-      "title" -> table.potentialTitle.map(DynamoValue.fromString),
-      "description" -> table.potentialDescription.map(DynamoValue.fromString),
-      "parentPath" -> table.potentialParentPath.map(DynamoValue.fromString)
+      "title" -> item.potentialTitle.map(DynamoValue.fromString),
+      "description" -> item.potentialDescription.map(DynamoValue.fromString),
+      "parentPath" -> item.potentialParentPath.map(DynamoValue.fromString)
     ).flatMap {
       case (fieldName, Some(potentialValue)) => Map(fieldName -> potentialValue)
       case _                                 => Map.empty
     }
     Map(
-      "batchId" -> DynamoValue.fromString(table.batchId),
-      "id" -> DynamoValue.fromString(table.id.toString),
-      "name" -> DynamoValue.fromString(table.name),
-      "type" -> DynamoValue.fromString(table.`type`.toString)
-    ) ++ table.identifiers.map(id => s"id_${id.identifierName}" -> DynamoValue.fromString(id.value)).toMap ++
+      "batchId" -> DynamoValue.fromString(item.batchId),
+      "id" -> DynamoValue.fromString(item.id.toString),
+      "name" -> DynamoValue.fromString(item.name),
+      "type" -> DynamoValue.fromString(item.`type`.toString)
+    ) ++ item.identifiers.map(id => s"id_${id.identifierName}" -> DynamoValue.fromString(id.value)).toMap ++
       optionalFields
   }
 
-  def writeArchiveFolderTable(archiveFolderDynamoTable: ArchiveFolderDynamoTable): DynamoValue =
+  def writeArchiveFolderItem(archiveFolderDynamoItem: ArchiveFolderDynamoItem): DynamoValue =
     DynamoObject {
-      commonFieldsToMap(archiveFolderDynamoTable)
+      commonFieldsToMap(archiveFolderDynamoItem)
     }.toDynamoValue
 
-  def writeContentFolderTable(contentFolderDynamoTable: ContentFolderDynamoTable): DynamoValue =
+  def writeContentFolderItem(contentFolderDynamoItem: ContentFolderDynamoItem): DynamoValue =
     DynamoObject {
-      commonFieldsToMap(contentFolderDynamoTable)
+      commonFieldsToMap(contentFolderDynamoItem)
     }.toDynamoValue
 
-  def writeAssetTable(assetDynamoTable: AssetDynamoTable): DynamoValue =
+  def writeAssetItem(assetDynamoItem: AssetDynamoItem): DynamoValue =
     DynamoObject {
-      commonFieldsToMap(assetDynamoTable) ++
+      commonFieldsToMap(assetDynamoItem) ++
         Map(
-          "transferringBody" -> DynamoValue.fromString(assetDynamoTable.transferringBody),
-          "transferCompleteDatetime" -> DynamoValue.fromString(assetDynamoTable.transferCompleteDatetime.toString),
-          "upstreamSystem" -> DynamoValue.fromString(assetDynamoTable.upstreamSystem),
-          "digitalAssetSource" -> DynamoValue.fromString(assetDynamoTable.digitalAssetSource),
-          "digitalAssetSubtype" -> DynamoValue.fromString(assetDynamoTable.digitalAssetSubtype),
-          "originalFiles" -> DynamoValue.fromStrings(assetDynamoTable.originalFiles.map(_.toString)),
-          "originalMetadataFiles" -> DynamoValue.fromStrings(assetDynamoTable.originalMetadataFiles.map(_.toString)),
-          ingestedPreservica -> DynamoValue.fromString(assetDynamoTable.ingestedPreservica.toString),
-          ingestedCustodialCopy -> DynamoValue.fromString(assetDynamoTable.ingestedCustodialCopy.toString)
-        ) ++ (if (assetDynamoTable.skipIngest) Map("skipIngest" -> DynamoValue.fromBoolean(assetDynamoTable.skipIngest)) else Map())
-        ++ assetDynamoTable.correlationId.map(id => Map(correlationId -> DynamoValue.fromString(id))).getOrElse(Map())
+          "transferringBody" -> DynamoValue.fromString(assetDynamoItem.transferringBody),
+          "transferCompleteDatetime" -> DynamoValue.fromString(assetDynamoItem.transferCompleteDatetime.toString),
+          "upstreamSystem" -> DynamoValue.fromString(assetDynamoItem.upstreamSystem),
+          "digitalAssetSource" -> DynamoValue.fromString(assetDynamoItem.digitalAssetSource),
+          "digitalAssetSubtype" -> DynamoValue.fromString(assetDynamoItem.digitalAssetSubtype),
+          "originalFiles" -> DynamoValue.fromStrings(assetDynamoItem.originalFiles.map(_.toString)),
+          "originalMetadataFiles" -> DynamoValue.fromStrings(assetDynamoItem.originalMetadataFiles.map(_.toString)),
+          ingestedPreservica -> DynamoValue.fromString(assetDynamoItem.ingestedPreservica.toString),
+          ingestedCustodialCopy -> DynamoValue.fromString(assetDynamoItem.ingestedCustodialCopy.toString)
+        ) ++ (if (assetDynamoItem.skipIngest) Map("skipIngest" -> DynamoValue.fromBoolean(assetDynamoItem.skipIngest)) else Map())
+        ++ assetDynamoItem.correlationId.map(id => Map(correlationId -> DynamoValue.fromString(id))).getOrElse(Map())
     }.toDynamoValue
 
-  def writeFileTable(fileDynamoTable: FileDynamoTable): DynamoValue =
+  def writeFileItem(fileDynamoItem: FileDynamoItem): DynamoValue =
     DynamoObject {
-      commonFieldsToMap(fileDynamoTable) ++
-        fileDynamoTable.potentialFileExtension.map(extension => Map(fileExtension -> DynamoValue.fromString(extension))).getOrElse(Map()) ++
+      commonFieldsToMap(fileDynamoItem) ++
+        fileDynamoItem.potentialFileExtension.map(extension => Map(fileExtension -> DynamoValue.fromString(extension))).getOrElse(Map()) ++
         Map(
-          sortOrder -> DynamoValue.fromNumber[Int](fileDynamoTable.sortOrder),
-          fileSize -> DynamoValue.fromNumber[Long](fileDynamoTable.fileSize),
-          representationType -> DynamoValue.fromString(fileDynamoTable.representationType.toString),
-          representationSuffix -> DynamoValue.fromNumber(fileDynamoTable.representationSuffix),
-          ingestedPreservica -> DynamoValue.fromString(fileDynamoTable.ingestedPreservica.toString),
-          location -> DynamoValue.fromString(fileDynamoTable.location.toString),
-          ingestedCustodialCopy -> DynamoValue.fromString(fileDynamoTable.ingestedCustodialCopy.toString)
-        ) ++ fileDynamoTable.checksums.map(eachChecksum => s"${checksumPrefix}${eachChecksum.algorithm}" -> DynamoValue.fromString(eachChecksum.fingerprint)).toMap
+          sortOrder -> DynamoValue.fromNumber[Int](fileDynamoItem.sortOrder),
+          fileSize -> DynamoValue.fromNumber[Long](fileDynamoItem.fileSize),
+          representationType -> DynamoValue.fromString(fileDynamoItem.representationType.toString),
+          representationSuffix -> DynamoValue.fromNumber(fileDynamoItem.representationSuffix),
+          ingestedPreservica -> DynamoValue.fromString(fileDynamoItem.ingestedPreservica.toString),
+          location -> DynamoValue.fromString(fileDynamoItem.location.toString),
+          ingestedCustodialCopy -> DynamoValue.fromString(fileDynamoItem.ingestedCustodialCopy.toString)
+        ) ++ fileDynamoItem.checksums.map(eachChecksum => s"${checksumPrefix}${eachChecksum.algorithm}" -> DynamoValue.fromString(eachChecksum.fingerprint)).toMap
     }.toDynamoValue
 
-  def writeLockTable(lockTable: IngestLockTable): DynamoValue =
+  def writeLockTableItem(lockTableItem: IngestLockTableItem): DynamoValue =
     DynamoObject {
       Map(
-        assetId -> DynamoValue.fromString(lockTable.assetId.toString),
-        groupId -> DynamoValue.fromString(lockTable.groupId),
-        message -> DynamoValue.fromString(lockTable.message)
+        assetId -> DynamoValue.fromString(lockTableItem.assetId.toString),
+        groupId -> DynamoValue.fromString(lockTableItem.groupId),
+        message -> DynamoValue.fromString(lockTableItem.message)
       )
     }.toDynamoValue
 }

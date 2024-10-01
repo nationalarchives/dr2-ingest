@@ -15,7 +15,7 @@ import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTable
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
@@ -35,7 +35,7 @@ object TestUtils:
 
   type S3Objects = TDRMetadata | List[MetadataObject] | MockTdrFile
 
-  def mockDynamoClient(ref: Ref[IO, List[IngestLockTable]], failedQuery: Boolean = false): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
+  def mockDynamoClient(ref: Ref[IO, List[IngestLockTableItem]], failedQuery: Boolean = false): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
     override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = IO.pure(Nil)
 
     override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = IO.pure(1)

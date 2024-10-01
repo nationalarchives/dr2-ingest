@@ -15,7 +15,7 @@ import org.scanamo.syntax.*
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import uk.gov.nationalarchives.DADynamoDBClient.given
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTable
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.RepresentationType.Preservation
@@ -143,7 +143,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         }
     }
 
-    def processLockTableItems(lockTableItems: List[IngestLockTable]): IO[Unit] = {
+    def processLockTableItems(lockTableItems: List[IngestLockTableItem]): IO[Unit] = {
       Stream
         .emits(lockTableItems)
         .map(_.message)

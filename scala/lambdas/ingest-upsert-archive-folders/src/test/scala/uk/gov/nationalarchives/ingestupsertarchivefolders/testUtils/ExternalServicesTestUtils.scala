@@ -15,7 +15,7 @@ import org.scanamo.DynamoFormat
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{
-  ArchiveFolderDynamoTable,
+  ArchiveFolderDynamoItem,
   FilesTablePartitionKey,
   FilesTablePrimaryKey,
   FilesTableSortKey,
@@ -40,9 +40,9 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
   case class TestIdentifier(name: String, value: String)
 
-  val folderIdsAndRows: ListMap[UUID, ArchiveFolderDynamoTable] = ListMap(
+  val folderIdsAndRows: ListMap[UUID, ArchiveFolderDynamoItem] = ListMap(
     UUID.fromString("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176") ->
-      ArchiveFolderDynamoTable(
+      ArchiveFolderDynamoItem(
         "batchId",
         UUID.fromString("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176"),
         None,
@@ -53,7 +53,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
         List(DynamoIdentifier("Code", "code")),
         1
       ),
-    UUID.fromString("e88e433a-1f3e-48c5-b15f-234c0e663c27") -> ArchiveFolderDynamoTable(
+    UUID.fromString("e88e433a-1f3e-48c5-b15f-234c0e663c27") -> ArchiveFolderDynamoItem(
       "batchId",
       UUID.fromString("e88e433a-1f3e-48c5-b15f-234c0e663c27"),
       Some("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176"),
@@ -64,7 +64,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       List(DynamoIdentifier("Code", "code")),
       1
     ),
-    UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2") -> ArchiveFolderDynamoTable(
+    UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2") -> ArchiveFolderDynamoItem(
       "batchId",
       UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2"),
       Some("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176/e88e433a-1f3e-48c5-b15f-234c0e663c27"),
@@ -246,7 +246,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     }
 
   case class ArgumentVerifier(
-      getAttributeValuesReturnValue: IO[List[ArchiveFolderDynamoTable]],
+      getAttributeValuesReturnValue: IO[List[ArchiveFolderDynamoItem]],
       entitiesWithSourceIdReturnValue: List[IO[Seq[Entity]]] = defaultEntitiesWithSourceIdReturnValues,
       addEntityReturnValues: List[IO[UUID]] = List(
         IO.pure(structuralObjects(0).head.ref),
@@ -286,8 +286,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     val mockDynamoDBClient: DADynamoDBClient[IO] = mock[DADynamoDBClient[IO]]
 
     when(
-      mockDynamoDBClient.getItems[ArchiveFolderDynamoTable, FilesTablePrimaryKey](any[List[FilesTablePrimaryKey]], any[String])(using
-        any[DynamoFormat[ArchiveFolderDynamoTable]],
+      mockDynamoDBClient.getItems[ArchiveFolderDynamoItem, FilesTablePrimaryKey](any[List[FilesTablePrimaryKey]], any[String])(using
+        any[DynamoFormat[ArchiveFolderDynamoItem]],
         any[DynamoFormat[FilesTablePrimaryKey]]
       )
     ).thenReturn(
@@ -323,7 +323,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     val dependencies: Dependencies = Dependencies(mockEntityClient, mockDynamoDBClient, testEventBridgeClient)
 
     def verifyInvocationsAndArgumentsPassed(
-        folderIdsAndRows: Map[UUID, ArchiveFolderDynamoTable],
+        folderIdsAndRows: Map[UUID, ArchiveFolderDynamoItem],
         numOfEntitiesByIdentifierInvocations: Int,
         addEntityRequests: List[AddEntityRequest] = Nil,
         numOfAddIdentifierRequests: Int = 0,
@@ -331,10 +331,10 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     ): Unit = {
       val attributesValuesCaptor = getPartitionKeysCaptor
       val tableNameCaptor = getTableNameCaptor
-      verify(mockDynamoDBClient, times(1)).getItems[ArchiveFolderDynamoTable, FilesTablePrimaryKey](
+      verify(mockDynamoDBClient, times(1)).getItems[ArchiveFolderDynamoItem, FilesTablePrimaryKey](
         attributesValuesCaptor.capture(),
         tableNameCaptor.capture()
-      )(using any[DynamoFormat[ArchiveFolderDynamoTable]], any[DynamoFormat[FilesTablePrimaryKey]])
+      )(using any[DynamoFormat[ArchiveFolderDynamoItem]], any[DynamoFormat[FilesTablePrimaryKey]])
       attributesValuesCaptor.getValue.toArray.toList should be(
         folderIdsAndRows.map { case (ids, _) => FilesTablePrimaryKey(FilesTablePartitionKey(ids), FilesTableSortKey("TDD-2023-ABC")) }
       )
@@ -346,7 +346,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       )
 
       if (numOfEntitiesByIdentifierInvocations > 0) {
-        val folderRows: Iterator[ArchiveFolderDynamoTable] = folderIdsAndRows.values.iterator
+        val folderRows: Iterator[ArchiveFolderDynamoItem] = folderIdsAndRows.values.iterator
 
         entitiesByIdentifierIdentifierToGetCaptor.getAllValues.asScala.toList.sortBy(_.value) should be(
           List.fill(numOfEntitiesByIdentifierInvocations)(Identifier("SourceID", folderRows.next().name)).sortBy(_.value)
