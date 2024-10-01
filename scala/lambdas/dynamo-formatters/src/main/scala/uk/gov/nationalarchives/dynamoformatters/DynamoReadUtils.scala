@@ -18,49 +18,49 @@ import DynamoFormatters.*
 import java.lang
 import java.net.URI
 
-class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
+class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
 
   private type InvalidProperty = (String, DynamoReadError)
 
-  val identifiers: List[Identifier] = folderRowAsMap.collect {
+  val identifiers: List[Identifier] = folderItemAsMap.collect {
     case (name, value) if name.startsWith("id_") => Identifier(name.drop(3), value.s())
   }.toList
 
-  val checksums: List[Checksum] = folderRowAsMap.collect {
+  val checksums: List[Checksum] = folderItemAsMap.collect {
     case (name, value) if name.startsWith(checksumPrefix) => Checksum(name.drop(checksumPrefix.length), value.s())
   }.toList
 
-  private val allValidatedLockTableFields: LockTableValidatedFields = LockTableValidatedFields(
+  private val allValidatedLockTableAttributes: LockTableValidatedAttributes = LockTableValidatedAttributes(
     stringToScalaType[UUID](
       assetId,
       getPotentialStringValue(assetId),
       UUID.fromString
     ),
-    getValidatedMandatoryFieldAsString(groupId),
-    getValidatedMandatoryFieldAsString(message)
+    getValidatedMandatoryAttributeAsString(groupId),
+    getValidatedMandatoryAttributeAsString(message)
   )
 
-  private val allValidatedFileTableFields: FilesTableValidatedFields = FilesTableValidatedFields(
-    getValidatedMandatoryFieldAsString(batchId),
+  private val allValidatedFileTableAttributes: FilesTableValidatedAttributes = FilesTableValidatedAttributes(
+    getValidatedMandatoryAttributeAsString(batchId),
     stringToScalaType[UUID](
       id,
       getPotentialStringValue(id),
       UUID.fromString
     ),
-    getValidatedMandatoryFieldAsString(name),
+    getValidatedMandatoryAttributeAsString(name),
     getPotentialStringValue(parentPath),
     getPotentialStringValue(title),
     getPotentialStringValue(description),
     stringToType(getPotentialStringValue(typeField)),
-    getValidatedMandatoryFieldAsString(transferringBody),
+    getValidatedMandatoryAttributeAsString(transferringBody),
     stringToScalaType[OffsetDateTime](
       transferCompleteDatetime,
       getPotentialStringValue(transferCompleteDatetime),
       OffsetDateTime.parse
     ),
-    getValidatedMandatoryFieldAsString(upstreamSystem),
-    getValidatedMandatoryFieldAsString(digitalAssetSource),
-    getValidatedMandatoryFieldAsString(digitalAssetSubtype),
+    getValidatedMandatoryAttributeAsString(upstreamSystem),
+    getValidatedMandatoryAttributeAsString(digitalAssetSource),
+    getValidatedMandatoryAttributeAsString(digitalAssetSubtype),
     getPotentialListOfValues(originalFiles, convertListOfStringsToT(UUID.fromString)),
     getPotentialListOfValues(originalMetadataFiles, convertListOfStringsToT(UUID.fromString)),
     getNumber(sortOrder, _.toInt),
@@ -108,7 +108,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     )
 
   private def getBoolean(name: String): ValidatedNel[InvalidProperty, Boolean] = {
-    folderRowAsMap
+    folderItemAsMap
       .get(name)
       .map { attributeValue =>
         attributeValue.`type`() match {
@@ -124,7 +124,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
   }
 
   private def getNumber[T: ClassTag](name: String, toNumberFunction: String => T): ValidatedNel[InvalidProperty, T] = {
-    folderRowAsMap
+    folderItemAsMap
       .get(name)
       .map { attributeValue =>
         attributeValue.`type`() match {
@@ -140,7 +140,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       .getOrElse((name -> MissingProperty).invalidNel)
   }
 
-  private def getValidatedMandatoryFieldAsString(name: String): ValidatedNel[InvalidProperty, String] = {
+  private def getValidatedMandatoryAttributeAsString(name: String): ValidatedNel[InvalidProperty, String] = {
     getPotentialStringValue(name)
       .map(_.validNel)
       .getOrElse((name -> MissingProperty).invalidNel)
@@ -153,7 +153,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
     }
   }
 
-  private def getPotentialStringValue(name: String): Option[FieldName] = folderRowAsMap.get(name).map(_.s())
+  private def getPotentialStringValue(name: String): Option[FieldName] = folderItemAsMap.get(name).map(_.s())
 
   private def getPotentialListOfValues[T](
       name: String,
@@ -162,7 +162,7 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           List[AttributeValue]
       ) => ValidatedNel[(FieldName, DynamoReadError), List[T]]
   ): ValidatedNel[InvalidProperty, List[T]] =
-    folderRowAsMap
+    folderItemAsMap
       .get(name)
       .map { attributeValue =>
         attributeValue.`type`() match {
@@ -197,78 +197,78 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
       .map(stringValue => stringToScalaType(attributeName, Option(stringValue.s()), fromStringToAnotherType))
       .sequence
 
-  def readLockTableRow: Either[InvalidPropertiesError, IngestLockTable] =
+  def readLockTableItem: Either[InvalidPropertiesError, IngestLockTableItem] =
     (
-      allValidatedLockTableFields.assetId,
-      allValidatedLockTableFields.groupId,
-      allValidatedLockTableFields.message
+      allValidatedLockTableAttributes.assetId,
+      allValidatedLockTableAttributes.groupId,
+      allValidatedLockTableAttributes.message
     ).mapN { (assetId, groupId, message) =>
-      IngestLockTable(assetId, groupId, message)
+      IngestLockTableItem(assetId, groupId, message)
     }.toEither
       .left
       .map(InvalidPropertiesError.apply)
 
-  def readArchiveFolderRow: Either[InvalidPropertiesError, ArchiveFolderDynamoTable] =
+  def readArchiveFolderItem: Either[InvalidPropertiesError, ArchiveFolderDynamoItem] =
     (
-      allValidatedFileTableFields.batchId,
-      allValidatedFileTableFields.id,
-      allValidatedFileTableFields.name,
-      allValidatedFileTableFields.`type`,
-      allValidatedFileTableFields.childCount
+      allValidatedFileTableAttributes.batchId,
+      allValidatedFileTableAttributes.id,
+      allValidatedFileTableAttributes.name,
+      allValidatedFileTableAttributes.`type`,
+      allValidatedFileTableAttributes.childCount
     ).mapN { (batchId, id, name, rowType, childCount) =>
-      ArchiveFolderDynamoTable(
+      ArchiveFolderDynamoItem(
         batchId,
         id,
-        allValidatedFileTableFields.potentialParentPath,
+        allValidatedFileTableAttributes.potentialParentPath,
         name,
         rowType,
-        allValidatedFileTableFields.potentialTitle,
-        allValidatedFileTableFields.potentialDescription,
-        allValidatedFileTableFields.identifiers,
+        allValidatedFileTableAttributes.potentialTitle,
+        allValidatedFileTableAttributes.potentialDescription,
+        allValidatedFileTableAttributes.identifiers,
         childCount
       )
     }.toEither
       .left
       .map(InvalidPropertiesError.apply)
 
-  def readContentFolderRow: Either[InvalidPropertiesError, ContentFolderDynamoTable] =
+  def readContentFolderItem: Either[InvalidPropertiesError, ContentFolderDynamoItem] =
     (
-      allValidatedFileTableFields.batchId,
-      allValidatedFileTableFields.id,
-      allValidatedFileTableFields.name,
-      allValidatedFileTableFields.`type`,
-      allValidatedFileTableFields.childCount
+      allValidatedFileTableAttributes.batchId,
+      allValidatedFileTableAttributes.id,
+      allValidatedFileTableAttributes.name,
+      allValidatedFileTableAttributes.`type`,
+      allValidatedFileTableAttributes.childCount
     ).mapN { (batchId, id, name, rowType, childCount) =>
-      ContentFolderDynamoTable(
+      ContentFolderDynamoItem(
         batchId,
         id,
-        allValidatedFileTableFields.potentialParentPath,
+        allValidatedFileTableAttributes.potentialParentPath,
         name,
         rowType,
-        allValidatedFileTableFields.potentialTitle,
-        allValidatedFileTableFields.potentialDescription,
-        allValidatedFileTableFields.identifiers,
+        allValidatedFileTableAttributes.potentialTitle,
+        allValidatedFileTableAttributes.potentialDescription,
+        allValidatedFileTableAttributes.identifiers,
         childCount
       )
     }.toEither
       .left
       .map(InvalidPropertiesError.apply)
 
-  def readAssetRow: Either[InvalidPropertiesError, AssetDynamoTable] =
+  def readAssetRow: Either[InvalidPropertiesError, AssetDynamoItem] =
     (
-      allValidatedFileTableFields.batchId,
-      allValidatedFileTableFields.id,
-      allValidatedFileTableFields.name,
-      allValidatedFileTableFields.transferringBody,
-      allValidatedFileTableFields.transferCompleteDatetime,
-      allValidatedFileTableFields.upstreamSystem,
-      allValidatedFileTableFields.digitalAssetSource,
-      allValidatedFileTableFields.digitalAssetSubtype,
-      allValidatedFileTableFields.originalFiles,
-      allValidatedFileTableFields.originalMetadataFiles,
-      allValidatedFileTableFields.`type`,
-      allValidatedFileTableFields.childCount,
-      allValidatedFileTableFields.skipIngest
+      allValidatedFileTableAttributes.batchId,
+      allValidatedFileTableAttributes.id,
+      allValidatedFileTableAttributes.name,
+      allValidatedFileTableAttributes.transferringBody,
+      allValidatedFileTableAttributes.transferCompleteDatetime,
+      allValidatedFileTableAttributes.upstreamSystem,
+      allValidatedFileTableAttributes.digitalAssetSource,
+      allValidatedFileTableAttributes.digitalAssetSubtype,
+      allValidatedFileTableAttributes.originalFiles,
+      allValidatedFileTableAttributes.originalMetadataFiles,
+      allValidatedFileTableAttributes.`type`,
+      allValidatedFileTableAttributes.childCount,
+      allValidatedFileTableAttributes.skipIngest
     ).mapN {
       (
           batchId,
@@ -285,14 +285,14 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           childCount,
           skipIngest
       ) =>
-        AssetDynamoTable(
+        AssetDynamoItem(
           batchId,
           id,
-          allValidatedFileTableFields.potentialParentPath,
+          allValidatedFileTableAttributes.potentialParentPath,
           name,
           rowType,
-          allValidatedFileTableFields.potentialTitle,
-          allValidatedFileTableFields.potentialDescription,
+          allValidatedFileTableAttributes.potentialTitle,
+          allValidatedFileTableAttributes.potentialDescription,
           transferringBody,
           transferCompletedDatetime,
           upstreamSystem,
@@ -300,30 +300,30 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           digitalAssetSubtype,
           originalFiles,
           originalMetadataFiles,
-          allValidatedFileTableFields.ingestedPreservica.contains("true"),
-          allValidatedFileTableFields.ingestedCustodialCopy.contains("true"),
-          allValidatedFileTableFields.identifiers,
+          allValidatedFileTableAttributes.ingestedPreservica.contains("true"),
+          allValidatedFileTableAttributes.ingestedCustodialCopy.contains("true"),
+          allValidatedFileTableAttributes.identifiers,
           childCount,
           skipIngest,
-          allValidatedFileTableFields.correlationId
+          allValidatedFileTableAttributes.correlationId
         )
     }.toEither
       .left
       .map(InvalidPropertiesError.apply)
 
-  def readFileRow: Either[InvalidPropertiesError, FileDynamoTable] =
+  def readFileRow: Either[InvalidPropertiesError, FileDynamoItem] =
     (
-      allValidatedFileTableFields.batchId,
-      allValidatedFileTableFields.id,
-      allValidatedFileTableFields.name,
-      allValidatedFileTableFields.sortOrder,
-      allValidatedFileTableFields.fileSize,
-      allValidatedFileTableFields.checksums,
-      allValidatedFileTableFields.`type`,
-      allValidatedFileTableFields.representationType,
-      allValidatedFileTableFields.representationSuffix,
-      allValidatedFileTableFields.childCount,
-      allValidatedFileTableFields.location
+      allValidatedFileTableAttributes.batchId,
+      allValidatedFileTableAttributes.id,
+      allValidatedFileTableAttributes.name,
+      allValidatedFileTableAttributes.sortOrder,
+      allValidatedFileTableAttributes.fileSize,
+      allValidatedFileTableAttributes.checksums,
+      allValidatedFileTableAttributes.`type`,
+      allValidatedFileTableAttributes.representationType,
+      allValidatedFileTableAttributes.representationSuffix,
+      allValidatedFileTableAttributes.childCount,
+      allValidatedFileTableAttributes.location
     ).mapN {
       (
           batchId,
@@ -338,23 +338,23 @@ class DynamoReadUtils(folderRowAsMap: Map[String, AttributeValue]) {
           childCount,
           location
       ) =>
-        FileDynamoTable(
+        FileDynamoItem(
           batchId,
           id,
-          allValidatedFileTableFields.potentialParentPath,
+          allValidatedFileTableAttributes.potentialParentPath,
           name,
           rowType,
-          allValidatedFileTableFields.potentialTitle,
-          allValidatedFileTableFields.potentialDescription,
+          allValidatedFileTableAttributes.potentialTitle,
+          allValidatedFileTableAttributes.potentialDescription,
           sortOrder,
           fileSize,
           checksumList,
-          allValidatedFileTableFields.fileExtension,
+          allValidatedFileTableAttributes.fileExtension,
           representationType,
           representationSuffix,
-          allValidatedFileTableFields.ingestedPreservica.contains("true"),
-          allValidatedFileTableFields.ingestedCustodialCopy.contains("true"),
-          allValidatedFileTableFields.identifiers,
+          allValidatedFileTableAttributes.ingestedPreservica.contains("true"),
+          allValidatedFileTableAttributes.ingestedCustodialCopy.contains("true"),
+          allValidatedFileTableAttributes.identifiers,
           childCount,
           location
         )

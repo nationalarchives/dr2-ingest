@@ -6,6 +6,7 @@ name := "lambdas"
 
 lazy val ingestLambdasRoot = (project in file("."))
   .aggregate(
+    custodialCopyQueueCreator,
     dynamoFormatters,
     entityEventGenerator,
     getLatestPreservicaVersion,
@@ -18,6 +19,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestParentFolderOpexCreator,
     ingestParsedCourtDocumentEventHandler,
     ingestUpsertArchiveFolders,
+    ingestValidateGenericIngestInputs,
     ingestWorkflowMonitor,
     preingestTdrAggregator,
     preIngestTdrPackageBuilder,
@@ -236,6 +238,24 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
     )
   )
 
+lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-generic-ingest-inputs"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      awsCrt,
+      catsEffect,
+      fs2Reactive,
+      jsonSchemaValidator,
+      s3Client,
+      sfnClient,
+      sttpClientFs2,
+      sttpCirce,
+      upickle,
+      reactorTest % Test
+    )
+  )
+
 
 lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(commonSettings)
@@ -261,6 +281,17 @@ lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
       sfnClient
     )
   )
+
+lazy val custodialCopyQueueCreator = (project in file("custodial-copy-queue-creator"))
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(
+    libraryDependencies ++= Seq(
+      preservicaClient,
+      sqsClient
+    )
+  )
+
 
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)

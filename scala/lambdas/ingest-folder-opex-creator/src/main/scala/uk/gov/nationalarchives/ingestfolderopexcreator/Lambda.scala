@@ -24,45 +24,45 @@ import scala.jdk.CollectionConverters.MapHasAsScala
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
-  private def toFolderOrAssetTable[T <: DynamoTable](dynamoValue: DynamoValue)(using dynamoFormat: DynamoFormat[T]): Either[DynamoReadError, FolderOrAssetTable] =
-    dynamoFormat.read(dynamoValue).map { table =>
+  private def toFolderOrAssetItem[T <: DynamoItem](dynamoValue: DynamoValue)(using dynamoFormat: DynamoFormat[T]): Either[DynamoReadError, FolderOrAssetItem] =
+    dynamoFormat.read(dynamoValue).map { item =>
       {
-        val skipIngest = table match
-          case asset: AssetDynamoTable => asset.skipIngest
-          case _                       => false
-        FolderOrAssetTable(
-          table.batchId,
-          table.id,
-          table.potentialParentPath,
-          table.name,
-          table.`type`,
-          table.potentialTitle,
-          table.potentialDescription,
-          table.identifiers,
+        val skipIngest = item match
+          case asset: AssetDynamoItem => asset.skipIngest
+          case _                      => false
+        FolderOrAssetItem(
+          item.batchId,
+          item.id,
+          item.potentialParentPath,
+          item.name,
+          item.`type`,
+          item.potentialTitle,
+          item.potentialDescription,
+          item.identifiers,
           skipIngest
         )
       }
     }
 
-  given DynamoFormat[FolderOrAssetTable] = new DynamoFormat[FolderOrAssetTable] {
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, FolderOrAssetTable] =
+  given DynamoFormat[FolderOrAssetItem] = new DynamoFormat[FolderOrAssetItem] {
+    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, FolderOrAssetItem] =
       dynamoValue.toAttributeValue.m().asScala.toMap.get("type").map(_.s()) match {
         case Some(rowType) =>
           rowType match {
-            case "Asset"                           => toFolderOrAssetTable[AssetDynamoTable](dynamoValue)
-            case "ArchiveFolder" | "ContentFolder" => toFolderOrAssetTable[ArchiveFolderDynamoTable](dynamoValue)
+            case "Asset"                           => toFolderOrAssetItem[AssetDynamoItem](dynamoValue)
+            case "ArchiveFolder" | "ContentFolder" => toFolderOrAssetItem[ArchiveFolderDynamoItem](dynamoValue)
             case _                                 => Left(TypeCoercionError(new RuntimeException("Row is not an 'Asset' or a 'Folder'")))
           }
-        case None => Left[DynamoReadError, FolderOrAssetTable](MissingProperty)
+        case None => Left[DynamoReadError, FolderOrAssetItem](MissingProperty)
       }
 
     // We're not using write but we have to have this overridden
-    override def write(t: FolderOrAssetTable): DynamoValue = DynamoValue.nil
+    override def write(t: FolderOrAssetItem): DynamoValue = DynamoValue.nil
   }
 
   private def isFolder(rowType: Type) = List(ContentFolder, ArchiveFolder).contains(rowType)
 
-  private def generateKey(executionName: String, folder: DynamoTable) =
+  private def generateKey(executionName: String, folder: DynamoItem) =
     s"opex/$executionName/${formatParentPath(folder.potentialParentPath)}${folder.id}/${folder.id}.opex"
 
   private def formatParentPath(potentialParentPath: Option[String]): String = potentialParentPath.map(parentPath => s"$parentPath/").getOrElse("")
@@ -72,7 +72,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       s3Client.upload(destinationBucket, key, FlowAdapters.toPublisher(publisher))
     }
 
-  private def getAssetRowsWithFileSize(s3Client: DAS3Client[IO], children: List[FolderOrAssetTable], bucketName: String, executionName: String): IO[List[AssetWithFileSize]] = {
+  private def getAssetRowsWithFileSize(s3Client: DAS3Client[IO], children: List[FolderOrAssetItem], bucketName: String, executionName: String): IO[List[AssetWithFileSize]] = {
     children.collect {
       case child @ asset if child.`type` == Asset =>
         val key = s"opex/$executionName/${formatParentPath(asset.parentPath)}${asset.id}.pax.opex"
@@ -82,10 +82,10 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     }.sequence
   }
 
-  private def childrenOfFolder(dynamoClient: DADynamoDBClient[IO], asset: ArchiveFolderDynamoTable, tableName: String, gsiName: String): IO[List[FolderOrAssetTable]] = {
+  private def childrenOfFolder(dynamoClient: DADynamoDBClient[IO], asset: ArchiveFolderDynamoItem, tableName: String, gsiName: String): IO[List[FolderOrAssetItem]] = {
     val childrenParentPath = s"${asset.potentialParentPath.getOrElse("")}/${asset.id}".stripPrefix("/")
     dynamoClient
-      .queryItems[FolderOrAssetTable](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
+      .queryItems[FolderOrAssetItem](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
   }
 
   override def handler: (
@@ -95,7 +95,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   ) => IO[Unit] = (input, config, dependencies) =>
     for {
       folderItems <- dependencies.dynamoClient
-        .getItems[ArchiveFolderDynamoTable, FilesTablePrimaryKey](
+        .getItems[ArchiveFolderDynamoItem, FilesTablePrimaryKey](
           List(FilesTablePrimaryKey(FilesTablePartitionKey(input.id), FilesTableSortKey(input.batchId))),
           config.dynamoTableName
         )
@@ -140,9 +140,9 @@ object Lambda {
 
   case class Input(id: UUID, batchId: String, executionName: String)
 
-  case class AssetWithFileSize(asset: FolderOrAssetTable, fileSize: Long)
+  case class AssetWithFileSize(asset: FolderOrAssetItem, fileSize: Long)
 
-  case class FolderOrAssetTable(
+  case class FolderOrAssetItem(
       batchId: String,
       id: UUID,
       parentPath: Option[String],

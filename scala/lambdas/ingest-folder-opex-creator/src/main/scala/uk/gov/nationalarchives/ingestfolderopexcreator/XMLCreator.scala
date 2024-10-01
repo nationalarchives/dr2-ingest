@@ -3,15 +3,15 @@ package uk.gov.nationalarchives.ingestfolderopexcreator
 import cats.effect.IO
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
-import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetWithFileSize, FolderOrAssetTable}
+import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetWithFileSize, FolderOrAssetItem}
 
 class XMLCreator {
   private val opexNamespace = "http://www.openpreservationexchange.org/opex/v1.2"
 
   def createFolderOpex(
-      folder: ArchiveFolderDynamoTable,
+      folder: ArchiveFolderDynamoItem,
       childAssets: List[AssetWithFileSize],
-      childFolders: List[FolderOrAssetTable],
+      childFolders: List[FolderOrAssetItem],
       identifiers: List[Identifier],
       securityDescriptor: String = "open"
   ): IO[String] = IO.pure {
