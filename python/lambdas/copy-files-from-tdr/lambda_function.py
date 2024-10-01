@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+from datetime import datetime
 
 import boto3
 import botocore
@@ -41,13 +42,20 @@ def assert_objects_exist(source_bucket, file_id):
 
 def validate_formats(bucket, s3_key):
     response = s3_client.get_object(Bucket=bucket, Key=s3_key)
-    uuid_content = json.loads(response['Body'])['UUID']
+    json_content = json.loads(response['Body'])
+    uuid_content = json_content['UUID']
     try:
         uuid_object = uuid.UUID(uuid_content)
-        return True
     except ValueError:
         raise Exception(f"Unable to parse UUID, '{uuid_content}'. Invalid format")
 
+    transfer_initiated_date_content = json_content['TransferInitiatedDatetime']
+    try:
+        transfer_initiated_date =  datetime.strptime(transfer_initiated_date_content, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        raise Exception(f"Unable to parse date, '{transfer_initiated_date_content}'. Invalid format")
+
+    return True
 
 def validate_metadata(bucket, s3_key):
     validate_mandatory_fields_exist(bucket, s3_key)
