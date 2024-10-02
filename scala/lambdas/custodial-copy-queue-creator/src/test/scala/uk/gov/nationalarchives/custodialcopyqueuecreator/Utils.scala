@@ -41,7 +41,7 @@ object Utils:
   def sqsClient(sqsMessagesRef: Ref[IO, Map[String, List[SQSMessage]]]): DASQSClient[IO] = new DASQSClient[IO]:
     override def sendMessage[T <: Product](
         queueUrl: String
-    )(message: T, potentialFifoQueueConfiguration: Option[FifoQueueConfiguration])(using enc: Encoder[T]): IO[SendMessageResponse] = sqsMessagesRef
+    )(message: T, potentialFifoQueueConfiguration: Option[FifoQueueConfiguration], delaySeconds: Int)(using enc: Encoder[T]): IO[SendMessageResponse] = sqsMessagesRef
       .update { messagesMap =>
         val newMessage = new SQSMessage()
         newMessage.setBody(message.asJson.noSpaces)
