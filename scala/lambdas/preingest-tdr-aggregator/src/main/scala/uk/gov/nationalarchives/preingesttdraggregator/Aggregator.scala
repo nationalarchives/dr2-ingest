@@ -15,12 +15,12 @@ import org.typelevel.log4cats.slf4j.Slf4jFactory
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.NewGroupReason.*
-import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{Input, SFNArguments}
+import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{Input, OutputArguments}
 import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.*
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
 import uk.gov.nationalarchives.utils.Generators
-import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
+import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASQSClient}
 
 import java.net.URI
 import java.time.Instant
@@ -29,13 +29,13 @@ import java.util.UUID
 trait Aggregator[F[_]]:
 
   def aggregate(config: Config, atomicCell: AtomicCell[F, Map[String, Group]], messages: List[SQSMessage], remainingTimeInMillis: Int)(using
-      Encoder[SFNArguments],
-      Decoder[Input]
+                                                                                                                                       Encoder[OutputArguments],
+                                                                                                                                       Decoder[Input]
   ): F[List[Outcome[F, Throwable, Unit]]]
 
 object Aggregator:
 
-  given Encoder[SFNArguments] = (a: SFNArguments) =>
+  given Encoder[OutputArguments] = (a: OutputArguments) =>
     Json.fromJsonObject(
       JsonObject(
         ("groupId", Json.fromString(a.groupId.groupValue)),
@@ -45,16 +45,31 @@ object Aggregator:
       )
     )
 
-  case class Input(id: UUID, location: URI)
+  sealed trait Input:
+    def id: String | UUID
+  private case class TdrInput(id: UUID, location: URI) extends Input
+  private case class CustodialCopyInput(id: String, deleted: Boolean) extends Input
 
-  case class SFNArguments(groupId: GroupId, batchId: BatchId, waitFor: Seconds, retryCount: Int = 0)
+  given Decoder[Input] = (c: HCursor) =>
+    if c.keys.map(_.toList).getOrElse(Nil).contains("location") then
+      for {
+        id <- c.downField("id").as[String]
+        location <- c.downField("location").as[String]
+      } yield TdrInput(UUID.fromString(id), URI.create(location))
+    else
+      for {
+        id <- c.downField("id").as[String]
+        deleted <- c.downField("deleted").as[Boolean]
+      } yield CustodialCopyInput(id, deleted)
+
+  case class OutputArguments(groupId: GroupId, batchId: BatchId, waitFor: Seconds, retryCount: Int = 0)
 
   enum NewGroupReason:
     case NoExistingGroup, ExpiryBeforeLambdaTimeout, MaxGroupSizeExceeded
 
   def apply[F[_]: Async](using ev: Aggregator[F]): Aggregator[F] = ev
 
-  given aggregator[F[_]: Async: DASFNClient: DADynamoDBClient: Parallel](using Generators): Aggregator[F] = new Aggregator[F]:
+  given aggregator[F[_]: Async: DASFNClient: DADynamoDBClient: Parallel: DASQSClient](using Generators): Aggregator[F] = new Aggregator[F]:
     private val logger: SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger
 
     private def logWithReason(sourceId: String)(newGroupReason: NewGroupReason): F[Unit] =
@@ -76,20 +91,25 @@ object Aggregator:
       )
     }
 
-    private def startNewGroup(sourceId: String, config: Config, groupExpiryTime: Milliseconds)(using
-        sfnClient: DASFNClient[F],
-        enc: Encoder[SFNArguments]
+    private def startNewGroup(sourceId: String, config: Config, groupExpiryTime: Milliseconds)(using enc: Encoder[OutputArguments],
+                                                                                               sfnClient: DASFNClient[F],
+                                                                                               sqsClient: DASQSClient[F]
     ): F[Group] = {
       val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
       val groupId: GroupId = GroupId(config.sourceSystem)
       val batchId = BatchId(groupId)
-      sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
-        Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
-      }
+      val group = Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
+      val outputArguments = OutputArguments(groupId, batchId, waitFor)
+      if config.sfnArn.isDefined then
+        sfnClient.startExecution(config.sfnArn.get, outputArguments, batchId.batchValue.some).map(_ => group)
+      else if config.outputQueue.isDefined then
+        sqsClient.sendMessage(config.outputQueue.get)(outputArguments, delaySeconds = waitFor.length).map(_ => group)
+      else
+        Async[F].raiseError(new Exception("Either the SFN Arn or SQS queue url must be set"))
     }
 
     private def getNewOrExistingGroupId(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds)(using
-        Encoder[SFNArguments]
+        Encoder[OutputArguments]
     ): F[GroupId] = {
       def log = logWithReason(sourceId)
       val groupExpiryTime: Milliseconds = lambdaTimeoutTime + config.maxSecondaryBatchingWindow.toMilliSeconds
@@ -107,8 +127,8 @@ object Aggregator:
     }
 
     override def aggregate(config: Config, atomicCell: AtomicCell[F, Map[String, Group]], messages: List[SQSMessage], remainingTimeInMillis: Int)(using
-        Encoder[SFNArguments],
-        Decoder[Input]
+                                                                                                                                                  Encoder[OutputArguments],
+                                                                                                                                                  Decoder[Input]
     ): F[List[Outcome[F, Throwable, Unit]]] = {
       val lambdaTimeoutTime = (Generators().generateInstant.toEpochMilli + remainingTimeInMillis).milliSeconds
       for {

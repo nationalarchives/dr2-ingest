@@ -14,8 +14,9 @@ import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.*
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.*
-import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
+import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASQSClient}
 import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
+
 import java.net.URI
 import java.time.Instant
 import java.util.UUID
@@ -29,6 +30,7 @@ class Lambda extends RequestHandler[SQSEvent, Unit]:
 
   given DASFNClient[IO] = DASFNClient[IO]()
   given DADynamoDBClient[IO] = DADynamoDBClient[IO]()
+  given DASQSClient[IO] = DASQSClient[IO]()
 
   override def handleRequest(input: SQSEvent, context: Context): Unit =
     ConfigSource.default
@@ -44,4 +46,4 @@ object Lambda:
 
   given ConfigReader[Seconds] = (cur: ConfigCursor) => cur.asInt.map(i => i.seconds)
 
-  case class Config(lockTable: String, sourceSystem: String, sfnArn: String, maxSecondaryBatchingWindow: Seconds, maxBatchSize: Int) derives ConfigReader
+  case class Config(lockTable: String, sourceSystem: String, sfnArn: Option[String], outputQueue: Option[String], maxSecondaryBatchingWindow: Seconds, maxBatchSize: Int) derives ConfigReader

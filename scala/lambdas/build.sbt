@@ -21,10 +21,20 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestUpsertArchiveFolders,
     ingestWorkflowMonitor,
     preingestTdrAggregator,
+    custodialCopyAggregator,
     preIngestTdrPackageBuilder,
     preservicaConfig,
     rotatePreservationSystemPassword,
     startWorkflow
+  )
+
+lazy val aggregatorSettings =
+  Seq(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      sfnClient,
+      sqsClient
+    )
   )
 
 lazy val commonSettings = Seq(
@@ -255,13 +265,9 @@ lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-bu
 
 lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
   .settings(commonSettings)
+  .settings(aggregatorSettings)
   .dependsOn(utils)
-  .settings(
-    libraryDependencies ++= Seq(
-      dynamoClient,
-      sfnClient
-    )
-  )
+
 
 lazy val custodialCopyQueueCreator = (project in file("custodial-copy-queue-creator"))
   .settings(commonSettings)
@@ -273,6 +279,15 @@ lazy val custodialCopyQueueCreator = (project in file("custodial-copy-queue-crea
     )
   )
 
+lazy val custodialCopyAggregator = (project in file("custodial-copy-aggregator"))
+  .settings(aggregatorSettings)
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(
+    target := baseDirectory.value / "target" /"custodial-copy-aggregator",
+    assembly / assemblyOutputPath := file(s"target/outputs/custodial-copy-aggregator"),
+    baseDirectory := (preingestTdrAggregator / baseDirectory).value
+  )
 
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)

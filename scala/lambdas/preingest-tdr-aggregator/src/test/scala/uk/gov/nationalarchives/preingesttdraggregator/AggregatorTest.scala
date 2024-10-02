@@ -36,7 +36,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
   given DADynamoDBClient[IO] = DADynamoDBClient[IO]()
   val instant: Instant = Instant.ofEpochSecond(1723559947)
 
-  case class StartExecutionArgs(stateMachineArn: String, sfnArguments: SFNArguments, name: Option[String])
+  case class StartExecutionArgs(stateMachineArn: String, sfnArguments: OutputArguments, name: Option[String])
 
   def dynamoClient(ref: Ref[IO, List[DADynamoDbWriteItemRequest]], failWrite: Boolean): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
     override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = IO.pure(Nil)
@@ -85,7 +85,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
   def sfnClient(ref: Ref[IO, List[StartExecutionArgs]], sfnError: Boolean): DASFNClient[IO] = new DASFNClient[IO]:
     override def startExecution[T <: Product](stateMachineArn: String, input: T, name: Option[String])(using enc: Encoder[T]): IO[StartExecutionResponse] =
       if sfnError then IO.raiseError(new Exception("Error starting step function"))
-      else ref.update(args => StartExecutionArgs(stateMachineArn, input.asInstanceOf[SFNArguments], name) :: args).map(_ => StartExecutionResponse.builder.build)
+      else ref.update(args => StartExecutionArgs(stateMachineArn, input.asInstanceOf[OutputArguments], name) :: args).map(_ => StartExecutionResponse.builder.build)
 
   private def getAggregatorOutput(
       assetId: UUID,
