@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contains": {
+    "title": "At least one top-level entry in the JSON",
+    "description": "There must be at least one object in the JSON that has both a series and a parent that is null",
+    "properties": {
+      "parentId": {
+        "type": "null",
+        "const": null
+      },
+      "series": true
+    },
+    "required": [
+      "series",
+      "parentId"
+    ]
+  },
+  "minContains": 1
+}
