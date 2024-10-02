@@ -7,7 +7,6 @@ import boto3
 import botocore
 import jsonschema
 from botocore.exceptions import ClientError
-from samba.dcerpc.dcerpc import response
 from jsonschema import validate
 from tdr_json_schema import incoming_schema
 
