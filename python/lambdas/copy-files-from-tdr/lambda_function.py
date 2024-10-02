@@ -59,10 +59,6 @@ def validate_formats(bucket, s3_key):
     if not series.strip():
         raise Exception(f"Empty series value, unable to proceed")
 
-    consignment_reference = json_content['ConsignmentReference']
-    if not consignment_reference.strip():
-        raise Exception(f"Empty consignment reference value, unable to proceed")
-
     return True
 
 def validate_metadata(bucket, s3_key):
