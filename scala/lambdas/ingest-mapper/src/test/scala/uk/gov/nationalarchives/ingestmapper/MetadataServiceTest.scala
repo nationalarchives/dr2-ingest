@@ -118,7 +118,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
            |]
            |""".stripMargin.replaceAll("\n", "")
           val s3 = mockS3(metadata)
-          val input = Input(batchId, URI.create("s3://bucket/prefix/metadata.json"))
+          val input = Input(batchId, URI.create("s3://bucket/prefix/metadata.json"), "executionName")
           val discoveryService = mock[DiscoveryService]
           def createCollectionAsset(obj: Obj) =
             Option(DiscoveryCollectionAsset(obj("name").str, DiscoveryScopeContent(obj("description").str), obj("title").str))
