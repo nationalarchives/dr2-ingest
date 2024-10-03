@@ -177,7 +177,7 @@ class MetadataJsonValueValidator {
                               HierarchyLinkingError(idThatMightBelongToAnEntry, "The parentId is for an object of type 'Asset'").invalidNel[Value]
                             case ContentFolderEntry(_) if List("ArchiveFolderEntry", "FileEntry", "MetadataFileEntry", "UnknownFileTypeEntry").contains(typeOfEntryAsString) =>
                               HierarchyLinkingError(idThatMightBelongToAnEntry, "The parentId is for an object of type 'ContentFolder'").invalidNel[Value]
-                            case ArchiveFolderEntry(_) if List("AssetEntry", "FileEntry", "MetadataFileEntry", "UnknownFileTypeEntry").contains(typeOfEntryAsString) =>
+                            case ArchiveFolderEntry(_) if List("FileEntry", "MetadataFileEntry", "UnknownFileTypeEntry").contains(typeOfEntryAsString) =>
                               HierarchyLinkingError(idThatMightBelongToAnEntry, "The parentId is for an object of type 'ArchiveFolder'").invalidNel[Value]
                             case _ => parentIdNel
                           }
