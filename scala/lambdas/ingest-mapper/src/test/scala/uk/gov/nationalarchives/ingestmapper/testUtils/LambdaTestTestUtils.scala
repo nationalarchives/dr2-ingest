@@ -1,22 +1,22 @@
 package uk.gov.nationalarchives.ingestmapper.testUtils
 
 import cats.effect.{IO, Ref}
-import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock.*
 import fs2.interop.reactivestreams.*
 import org.mockito.Mockito.*
 import org.reactivestreams.Publisher
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scanamo.DynamoFormat
+import org.scanamo.request.RequestCondition
+import reactor.core.publisher.Flux
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.core.async.SdkPublisher
-import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import software.amazon.awssdk.services.s3.S3AsyncClient
+import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3.SttpBackend
+import ujson.Obj
 import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
 import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, Dependencies, Input}
 import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.*
@@ -29,7 +29,7 @@ import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.UUID
 
-class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer, s3Prefix: String = "TEST/") extends TableDrivenPropertyChecks {
+class LambdaTestTestUtils(s3Prefix: String = "TEST/") extends TableDrivenPropertyChecks {
   val inputBucket = "input"
   val uuids: List[String] = List(
     "c7e6b27f-5778-4da8-9b83-1b64bbccbd03",
@@ -40,9 +40,17 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
   val config: Config = Config("test", "http://localhost:9015", "testInputStateBucket")
   val input: Input = Input("TEST", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"), "executionName")
 
-  type DynamoResponse = (UUID, UUID, UUID, UUID, List[String], List[String])
+  case class Identifiers(
+      folderIdentifier: UUID,
+      assetIdentifier: UUID,
+      docxIdentifier: UUID,
+      metadataFileIdentifier: UUID,
+      originalFiles: List[String],
+      originalMetadataFilesOne: List[String]
+  )
+  case class MetadataResponse(metadata: String, identifiersOne: Identifiers, identifiersTwo: Identifiers)
 
-  def stubValidNetworkRequests(dynamoTable: String = "test"): (DynamoResponse, DynamoResponse) = {
+  def getMetadata: MetadataResponse = {
     val folderIdentifierOne = UUID.randomUUID()
     val folderIdentifierTwo = UUID.randomUUID()
     val assetIdentifierOne = UUID.randomUUID()
@@ -86,58 +94,22 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
          |{"id":"$metadataFileIdentifierTwo","parentId":"$assetIdentifierTwo","title":"","type":"File","name":"TEST-metadata.json","fileSize":2}]
          |""".stripMargin.replaceAll("\n", "")
 
-    stubNetworkRequests(dynamoTable, metadata)
-    (
-      (folderIdentifierOne, assetIdentifierOne, docxIdentifierOne, metadataFileIdentifierOne, originalFilesOne, originalMetadataFilesOne),
-      (folderIdentifierTwo, assetIdentifierTwo, docxIdentifierTwo, metadataFileIdentifierTwo, originalFilesTwo, originalMetadataFilesTwo)
+    MetadataResponse(
+      metadata,
+      Identifiers(folderIdentifierOne, assetIdentifierOne, docxIdentifierOne, metadataFileIdentifierOne, originalFilesOne, originalMetadataFilesOne),
+      Identifiers(folderIdentifierTwo, assetIdentifierTwo, docxIdentifierTwo, metadataFileIdentifierTwo, originalFilesTwo, originalMetadataFilesTwo)
     )
   }
 
-  def stubInvalidNetworkRequests(dynamoTable: String = "test"): Unit = {
-    val metadata: String = "{}"
-
-    val manifestData: String = ""
-
-    stubNetworkRequests(dynamoTable, metadata)
-  }
-
-  private def stubNetworkRequests(dynamoTableName: String = "test", metadata: String): Unit = {
-    dynamoServer.stubFor(
-      post(urlEqualTo("/"))
-        .withRequestBody(matchingJsonPath("$.RequestItems", containing(dynamoTableName)))
-        .willReturn(ok())
-    )
-
-    List(
-      ("metadata.json", metadata)
-    ).map { case (name, responseCsv) =>
-      s3Server.stubFor(
-        head(urlEqualTo(s"/TEST/$name"))
-          .willReturn(
-            ok()
-              .withHeader("Content-Length", responseCsv.getBytes.length.toString)
-              .withHeader("ETag", "abcde")
-          )
-      )
-      s3Server.stubFor(
-        get(urlEqualTo(s"/TEST/$name"))
-          .willReturn(ok.withBody(responseCsv.getBytes))
-      )
-    }
-  }
-
-  def checkDynamoItems(tableRequestItems: List[DynamoTableItem], expectedTable: DynamoFilesTableItem): Unit = {
+  def checkDynamoItems(tableRequestItems: List[Obj], expectedTable: DynamoFilesTableItem): Unit = {
     val items = tableRequestItems
-      .filter(_.PutRequest.Item.items("id").asInstanceOf[DynamoSRequestField].S == expectedTable.id.toString)
-      .map(_.PutRequest.Item)
+      .filter(item => item("id").str == expectedTable.id.toString)
+
     items.size should equal(1)
-    val dynamoFieldItems = items.head.items
-    def list(name: String): List[String] = dynamoFieldItems
-      .get(name)
-      .map(_.asInstanceOf[DynamoLRequestField].L)
-      .getOrElse(Nil)
-    def num(name: String) = dynamoFieldItems.get(name).map(_.asInstanceOf[DynamoNRequestField].N)
-    def strOpt(name: String) = dynamoFieldItems.get(name).map(_.asInstanceOf[DynamoSRequestField].S)
+    val item = items.head
+    def list(name: String): List[String] = item.value.get(name).map(_.arr.toList.map(_.str)).getOrElse(Nil)
+    def num(name: String) = item.value.get(name).flatMap(_.numOpt).map(_.toLong)
+    def strOpt(name: String) = item.value.get(name).map(_.str)
     def str(name: String) = strOpt(name).getOrElse("")
     str("id") should equal(expectedTable.id.toString)
     str("name") should equal(expectedTable.name)
@@ -155,28 +127,17 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
     list("originalMetadataFiles") should equal(expectedTable.originalMetadataFiles)
   }
 
-  def dependencies(discoveryServiceException: Boolean = false, ref: Ref[IO, List[(String, String)]]): Dependencies = {
+  def dependencies(s3Ref: Ref[IO, List[S3Object]], dynamoRef: Ref[IO, List[Obj]], discoveryServiceException: Boolean = false): Dependencies = {
     val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
-    val asyncS3Client: S3AsyncClient = S3AsyncClient
-      .crtBuilder()
-      .endpointOverride(URI.create("http://localhost:9008"))
-      .credentialsProvider(creds)
-      .region(Region.EU_WEST_2)
-      .build()
-    val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
-      .builder()
-      .endpointOverride(URI.create("http://localhost:9009"))
-      .region(Region.EU_WEST_2)
-      .credentialsProvider(creds)
-      .build()
     val uuidsIterator: Iterator[String] = uuids.iterator
     val randomUuidGenerator: () => UUID = () => UUID.fromString(uuidsIterator.next())
     val mockBackend = mock[SttpBackend[IO, Fs2Streams[IO]]]()
     val discoveryService = MockDiscoveryService(config.discoveryApiUrl, mockBackend, randomUuidGenerator, discoveryServiceException)
-    val metadataService: MetadataService = new MetadataService(DAS3Client[IO](asyncS3Client), discoveryService)
-    val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO](asyncDynamoClient)
+    val dynamo = mockDynamoClient(dynamoRef)
+    val s3Client = mocks3Client(s3Ref)
+    val metadataService: MetadataService = new MetadataService(s3Client, discoveryService)
     val fixedTime = () => Instant.parse("2024-01-01T00:00:00.00Z")
-    Dependencies(metadataService, dynamo, mocks3Client(ref), fixedTime)
+    Dependencies(metadataService, dynamo, mocks3Client(s3Ref), fixedTime)
   }
 
   case class MockDiscoveryService(discoveryApiUrl: String, backend: SttpBackend[IO, Fs2Streams[IO]], randomUuidGenerator: () => UUID, discoveryServiceException: Boolean)
@@ -193,22 +154,47 @@ class LambdaTestTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer
         IO.pure(DepartmentAndSeriesCollectionAssets(Option(generateDiscoveryCollectionAsset(department)), Option(generateDiscoveryCollectionAsset(series.get))))
   }
 
-  def mocks3Client(ref: Ref[IO, List[(String, String)]]): DAS3Client[IO] =
+  case class S3Object(bucket: String, key: String, fileContent: String)
+
+  def mockDynamoClient(ref: Ref[IO, List[Obj]]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
+    override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = ???
+
+    override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = ???
+
+    override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] =
+      IO.raiseWhen(tableName == "invalid")(new Exception("Table invalid does not exist")) >>
+        ref
+          .update { requests =>
+            requests ++ items.map(_.asInstanceOf[Obj])
+          }
+          .map(_ => List(BatchWriteItemResponse.builder.build))
+
+    override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] = ???
+
+    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] = ???
+
+    override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = ???
+
+  def mocks3Client(ref: Ref[IO, List[S3Object]]): DAS3Client[IO] =
     new DAS3Client[IO]():
-      val s3KeysAndFileContentRef: Ref[IO, List[(String, String)]] = ref
-      override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = ???
+      override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = ref.get.flatMap { objects =>
+        IO.fromOption {
+          objects
+            .find(obj => obj.bucket == bucket && obj.key == key)
+            .map(obj => Flux.just(ByteBuffer.wrap(obj.fileContent.getBytes)))
+        }(new Exception(s"Key $key not found in bucket $bucket"))
+      }
 
       override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = ???
 
       override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] = for {
         _ <- IO(assert(bucket == "testInputStateBucket"))
-        _ <- s3KeysAndFileContentRef.update(s3KeysAndFileContent => ("keys" -> key) :: s3KeysAndFileContent)
         actualUploadedJson <- publisher
           .toStreamBuffered[IO](1024)
           .map(_.array().map(_.toChar).mkString)
           .compile
           .string
-        _ <- s3KeysAndFileContentRef.update(s3KeysAndFileContent => ("fileContent" -> actualUploadedJson) :: s3KeysAndFileContent)
+        _ <- ref.update(s3Objects => S3Object(bucket, key, actualUploadedJson) :: s3Objects)
 
       } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build
 
