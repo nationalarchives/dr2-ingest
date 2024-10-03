@@ -48,7 +48,6 @@
     }
   },
   "required": [
-    "id_Code",
     "id",
     "parentId",
     "title",

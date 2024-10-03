@@ -41,7 +41,7 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     ("ArchiveFolder, ContentFolder, Asset and Files", Map(0 -> 4, 1 -> 4, 2 -> 4, 3 -> 4, 4 -> 3), "File"),
     ("ArchiveFolder, ContentFolder, Asset", Map(0 -> 2, 1 -> 2, 2 -> 5), "Asset"), // index 5 refers to a new Asset that will be appended in the test
     ("ArchiveFolder and Files", Map(0 -> 1, 3 -> 1, 4 -> 1), "ContentFolder"),
-    ("Asset and Files", Map(2 -> 0, 3 -> 0, 4 -> 0), "ArchiveFolder")
+    ("Files", Map(3 -> 0, 4 -> 0), "ArchiveFolder")
   )
 
   private val entryTypesThatCanHaveNoParent: TableFor1[String] = Table("entryType", "ArchiveFolder", "ContentFolder", "Asset")
