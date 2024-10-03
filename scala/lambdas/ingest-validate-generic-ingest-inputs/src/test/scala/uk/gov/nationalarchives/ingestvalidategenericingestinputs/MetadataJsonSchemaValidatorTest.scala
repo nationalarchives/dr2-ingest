@@ -287,8 +287,9 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
         val entryWithoutAnyRequiredFields = Obj()
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithoutAnyRequiredFields).unsafeRunSync()
         val entryKeys = testValidMetadataJson().collect { case entry if entry(entryType).str == entryTypeSchema.toString => entry.value.keys }.head
+        val optionalProperties = List("checksum_sha256", "series", "id_URI", "id_Code")
         val expectedValidatedJsonObject = entryKeys.collect {
-          case key if !List("checksum_sha256", "series", "id_URI").contains(key) =>
+          case key if !optionalProperties.contains(key) =>
             key -> MissingPropertyError(key, s"$$: required property '$key' not found").invalidNel[Value]
         }.toMap
         validatedJsonObjectAsMap should equal(sortJsonObjectByFieldName(expectedValidatedJsonObject))
