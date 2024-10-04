@@ -1,17 +1,17 @@
-import os
 import json
+import os
+import re
 import uuid
-from datetime import datetime
 
 import boto3
 import botocore
 import jsonschema
 from botocore.exceptions import ClientError
 from jsonschema import validate
-from tdr_json_schema import incoming_schema
 
 s3_client = boto3.client('s3')
 sqs_client = boto3.client('sqs')
+
 
 def lambda_handler(event, context):
     destination_bucket = os.environ["DESTINATION_BUCKET"]
@@ -19,63 +19,64 @@ def lambda_handler(event, context):
     for record in event['Records']:
         body = json.loads(record['body'])
         file_id = body['fileId']
+        metadata_file_id = f"{file_id}.metadata"
         source_bucket = body['bucket']
-        assert_objects_exist(source_bucket, file_id)
-        validate_metadata(source_bucket, f"{file_id}.metadata")
-        file_location = copy_object_to_s3(destination_bucket, file_id, source_bucket)
-        copy_object_to_s3(destination_bucket, f"{file_id}.metadata", source_bucket)
+        files = [file_id, metadata_file_id]
+        assert_objects_exist_in_bucket(source_bucket, files)
+        validate_metadata(source_bucket, metadata_file_id)
+        file_location = copy_objects(destination_bucket, file_id, source_bucket)
+        copy_objects(destination_bucket, metadata_file_id, source_bucket)
         sqs_body = json.dumps({'id': file_id, 'location': file_location})
         sqs_client.send_message(QueueUrl=destination_queue, MessageBody=sqs_body)
 
-def assert_objects_exist(source_bucket, file_id):
-    try:
-        s3_client.head_object(source_bucket, file_id)
-    except botocore.exceptions.ClientError as ex:
-        raise Exception(f"Object {file_id} does not exist, underlying error is: {ex}")
 
-    try:
-        s3_client.head_object(source_bucket, f"{file_id}.metadata")
-    except botocore.exceptions.ClientError as ex:
-        raise Exception(f"Object {file_id}.metadata does not exist, underlying error is: {ex}")
+def assert_objects_exist_in_bucket(source_bucket, files):
+    for file in files:
+        try:
+            s3_client.head_object(source_bucket, file)
+        except botocore.exceptions.ClientError as ex:
+            raise Exception(f"Object '{file}' does not exist in '{source_bucket}', underlying error is: '{ex}'")
 
-
-def validate_formats(bucket, s3_key):
-    response = s3_client.get_object(Bucket=bucket, Key=s3_key)
-    json_content = json.loads(response['Body'])
-    uuid_content = json_content['UUID']
-    try:
-        uuid_object = uuid.UUID(uuid_content)
-    except ValueError:
-        raise Exception(f"Unable to parse UUID, '{uuid_content}'. Invalid format")
-
-    transfer_initiated_date_content = json_content['TransferInitiatedDatetime']
-    try:
-        transfer_initiated_date =  datetime.strptime(transfer_initiated_date_content, "%Y-%m-%d %H:%M:%S")
-    except ValueError:
-        raise Exception(f"Unable to parse date, '{transfer_initiated_date_content}'. Invalid format")
-
-    series = json_content['Series']
-    if not series.strip():
-        raise Exception(f"Empty series value, unable to proceed")
-
-    return True
 
 def validate_metadata(bucket, s3_key):
-    validate_mandatory_fields_exist(bucket, s3_key)
-    validate_formats(bucket, s3_key)
-
-def validate_mandatory_fields_exist(bucket, s3_key):
     response = s3_client.get_object(Bucket=bucket, Key=s3_key)
-    json_content = response['Body']
-    data = json.loads(json_content)
+    validate_mandatory_fields_exist(response)
+    validate_formats(response, bucket, s3_key)
+
+
+def validate_mandatory_fields_exist(get_object_response):
+    json_metadata = json.loads(get_object_response['Body'])
     try:
-        validate(data, incoming_schema)
+        validate(json_metadata, metadata_schema)
     except jsonschema.exceptions.ValidationError as err:
         raise Exception(err.message)
 
     return True
 
-def copy_object_to_s3(destination_bucket, s3_key, source_bucket):
+
+def validate_formats(get_object_response, bucket, s3_key):
+    json_metadata = json.loads(get_object_response['Body'])
+    uuid_content = json_metadata['UUID']
+    try:
+        uuid.UUID(uuid_content)
+    except ValueError:
+        raise Exception(
+            f"Unable to parse UUID, '{uuid_content}' from file '{s3_key}' in bucket '{bucket}'. Invalid format")
+
+    series = json_metadata['Series']
+    if not series.strip():
+        raise Exception(f"Empty Series value in file '{s3_key}' in bucket '{bucket}'. Unable to proceed")
+
+    #FIXME, Can we use this regex pattern? The test series MOCK1 123 fails this pattern
+    # pattern = "^([A-Z]{1,4} [1-9][0-9]{0,3})"
+    # match = re.match(pattern, series)
+    # if not match:
+    #     raise Exception("FIXME")
+
+    return True
+
+
+def copy_objects(destination_bucket, s3_key, source_bucket):
     try:
         copy_source = {'Bucket': source_bucket, 'Key': s3_key}
         s3_client.copy(copy_source, destination_bucket, s3_key)
@@ -83,3 +84,14 @@ def copy_object_to_s3(destination_bucket, s3_key, source_bucket):
     except Exception as e:
         print(f"Error during copy of {s3_key} from {source_bucket} to {destination_bucket}: {e}")
         raise e
+
+
+metadata_schema = {
+    "type": "object",
+    "properties": {
+        "Series": {"type": "string"},
+        "UUID": {"type": "string"},
+        "TransferInitiatedDatetime": {"type": "string"}
+    },
+    "required": ["Series", "UUID", "TransferInitiatedDatetime"],
+}
