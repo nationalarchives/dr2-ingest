@@ -2,7 +2,7 @@
 
 Ingesting to the Preservation System is orchestrated by a single AWS Step Function. Our process expects a single JSON file defining the ingest package and referencing objects in S3 buckets our process can read from. Our process will then load this data into a DynamoDB table, modify entities in the Preservation System using the REST API, assemble a package for ingest into the Preservation System, monitor the ingest, and reconcile the ingested with the source.
 
-```mermaidjs
+```mermaid
 flowchart LR;
     Start([Start])
     --> Validate[Validate]
@@ -71,7 +71,7 @@ We change to using `parentPath` when writing to DynamoDB to benefit from queryin
 Both when creating or updating a folder, identifiers are passed through into the Preservation System’s native Identifier feature. Any field prefixed with id_, will create or update the identifier of that type. E.g. id_Code will become the Code identifier within the Preservation System. This has been implemented as the values of identifiers can be dependent on upstream system - court documents have a Cite identifier which other document types do not, court documents also exist in a “case folder” with a custom Code identifier.
 
 ### Asset OPEX Creation
-```mermaidjs
+```mermaid
 flowchart LR;
     subgraph Map over each asset
         1[Task: Find existing assts] --> 2
