@@ -1,7 +1,22 @@
-# DR2 Ingest Lambdas
+# Digital Records Repository
 
-This is a monorepo which contains [multiple sbt subprojects](https://www.scala-sbt.org/1.x/docs/Multi-Project.html). 
-Each subproject is a different lambda.
+//TODO: Paragraph introducing DR2
+
+![Diagram of DR2 components in AWS](/docs/images/dr2-diagram.png)
+
+This project consists of multiple repositories:
+- [dr2-preservica-client](https://github.com/nationalarchives/dr2-preservica-client) contains a wrapper library for the Preservica API, designed to abstract Preservation System specific features from our business logic.
+- [nationalarchives/dr2-custodial-copy](https://github.com/nationalarchives/dr2-custodial-copy) contains the source code for the Custodial Copy Service. A service designed to run on-premise as an extracted decoupled copy of all digital files and metadata.
+- [nationalarchives/dr2-ingest](https://github.com/nationalarchives/dr2-ingest) (this one) contains the source code for the Lambda functions within DR2.
+- [nationalarchives/dr2-terraform-environments](https://github.com/nationalarchives/dr2-terraform-environments) contains the Terraform infrastructure as code for our AWS environment.
+
+For documentation, see [`docs/README.md`](./docs/README.md).
+
+## dr2-ingest
+
+This is a monorepo which contains the source code for the Lambda functions within DR2. We have adopted a practice of using the approapiate language for the task, hence this repository contains Lambda functions of multiple flavours.
+
+For our Scala Lambdas, this repository contains [multiple sbt subprojects](https://www.scala-sbt.org/1.x/docs/Multi-Project.html) where each subproject is a different Lambda.
 
 ## Deployment
 When a change is made to one subproject and merged to main, **all** lambas are deployed to the environment.
