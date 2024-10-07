@@ -180,7 +180,7 @@ class TestLambdaFunction(unittest.TestCase):
         self.assertEqual("'UUID' is a required property", str(ex.exception))
 
     @patch('lambda_function.s3_client.head_object')
-    def test_should_raise_an_exception_when_the_object_does_not_exist_in_source_bucket(self, mock_head_object):
+    def test_should_raise_an_exception_when_the_file_does_not_exist_in_source_bucket(self, mock_head_object):
         error_response = {
             'Error': {
                 'Code': '404',
