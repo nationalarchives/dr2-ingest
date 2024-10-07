@@ -1,75 +1,93 @@
 package uk.gov.nationalarchives.ingestmapper
 
 import cats.effect.unsafe.implicits.global
-import com.github.tomakehurst.wiremock.WireMockServer
+import cats.effect.{IO, Ref}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatestplus.mockito.MockitoSugar
+import ujson.Obj
 import uk.gov.nationalarchives.ingestmapper.Lambda.*
-import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
 import uk.gov.nationalarchives.ingestmapper.testUtils.LambdaTestTestUtils
-import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.{DynamoRequestBody, DynamoFilesTableItem}
-import upickle.default.*
+import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.DynamoFilesTableItem
 
+import java.net.URI
 import java.util.UUID
-import scala.jdk.CollectionConverters.ListHasAsScala
 
 class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
 
-  override def beforeEach(): Unit = {
-    dynamoServer.start()
-    s3Server.start()
-  }
+  "handler" should "return the correct values from the lambda and upload the correct number of files and content to S3" in {
+    val testUtils = new LambdaTestTestUtils()
+    import testUtils.*
+    val metadataResponse = getMetadata
 
-  override def afterEach(): Unit = {
-    dynamoServer.resetAll()
-    dynamoServer.stop()
-    s3Server.resetAll()
-    s3Server.stop()
-  }
+    val (stateOutput, s3Objects) = (for {
+      s3Ref <- Ref.of[IO, List[S3Object]](List(S3Object("input", "TEST/metadata.json", metadataResponse.metadata)))
+      dynamoRef <- Ref.of[IO, List[Obj]](Nil)
+      deps = dependencies(s3Ref, dynamoRef)
+      stateData <- new Lambda().handler(input, config, deps)
+      s3Objects <- s3Ref.get
+    } yield (stateData, s3Objects)).unsafeRunSync()
 
-  val s3Server = new WireMockServer(9008)
-  val dynamoServer = new WireMockServer(9009)
+    stateOutput.batchId should be("TEST")
+    stateOutput.metadataPackage should be(URI.create(s"s3://input/TEST/metadata.json"))
+    stateOutput.assets.bucket should be("testInputStateBucket")
+    stateOutput.assets.key should be("executionName/assets.json")
+    stateOutput.folders.bucket should be("testInputStateBucket")
+    stateOutput.folders.key should be("executionName/folders.json")
 
-  "handler" should "return the correct values from the lambda" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
-    import testUtils._
-    val ((folderIdentifierOne, assetIdentifierOne, _, _, _, _), (folderIdentifierTwo, assetIdentifierTwo, _, _, _, _)) = stubValidNetworkRequests()
+    val assetsFileContent = s3Objects.head.fileContent
+    val foldersFileContent = s3Objects(1).fileContent
 
-    val stateData = new Lambda().handler(input, config, dependencies()).unsafeRunSync()
-    val archiveFolders = stateData.archiveHierarchyFolders
+    s3Objects.map(_.key).filter(_.startsWith("executionName")) should be(List("executionName/assets.json", "executionName/folders.json"))
+
+    val assetIdentifierOne = metadataResponse.identifiersOne.assetIdentifier
+    val assetIdentifierTwo = metadataResponse.identifiersTwo.assetIdentifier
+    val folderIdentifierOne = metadataResponse.identifiersOne.folderIdentifier
+    val folderIdentifierTwo = metadataResponse.identifiersTwo.folderIdentifier
+
+    assetsFileContent should be(s"""["$assetIdentifierOne","$assetIdentifierTwo"]""")
+    foldersFileContent should be(
+      s"""["$folderIdentifierOne","$folderIdentifierTwo","${UUID.fromString(uuids(1))}","${UUID.fromString(uuids.head)}","${UUID.fromString(uuids(2))}"]"""
+    )
+
+    // Code below will be deleted after migration to the new process
+
+    val archiveFolders = stateOutput.archiveHierarchyFolders
     archiveFolders.size should be(5)
     archiveFolders.contains(folderIdentifierOne) should be(true)
     val expectedArchiveFolders =
       List(folderIdentifierOne, folderIdentifierTwo, UUID.fromString(uuids(1)), UUID.fromString(uuids.head), UUID.fromString(uuids(2)))
     expectedArchiveFolders.sorted.equals(archiveFolders.sorted) should be(true)
 
-    stateData.contentFolders.isEmpty should be(true)
+    stateOutput.contentFolders.isEmpty should be(true)
 
-    stateData.contentAssets.size should be(2)
-    stateData.contentAssets.head should equal(assetIdentifierOne)
-    stateData.contentAssets.last should equal(assetIdentifierTwo)
+    stateOutput.contentAssets.size should be(2)
+    stateOutput.contentAssets.head should equal(assetIdentifierOne)
+    stateOutput.contentAssets.last should equal(assetIdentifierTwo)
   }
 
   "handler" should "write the correct values to dynamo" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
+    val testUtils = new LambdaTestTestUtils()
     val fixedTimeInSecs = 1712707200
-    import testUtils._
-    val (responseOne, responseTwo) = stubValidNetworkRequests()
-    new Lambda().handler(input, config, dependencies()).unsafeRunSync()
-    val dynamoRequestBodies = dynamoServer.getAllServeEvents.asScala.map(e => read[DynamoRequestBody](e.getRequest.getBodyAsString))
-    dynamoRequestBodies.length should equal(1)
-    val tableRequestItems = dynamoRequestBodies.head.RequestItems.test
+    import testUtils.*
+    val metadataResponse = getMetadata
+    val dynamoItems = (for {
+      s3Ref <- Ref.of[IO, List[S3Object]](List(S3Object("input", "TEST/metadata.json", metadataResponse.metadata)))
+      dynamoRef <- Ref.of[IO, List[Obj]](Nil)
+      deps = dependencies(s3Ref, dynamoRef)
+      _ <- new Lambda().handler(input, config, deps)
+      dynamoItems <- dynamoRef.get
+    } yield dynamoItems).unsafeRunSync()
 
-    tableRequestItems.length should equal(11)
-    case class TestResponses(dynamoResponse: DynamoResponse, uuidIndices: List[Int], series: String)
+    dynamoItems.length should equal(11)
+    case class TestResponses(dynamoResponse: Identifiers, uuidIndices: List[Int], series: String)
     List(
-      TestResponses(responseTwo, List(2, 3), "Unknown"),
-      TestResponses(responseOne, List(0, 1), "A 1")
+      TestResponses(metadataResponse.identifiersTwo, List(2, 3), "Unknown"),
+      TestResponses(metadataResponse.identifiersOne, List(0, 1), "A 1")
     ).foreach { testResponse =>
-      val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalFiles, originalMetadataFiles) = testResponse.dynamoResponse
+      val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalFiles, originalMetadataFiles) = Tuple.fromProductTyped(testResponse.dynamoResponse)
       val departmentUuid = UUID.fromString(uuids(testResponse.uuidIndices.head))
       val seriesUuid = UUID.fromString(uuids(testResponse.uuidIndices.last))
       val expectedDepartment = testResponse.series.split(" ").head
@@ -80,7 +98,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
       val topFolderPath = if seriesUnknown then departmentUuid.toString else s"$departmentUuid/$seriesUuid"
 
       checkDynamoItems(
-        tableRequestItems,
+        dynamoItems,
         DynamoFilesTableItem(
           "TEST",
           departmentUuid,
@@ -96,7 +114,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
       )
       if testResponse.series != "Unknown" then
         checkDynamoItems(
-          tableRequestItems,
+          dynamoItems,
           DynamoFilesTableItem(
             "TEST",
             seriesUuid,
@@ -111,7 +129,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
           )
         )
       checkDynamoItems(
-        tableRequestItems,
+        dynamoItems,
         DynamoFilesTableItem(
           "TEST",
           folderIdentifier,
@@ -126,7 +144,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         )
       )
       checkDynamoItems(
-        tableRequestItems,
+        dynamoItems,
         DynamoFilesTableItem(
           "TEST",
           assetIdentifier,
@@ -143,7 +161,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         )
       )
       checkDynamoItems(
-        tableRequestItems,
+        dynamoItems,
         DynamoFilesTableItem(
           "TEST",
           docxIdentifier,
@@ -160,7 +178,7 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
         )
       )
       checkDynamoItems(
-        tableRequestItems,
+        dynamoItems,
         DynamoFilesTableItem(
           "TEST",
           metadataIdentifier,
@@ -182,47 +200,64 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
   }
 
   "handler" should "return an error if the discovery api is unavailable" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
-    import testUtils._
-    stubValidNetworkRequests()
+    val testUtils = new LambdaTestTestUtils()
+    import testUtils.*
+    val metadataResponse = getMetadata
 
     val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies(true)).unsafeRunSync()
+      (for {
+        s3Ref <- Ref.of[IO, List[S3Object]](List(S3Object("input", "TEST/metadata.json", metadataResponse.metadata)))
+        dynamoRef <- Ref.of[IO, List[Obj]](Nil)
+        deps = dependencies(s3Ref, dynamoRef, discoveryServiceException = true)
+        _ <- new Lambda().handler(input, config, deps)
+      } yield ()).unsafeRunSync()
     }
 
     ex.getMessage should equal("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A")
   }
 
   "handler" should "return an error if the input files are not stored in S3" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server, s3Prefix = "INVALID/")
-    import testUtils._
-    stubValidNetworkRequests()
+    val testUtils = new LambdaTestTestUtils("INVALID/")
+    import testUtils.*
     val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies()).unsafeRunSync()
+      (for {
+        s3Ref <- Ref.of[IO, List[S3Object]](Nil)
+        dynamoRef <- Ref.of[IO, List[Obj]](Nil)
+        deps = dependencies(s3Ref, dynamoRef)
+        _ <- new Lambda().handler(input, config, deps)
+      } yield ()).unsafeRunSync()
     }
 
-    ex.getMessage.contains("(Service: S3, Status Code: 404, Request ID: null)") should equal(true)
+    ex.getMessage should equal("Key INVALID/metadata.json not found in bucket input")
   }
 
   "handler" should "return an error if the dynamo table doesn't exist" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
-    import testUtils._
-    stubValidNetworkRequests("invalidTable")
+    val testUtils = new LambdaTestTestUtils()
+    import testUtils.*
+    val metadataResponse = getMetadata
     val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies()).unsafeRunSync()
+      (for {
+        s3Ref <- Ref.of[IO, List[S3Object]](List(S3Object("input", "TEST/metadata.json", metadataResponse.metadata)))
+        dynamoRef <- Ref.of[IO, List[Obj]](Nil)
+        deps = dependencies(s3Ref, dynamoRef)
+        _ <- new Lambda().handler(input, config.copy(dynamoTableName = "invalid"), deps)
+      } yield ()).unsafeRunSync()
     }
 
-    ex.getMessage should equal("Service returned HTTP status code 404 (Service: DynamoDb, Status Code: 404, Request ID: null)")
+    ex.getMessage should equal("Table invalid does not exist")
   }
 
   "handler" should "return an error if the bag files from S3 are invalid" in {
-    val testUtils = new LambdaTestTestUtils(dynamoServer, s3Server)
-    import testUtils._
-    stubInvalidNetworkRequests()
+    val testUtils = new LambdaTestTestUtils()
+    import testUtils.*
     val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies()).unsafeRunSync()
+      (for {
+        s3Ref <- Ref.of[IO, List[S3Object]](List(S3Object("input", "TEST/metadata.json", "{}")))
+        dynamoRef <- Ref.of[IO, List[Obj]](Nil)
+        deps = dependencies(s3Ref, dynamoRef)
+        _ <- new Lambda().handler(input, config, deps)
+      } yield ()).unsafeRunSync()
     }
-
     ex.getMessage should equal("Expected ujson.Arr (data: {})")
   }
 }

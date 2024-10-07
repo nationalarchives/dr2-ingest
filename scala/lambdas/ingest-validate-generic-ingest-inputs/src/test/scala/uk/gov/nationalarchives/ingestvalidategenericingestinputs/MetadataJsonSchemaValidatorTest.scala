@@ -48,7 +48,8 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     Str("JFYE 98"),
     Str("XVFA 921"),
     Str("KFLS 7524"),
-    Str("Unknown")
+    Str("Unknown"),
+    Str("MOCK1 123")
   )
 
   private val someInvalidSeries: TableFor1[Value] = Table(
@@ -230,7 +231,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
               case "Asset" =>
                 Map(
                   "series" -> NonEmptyList(
-                    SchemaValueError("", "$.series: does not match the regex pattern ^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown)$"),
+                    SchemaValueError("", "$.series: does not match the regex pattern ^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown|MOCK1 123)$"),
                     List(SchemaValueError("", "$.series: must be at least 1 characters long"))
                   ).invalid[Value]
                 )
@@ -287,8 +288,9 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
         val entryWithoutAnyRequiredFields = Obj()
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithoutAnyRequiredFields).unsafeRunSync()
         val entryKeys = testValidMetadataJson().collect { case entry if entry(entryType).str == entryTypeSchema.toString => entry.value.keys }.head
+        val optionalProperties = List("checksum_sha256", "series", "id_URI", "id_Code")
         val expectedValidatedJsonObject = entryKeys.collect {
-          case key if !List("checksum_sha256", "series", "id_URI").contains(key) =>
+          case key if !optionalProperties.contains(key) =>
             key -> MissingPropertyError(key, s"$$: required property '$key' not found").invalidNel[Value]
         }.toMap
         validatedJsonObjectAsMap should equal(sortJsonObjectByFieldName(expectedValidatedJsonObject))
@@ -317,7 +319,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
         val expectedValidatedJson = convertUjsonObjToSchemaValidatedMap(entryWithSeriesChanged) ++ Map(
           series -> SchemaValueError(
             invalidSeries.str,
-            s"$$.$series: does not match the regex pattern ^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown)$$"
+            s"$$.$series: does not match the regex pattern ^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown|MOCK1 123)$$"
           ).invalidNel[Value]
         )
 
