@@ -5,7 +5,7 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
-import uk.gov.nationalarchives.utils.EventDecoders.given
+import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.preservicaconfig.FileProcessors.*
 import Lambda.{Config, Dependencies}
 import uk.gov.nationalarchives.dp.client.AdminClient

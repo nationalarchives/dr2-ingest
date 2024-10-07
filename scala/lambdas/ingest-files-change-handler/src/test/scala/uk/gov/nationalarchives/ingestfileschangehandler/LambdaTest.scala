@@ -10,8 +10,9 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor4}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.*
-import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.MessageType.*
-import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.MessageStatus.*
+import uk.gov.nationalarchives.utils.ExternalUtils.{MessageType, MessageStatus, OutputMessage, OutputProperties, OutputParameters}
+import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.*
+import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.*
 import uk.gov.nationalarchives.ingestfileschangehandler.Utils.*
 
 import java.time.Instant

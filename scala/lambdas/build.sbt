@@ -12,6 +12,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     getLatestPreservicaVersion,
     ingestAssetOpexCreator,
     ingestAssetReconciler,
+    ingestFailureNotifications,
     ingestFilesChangeHandler,
     ingestFindExistingAsset,
     ingestFolderOpexCreator,
@@ -289,6 +290,16 @@ lazy val custodialCopyQueueCreator = (project in file("custodial-copy-queue-crea
     libraryDependencies ++= Seq(
       preservicaClient,
       sqsClient
+    )
+  )
+
+lazy val ingestFailureNotifications = (project in file("ingest-failure-notifications"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      snsClient,
+      dynamoClient
     )
   )
 

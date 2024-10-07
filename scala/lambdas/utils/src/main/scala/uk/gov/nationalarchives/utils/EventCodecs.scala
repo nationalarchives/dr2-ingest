@@ -2,12 +2,22 @@ package uk.gov.nationalarchives.utils
 
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import com.amazonaws.services.lambda.runtime.events.{SQSEvent, ScheduledEvent}
-import io.circe.{Decoder, HCursor}
+import io.circe.generic.semiauto.deriveEncoder
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import org.joda.time.DateTime
+import uk.gov.nationalarchives.utils.ExternalUtils.*
+import scala.jdk.CollectionConverters.*
 
-import scala.jdk.CollectionConverters._
+object EventCodecs {
+  given Encoder[MessageStatus] = (messageStatus: MessageStatus) => Json.fromString(messageStatus.value)
 
-object EventDecoders {
+  given Encoder[MessageType] = (messageType: MessageType) => Json.fromString(messageType.toString)
+
+  given Encoder[OutputProperties] = deriveEncoder[OutputProperties]
+
+  given Encoder[OutputParameters] = deriveEncoder[OutputParameters]
+
+  given Encoder[OutputMessage] = deriveEncoder[OutputMessage]
 
   given Decoder[ScheduledEvent] = (c: HCursor) =>
     for {

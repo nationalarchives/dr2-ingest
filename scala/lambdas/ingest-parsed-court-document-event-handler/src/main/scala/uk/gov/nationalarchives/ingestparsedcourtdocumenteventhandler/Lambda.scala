@@ -8,7 +8,7 @@ import io.circe.generic.auto.*
 import io.circe.parser.decode
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
-import uk.gov.nationalarchives.utils.EventDecoders.given
+import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{assetId, groupId, message}
