@@ -14,7 +14,7 @@ jobs:
       repo-name: dr2-ingest
       test-command: |
         find . -name requirements.txt | xargs -I {} pip install -r {}
-        AWS_DEFAULT_REGION=eu-west-2 pytest
+        pytest
         sbt scalafmtCheckAll test
     secrets:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
