@@ -231,10 +231,10 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   }
 
   "handler" should "not send an ingest started message if the event name is insert and the type is not an asset" in {
-    val dynamoRow = DynamoRow(UUID.randomUUID, "batchId", File, None).createAsset()
+    val dynamoRow = DynamoRow(UUID.randomUUID, "batchId", File, None).createFile()
     val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(fileAOne.getPrimaryKey.some, dynamoRow.some))))
     val messages = runLambda(List(assetA), event).unsafeRunSync()
 
-    messages.size should equal(1)
+    messages.size should equal(0)
   }
 }
