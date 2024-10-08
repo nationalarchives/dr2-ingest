@@ -29,6 +29,7 @@ flowchart LR;
 Ingest is started by calling the AWS API to start a new execution of the `dr2-ingest` Step Function. The name of the execution and input are important, as is the `metadataPackage` JSON file which defines the ingest batch.
 
 ### Execution Name
+
 The execution name is expected in the format `<sourceSystem>_<uniqueId>_<retryCount>`, for example `TDR_821e3470-c741-421a-acf2-8076ca30041e_0`. Executions with a name in other formats do work, but we cannot guarentee they will as we continue building.
 
 ### Execution Input
@@ -37,11 +38,11 @@ All fields are mandatory within the execution input.
 
 ```json
 {
-  "batchId": "TDR_35f61161-05d7-4c43-8c2b-f47a70330ad9_0",
-  "groupId": "TDR_35f61161-05d7-4c43-8c2b-f47a70330ad9",
-  "metadataPackage": "s3://<bucket>/TDR_35f61161-05d7-4c43-8c2b-f47a70330ad9_0.json",
-  "retryCount": 0,
-  "retrySfnArn": "arn:aws:states:<region>:<account>:stateMachine:intg-dr2-preingest-tdr"
+	"batchId": "TDR_35f61161-05d7-4c43-8c2b-f47a70330ad9_0",
+	"groupId": "TDR_35f61161-05d7-4c43-8c2b-f47a70330ad9",
+	"metadataPackage": "s3://<bucket>/TDR_35f61161-05d7-4c43-8c2b-f47a70330ad9_0.json",
+	"retryCount": 0,
+	"retrySfnArn": "arn:aws:states:<region>:<account>:stateMachine:intg-dr2-preingest-tdr"
 }
 ```
 
@@ -50,7 +51,6 @@ All fields are mandatory within the execution input.
 - `metadataPackage` - The S3 location (S3 URI) of the JSON file defining this batch.
 - `retryCount` - The number of retries attempted on this aggregation group including the ingest of this batch.
 - `retrySfnArn` - The ARN of the source system specific preingest Step Function that must be re-run if the ingest finishes but assets are still present in the aggregation group.
-
 
 ## Process
 
@@ -62,15 +62,16 @@ First, [we validate the input](/scala/lambdas/ingest-validate-generic-ingest-inp
 
 The [Mapper Lambda](/scala/lambdas/ingest-mapper/) reads the contents of the `metadataPackage` file, mutates this to add new ArchiveFolders for the department(s) and series by looking up descriptive metadata from the [Discovery API](https://www.nationalarchives.gov.uk/help/discovery-for-developers-about-the-application-programming-interface-api/), calculates the `parentPath` as a concatination of the `parentId`s to the top of the tree, and writes each object to our `dr2-ingest-files` DynamoDB table.
 
-We change to using `parentPath` when writing to DynamoDB to benefit from querying with a Global Secondary Index and remove the need to recursively query query items to reach the top of our tree. 
+We change to using `parentPath` when writing to DynamoDB to benefit from querying with a Global Secondary Index and remove the need to recursively query query items to reach the top of our tree.
 
 ### Upsert Archive Folders
 
 [This Lambda](/scala/lambdas/ingest-upsert-archive-folders/) is responsible for creating or updating certain folders within the Preservation System. This step is required as the default behaviour of the ingest mechanism is to place the full package within a nominated folder, ingesting as a child of the root node is not possible within the Preservation System. We also have a requirement to update some folder metadata on subsequent ingests, for example, if the Discovery title or description of a dept/series changes, we’d want to update this within the Preservation System.
 
-Both when creating or updating a folder, identifiers are passed through into the Preservation System’s native Identifier feature. Any field prefixed with id_, will create or update the identifier of that type. E.g. id_Code will become the Code identifier within the Preservation System. This has been implemented as the values of identifiers can be dependent on upstream system - court documents have a Cite identifier which other document types do not, court documents also exist in a “case folder” with a custom Code identifier.
+Both when creating or updating a folder, identifiers are passed through into the Preservation System’s native Identifier feature. Any field prefixed with `id_`, will create or update the identifier of that type. E.g. id_Code will become the Code identifier within the Preservation System. This has been implemented as the values of identifiers can be dependent on upstream system - court documents have a Cite identifier which other document types do not, court documents also exist in a “case folder” with a custom Code identifier.
 
 ### Asset OPEX Creation
+
 ```mermaid
 flowchart LR;
     subgraph Map over each asset
@@ -91,7 +92,7 @@ If the asset doesn't already exist within the Preservation System, we proceed to
 
 Once we’ve created our PAX packages and .pax.opex files, we can create our .opex files that describe each folder within our package. This step needs to happen **after** our Asset OPEX Creator has run as we need to include the filesize of these files within our folder .opex files.
 
-Similar to our Asset OPEX Creator, this Lambda is run in a Map State, but this time passed the `id` of an ArchiveFolder or ContentFolder item within our DynamoDB table. Both types are processed in the same way, with the exception that ArchiveFolder adds the <opex:SourceID> element to the document with the `name` value from our table; within the Preservation System this merges the new folder with the folder we created/found when the Upsert Lambda ran.
+Similar to our Asset OPEX Creator, this Lambda is run in a Map State, but this time passed the `id` of an ArchiveFolder or ContentFolder item within our DynamoDB table. Both types are processed in the same way, with the exception that ArchiveFolder adds the <opex:SourceID> element to the document with the `id` value from our table; within the Preservation System this merges the new folder with the folder we created/found when the Upsert Lambda ran.
 
 Within the Preservation System, we’ve enabled the feature Require folder manifests which only allows an ingest to proceed if all subfolders and files are included within the .opex manifests. This reduces the potential for a race condition, where the system begins ingesting whilst we’re still writing packages and enforces a check that the OPEX package we’ve supplied is complete. Unfortunately, it also requires that the top level folder (our root node) also have an .opex manifest; this is a folder that doesn’t get created within the Preservation System but only exists to hold our ingest package for the ingest workflow. As this folder isn’t represented in our package and therefore also not in our DynamoDB table, we’ve [implemented a hack to create this file by listing the contents of our S3 prefix](/scala/lambdas/ingest-parent-folder-opex-creator/).
 
@@ -102,4 +103,3 @@ So far, we've created our OPEX ingest package within a bucket we own. As we're u
 ### Ingesting
 
 Next, we [start](/scala/lambdas/ingest-start-workflow/) and [monitor](/scala/lambdas/ingest-workflow-monitor/) the ingest workflow within the Preservation System. We poll routinely to confirm the ingest is still running and check the status.
-
