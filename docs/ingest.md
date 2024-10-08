@@ -26,11 +26,11 @@ flowchart LR;
 
 ## Input
 
-Ingest is started by calling the AWS API to start a new execution of the `dr2-ingest` Step Function. The name of the execution and input are important, as is the `metadataPackage` JSON file which defines the ingest batch.
+Ingest is started by calling the AWS API to start a new execution of the `dr2-ingest` Step Function. The name of the execution and input are important, as is the [`metadataPackage` JSON file](/docs/metadataPackage.md) which defines the ingest batch.
 
 ### Execution Name
 
-The execution name is expected in the format `<sourceSystem>_<uniqueId>_<retryCount>`, for example `TDR_821e3470-c741-421a-acf2-8076ca30041e_0`. Executions with a name in other formats do work, but we cannot guarentee they will as we continue building.
+The execution name is expected in the format `<sourceSystem>_<uniqueId>_<retryCount>`, for example `TDR_821e3470-c741-421a-acf2-8076ca30041e_0`. Executions with a name in other formats do work, but we cannot guarantee they will as we continue building.
 
 ### Execution Input
 
@@ -42,7 +42,7 @@ All fields are mandatory within the execution input.
 	"groupId": "TDR_35f61161-05d7-4c43-8c2b-f47a70330ad9",
 	"metadataPackage": "s3://<bucket>/TDR_35f61161-05d7-4c43-8c2b-f47a70330ad9_0.json",
 	"retryCount": 0,
-	"retrySfnArn": "arn:aws:states:<region>:<account>:stateMachine:intg-dr2-preingest-tdr"
+	"retrySfnArn": "arn:aws:states:<region>:<account>:stateMachine:<env>-dr2-preingest-tdr"
 }
 ```
 
@@ -90,7 +90,7 @@ If the asset doesn't already exist within the Preservation System, we proceed to
 
 ### Folder OPEX Creation
 
-Once we’ve created our PAX packages and .pax.opex files, we can create our .opex files that describe each folder within our package. This step needs to happen **after** our Asset OPEX Creator has run as we need to include the filesize of these files within our folder .opex files.
+Once we’ve created our PAX packages and `.pax.opex` files, we can create our .opex files that describe each folder within our package. This step needs to happen **after** our Asset OPEX Creator has run as we need to include the filesize of these files within our folder .opex files.
 
 Similar to our Asset OPEX Creator, this Lambda is run in a Map State, but this time passed the `id` of an ArchiveFolder or ContentFolder item within our DynamoDB table. Both types are processed in the same way, with the exception that ArchiveFolder adds the <opex:SourceID> element to the document with the `id` value from our table; within the Preservation System this merges the new folder with the folder we created/found when the Upsert Lambda ran.
 
