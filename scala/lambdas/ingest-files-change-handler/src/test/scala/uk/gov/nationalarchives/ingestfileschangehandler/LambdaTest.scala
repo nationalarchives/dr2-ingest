@@ -31,8 +31,16 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   val fileBOne: DynamoRow = DynamoRow(UUID.randomUUID, "B", File, Option(s"${folderB.id}/${assetB.id}"))
   val fileBTwo: DynamoRow = DynamoRow(UUID.randomUUID, "B", File, Option(s"${folderB.id}/${assetB.id}"))
 
-  def outputBuilder(asset: DynamoRow, messageType: MessageType, messageStatus: MessageStatus): OutputMessage = {
+  def outputBuilder(asset: DynamoRow, messageType: MessageType, messageStatus: MessageStatus): OutputMessage =
     OutputMessage(OutputProperties(asset.batchId, messageId, Option("correlationId"), instant, messageType), OutputParameters(asset.id, messageStatus))
+
+  private def runLambda(rowsInTable: List[DynamoRow], event: DynamodbEvent): IO[List[OutputMessage]] = {
+    for {
+      rowsRef <- Ref[IO].of(rowsInTable)
+      messagesRef <- Ref[IO].of[List[OutputMessage]](Nil)
+      _ <- new Lambda().handler(event, Config("", "", ""), Dependencies(createDynamoClient(rowsRef), createSnsClient(messagesRef), () => instant, () => messageId))
+      messages <- messagesRef.get
+    } yield messages
   }
 
   val handlerOutputsTable: TableFor4[String, List[DynamoRow], DynamoRow, List[OutputMessage]] = Table(
@@ -185,12 +193,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     "handler" should s"given a new image with $title" in {
       val dynamoRow = if newRowInput.rowType == File then newRowInput.createFile() else newRowInput.createAsset()
       val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(newRowInput.getPrimaryKey.some, dynamoRow.some))))
-      val messages = (for {
-        rowsRef <- Ref[IO].of(rowsInTable)
-        messagesRef <- Ref[IO].of[List[OutputMessage]](Nil)
-        _ <- new Lambda().handler(event, Config("", "", ""), Dependencies(createDynamoClient(rowsRef), createSnsClient(messagesRef), () => instant, () => messageId))
-        messages <- messagesRef.get
-      } yield messages).unsafeRunSync()
+      val messages = runLambda(rowsInTable, event).unsafeRunSync()
 
       messages.sortBy(_.properties.`type`.toString) should equal(expectedOutput.sortBy(_.properties.`type`.toString))
     }
@@ -200,14 +203,38 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     "handler" should s"return $expectedErrorMessage if $title" in {
       val dynamoRow = if newRowInput.rowType == File then newRowInput.createFile() else newRowInput.createAsset()
       val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(newRowInput.getPrimaryKey.some, dynamoRow.some))))
-      val errorMessage = (for {
-        rowsRef <- Ref[IO].of(rowsInTable)
-        messagesRef <- Ref[IO].of[List[OutputMessage]](Nil)
-        _ <- new Lambda().handler(event, Config("", "", ""), Dependencies(createDynamoClient(rowsRef), createSnsClient(messagesRef), () => instant, () => messageId))
-        _ <- rowsRef.get
-      } yield ()).attempt.unsafeRunSync().left.value.getMessage
+      val errorMessage = runLambda(rowsInTable, event).attempt.unsafeRunSync().left.value.getMessage
 
       errorMessage should equal(expectedErrorMessage)
     }
+  }
+
+  "handler" should "send an ingest started message if the event name is insert and the type is an asset" in {
+    val dynamoRow = DynamoRow(UUID.randomUUID, "batchId", Asset, None).createAsset()
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(assetA.getPrimaryKey.some, dynamoRow.some))))
+    val messages = runLambda(List(assetA), event).unsafeRunSync()
+
+    messages.size should equal(1)
+
+    val message = messages.head
+    val properties = message.properties
+    val parameters = message.parameters
+
+    properties.executionId should equal("batchId")
+    properties.messageId should equal(messageId)
+    properties.parentMessageId should equal(Some(correlationId))
+    properties.timestamp should equal(instant)
+    properties.`type` should equal(IngestUpdate)
+
+    parameters.assetId should equal(dynamoRow.id)
+    parameters.status should equal(IngestStarted)
+  }
+
+  "handler" should "not send an ingest started message if the event name is insert and the type is not an asset" in {
+    val dynamoRow = DynamoRow(UUID.randomUUID, "batchId", File, None).createAsset()
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(fileAOne.getPrimaryKey.some, dynamoRow.some))))
+    val messages = runLambda(List(assetA), event).unsafeRunSync()
+
+    messages.size should equal(1)
   }
 }

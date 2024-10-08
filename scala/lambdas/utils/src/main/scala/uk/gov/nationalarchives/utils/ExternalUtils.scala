@@ -179,6 +179,7 @@ object ExternalUtils {
   enum MessageStatus(val value: String):
     case IngestedPreservation extends MessageStatus("Asset has been ingested to the Preservation System.")
     case IngestedCCDisk extends MessageStatus("Asset has been written to custodial copy disk.")
+    case IngestStarted extends MessageStatus("Asset has started the ingest process")
     case IngestError extends MessageStatus("There has been an error ingesting the asset")
 
   case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, `type`: MessageType)

@@ -18,6 +18,7 @@ import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.*
 import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.utils.ExternalUtils.{MessageStatus, MessageType, OutputMessage, OutputParameters, OutputProperties}
+import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.time.Instant
@@ -29,19 +30,16 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     def getPrimaryKey[T <: DynamoItem](row: T) =
       FilesTablePrimaryKey(FilesTablePartitionKey(row.id), FilesTableSortKey(row.batchId))
 
-    def sendOutputMessage(asset: AssetDynamoItem, messageType: MessageType): IO[Unit] = {
-      val status = messageType match
-        case MessageType.IngestUpdate   => MessageStatus.IngestedPreservation
-        case MessageType.IngestComplete => MessageStatus.IngestedCCDisk
+    def sendOutputMessage(asset: AssetDynamoItem, messageType: MessageType, messageStatus: MessageStatus): IO[Unit] = {
       val message = OutputMessage(
         OutputProperties(asset.batchId, dependencies.uuidGenerator(), asset.correlationId, dependencies.instantGenerator(), messageType),
-        OutputParameters(asset.id, status)
+        OutputParameters(asset.id, messageStatus)
       )
       dependencies.daSnsClient.publish(config.topicArn)(message :: Nil).map(_ => ())
     }
 
     def sendMessageAndDelete(asset: AssetDynamoItem, children: List[FileDynamoItem]) = for {
-      _ <- sendOutputMessage(asset, IngestComplete)
+      _ <- sendOutputMessage(asset, IngestComplete, MessageStatus.IngestedCCDisk)
       childKeys <- IO.pure(children.map(getPrimaryKey))
       assetKeys <- IO.pure(List(asset).map(getPrimaryKey))
       _ <- dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, childKeys ++ assetKeys)
@@ -51,7 +49,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       for {
         assetsSameId <- dependencies.daDynamoDbClient.queryItems[AssetDynamoItem](config.dynamoTableName, "id" === asset.id.toString)
         skippedAssets <- IO.pure(assetsSameId.filter(asset => asset.skipIngest && asset.ingestedPreservica))
-        _ <- skippedAssets.map(asset => sendOutputMessage(asset, IngestComplete)).sequence
+        _ <- skippedAssets.map(asset => sendOutputMessage(asset, IngestComplete, IngestedCCDisk)).sequence
         _ <- dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, skippedAssets.map(getPrimaryKey))
       } yield ()
     }
@@ -73,7 +71,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     } yield parentAssets.headOption
 
     def processIngestedPreservica(asset: AssetDynamoItem) =
-      if asset.ingestedPreservica && !asset.skipIngest then sendOutputMessage(asset, IngestUpdate)
+      if asset.ingestedPreservica && !asset.skipIngest then sendOutputMessage(asset, IngestUpdate, IngestedPreservation)
       else if asset.ingestedPreservica && asset.skipIngest then
         for {
           children <- childrenOfAsset(asset)
@@ -81,10 +79,10 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           childKeys <- IO.pure(children.map(getPrimaryKey))
           assetsSameId <- dependencies.daDynamoDbClient.queryItems[AssetDynamoItem](config.dynamoTableName, "id" === asset.id.toString)
           _ <- IO.whenA(assetsSameId.length == 1) {
-            dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, assetKey :: childKeys) >> sendOutputMessage(asset, IngestComplete)
+            dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, assetKey :: childKeys) >> sendOutputMessage(asset, IngestComplete, IngestedCCDisk)
           }
           _ <- IO.whenA(assetsSameId.length > 1) {
-            dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, childKeys) >> sendOutputMessage(asset, IngestUpdate)
+            dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, childKeys) >> sendOutputMessage(asset, IngestUpdate, IngestedPreservation)
           }
         } yield ()
       else IO.unit
@@ -102,20 +100,29 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       _ <- processIngestedPreservica(asset)
       _ <- processIngestedPreservicaCC(asset)
     } yield ()
-
     event.Records
-      .filter(_.eventName == EventName.MODIFY)
-      .map { record =>
+      .filter(_.eventName == EventName.INSERT)
+      .traverse { record =>
         record.dynamodb.newImage match
-          case Some(newImage) =>
-            newImage match
-              case assetRow: AssetDynamoItem => logger.info(s"Processing asset ${assetRow.id}") >> processAsset(assetRow)
-              case fileRow: FileDynamoItem   => logger.info(s"Processing file ${fileRow.id}") >> getParentAsset(fileRow).flatMap(_.traverse(processAsset))
-              case _                         => IO.unit
+          case Some(item) =>
+            item match
+              case asset: AssetDynamoItem => sendOutputMessage(asset, IngestUpdate, IngestStarted)
+              case _                      => IO.unit
           case None => IO.unit
       }
-      .sequence
-      .map(_ => ())
+      .void >>
+      event.Records
+        .filter(_.eventName == EventName.MODIFY)
+        .traverse { record =>
+          record.dynamodb.newImage match
+            case Some(newImage) =>
+              newImage match
+                case assetRow: AssetDynamoItem => logger.info(s"Processing asset ${assetRow.id}") >> processAsset(assetRow)
+                case fileRow: FileDynamoItem   => logger.info(s"Processing file ${fileRow.id}") >> getParentAsset(fileRow).flatMap(_.traverse(processAsset))
+                case _                         => IO.unit
+            case None => IO.unit
+        }
+        .void
   }
 
   override def dependencies(config: Config): IO[Dependencies] = IO(
