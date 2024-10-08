@@ -29,7 +29,7 @@ class LambdaTest extends AnyFlatSpec:
         parameters.assetId should equal(items(itemIdx).assetId)
         parameters.status should equal(MessageStatus.IngestError)
 
-        properties.`type` should equal(MessageType.IngestUpdate)
+        properties.messageType should equal(MessageType.IngestUpdate)
         properties.messageId should equal(uuids.head)
         properties.executionId should equal("groupId_0")
         properties.parentMessageId should equal(None)

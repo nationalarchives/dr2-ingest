@@ -181,7 +181,7 @@ object ExternalUtils {
     case IngestedCCDisk extends MessageStatus("Asset has been written to custodial copy disk.")
     case IngestError extends MessageStatus("There has been an error ingesting the asset")
 
-  case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, `type`: MessageType)
+  case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, messageType:  MessageType)
 
   case class OutputParameters(assetId: UUID, status: MessageStatus)
 
