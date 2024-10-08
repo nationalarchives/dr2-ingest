@@ -103,3 +103,13 @@ So far, we've created our OPEX ingest package within a bucket we own. As we're u
 ### Ingesting
 
 Next, we [start](/scala/lambdas/ingest-start-workflow/) and [monitor](/scala/lambdas/ingest-workflow-monitor/) the ingest workflow within the Preservation System. We poll routinely to confirm the ingest is still running and check the status.
+
+### Asset reconciliation
+
+Once the Preservation System has finished ingesting the package, we want to [confirm that the full package has ingested and no mutations occurred](/scala/lambdas/ingest-asset-reconciler/) during thw process. Once again, we use the Step Function Map State to iterate through every asset within the ingest package to check this. We alert when a reconciliation fails.
+
+If reconciliation is successful, we mark the asset as ingested to the Preservation System and begin the clean-up process; we remove the lock we placed on the asset during preingest, allowing duplicate messages to be processed impotently, and cleanup artifacts created for the asset as part of ingesting.
+
+### Aggregation group check
+
+Finally, before the Step Function ends, we query the `dr2-ingest-lock` using the `groupId` again. We do this to catch a race condition where our preingest workflow created an ingest package before the DynamoDB GSI had been fully populated. If any assets are found within this group to still hold a lock we increase the `retryCount` and re-invoke the preingest process for the `groupId`, creating a new batch containing the missing items.
