@@ -192,7 +192,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         messages <- messagesRef.get
       } yield messages).unsafeRunSync()
 
-      messages.sortBy(_.properties.`type`.toString) should equal(expectedOutput.sortBy(_.properties.`type`.toString))
+      messages.sortBy(_.properties.messageType.toString) should equal(expectedOutput.sortBy(_.properties.messageType.toString))
     }
   }
 
