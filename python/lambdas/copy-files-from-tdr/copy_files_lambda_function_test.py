@@ -202,8 +202,8 @@ class TestLambdaFunction(unittest.TestCase):
     def test_should_raise_an_exception_when_the_file_exists_but_corresponding_metadata_file_does_not_exist_in_source_bucket(
             self,
             mock_head_object):
-        def selective_error_object(bucket, key):
-            if key == 'some_key.metadata':
+        def selective_error_object(Bucket, Key):
+            if Key == 'some_key.metadata':
                 error_response = {
                     'Error': {
                         'Code': '404',
@@ -212,7 +212,7 @@ class TestLambdaFunction(unittest.TestCase):
                 }
                 raise ClientError(error_response, 'HeadObject')
             else:
-                return {}
+                return {'ContentLength': 1024}
 
         mock_head_object.side_effect = selective_error_object
         with self.assertRaises(Exception) as ex:

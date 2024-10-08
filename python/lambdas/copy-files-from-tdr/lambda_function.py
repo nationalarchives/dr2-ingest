@@ -33,7 +33,7 @@ def lambda_handler(event, context):
 def assert_objects_exist_in_bucket(source_bucket, files):
     for file in files:
         try:
-            s3_client.head_object(source_bucket, file)
+            s3_client.head_object(Bucket=source_bucket, Key=file)
         except botocore.exceptions.ClientError as ex:
             raise Exception(f"Object '{file}' does not exist in '{source_bucket}', underlying error is: '{ex}'")
 
