@@ -43,7 +43,6 @@ object LambdaTestUtils:
             } yield rows
               .filter(row => map.get("conditionAttributeValue0").contains(row.groupId))
               .map(_.asInstanceOf[U])).getOrElse(Nil)
-
           }
 
       override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] = IO.pure(Nil)
@@ -68,8 +67,8 @@ object LambdaTestUtils:
     Dependencies(snsClient, dynamoClient, uuidIterator)
   }
 
-  def generateItems(): List[IngestLockTableItem] = List.fill(100)(UUID.randomUUID).zipWithIndex.map { (id, idx) =>
-    IngestLockTableItem(id, s"groupId", "")
+  def generateItems(): List[IngestLockTableItem] = List.fill(100)(UUID.randomUUID).map { id =>
+    IngestLockTableItem(id, "groupId", "")
   }
 
   def runLambda(lockTableItems: List[IngestLockTableItem], input: SfnInput, dynamoError: Boolean = false, snsError: Boolean = false): List[OutputMessage] = (for {
