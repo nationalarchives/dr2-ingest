@@ -6,8 +6,6 @@ import uk.gov.nationalarchives.ingestfailurenotifications.Lambda.*
 import uk.gov.nationalarchives.ingestfailurenotifications.LambdaTestUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.{MessageStatus, MessageType, OutputMessage}
 
-import scala.annotation.tailrec
-
 class LambdaTest extends AnyFlatSpec:
 
   "handler" should "send one message for each item in the lock table" in {
