@@ -13,7 +13,7 @@ import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.*
 import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.MessageBody.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
-import uk.gov.nationalarchives.utils.EventDecoders.given
+import uk.gov.nationalarchives.utils.EventCodecs.given
 import io.circe.parser.decode
 import uk.gov.nationalarchives.DASQSClient.FifoQueueConfiguration
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType

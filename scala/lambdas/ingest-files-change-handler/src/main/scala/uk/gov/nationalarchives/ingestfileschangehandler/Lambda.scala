@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.syntax.all.*
 import io.circe.*
 import io.circe.Decoder.Result
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.generic.semiauto.deriveDecoder
 import org.scanamo.syntax.*
 import org.scanamo.{DynamoArray, DynamoObject, DynamoReadError, DynamoValue}
 import pureconfig.ConfigReader
@@ -15,7 +15,9 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.given
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.*
-import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.MessageType.*
+import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.*
+import uk.gov.nationalarchives.utils.EventCodecs.given
+import uk.gov.nationalarchives.utils.ExternalUtils.{MessageStatus, MessageType, OutputMessage, OutputParameters, OutputProperties}
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.time.Instant
@@ -189,30 +191,3 @@ object Lambda:
   case class DynamodbStreamRecord(eventName: EventName, dynamodb: StreamRecord)
 
   case class StreamRecord(keys: Option[FilesTablePrimaryKey], newImage: Option[DynamoItem])
-
-  enum MessageType:
-    override def toString: String = this match
-      case IngestUpdate   => "preserve.digital.asset.ingest.update"
-      case IngestComplete => "preserve.digital.asset.ingest.complete"
-
-    case IngestUpdate, IngestComplete
-
-  enum MessageStatus(val value: String):
-    case IngestedPreservation extends MessageStatus("Asset has been ingested to the Preservation System.")
-    case IngestedCCDisk extends MessageStatus("Asset has been written to custodial copy disk.")
-
-  given Encoder[MessageStatus] = (messageStatus: MessageStatus) => Json.fromString(messageStatus.value)
-
-  given Encoder[MessageType] = (messageType: MessageType) => Json.fromString(messageType.toString)
-
-  given Encoder[OutputProperties] = deriveEncoder[OutputProperties]
-
-  given Encoder[OutputParameters] = deriveEncoder[OutputParameters]
-
-  given Encoder[OutputMessage] = deriveEncoder[OutputMessage]
-
-  case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, `type`: MessageType)
-
-  case class OutputParameters(assetId: UUID, status: MessageStatus)
-
-  case class OutputMessage(properties: OutputProperties, parameters: OutputParameters)

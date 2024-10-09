@@ -10,8 +10,9 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor4}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.*
-import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.MessageType.*
-import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.MessageStatus.*
+import uk.gov.nationalarchives.utils.ExternalUtils.{MessageType, MessageStatus, OutputMessage, OutputProperties, OutputParameters}
+import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.*
+import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.*
 import uk.gov.nationalarchives.ingestfileschangehandler.Utils.*
 
 import java.time.Instant
@@ -191,7 +192,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         messages <- messagesRef.get
       } yield messages).unsafeRunSync()
 
-      messages.sortBy(_.properties.`type`.toString) should equal(expectedOutput.sortBy(_.properties.`type`.toString))
+      messages.sortBy(_.properties.messageType.toString) should equal(expectedOutput.sortBy(_.properties.messageType.toString))
     }
   }
 
