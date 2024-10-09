@@ -237,4 +237,12 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
 
     messages.size should equal(0)
   }
+
+  "handler" should "not send an ingest started message if the event name is remove" in {
+    val dynamoRow = DynamoRow(UUID.randomUUID, "batchId", Asset, None).createAsset()
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.REMOVE, StreamRecord(assetA.getPrimaryKey.some, dynamoRow.some))))
+    val messages = runLambda(List(assetA), event).unsafeRunSync()
+
+    messages.size should equal(0)
+  }
 }
