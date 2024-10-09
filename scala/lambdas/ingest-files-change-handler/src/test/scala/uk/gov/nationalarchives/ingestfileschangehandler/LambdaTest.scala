@@ -224,7 +224,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     properties.messageId should equal(messageId)
     properties.parentMessageId should equal(Some(correlationId))
     properties.timestamp should equal(instant)
-    properties.`type` should equal(IngestUpdate)
+    properties.messageType should equal(IngestUpdate)
 
     parameters.assetId should equal(dynamoRow.id)
     parameters.status should equal(IngestStarted)
