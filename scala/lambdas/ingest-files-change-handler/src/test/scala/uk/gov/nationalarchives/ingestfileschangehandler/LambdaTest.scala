@@ -195,7 +195,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(newRowInput.getPrimaryKey.some, dynamoRow.some))))
       val messages = runLambda(rowsInTable, event).unsafeRunSync()
 
-      messages.sortBy(_.properties.`type`.toString) should equal(expectedOutput.sortBy(_.properties.`type`.toString))
+      messages.sortBy(_.properties.messageType.toString) should equal(expectedOutput.sortBy(_.properties.messageType.toString))
     }
   }
 

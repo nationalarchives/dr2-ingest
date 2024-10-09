@@ -6,8 +6,6 @@ import uk.gov.nationalarchives.ingestfailurenotifications.Lambda.*
 import uk.gov.nationalarchives.ingestfailurenotifications.LambdaTestUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.{MessageStatus, MessageType, OutputMessage}
 
-import scala.annotation.tailrec
-
 class LambdaTest extends AnyFlatSpec:
 
   "handler" should "send one message for each item in the lock table" in {
@@ -16,24 +14,16 @@ class LambdaTest extends AnyFlatSpec:
 
     snsMessages.size should equal(items.size)
 
-    checkMessages(snsMessages)
+    snsMessages.zipWithIndex.foreach { (message, idx) =>
+      val parameters = message.parameters
+      val properties = message.properties
 
-    @tailrec
-    def checkMessages(snsMessages: List[OutputMessage]): Unit = {
-      if snsMessages.isEmpty then ()
-      else
-        val parameters = snsMessages.head.parameters
-        val properties = snsMessages.head.properties
-        val itemIdx = items.length - snsMessages.length
-
-        parameters.assetId should equal(items(itemIdx).assetId)
-        parameters.status should equal(MessageStatus.IngestError)
-
-        properties.`type` should equal(MessageType.IngestUpdate)
-        properties.messageId should equal(uuids.head)
-        properties.executionId should equal("groupId_0")
-        properties.parentMessageId should equal(None)
-        checkMessages(snsMessages.tail)
+      parameters.assetId should equal(items(idx).assetId)
+      parameters.status should equal(MessageStatus.IngestError)
+      properties.messageType should equal(MessageType.IngestUpdate)
+      properties.messageId should equal(uuids.head)
+      properties.executionId should equal("groupId_0")
+      properties.parentMessageId should equal(None)
     }
   }
 

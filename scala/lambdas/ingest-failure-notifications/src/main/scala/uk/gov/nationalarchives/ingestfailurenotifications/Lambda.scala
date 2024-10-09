@@ -12,7 +12,7 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.ingestfailurenotifications.Lambda.{*, given}
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import org.scanamo.syntax.*
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{IngestLockTableItem, groupId}
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.IngestError
 import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.IngestUpdate
@@ -25,7 +25,7 @@ class Lambda extends LambdaRunner[SfnEvent, Unit, Config, Dependencies]:
   override def handler: (SfnEvent, Config, Dependencies) => IO[Unit] = (event, config, dependencies) =>
     for {
       items <- dependencies.dynamoClient
-        .queryItems[IngestLockTableItem](config.lockTableName, "groupId" === event.detail.input.groupId, Option(config.lockTableGsiName))
+        .queryItems[IngestLockTableItem](config.lockTableName, groupId === event.detail.input.groupId, Option(config.lockTableGsiName))
       messages = items.map { item =>
         OutputMessage(
           OutputProperties(event.detail.input.batchId, dependencies.uuidGenerator(), None, Instant.now, IngestUpdate),
