@@ -300,9 +300,7 @@ object Lambda extends App {
 
   case class StepFnInput(
       batchId: String,
-      archiveHierarchyFolders: List[String],
-      contentFolders: List[String],
-      contentAssets: List[String]
+      archiveHierarchyFolders: List[String]
   )
 
   private[nationalarchives] case class EntityWithUpdateEntityRequest(

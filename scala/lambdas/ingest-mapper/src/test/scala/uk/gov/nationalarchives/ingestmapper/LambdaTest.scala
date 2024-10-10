@@ -52,20 +52,12 @@ class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
       s"""["$folderIdentifierOne","$folderIdentifierTwo","${UUID.fromString(uuids(1))}","${UUID.fromString(uuids.head)}","${UUID.fromString(uuids(2))}"]"""
     )
 
-    // Code below will be deleted after migration to the new process
-
     val archiveFolders = stateOutput.archiveHierarchyFolders
     archiveFolders.size should be(5)
     archiveFolders.contains(folderIdentifierOne) should be(true)
     val expectedArchiveFolders =
       List(folderIdentifierOne, folderIdentifierTwo, UUID.fromString(uuids(1)), UUID.fromString(uuids.head), UUID.fromString(uuids(2)))
     expectedArchiveFolders.sorted.equals(archiveFolders.sorted) should be(true)
-
-    stateOutput.contentFolders.isEmpty should be(true)
-
-    stateOutput.contentAssets.size should be(2)
-    stateOutput.contentAssets.head should equal(assetIdentifierOne)
-    stateOutput.contentAssets.last should equal(assetIdentifierTwo)
   }
 
   "handler" should "write the correct values to dynamo" in {
