@@ -1,10 +1,11 @@
 # Digital Records Repository
 
-//TODO: Paragraph introducing DR2
+Digital Records Repository is the Preservation Service for digital and digitised records within The National Archives. Digital records are stored, actively preserved, and accessed using a commercial off-the-shelf digital preservation managed service. Around this service we have built a control mechanism to facilitate ingest of and access to digital objects.
 
 ![Diagram of DR2 components in AWS](/docs/images/dr2-diagram.png)
 
 This project consists of multiple repositories:
+
 - [dr2-preservica-client](https://github.com/nationalarchives/dr2-preservica-client) contains a wrapper library for the Preservica API, designed to abstract Preservation System specific features from our business logic.
 - [nationalarchives/dr2-custodial-copy](https://github.com/nationalarchives/dr2-custodial-copy) contains the source code for the Custodial Copy Service. A service designed to run on-premise as an extracted decoupled copy of all digital files and metadata.
 - [nationalarchives/dr2-ingest](https://github.com/nationalarchives/dr2-ingest) (this one) contains the source code for the Lambda functions within DR2.
