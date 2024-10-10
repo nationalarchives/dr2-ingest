@@ -890,3 +890,200 @@ after the IO has already been processed by the CC application.
   }
 }
 ```
+
+## 11. INSERT record for an asset 
+
+This test checks that if we get an INSERT event for an asset, we send the ingest started message.
+
+### State
+
+**dr2-ingest-files table**
+
+| id | batchId | type          | parentPath | skipIngest | ingested_PS |
+|----|---------|---------------|------------|------------|-------------|
+
+### Input
+
+```JSON
+{
+  "Records": [
+    {
+      "eventID": "d54bf46da49d9044706b8a8682fef203",
+      "eventName": "INSERT",
+      "eventVersion": "1.1",
+      "eventSource": "aws:dynamodb",
+      "awsRegion": "eu-west-2",
+      "dynamodb": {
+        "ApproximateCreationDateTime": 1720773442,
+        "Keys": {
+          "id": {
+            "S": "1"
+          },
+          "batchId": {
+            "S": "A"
+          }
+        },
+        "NewImage": {
+          "ingested_PS": {
+            "BOOL": true
+          },
+          "skipIngest": {
+            "BOOL": true
+          },
+          "id": {
+            "S": "1"
+          },
+          "batchId": {
+            "S": "A"
+          },
+          "type": {
+            "S": "Asset"
+          }
+        },
+        "SequenceNumber": "6200000000010677449965",
+        "SizeBytes": 47,
+        "StreamViewType": "NEW_IMAGE"
+      },
+      "eventSourceARN": "arn:aws:dynamodb:..."
+    }
+  ]
+}
+```
+
+### Output (messages sent)
+
+```JSON
+{
+  "properties": {
+    "messageId": "e2f8a9a9-4935-4f4f-96f8-7bdfa75960e2",
+    "parentMessageId": null,
+    "timestamp": "2024-05-23T10:13:16.923Z",
+    "type": "preserve.digital.asset.ingest.update"
+  },
+  "parameters": {
+    "assetId": "1",
+    "status": "Asset has started the ingest process."
+  }
+}
+```
+
+## 12. INSERT record for a file
+
+This test checks that if we get an INSERT event for a file, we send no message.
+
+### State
+
+**dr2-ingest-files table**
+
+| id | batchId | type          | parentPath | skipIngest | ingested_PS |
+|----|---------|---------------|------------|------------|-------------|
+
+### Input
+
+```JSON
+{
+  "Records": [
+    {
+      "eventID": "d54bf46da49d9044706b8a8682fef203",
+      "eventName": "INSERT",
+      "eventVersion": "1.1",
+      "eventSource": "aws:dynamodb",
+      "awsRegion": "eu-west-2",
+      "dynamodb": {
+        "ApproximateCreationDateTime": 1720773442,
+        "Keys": {
+          "id": {
+            "S": "3"
+          },
+          "batchId": {
+            "S": "A"
+          }
+        },
+        "NewImage": {
+          "ingested_CC": {
+            "BOOL": true
+          },
+          "id": {
+            "S": "3"
+          },
+          "batchId": {
+            "S": "A"
+          },
+          "type": {
+            "S": "File"
+          }
+        },
+        "SequenceNumber": "6200000000010677449965",
+        "SizeBytes": 47,
+        "StreamViewType": "NEW_IMAGE"
+      },
+      "eventSourceARN": "arn:aws:dynamodb:..."
+    }
+  ]
+}
+```
+
+### Output (messages sent)
+
+No output.
+
+## 13. REMOVE record for a file
+
+This test checks that if we get a REMOVE event for a file, we send no message.
+
+### State
+
+**dr2-ingest-files table**
+
+| id | batchId | type          | parentPath | skipIngest | ingested_PS |
+|----|---------|---------------|------------|------------|-------------|
+| 2  | A       | File          | 0/1/       |            |             |
+
+### Input
+
+```JSON
+{
+  "Records": [
+    {
+      "eventID": "d54bf46da49d9044706b8a8682fef203",
+      "eventName": "REMOVE",
+      "eventVersion": "1.1",
+      "eventSource": "aws:dynamodb",
+      "awsRegion": "eu-west-2",
+      "dynamodb": {
+        "ApproximateCreationDateTime": 1720773442,
+        "Keys": {
+          "id": {
+            "S": "2"
+          },
+          "batchId": {
+            "S": "A"
+          }
+        },
+        "NewImage": {
+          "ingested_CC": {
+            "BOOL": true
+          },
+          "id": {
+            "S": "3"
+          },
+          "batchId": {
+            "S": "A"
+          },
+          "type": {
+            "S": "File"
+          }
+        },
+        "SequenceNumber": "6200000000010677449965",
+        "SizeBytes": 47,
+        "StreamViewType": "NEW_IMAGE"
+      },
+      "eventSourceARN": "arn:aws:dynamodb:..."
+    }
+  ]
+}
+```
+
+### Output (messages sent)
+
+No output.
