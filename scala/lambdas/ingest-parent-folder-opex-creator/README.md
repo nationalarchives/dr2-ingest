@@ -1,7 +1,6 @@
-# DR2 Ingest Opex Parent Folder Creator
+# DR2 Ingest - Parent Folder Opex Creator
 
-This lambda will list the contents of our staging cache below the `opex/<executionName>/` prefix and create a folder entry
-in our .opex file (Containing manifests) for the next level down.
+This Lambda lists the contents of our staging cache below the `opex/<executionName>/` prefix and creates an OPEX file with a folder entry for the next level down.
 
 ## Lambda input
 The input is a json object with the execution id
@@ -10,9 +9,8 @@ The input is a json object with the execution id
   "executionId": "step-function-execution-id"
 }
 ```
-There is no output from this lambda
 
-[Link to the infrastructure code](https://github.com/nationalarchives/dr2-terraform-environments)
+There is no output from this lambda
 
 ## Environment Variables
 

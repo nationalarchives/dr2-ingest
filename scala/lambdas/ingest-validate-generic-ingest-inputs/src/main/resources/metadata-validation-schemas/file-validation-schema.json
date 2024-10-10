@@ -42,7 +42,7 @@
     },
     "checksum_sha256": {
       "type": "string",
-      "$comment": "(Optional) But if File entry contains one, we ca ensure it's the correct type and length",
+      "$comment": "(Optional) But if File entry contains one, we can ensure it's the correct type and length",
       "minLength": 64,
       "maxLength": 64
     },

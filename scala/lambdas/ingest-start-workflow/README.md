@@ -1,26 +1,22 @@
-# DR2 Start Workflow
+# DR2 Ingest - Start Workflow
 
-A lambda triggered by our dr2-ingest Step Function once an OPEX package has been created and placed in the Preservica source bucket. This Lambda will start a workflow.
+A lambda triggered by our `dr2-ingest` Step Function once an OPEX package has been created and placed in the Preservation System ingest bucket. This Lambda starts the ingest workflow.
 
-## Lambda input
-The lambda takes the following input:
-
+## Input
 ```json
 {
-  "workflowContextName": "Ingest workflow name",
-  "executionId": "step-function-execution-id"
+  "executionId": "step-function-execution-id",
+  "workflowContextName": "Ingest workflow name"
 }
 ```
 
 ## Lambda output
-The lambda outputs the new workflow id in a json object
+The lambda outputs the new workflow id in a JSON object.
 ```json
 {
   "id": 1
 }
 ```
-
-[Link to the infrastructure code](https://github.com/nationalarchives/dr2-terraform-environments)
 
 ## Environment Variables
 

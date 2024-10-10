@@ -1,29 +1,27 @@
-# DR2 Ingest Parsed Court Document Event Handler
+# DR2 Court Document Preingest - Parsed Court Document Event Handler
 
-The lambda does the following.
+The Lambda does the following.
 
-* Reads a TRE input message from an SQS message
-* Downloads the package from TRE.
-* Unzips it
-* Untars it
-* Uploads all files from the package to S3 with a UUID. This includes files we don't care about but it's easier than
-  trying to parse json on the fly
-* Parses the metadata json from the package.
-* Gets a series and department code from a static Map, based on the court.
-* Generates a single metadata file called metadata.json. Each entry contains the location of the docx and associated
-  metadata file from TRE.
-* Starts a step function execution with the judgment details.
+- Receives an input message from TRE via an SQS message.
+- Downloads the package from TRE.
+- Unzips it.
+- Untars it.
+- Uploads all files from the package to S3 with a UUID. This includes files we don't care about but it's easier than
+  trying to parse JSON on the fly.
+- Parses the metadata JSON file from the package.
+- Maps the `court` to a series and department reference using a static lookup table.
+- Generates a single [metadataPackage JSON file](/docs/metadataPackage.md) describing the ingest package.
+- Starts a Step Function execution for the ingest package.
 
 The department and series lookup is very judgment-specific but this can be changed if we start taking in other
 transfers.
 
 ## Metadata Mapping
 
-This table shows how we map the metadata from TRE to our metadata json.  
+This example shows how we map the metadata from TRE to our metadataPackage JSON file.  
 Each field in a row is tried, if it's not null, it's used, otherwise the next field is tried.
 
-The input to the lambda is an SQS event.  
-This is an example of the event body.
+The input to the Lambda is an SQS event, with a body like
 
 ```json
 {
@@ -50,9 +48,9 @@ We can also replay the message with the `skipSeriesLookup` parameter
 }
 ```
 
-The lambda doesn't produce an output. It writes files and metadata to S3.
+The lambda doesn't return anything, it writes objects to S3 and starts a Step Function execution.
 
-#### metadata.json
+#### metadataPackage JSON file
 
 ```json
 [
@@ -68,12 +66,8 @@ The lambda doesn't produce an output. It writes files and metadata to S3.
     "name": "https://example.com/id/court/2023/"
   },
   {
-    "originalFiles": [
-      "c7e6b27f-5778-4da8-9b83-1b64bbccbd03"
-    ],
-    "originalMetadataFiles": [
-      "61ac0166-ccdf-48c4-800f-29e5fba2efda"
-    ],
+    "originalFiles": ["c7e6b27f-5778-4da8-9b83-1b64bbccbd03"],
+    "originalMetadataFiles": ["61ac0166-ccdf-48c4-800f-29e5fba2efda"],
     "description": "test",
     "id_ConsignmentReference": "test-identifier",
     "id_UpstreamSystemReference": "TEST-REFERENCE",
@@ -113,13 +107,11 @@ The lambda doesn't produce an output. It writes files and metadata to S3.
 ]
 ```
 
-If `skipSeriesLookup` is sent and the series can't be found, the value of `series` in the top level `ArchiveFolder` will be `Unknown` 
-
-[Link to the infrastructure code](https://github.com/nationalarchives/dp-terraform-environments/blob/main/ingest_parsed_court_document_event_handler.tf)
+If `skipSeriesLookup` is sent and the series can't be found, the value of `series` in the top level `ArchiveFolder` will be `Unknown`
 
 ## Environment Variables
 
 | Name          | Description                                                                    |
-|---------------|--------------------------------------------------------------------------------|
+| ------------- | ------------------------------------------------------------------------------ |
 | OUTPUT_BUCKET | The raw cache bucket for storing the files and metadata created by this lambda |
 | SFN_ARN       | The arn of the step function this lambda will trigger.                         |
