@@ -29,7 +29,7 @@ class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
 
   private val folderIds = folderIdsAndRows.keys.toList
 
-  val input: StepFnInput = StepFnInput("TDD-2023-ABC", folderIds.map(_.toString), Nil, List("a8163bde-7daa-43a7-9363-644f93fe2f2b"))
+  val input: StepFnInput = StepFnInput("TDD-2023-ABC", folderIds.map(_.toString))
 
   private def convertFolderIdsAndRowsToListOfIoRows(folderIdsAndRows: ListMap[UUID, ArchiveFolderDynamoItem]) =
     IO.pure(folderIdsAndRows.values.toList)

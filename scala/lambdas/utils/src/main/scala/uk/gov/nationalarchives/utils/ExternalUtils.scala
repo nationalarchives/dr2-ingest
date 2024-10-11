@@ -6,7 +6,7 @@ import io.circe.syntax.*
 import uk.gov.nationalarchives.utils.ExternalUtils.Type.{ArchiveFolder, ContentFolder}
 
 import java.net.URI
-import java.time.OffsetDateTime
+import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
 
 object ExternalUtils {
@@ -177,4 +177,22 @@ object ExternalUtils {
       checksumSha256: String
   ) extends MetadataObject
 
+  enum MessageType:
+    override def toString: String = this match
+      case IngestUpdate => "preserve.digital.asset.ingest.update"
+      case IngestComplete => "preserve.digital.asset.ingest.complete"
+
+    case IngestUpdate, IngestComplete
+
+  enum MessageStatus(val value: String):
+    case IngestedPreservation extends MessageStatus("Asset has been ingested to the Preservation System.")
+    case IngestedCCDisk extends MessageStatus("Asset has been written to custodial copy disk.")
+    case IngestStarted extends MessageStatus("Asset has started the ingest process.")
+    case IngestError extends MessageStatus("There has been an error ingesting the asset.")
+
+  case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, messageType:  MessageType)
+
+  case class OutputParameters(assetId: UUID, status: MessageStatus)
+
+  case class OutputMessage(properties: OutputProperties, parameters: OutputParameters)
 }
