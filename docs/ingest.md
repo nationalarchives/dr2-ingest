@@ -90,7 +90,7 @@ If the asset doesn't already exist within the Preservation System, we proceed to
 
 ### Folder OPEX Creation
 
-Once we’ve created our PAX packages and `.pax.opex` files, we can create our .opex files that describe each folder within our package. This step needs to happen **after** our Asset OPEX Creator has run, as we need to include the filesize of these files within our folder .opex files.
+Once we’ve created our PAX packages and `.pax.opex` files, we can create our .opex files that describe each folder within our package. This step needs to happen **after** our Asset OPEX Creator has run, as we need to include the filesize of the `.xip` and `.opex` files created for each asset within our folder `.opex` files.
 
 Similar to our Asset OPEX Creator, this Lambda is run in a Map State, but this time passed the `id` of an ArchiveFolder or ContentFolder item within our DynamoDB table. Both types are processed in the same way, with the exception that ArchiveFolder adds the <opex:SourceID> element to the document with the value of the `name`, from our table; within the Preservation System this merges the new folder with the folder we created/found when the Upsert Lambda ran.
 
