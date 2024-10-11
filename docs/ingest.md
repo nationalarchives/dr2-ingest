@@ -66,9 +66,9 @@ We change to using `parentPath` when writing to DynamoDB to benefit from queryin
 
 ### Upsert Archive Folders
 
-[This Lambda](/scala/lambdas/ingest-upsert-archive-folders/) is responsible for creating or updating certain folders within the Preservation System. This step is required as the default behaviour of the ingest mechanism is to place the full package within a folder comfigured on the ingest workflow, ingesting as a child of the root node is not possible within the Preservation System. We also have a requirement to update some folder metadata on subsequent ingests, for example, if the Discovery title or description of a dept/series changes, we’d want to update this within the Preservation System.
+[This Lambda](/scala/lambdas/ingest-upsert-archive-folders/) is responsible for creating or updating certain folders within the Preservation System. This step is required as the default behaviour of the ingest mechanism is to place the full package within a folder configured on the ingest workflow, ingesting as a child of the root node is not possible within the Preservation System. We also have a requirement to update some folder metadata on subsequent ingests, for example, if the Discovery title or description of a dept/series changes, we’d want to update this within the Preservation System.
 
-Both when creating or updating a folder, identifiers are passed through into the Preservation System’s native Identifier feature. Any field prefixed with `id_`, will create or update the identifier of that type., e.g. `id_Code` will become the `Code` identifier within the Preservation System. This has been implemented as the values of identifiers can be dependent on upstream system - court documents have a `Cite` identifier which other document types do not, court documents also exist in a “case folder” with a custom Code identifier.
+Both when creating or updating a folder, identifiers are passed through into the Preservation System’s native Identifier feature. Any field prefixed with `id_`, will create or update the identifier of that type, e.g. `id_Code` will become the `Code` identifier within the Preservation System. This has been implemented as the values of identifiers can be dependent on upstream system - court documents have a `Cite` identifier which other document types do not, court documents also exist in a “case folder” with a custom Code identifier.
 
 ### Asset OPEX Creation
 
@@ -86,11 +86,11 @@ The Preservation System is expecting an [OPEX package](https://developers.preser
 
 For each asset, we first [check to see if it's already in the Preservation System](/scala/lambdas/ingest-find-existing-asset/). If it is, we add the `skipIngest` attribute to our DynamoDB table and ignore the asset when generating the OPEX package. We retain the asset within our DynamoDB table to allow us to reconcile the new ingest candidate against the existing ingested asset to ensure they are the same - we want to appear idempotent to clients.
 
-If the asset doesn't already exist within the Preservation System, we proceed to generate an unzipped [PAX](https://developers.preservica.com/documentation/preservation-asset-exchange-pax) and OPEX representation of it at the correct location within a single OPEX package for the whole batch, we write the OPEX package to our `staging` bucket. As our representation of an asset has fewer levels of hierarchy than the Preservation System's, we’ve hardcoded some duplication into this process to create the additional levels; each File within our package generates a CO with a single bitstream. The `id` of our files (which are UUIDs) become the titles of the CO entities as the Preservation System uses the bitstream filenames as the object keys in S3, which could expose sensitive data. We add descriptive metadata (title, desription, identifiers, etc.) as part of the OPEX representation, using the same logic applied in our [Upsert Lambda](/scala/lambdas/ingest-upsert-archive-folders/).
+If the asset doesn't already exist within the Preservation System, we proceed to generate an unzipped [PAX](https://developers.preservica.com/documentation/preservation-asset-exchange-pax) and OPEX representation of it at the correct location within a single OPEX package for the whole batch, we write the OPEX package to our `staging` bucket. As our representation of an asset has fewer levels of hierarchy than the Preservation System's, we’ve hardcoded some duplication into this process to create the additional levels; each File within our package generates a CO with a single bitstream. The `id` of our files (which are UUIDs) become the titles of the CO entities as the Preservation System uses the bitstream filenames as the object keys in S3, which could expose sensitive data. We add descriptive metadata (title, description, identifiers, etc.) as part of the OPEX representation, using the same logic applied in our [Upsert Lambda](/scala/lambdas/ingest-upsert-archive-folders/).
 
 ### Folder OPEX Creation
 
-Once we’ve created our PAX packages and `.pax.opex` files, we can create our .opex files that describe each folder within our package. This step needs to happen **after** our Asset OPEX Creator has run as we need to include the filesize of these files within our folder .opex files.
+Once we’ve created our PAX packages and `.pax.opex` files, we can create our .opex files that describe each folder within our package. This step needs to happen **after** our Asset OPEX Creator has run, as we need to include the filesize of these files within our folder .opex files.
 
 Similar to our Asset OPEX Creator, this Lambda is run in a Map State, but this time passed the `id` of an ArchiveFolder or ContentFolder item within our DynamoDB table. Both types are processed in the same way, with the exception that ArchiveFolder adds the <opex:SourceID> element to the document with the value of the `name`, from our table; within the Preservation System this merges the new folder with the folder we created/found when the Upsert Lambda ran.
 
@@ -98,7 +98,7 @@ Within the Preservation System, we’ve enabled the feature "Require folder mani
 
 ### Copy to the Preservation System
 
-So far, we've created our OPEX ingest package within a bucket we own. As we're using a managed service for the Preservation System, we need to copy the package to an ingest location it can read from. We've used DataSync to do this.
+So far, we've created our OPEX ingest package within a bucket we own. As we're using a managed service for the Preservation System, we need to copy the package to an ingest location it can read from. We've used AWS DataSync to do this.
 
 ### Ingesting
 
