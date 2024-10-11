@@ -1,6 +1,6 @@
-# Digital Records Repository
+# Digital Records Repository (DR2)
 
-Digital Records Repository is the Preservation Service for digital and digitised records within The National Archives. Digital records are stored, actively preserved, and accessed using a commercial off-the-shelf digital preservation managed service. Around this service we have built a control mechanism to facilitate ingest of and access to digital objects.
+Digital Records Repository (DR2) is the Preservation Service for digital and digitised records within The National Archives. Digital records are stored, actively preserved, and accessed using a commercial off-the-shelf digital preservation managed service. Around this service, we have built a control mechanism to facilitate ingest of and access to digital objects.
 
 ![Diagram of DR2 components in AWS](/docs/images/dr2-diagram.png)
 

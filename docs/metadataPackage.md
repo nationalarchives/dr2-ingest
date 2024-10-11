@@ -1,6 +1,6 @@
 # metadataPackage JSON File
 
-The input to our `dr2-ingest` Step Function is a JSON file describing the package to be ingested below the series. The JSON file contains a single array of objects, where each object represents a folder, Asset, or File within the package.
+The input to our `dr2-ingest` Step Function includes an S3 URI to a JSON file describing the package to be ingested below the Preservation System folders for the series. The JSON file contains a single array of objects, where each object represents a folder, Asset, or File within the package.
 
 There are 4 types of object supported within the package;
 
@@ -61,6 +61,7 @@ flowchart LR;
 
 | Name                     | Required | Description                                                                                                                   |
 | ------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+|correlationId|no|A string to correlate notification messages about the ingest of the asset. Useful for client services.
 | description              | no       | The description of this asset.                                                                                                |
 | digitalAssetSource       | yes\*\*  | The source of the digital asset. E.g. `Born Digital`.                                                                         |
 | digitalAssetSubtype      | yes\*\*  | The subtype of digital asset. E.g. `FCL`                                                                                      |

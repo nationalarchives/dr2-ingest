@@ -1,6 +1,6 @@
 # DR2 Ingest - Mapper
 
-This Lambda reads a JSON file passed in the input to the Lambda, parses file contents and writes this to a DynamoDB table.
+This Lambda reads a JSON file passed in as the input to the Lambda, parses file contents and writes this to a DynamoDB table.
 
 The lambda:
 * Reads the input from the step function step with this format:
@@ -16,7 +16,7 @@ The lambda:
 * For each unique series and department pair, gets the title and description from Discovery. This is run through the XSLT in `src/main/resources/transform.xsl` to replace the EAD tags with newlines.
 * If the series is `Unknown`, it will create a hierarchy of `Unknown/`.
 * Creates a ujson Obj with the department and series output and the metadata json. We use a generic `Obj` because we will eventually have to handle fields we don't know about in advance.
-* Calculates the `parentPath` of each entity, replacing the `parentId`.
+* Generates the `parentPath` of each entity, replacing the `parentId`.
 * Calculates the `childCount` of each entity.
 * Updates dynamo with the values.
 * Write the UUIDs for the folders (Content and Archive) and Assets, to separate json files, in an S3 bucket with the paths `<executionName>/folders.json`, `<executionName>/assets.json`, respectively.

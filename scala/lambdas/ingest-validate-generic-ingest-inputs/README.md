@@ -29,7 +29,7 @@ The Lambda:
     4.  The JSON entries are returned as a `Map`, with a `String` field name and a `Validated` (similar to an `Either`) object:
         1. The `Validated` object could be either a `Valid` ujson `Value` or an `Invalid` `NonEmptyList` of errors.
         2. These `Map`s will be passed on to other methods and updated with the errors encountered.
-7.  Filters for just `File` entries and check the S3 URI in its `location` field exists.
+7.  Filters for just `File` entries and checks the S3 URI in its `location` field exists.
     1.  If an error occurred with the location field prior to this check (e.g. `location` is empty), it will skip this check.
     2.  If value can not be parsed into a URI, then it will return an error.
     3.  If the value is a valid URI, it will call S3,
