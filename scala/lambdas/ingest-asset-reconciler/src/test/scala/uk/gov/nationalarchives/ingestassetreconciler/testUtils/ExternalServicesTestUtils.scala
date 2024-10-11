@@ -32,7 +32,6 @@ import scala.jdk.CollectionConverters.*
 
 class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpec with TableDrivenPropertyChecks with MockitoSugar {
   val assetId: UUID = UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e")
-  val assetName: UUID = UUID.fromString("acdb2e57-923b-4caa-8fd9-a2f79f650c43")
   val assetParentPath: String = "a/parent/path"
   val childIdJson: UUID = UUID.fromString("feedd76d-e368-45c8-96e3-c37671476793")
   val childIdDocx: UUID = UUID.fromString("a25d33f3-7726-4fb3-8e6f-f66358451c4e")
@@ -238,9 +237,6 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
        |        "id": {
        |          "S": "$assetId"
        |        },
-       |        "name": {
-       |          "S": "$assetName"
-       |        },
        |        "parentPath": {
        |          "S": "$assetParentPath"
        |        },
@@ -332,7 +328,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
       s""""ExpressionAttributeValues":{":batchId":{"S":"$batchId"},":parentPath":{"S":"${assetParentPath}/$assetId"}}}"""
 
   private val expectedLockTableGetRequest =
-    s"""{"RequestItems":{"test-lock-table":{"Keys":[{"assetId":{"S":"$assetName"}}]}}}"""
+    s"""{"RequestItems":{"test-lock-table":{"Keys":[{"assetId":{"S":"$assetId"}}]}}}"""
 
   private val defaultIoWithIdentifier = IO.pure(Seq(defaultEntity))
 
@@ -461,7 +457,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer) extends AnyFlatSpe
       )
 
       if (numOfEntitiesByIdentifierInvocations > 0)
-        entitiesByIdentifierIdentifierToGetCaptor.getValue should be(PreservicaIdentifier("SourceID", "acdb2e57-923b-4caa-8fd9-a2f79f650c43"))
+        entitiesByIdentifierIdentifierToGetCaptor.getValue should be(PreservicaIdentifier("SourceID", "68b1c80b-36b8-4f0f-94d6-92589002d87e"))
 
       val ioEntityRefForUrlsRequestCaptor = getIoEntityRefCaptor
       val optionalRepresentationTypeCaptorRequestCaptor = getOptionalRepresentationTypeCaptor

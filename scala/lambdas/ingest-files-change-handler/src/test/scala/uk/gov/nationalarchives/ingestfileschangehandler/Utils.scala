@@ -39,7 +39,6 @@ object Utils {
       row.batchId,
       row.id,
       row.parentPath,
-      name,
       Asset,
       None,
       None,

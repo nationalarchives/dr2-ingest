@@ -108,7 +108,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
   val expectedOpex: Elem =
     <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
       <opex:Transfer>
-        <opex:SourceID>Test Name</opex:SourceID>
+        <opex:SourceID>68b1c80b-36b8-4f0f-94d6-92589002d87e</opex:SourceID>
         <opex:Manifest>
           <opex:Files>
             <opex:File type="metadata" size="3052">68b1c80b-36b8-4f0f-94d6-92589002d87e.xip</opex:File>
@@ -125,7 +125,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
         </opex:Manifest>
       </opex:Transfer>
       <opex:Properties>
-        <opex:Title>Test Name</opex:Title>
+        <opex:Title>68b1c80b-36b8-4f0f-94d6-92589002d87e</opex:Title>
         <opex:Description/>
         <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
         <opex:Identifiers>

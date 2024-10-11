@@ -130,12 +130,15 @@ object DynamoFormatters {
     def batchId: String
     def id: UUID
     def potentialParentPath: Option[String]
-    def name: String
     def `type`: Type
     def potentialTitle: Option[String]
     def potentialDescription: Option[String]
     def identifiers: List[Identifier]
     def childCount: Int
+  }
+
+  sealed trait FolderDynamoItem extends DynamoItem {
+    def name: String
   }
 
   private type ValidatedAttribute[T] = ValidatedNel[(FieldName, DynamoReadError), T]
@@ -186,7 +189,7 @@ object DynamoFormatters {
       potentialDescription: Option[String],
       identifiers: List[Identifier],
       childCount: Int
-  ) extends DynamoItem
+  ) extends FolderDynamoItem
 
   case class ContentFolderDynamoItem(
       batchId: String,
@@ -198,13 +201,12 @@ object DynamoFormatters {
       potentialDescription: Option[String],
       identifiers: List[Identifier],
       childCount: Int
-  ) extends DynamoItem
+  ) extends FolderDynamoItem
 
   case class AssetDynamoItem(
       batchId: String,
       id: UUID,
       potentialParentPath: Option[String],
-      name: String,
       `type`: Type,
       potentialTitle: Option[String],
       potentialDescription: Option[String],

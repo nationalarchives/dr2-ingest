@@ -25,7 +25,7 @@ class XMLCreatorTest extends AnyFlatSpec {
   val expectedOpexXml: Elem =
     <opex:OPEXMetadata xmlns:opex={opexNamespace}>
       <opex:Transfer>
-        <opex:SourceID>name</opex:SourceID>
+        <opex:SourceID>90730c77-8faa-4dbf-b20d-bba1046dac87</opex:SourceID>
         <opex:Manifest>
           <opex:Files>
             <opex:File type="metadata" size="4">90730c77-8faa-4dbf-b20d-bba1046dac87.xip</opex:File>
@@ -149,7 +149,6 @@ class XMLCreatorTest extends AnyFlatSpec {
     "TEST-ID",
     UUID.fromString("90730c77-8faa-4dbf-b20d-bba1046dac87"),
     Option("parentPath"),
-    "name",
     Asset,
     Option("title"),
     Option("description"),

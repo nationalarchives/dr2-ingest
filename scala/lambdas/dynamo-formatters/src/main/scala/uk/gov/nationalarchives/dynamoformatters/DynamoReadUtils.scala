@@ -258,7 +258,6 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     (
       allValidatedFileTableAttributes.batchId,
       allValidatedFileTableAttributes.id,
-      allValidatedFileTableAttributes.name,
       allValidatedFileTableAttributes.transferringBody,
       allValidatedFileTableAttributes.transferCompleteDatetime,
       allValidatedFileTableAttributes.upstreamSystem,
@@ -273,7 +272,6 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       (
           batchId,
           id,
-          name,
           transferringBody,
           transferCompletedDatetime,
           upstreamSystem,
@@ -289,7 +287,6 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
           batchId,
           id,
           allValidatedFileTableAttributes.potentialParentPath,
-          name,
           rowType,
           allValidatedFileTableAttributes.potentialTitle,
           allValidatedFileTableAttributes.potentialDescription,

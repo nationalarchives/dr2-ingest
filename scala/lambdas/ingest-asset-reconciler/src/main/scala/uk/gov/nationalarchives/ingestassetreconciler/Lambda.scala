@@ -120,7 +120,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       asset <- IO.fromOption(assetItems.headOption)(
         new Exception(s"No asset found for $assetId from $batchId")
       )
-      assetName = UUID.fromString(asset.name)
       _ <- IO.raiseWhen(asset.`type` != Asset)(
         new Exception(s"Object $assetId is of type ${asset.`type`} and not 'Asset'")
       )
@@ -129,12 +128,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       log = logger.info(logCtx)(_)
       _ <- log(s"Asset $assetId retrieved from Dynamo")
 
-      entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(PreservicaIdentifier(sourceId, assetName.toString))
+      entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(PreservicaIdentifier(sourceId, assetId.toString))
       _ <- IO.raiseWhen(entitiesWithAssetName.length > 1)(
-        new Exception(s"More than one entity found using $sourceId '$assetName'")
+        new Exception(s"More than one entity found using $sourceId '$assetId'")
       )
       entity <- IO.fromOption(entitiesWithAssetName.headOption)(
-        new Exception(s"No entity found using $sourceId '$assetName'")
+        new Exception(s"No entity found using $sourceId '$assetId'")
       )
 
       children <- childrenOfAsset(dependencies.dynamoDbClient, asset, config.dynamoTableName, config.dynamoGsiName)
@@ -164,7 +163,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
             stateOutput <-
               if (contentObjects.isEmpty)
                 IO.pure(
-                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'", assetName, assetId)
+                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'", asset.id, assetId)
                 )
               else
                 for {
@@ -173,13 +172,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     .flatSequence
 
                   _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
-                } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType, assetName)
+                } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType, asset.id)
           } yield stateOutput
         }
         .toList
         .sequence
       allReconciled = stateOutputs.forall(_.wasReconciled)
-    } yield StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim, assetName, assetId)
+    } yield StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim, asset.id, assetId)
 
   override def dependencies(config: Config): IO[Dependencies] =
     Fs2Client
