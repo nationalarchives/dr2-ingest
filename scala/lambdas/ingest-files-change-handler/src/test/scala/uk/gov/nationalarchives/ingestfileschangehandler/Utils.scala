@@ -23,7 +23,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{
   upstreamSystem,
   Checksum
 }
-import uk.gov.nationalarchives.ingestfileschangehandler.Lambda.OutputMessage
+import uk.gov.nationalarchives.utils.ExternalUtils.OutputMessage
 
 import java.net.URI
 import java.time.OffsetDateTime

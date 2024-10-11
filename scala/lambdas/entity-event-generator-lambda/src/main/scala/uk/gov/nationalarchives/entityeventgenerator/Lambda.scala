@@ -10,7 +10,7 @@ import software.amazon.awssdk.services.dynamodb.model.*
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
-import uk.gov.nationalarchives.utils.EventDecoders.given
+import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.entityeventgenerator.Lambda.*
 import uk.gov.nationalarchives.dp.client.Entities.Entity
