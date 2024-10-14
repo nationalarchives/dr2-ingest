@@ -78,8 +78,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       childrenForRepresentationType: List[FileDynamoItem],
       bitstreamInfoPerContentObject: Seq[BitStreamInfo],
       assetId: UUID,
-      representationType: RepresentationType,
-      assetName: UUID
+      representationType: RepresentationType
   ) = {
     val childrenThatDidNotMatchOnChecksum =
       childrenForRepresentationType.filter { assetChild =>
@@ -91,7 +90,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         bitstreamWithSameChecksum.isEmpty
       }
 
-    if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "", assetName, assetId)
+    if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "", assetId)
     else
       StateOutput(
         wasReconciled = false,
@@ -99,7 +98,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
           s"to be ingested for `assetId` '*$assetId*' with `representationType` *$representationType*, " +
           s"a _*checksum*_ and _*title*_ could not be matched with a file on Preservica for:\n" +
           childrenThatDidNotMatchOnChecksum.zip(LazyList.from(1)).map((child, index) => s"$index. ${child.id}").mkString("\n"),
-        assetName,
         assetId
       )
   }
@@ -163,7 +161,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
             stateOutput <-
               if (contentObjects.isEmpty)
                 IO.pure(
-                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'", assetId, assetId)
+                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'", assetId)
                 )
               else
                 for {
@@ -172,13 +170,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     .flatSequence
 
                   _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
-                } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType, asset.id)
+                } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType)
           } yield stateOutput
         }
         .toList
         .sequence
       allReconciled = stateOutputs.forall(_.wasReconciled)
-    } yield StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim, asset.id, assetId)
+    } yield StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim, assetId)
 
   override def dependencies(config: Config): IO[Dependencies] =
     Fs2Client
@@ -192,7 +190,7 @@ object Lambda {
 
   case class AssetMessage(messageId: UUID, parentMessageId: Option[UUID] = None, executionId: Option[String])
 
-  case class StateOutput(wasReconciled: Boolean, reason: String, assetName: UUID, assetId: UUID)
+  case class StateOutput(wasReconciled: Boolean, reason: String, assetId: UUID)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO], newMessageId: UUID, datetime: () => OffsetDateTime)
 
