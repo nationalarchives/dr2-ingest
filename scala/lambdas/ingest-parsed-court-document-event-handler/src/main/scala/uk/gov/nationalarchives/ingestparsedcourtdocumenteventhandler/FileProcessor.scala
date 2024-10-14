@@ -76,7 +76,8 @@ class FileProcessor(
       fileReference: Option[String],
       potentialDepartment: Option[String],
       potentialSeries: Option[String],
-      tdrUuid: String
+      tdrUuid: String,
+      potentialCorrelationId: Option[String]
   ): List[MetadataObject] = {
     val potentialCourtFromUri = parsedUri.flatMap(_.potentialCourt)
     val (folderName, potentialFolderTitle, uriIdField) =
@@ -125,6 +126,7 @@ class FileProcessor(
         "TRE: FCL Parser workflow",
         "Born Digital",
         "FCL",
+        potentialCorrelationId,
         assetMetadataIdFields
       )
     val fileRowMetadataObject =
@@ -224,6 +226,8 @@ class FileProcessor(
 object FileProcessor {
   private val chunkSize: Int = 1024 * 64
 
+  given Decoder[TREInputProperties] = (c: HCursor) => for (messageId <- c.downField("messageId").as[Option[String]]) yield TREInputProperties(messageId)
+
   given Decoder[TREInputParameters] = (c: HCursor) =>
     for {
       status <- c.downField("status").as[String]
@@ -237,9 +241,11 @@ object FileProcessor {
 
   case class FileInfo(id: UUID, fileSize: Long, fileName: String, sha256Checksum: String, location: URI)
 
+  case class TREInputProperties(messageId: Option[String])
+
   case class TREInputParameters(status: String, reference: String, skipSeriesLookup: Boolean, s3Bucket: String, s3Key: String)
 
-  case class TREInput(parameters: TREInputParameters)
+  case class TREInput(properties: TREInputProperties, parameters: TREInputParameters)
 
   case class TREMetadata(parameters: TREMetadataParameters)
 

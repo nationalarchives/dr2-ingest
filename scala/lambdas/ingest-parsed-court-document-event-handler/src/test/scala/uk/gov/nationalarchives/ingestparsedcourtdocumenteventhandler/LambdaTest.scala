@@ -67,6 +67,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   val testOutputBucket = "outputBucket"
   val inputBucket = "inputBucket"
   private def packageAvailable(s3Key: String): TREInput = TREInput(
+    TREInputProperties(Option("023b66e5-9e21-49f5-a5c1-041a306f4cee")),
     TREInputParameters("status", "TEST-REFERENCE", skipSeriesLookup = false, inputBucket, s3Key)
   )
   private def event(s3Key: String = "test.tar.gz"): SQSEvent = createEvent(
@@ -314,6 +315,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       val folderId = UUID.fromString("c2e7866e-5e94-4b4e-a49f-043ad937c18a")
       val fileId = UUID.fromString("61ac0166-ccdf-48c4-800f-29e5fba2efda")
       val metadataFileId = UUID.fromString("4e6bac50-d80a-4c68-bd92-772ac9701f14")
+      val potentialCorrelationId: Option[String] = Option("023b66e5-9e21-49f5-a5c1-041a306f4cee")
       val expectedAssetMetadata = AssetMetadataObject(
         tdrUuid,
         Option(folderId),
@@ -327,6 +329,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         "TRE: FCL Parser workflow",
         "Born Digital",
         "FCL",
+        potentialCorrelationId,
         List(
           Option(IdField("UpstreamSystemReference", reference)),
           Option(IdField("URI", "https://example.com/id/court/2023/")),
@@ -466,7 +469,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val ex = intercept[Exception] {
       new Lambda().handler(eventWithInvalidJson, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal("DecodingFailure at .parameters: Missing required field")
+    ex.getMessage should equal("DecodingFailure at .properties: Missing required field")
   }
 
   "the lambda" should "error if the json in the metadata file is invalid" in {

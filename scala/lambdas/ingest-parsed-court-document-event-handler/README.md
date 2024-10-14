@@ -25,6 +25,9 @@ The input to the Lambda is an SQS event, with a body like
 
 ```json
 {
+  "properties": {
+    "messageId": "26f9dc44-b607-4e25-b750-1db67de8046a"
+  },
   "parameters": {
     "status": "status",
     "reference": "TEST-REFERENCE",
@@ -38,6 +41,9 @@ We can also replay the message with the `skipSeriesLookup` parameter
 
 ```json
 {
+  "properties": {
+    "messageId": "26f9dc44-b607-4e25-b750-1db67de8046a"
+  },
   "parameters": {
     "status": "status",
     "reference": "TEST-REFERENCE",
@@ -82,7 +88,8 @@ The lambda doesn't return anything, it writes objects to S3 and starts a Step Fu
     "parentId": "4e6bac50-d80a-4c68-bd92-772ac9701f14",
     "title": "Test.docx",
     "type": "Asset",
-    "name": "Test.docx"
+    "name": "Test.docx",
+    "correlationId": "26f9dc44-b607-4e25-b750-1db67de8046a"
   },
   {
     "id": "c7e6b27f-5778-4da8-9b83-1b64bbccbd03",

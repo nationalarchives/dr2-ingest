@@ -96,7 +96,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
         .unsafeRunSync()
 
       val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(testData.fileSize))
-      val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
+      val lockTableMessageId = UUID.randomUUID()
+      val lockTableMessage = LockTableMessage(lockTableMessageId, URI.create("s3://bucket/key")).asJson.noSpaces
       val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), testData.groupId, lockTableMessage))
       val input = Input(testData.groupId, testData.batchId, 1, 2)
       val (s3Contents, output) = runHandler(uuidIterator, initialS3Objects, initialDynamoObjects, input)
@@ -127,6 +128,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       assetMetadataObject.upstreamSystem should equal("TDR")
       assetMetadataObject.digitalAssetSource should equal("Born Digital")
       assetMetadataObject.digitalAssetSubtype should equal("TDR")
+      assetMetadataObject.correlationId should equal(Option(lockTableMessageId.toString))
       def checkIdField(name: String, value: String) =
         assetMetadataObject.idFields.find(_.name == name).map(_.value).get should equal(value)
       checkIdField("Code", s"${testData.series}/${testData.fileRef}")
