@@ -6,11 +6,14 @@ The Lambda does the following.
 - Downloads the package from TRE.
 - Unzips it.
 - Untars it.
-- Uploads all files from the package to S3 with a UUID. This includes files we don't care about but it's easier than
+- Uploads all files from the package to S3 with a UUID; even though this includes files we don't care about, it's easier than
   trying to parse JSON on the fly.
-- Parses the metadata JSON file from the package.
-- Maps the `court` to a series and department reference using a static lookup table.
+- Parses the TRE metadata JSON file ("TRE-{batchRef}-metadata.json") from the package.
+- It retrieves a URI from this file (with this format https://example.com/id/{court}/{year}/{cite}/{optionalDoctype}) and extracts the court and trims of anything after the cite.
+- Maps the `court` (that was extracted) to a series and department reference using a static lookup table.
 - Generates a single [metadataPackage JSON file](/docs/metadataPackage.md) describing the ingest package.
+- Deletes the files from TRE that were copied, that are not the file info and metadata file info ones (the "files we don't care about"), from the S3 bucket.
+- Writes the `assetId`, `groupId` and `message`, containing a json String with the format {"messageId":"{randomId}"} to the lock table in DynamoDB only if it doesn't already exist.
 - Starts a Step Function execution for the ingest package.
 
 The department and series lookup is very judgment-specific but this can be changed if we start taking in other
