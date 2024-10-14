@@ -2,7 +2,7 @@ package uk.gov.nationalarchives.dynamoformatters
 
 import org.scanamo.{DynamoObject, DynamoValue}
 import org.scanamo.generic.semiauto.FieldName
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{archiveFolderItemFormat, *}
 
 object DynamoWriteUtils {
 
@@ -18,7 +18,6 @@ object DynamoWriteUtils {
     Map(
       "batchId" -> DynamoValue.fromString(item.batchId),
       "id" -> DynamoValue.fromString(item.id.toString),
-      "name" -> DynamoValue.fromString(item.name),
       "type" -> DynamoValue.fromString(item.`type`.toString)
     ) ++ item.identifiers.map(id => s"id_${id.identifierName}" -> DynamoValue.fromString(id.value)).toMap ++
       optionalFields
@@ -26,12 +25,14 @@ object DynamoWriteUtils {
 
   def writeArchiveFolderItem(archiveFolderDynamoItem: ArchiveFolderDynamoItem): DynamoValue =
     DynamoObject {
-      commonFieldsToMap(archiveFolderDynamoItem)
+      commonFieldsToMap(archiveFolderDynamoItem) ++
+        Map(name -> DynamoValue.fromString(archiveFolderDynamoItem.name))
     }.toDynamoValue
 
   def writeContentFolderItem(contentFolderDynamoItem: ContentFolderDynamoItem): DynamoValue =
     DynamoObject {
-      commonFieldsToMap(contentFolderDynamoItem)
+      commonFieldsToMap(contentFolderDynamoItem) ++
+        Map(name -> DynamoValue.fromString(contentFolderDynamoItem.name))
     }.toDynamoValue
 
   def writeAssetItem(assetDynamoItem: AssetDynamoItem): DynamoValue =
@@ -56,6 +57,7 @@ object DynamoWriteUtils {
       commonFieldsToMap(fileDynamoItem) ++
         fileDynamoItem.potentialFileExtension.map(extension => Map(fileExtension -> DynamoValue.fromString(extension))).getOrElse(Map()) ++
         Map(
+          name -> DynamoValue.fromString(fileDynamoItem.name),
           sortOrder -> DynamoValue.fromNumber[Int](fileDynamoItem.sortOrder),
           fileSize -> DynamoValue.fromNumber[Long](fileDynamoItem.fileSize),
           representationType -> DynamoValue.fromString(fileDynamoItem.representationType.toString),

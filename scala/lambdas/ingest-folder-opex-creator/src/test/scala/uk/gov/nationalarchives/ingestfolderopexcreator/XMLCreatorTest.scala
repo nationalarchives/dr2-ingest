@@ -5,7 +5,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
-import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetWithFileSize, FolderOrAssetItem}
+import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetItem, AssetWithFileSize, FolderItem, FolderOrAssetItem}
 
 import java.util.UUID
 import scala.xml.Elem
@@ -115,11 +115,10 @@ class XMLCreatorTest extends AnyFlatSpec {
   val folderUuids: List[UUID] = List(UUID.fromString("7fcd94a9-be3f-456d-875f-bc697f7ed106"), UUID.fromString("9ecbba86-437f-42c6-aeba-e28b678bbf4c"))
   val childAssets: List[AssetWithFileSize] = assetUuids.zipWithIndex.map { case (uuid, suffix) =>
     AssetWithFileSize(
-      FolderOrAssetItem(
+      AssetItem(
         "TEST-ID",
         uuid,
         Option(s"parentPath$suffix"),
-        s"name$suffix Asset",
         Asset,
         Option(s"title$suffix Asset"),
         Option(s"description$suffix Asset"),
@@ -130,7 +129,7 @@ class XMLCreatorTest extends AnyFlatSpec {
   }
 
   val childFolders: List[FolderOrAssetItem] = folderUuids.zipWithIndex.map { case (uuid, suffix) =>
-    FolderOrAssetItem(
+    FolderItem(
       "TEST-ID",
       uuid,
       Option(s"parentPath$suffix"),

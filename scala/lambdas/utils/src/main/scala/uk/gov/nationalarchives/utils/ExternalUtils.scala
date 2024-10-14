@@ -24,9 +24,9 @@ object ExternalUtils {
 
   given Encoder[Type] = {
     case Type.ArchiveFolder => Json.fromString("ArchiveFolder")
-    case ContentFolder => Json.fromString("ContentFolder")
-    case Type.Asset => Json.fromString("Asset")
-    case Type.File => Json.fromString("File")
+    case ContentFolder      => Json.fromString("ContentFolder")
+    case Type.Asset         => Json.fromString("Asset")
+    case Type.File          => Json.fromString("File")
   }
 
   enum Type:
@@ -38,12 +38,12 @@ object ExternalUtils {
     }
 
   private def jsonFromMetadataObject(
-                                      id: UUID,
-                                      parentId: Option[UUID],
-                                      title: Option[String],
-                                      objectType: Type,
-                                      name: String
-                                    ) = {
+      id: UUID,
+      parentId: Option[UUID],
+      title: Option[String],
+      objectType: Type,
+      name: String
+  ) = {
     Json.obj(
       ("id", Json.fromString(id.toString)),
       ("parentId", parentId.map(_.toString).map(Json.fromString).getOrElse(Null)),
@@ -52,8 +52,16 @@ object ExternalUtils {
       ("name", Json.fromString(name))
     )
   }
-  
-  private def createFolderMetadataObject(id: UUID, parentId: Option[UUID], title: Option[String], name: String, series: String, folderMetadataIdFields: List[IdField], folderType: Type) = {
+
+  private def createFolderMetadataObject(
+      id: UUID,
+      parentId: Option[UUID],
+      title: Option[String],
+      name: String,
+      series: String,
+      folderMetadataIdFields: List[IdField],
+      folderType: Type
+  ) = {
     jsonFromMetadataObject(id, parentId, title, folderType, name)
       .deepMerge {
         Json.fromFields(convertIdFieldsToJson(folderMetadataIdFields))
@@ -72,20 +80,20 @@ object ExternalUtils {
     case ContentFolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields) =>
       createFolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields, ContentFolder)
     case AssetMetadataObject(
-    id,
-    parentId,
-    title,
-    name,
-    originalFilesUuids,
-    originalMetadataFilesUuids,
-    description,
-    transferringBody,
-    transferCompleteDatetime,
-    upstreamSystem,
-    digitalAssetSource,
-    digitalAssetSubtype,
-    assetMetadataIdFields
-    ) =>
+          id,
+          parentId,
+          title,
+          name,
+          originalFilesUuids,
+          originalMetadataFilesUuids,
+          description,
+          transferringBody,
+          transferCompleteDatetime,
+          upstreamSystem,
+          digitalAssetSource,
+          digitalAssetSubtype,
+          assetMetadataIdFields
+        ) =>
       val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) => fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
 
       jsonFromMetadataObject(id, parentId, Option(title), Type.Asset, name)
@@ -123,55 +131,55 @@ object ExternalUtils {
   case class IdField(name: String, value: String)
 
   case class ArchiveFolderMetadataObject(
-                                   id: UUID,
-                                   parentId: Option[UUID],
-                                   title: Option[String],
-                                   name: String,
-                                   series: String,
-                                   idFields: List[IdField] = Nil
-                                 ) extends MetadataObject
+      id: UUID,
+      parentId: Option[UUID],
+      title: Option[String],
+      name: String,
+      series: String,
+      idFields: List[IdField] = Nil
+  ) extends MetadataObject
 
   case class ContentFolderMetadataObject(
-                                          id: UUID,
-                                          parentId: Option[UUID],
-                                          title: Option[String],
-                                          name: String,
-                                          series: String,
-                                          idFields: List[IdField] = Nil
-                                        ) extends MetadataObject
+      id: UUID,
+      parentId: Option[UUID],
+      title: Option[String],
+      name: String,
+      series: String,
+      idFields: List[IdField] = Nil
+  ) extends MetadataObject
 
   case class AssetMetadataObject(
-                                  id: UUID,
-                                  parentId: Option[UUID],
-                                  title: String,
-                                  name: String,
-                                  originalFiles: List[UUID],
-                                  originalMetadataFiles: List[UUID],
-                                  description: Option[String],
-                                  transferringBody: String,
-                                  transferCompleteDatetime: OffsetDateTime,
-                                  upstreamSystem: String,
-                                  digitalAssetSource: String,
-                                  digitalAssetSubtype: String,
-                                  idFields: List[IdField] = Nil
-                                ) extends MetadataObject
+      id: UUID,
+      parentId: Option[UUID],
+      title: String,
+      name: String,
+      originalFiles: List[UUID],
+      originalMetadataFiles: List[UUID],
+      description: Option[String],
+      transferringBody: String,
+      transferCompleteDatetime: OffsetDateTime,
+      upstreamSystem: String,
+      digitalAssetSource: String,
+      digitalAssetSubtype: String,
+      idFields: List[IdField] = Nil
+  ) extends MetadataObject
 
   case class FileMetadataObject(
-                                 id: UUID,
-                                 parentId: Option[UUID],
-                                 title: String,
-                                 sortOrder: Int,
-                                 name: String,
-                                 fileSize: Long,
-                                 representationType: RepresentationType,
-                                 representationSuffix: Int,
-                                 location: URI,
-                                 checksumSha256: String
-                               ) extends MetadataObject
+      id: UUID,
+      parentId: Option[UUID],
+      title: String,
+      sortOrder: Int,
+      name: String,
+      fileSize: Long,
+      representationType: RepresentationType,
+      representationSuffix: Int,
+      location: URI,
+      checksumSha256: String
+  ) extends MetadataObject
 
   enum MessageType:
     override def toString: String = this match
-      case IngestUpdate => "preserve.digital.asset.ingest.update"
+      case IngestUpdate   => "preserve.digital.asset.ingest.update"
       case IngestComplete => "preserve.digital.asset.ingest.complete"
 
     case IngestUpdate, IngestComplete
@@ -182,7 +190,7 @@ object ExternalUtils {
     case IngestStarted extends MessageStatus("Asset has started the ingest process.")
     case IngestError extends MessageStatus("There has been an error ingesting the asset.")
 
-  case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, messageType:  MessageType)
+  case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, messageType: MessageType)
 
   case class OutputParameters(assetId: UUID, status: MessageStatus)
 

@@ -41,7 +41,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       log = logger.info(logCtx)(_)
       _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
 
-      entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(PreservicaIdentifier(sourceId, asset.name))
+      entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(PreservicaIdentifier(sourceId, asset.id.toString))
       assetExists = entitiesWithAssetName.headOption.flatMap(_.entityType).contains(InformationObject)
 
       _ <- IO.whenA(assetExists) {
