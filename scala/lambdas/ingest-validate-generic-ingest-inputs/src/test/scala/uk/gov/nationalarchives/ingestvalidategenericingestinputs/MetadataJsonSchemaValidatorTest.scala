@@ -15,6 +15,13 @@ import uk.gov.nationalarchives.ingestvalidategenericingestinputs.testUtils.Exter
 
 class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
   private val entryTypeSchemas: TableFor1[EntryTypeSchema] = Table("entryType", ArchiveFolder, ContentFolder, Asset, File, UnknownType)
+  private val optionalPropertiesAndInvalidValues = Map(
+    ArchiveFolder -> Map("id_URI" -> Str("")),
+    ContentFolder -> Map("id_Code" -> Str("")),
+    Asset -> Map("series" -> Str(""), "correlationId" -> Str("")),
+    File -> Map("checksum_sha256" -> Str("")),
+    UnknownType -> Map("checksum_" -> Str("fa2d0b0345b9dcc4e68eac7f4b9bc76"))
+  )
   private lazy val unknownTypeEntry = List(Obj.from(testValidMetadataJson().head.value ++ Map("type" -> Str("UnknownType"))))
 
   val propertiesWithArrayType: TableFor4[String, String, Value, ValidationError] = Table(
@@ -213,27 +220,21 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
       "the format of the optional properties is incorrect" in {
         val entry = testValidMetadataJson(unknownTypeEntry).filter(_(entryType).str == entryTypeSchema.toString).head
         val entryWithInvalidOptionalProperty = Obj.from {
-          entry.value ++
-            (entry(entryType).str match {
-              case "ArchiveFolder" => Map("id_URI" -> Str(""))
-              case "ContentFolder" => Map("id_URI" -> Str(""))
-              case "Asset"         => Map("series" -> Str(""))
-              case "File"          => Map("checksum_sha256" -> Str(""))
-              case "UnknownType"   => Map("checksum_" -> Str("fa2d0b0345b9dcc4e68eac7f4b9bc76"))
-            })
+          entry.value ++ optionalPropertiesAndInvalidValues(entryTypeSchema)
         }
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithInvalidOptionalProperty).unsafeRunSync()
         validatedJsonObjectAsMap should equal(
           convertUjsonObjToSchemaValidatedMap(entryWithInvalidOptionalProperty) ++
             (entry(entryType).str match {
               case "ArchiveFolder" => Map("id_URI" -> SchemaValueError("", "$.id_URI: must be at least 1 characters long").invalidNel[Value])
-              case "ContentFolder" => Map("id_URI" -> SchemaValueError("", "$.id_URI: must be at least 1 characters long").invalidNel[Value])
+              case "ContentFolder" => Map("id_Code" -> SchemaValueError("", "$.id_Code: must be at least 1 characters long").invalidNel[Value])
               case "Asset" =>
                 Map(
                   "series" -> NonEmptyList(
                     SchemaValueError("", "$.series: does not match the regex pattern ^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown|MOCK1 123)$"),
                     List(SchemaValueError("", "$.series: must be at least 1 characters long"))
-                  ).invalid[Value]
+                  ).invalid[Value],
+                  "correlationId" -> NonEmptyList(SchemaValueError("", "$.correlationId: must be at least 1 characters long"), Nil).invalid[Value]
                 )
               case "File" =>
                 Map(
@@ -288,7 +289,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
         val entryWithoutAnyRequiredFields = Obj()
         val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(entryTypeSchema).validateMetadataJsonObject(entryWithoutAnyRequiredFields).unsafeRunSync()
         val entryKeys = testValidMetadataJson().collect { case entry if entry(entryType).str == entryTypeSchema.toString => entry.value.keys }.head
-        val optionalProperties = List("checksum_sha256", "series", "id_URI", "id_Code")
+        val optionalProperties = optionalPropertiesAndInvalidValues.flatMap { case (_, propertyAndValues) => propertyAndValues.keys }.toList
         val expectedValidatedJsonObject = entryKeys.collect {
           case key if !optionalProperties.contains(key) =>
             key -> MissingPropertyError(key, s"$$: required property '$key' not found").invalidNel[Value]

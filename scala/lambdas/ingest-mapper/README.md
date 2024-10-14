@@ -1,6 +1,6 @@
-# DR2 Ingest Mapper
+# DR2 Ingest - Mapper
 
-This lambda reads a bagit package based on the input to the lambda, parses file metadata and writes this to a DynamoDB table.
+This Lambda reads a JSON file passed in as the input to the Lambda, parses file contents and writes this to a DynamoDB table.
 
 The lambda:
 * Reads the input from the step function step with this format:
@@ -12,11 +12,13 @@ The lambda:
 }
 ```
 * Downloads the metadata file from the `metadataPackage` location and parses it.
-* Gets a list of series names from the metadata json. Do `series.split(" ").head` to get the department.
-* For each series and department pair, get the title and description for department and series from Discovery. This is run through the XSLT in `src/main/resources/transform.xsl` to replace the EAD tags with newlines.
-* If the series is `Unknown`, it will create a hierarchy of `Unknown/Court Documents (court unknown)` or `Unknown/Court Documents (court not matched)` depending on the title of the top level folder.
+* Gets a list of series names from the metadata json. Extracts the department reference from the series reference by doing `series.split(" ").head.
+* For each unique series and department pair, gets the title and description from Discovery. This is run through the XSLT in `src/main/resources/transform.xsl` to replace the EAD tags with newlines.
+* If the series is `Unknown`, it will create a hierarchy of `Unknown/`.
 * Creates a ujson Obj with the department and series output and the metadata json. We use a generic `Obj` because we will eventually have to handle fields we don't know about in advance.
-* Updates dynamo with the values
+* Generates the `parentPath` of each entity, replacing the `parentId`.
+* Calculates the `childCount` of each entity.
+* Updates dynamo with the values.
 * Write the UUIDs for the folders (Content and Archive) and Assets, to separate json files, in an S3 bucket with the paths `<executionName>/folders.json`, `<executionName>/assets.json`, respectively.
 * Writes the state data (including information on the json files with the ids) for the next step function step with this format:
 ```json
@@ -43,9 +45,6 @@ The lambda:
 }
 ```
 
-
-
-[Link to the infrastructure code](https://github.com/nationalarchives/dp-terraform-environments/blob/main/ingest_mapper.tf)
 
 ## Environment Variables
 
