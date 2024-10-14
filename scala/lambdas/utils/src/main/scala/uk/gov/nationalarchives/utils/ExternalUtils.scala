@@ -179,7 +179,7 @@ object ExternalUtils {
 
   enum MessageType:
     override def toString: String = this match
-      case IngestUpdate => "preserve.digital.asset.ingest.update"
+      case IngestUpdate   => "preserve.digital.asset.ingest.update"
       case IngestComplete => "preserve.digital.asset.ingest.complete"
 
     case IngestUpdate, IngestComplete
@@ -190,7 +190,7 @@ object ExternalUtils {
     case IngestStarted extends MessageStatus("Asset has started the ingest process.")
     case IngestError extends MessageStatus("There has been an error ingesting the asset.")
 
-  case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, messageType:  MessageType)
+  case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, messageType: MessageType)
 
   case class OutputParameters(assetId: UUID, status: MessageStatus)
 
