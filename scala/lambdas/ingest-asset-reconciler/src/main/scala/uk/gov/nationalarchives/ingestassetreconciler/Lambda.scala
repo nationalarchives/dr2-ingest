@@ -128,11 +128,11 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       log = logger.info(logCtx)(_)
       _ <- log(s"Asset $assetId retrieved from Dynamo")
 
-      entitiesWithAssetName <- dependencies.entityClient.entitiesByIdentifier(PreservicaIdentifier(sourceId, assetId.toString))
-      _ <- IO.raiseWhen(entitiesWithAssetName.length > 1)(
+      entitiesWithAssetId <- dependencies.entityClient.entitiesByIdentifier(PreservicaIdentifier(sourceId, assetId.toString))
+      _ <- IO.raiseWhen(entitiesWithAssetId.length > 1)(
         new Exception(s"More than one entity found using $sourceId '$assetId'")
       )
-      entity <- IO.fromOption(entitiesWithAssetName.headOption)(
+      entity <- IO.fromOption(entitiesWithAssetId.headOption)(
         new Exception(s"No entity found using $sourceId '$assetId'")
       )
 
@@ -163,7 +163,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
             stateOutput <-
               if (contentObjects.isEmpty)
                 IO.pure(
-                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'", asset.id, assetId)
+                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'", assetId, assetId)
                 )
               else
                 for {

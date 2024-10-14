@@ -26,8 +26,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def toFolderOrAssetItem[T <: DynamoItem](dynamoValue: DynamoValue)(using dynamoFormat: DynamoFormat[T]): Either[DynamoReadError, FolderOrAssetItem] =
     dynamoFormat.read(dynamoValue).map { item =>
-      {
-        val folderOrAsset: FolderOrAssetItem = item match {
+        item match {
           case asset: AssetDynamoItem =>
             AssetItem(item.batchId, item.id, item.potentialParentPath, item.`type`, item.potentialTitle, item.potentialDescription, item.identifiers, asset.skipIngest)
           case contentFolder: ContentFolderDynamoItem =>
@@ -53,8 +52,6 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
               item.identifiers
             )
           case _ => throw new RuntimeException("Row is not an 'Asset' or a 'Folder'")
-        }
-        folderOrAsset
       }
     }
 

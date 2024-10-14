@@ -12,7 +12,7 @@ The lambda:
 }
 ```
 * Fetches the Asset from our "files" Dynamo table, using the id passed as input.
-* Query Preservica API for an `Entity` that has a `SourceID` value that is the same as the Asset's `name`
+* Query Preservica API for an `Entity` that has a `SourceID` value that is the same as the Asset's `Id`
 * Get the `Entity`'s `ref` from the returned Entity object and use it to get the urls to the Entity's representations
 * Use the urls to obtain the Content Objects (COs) belonging to each `representationType` from the API
 * Get the Asset's child files from Dynamo where the child's `parentPath` equals the asset's `parentPath` + `/` + asset `id`.
@@ -21,7 +21,7 @@ The lambda:
 * If any file couldn't be reconciled, return a `StateOutput` with:
   * a `wasReconciled` value of `false`
   * a `reason` with info on the file/files that could not be reconciled
-  * the `assetName`
+  * the `assetId`
   * A `None` value for the `ReconciliationSnsMessage`
 * If all files could be reconciled, get the item that corresponds to the `assetName` from the lock table
 * Get the attribute `message` from the item; this is a JSON object string with the keys :
@@ -31,7 +31,7 @@ The lambda:
 * Return a `StateOutput` object that contains:
   * a `wasReconciled` value of `true`
   * an empty string for the `reason`
-  * the `assetName`
+  * the `assetId`
   * A `Some(ReconciliationSnsMessage)`, containing information such as:
     * `reconciliationUpdate`
     * `assetId`
