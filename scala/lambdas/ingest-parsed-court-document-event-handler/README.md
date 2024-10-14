@@ -2,17 +2,20 @@
 
 The lambda does the following.
 
-* Reads a TRE input message from an SQS message
+* Reads a TRE input message (which contains the properties and parameters) from an SQS message
 * Downloads the package from TRE.
 * Unzips it
 * Untars it
-* Uploads all files from the package to S3 with a UUID. This includes files we don't care about but it's easier than
+* Uploads all files from the package to S3 with a UUID; even though this includes files we don't care about, it's easier than
   trying to parse json on the fly
-* Parses the metadata json from the package.
-* Gets a series and department code from a static Map, based on the court.
-* Generates a single metadata file called metadata.json. Each entry contains the location of the docx and associated
+* Parses the TRE metadata json ("TRE-{batchRef}-metadata.json") from the package.
+* It retrieved a URI from this file (with this format https://example.com/id/{court}/{year}/{cite}/{optionalDoctype}) and extracts the court and trims of anything after the cite.
+* Gets a series and department code from a static Map, based on the court that was extracted.
+* Generates a single metadata file called `metadata.json`. Each json contains a file entry with the location of the docx and another file entry with the associated
   metadata file from TRE.
-* Starts a step function execution with the judgment details.
+* Deletes the files from TRE that were copied, that are not the file info and metadata file info ones (the "files we don't care about"), from the S3 bucket.
+* Writes the assetId, groupId and message, containing a json String with the format {"messageId":"{randomId}"} to the lock table in DynamoDB only if it doesn't already exist.
+* Starts a Step Function execution with the judgment details (batchRef and URI of the `metadata.json`).
 
 The department and series lookup is very judgment-specific but this can be changed if we start taking in other
 transfers.
