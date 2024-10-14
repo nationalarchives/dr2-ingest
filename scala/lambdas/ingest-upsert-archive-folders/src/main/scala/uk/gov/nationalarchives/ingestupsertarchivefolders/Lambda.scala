@@ -105,7 +105,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     }
 
     def getEntitiesByIdentifier(
-        folderRows: List[DynamoItem]
+        folderRows: List[FolderDynamoItem]
     ): IO[Map[String, Entity]] = {
       folderRows
         .map(_.name)

@@ -257,7 +257,6 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
     )
   )
 
-
 lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
@@ -302,7 +301,6 @@ lazy val ingestFailureNotifications = (project in file("ingest-failure-notificat
       dynamoClient
     )
   )
-
 
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)

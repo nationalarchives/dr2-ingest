@@ -23,7 +23,7 @@ The Lambda:
 - If any file couldn't be reconciled, return a `StateOutput` with:
   - a `wasReconciled` value of `false`
   - a `reason` with info on the file/files that could not be reconciled
-  - the `assetName`
+  - the `assetId`
   - A `None` value for the `ReconciliationSnsMessage`
 - If all files could be reconciled, get the item that corresponds to the `assetName` from the lock table
 - Get the attribute `message` from the item; this is a JSON object string with the keys :
@@ -33,7 +33,7 @@ The Lambda:
 - Return a `StateOutput` object that contains:
   - a `wasReconciled` value of `true`
   - an empty string for the `reason`
-  - the `assetName`
+  - the `assetId`
   - A `Some(ReconciliationSnsMessage)`, containing information such as:
     - `reconciliationUpdate`
     - `assetId`
