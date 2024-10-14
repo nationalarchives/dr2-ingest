@@ -1,33 +1,40 @@
-# DR2 Ingest Folder Opex Creator
+# DR2 Ingest - Asset Opex Creator
 
-This lambda will be responsible for creating Preservica Asset Exchange (PAX) packages and accompanying OPEX for assets within our ingest package. 
-The Lambda will be run in a Map state within our dr2-ingest Step Function, with the event containing the UUID of an asset to be created.
+This Lambda is responsible for creating Preservica Asset Exchange (PAX) packages and accompanying OPEX for assets within our ingest package. 
 
-The lambda will:
-* Fetch the asset from Dynamo using the id passed as input.
-* Get the child files from Dynamo where the child's parent path equals the asset path.
-* Create a XIP xml file and uploads it to S3
-* Create an OPEX xml file and uploads it to S3.
+The Lambda is run within a Map state in our `dr2-ingest` Step Function, with the event containing the UUID of an asset to be created.
+
+The Lambda
+* Fetches the asset from DynamoDB using the `id` passed as input.
+* Queries DynamoDB for child files of the asset - where the child's `parentPath` is equal to this asset's `parentPath+id`.
+* Verifies the GSI was fully populated by comparing `childCount` with the number of files found, erroring if not.
+* Creates the required OPEX components to represent this asset within the batch.
+  * Creates a XIP XML file and uploads it to S3
+  * Create an OPEX XML file and uploads it to S3.
+  * Copies and renames the digital file objects from source to `$DESTINATION_BUCKET`.
 
 ## Example
-Given the following input:
+Given the input
+
 ```json
 {
-  "id": "68b1c80b-36b8-4f0f-94d6-92589002d87e",
-  "batchId": "test-batch-id",
-  "executionName": "test-execution-name",
-  "sourceBucket": "source-bucket"
+    "batchId": "AAA_95b8f7b6-0b70-45ee-a76e-532dc36318c2_0",
+    "executionName": "AnExecution",
+    "id": "68b1c80b-36b8-4f0f-94d6-92589002d87e"
 }
 ```
+it will fetch the asset from DyamoDB
 
-Given an asset:
 ```json
 {
   "id":"68b1c80b-36b8-4f0f-94d6-92589002d87e",
-  "parentPath": "6016a2ce-6581-4e3b-8abc-177a8d008879/63864ef3-1ab7-4556-a4f1-0a62849e05a7/66cd14be-4e19-4d9c-bd3e-a735508ee935"
+  "batchId": "AAA_95b8f7b6-0b70-45ee-a76e-532dc36318c2_0",
+  "parentPath": "6016a2ce-6581-4e3b-8abc-177a8d008879/63864ef3-1ab7-4556-a4f1-0a62849e05a7/66cd14be-4e19-4d9c-bd3e-a735508ee935",
+  "childCount": 2,
+  ...
 }
 ```
-And two children:
+and query for the two children.
 ```json
 [
   {
@@ -43,13 +50,13 @@ And two children:
 ]
 ```
 
-This will produce the following structure in S3.
+It will produce the following structure in the destination S3 bucket.
 ```text
 opex
 └── test-execution
-    └── 66cd14be-4e19-4d9c-bd3e-a735508ee935
+    └── 6016a2ce-6581-4e3b-8abc-177a8d008879
         └── 63864ef3-1ab7-4556-a4f1-0a62849e05a7
-            └── 6016a2ce-6581-4e3b-8abc-177a8d008879
+            └──  66cd14be-4e19-4d9c-bd3e-a735508ee935
                 ├── 68b1c80b-36b8-4f0f-94d6-92589002d87e.pax
                 │   ├── 68b1c80b-36b8-4f0f-94d6-92589002d87e.xip
                 │   └── Representation_Preservation
@@ -63,13 +70,10 @@ opex
 
 ```
 
-[Link to the infrastructure code](https://github.com/nationalarchives/dr2-terraform-environments)
-
 ## Environment Variables
 
 | Name               | Description                                                                         |
 |--------------------|-------------------------------------------------------------------------------------|
-| DYNAMO_TABLE_NAME  | The name of the table to read assets and their children from                        |
-| SOURCE_BUCKET      | The raw bucket to copy the files from                                               |
 | DESTINATION_BUCKET | The staging bucket to copy the files to                                             |
 | DYNAMO_GSI_NAME    | The name of the global secondary index. This is used for querying fields in the GSI |
+| DYNAMO_TABLE_NAME  | The name of the table to read assets and their children from                        |
