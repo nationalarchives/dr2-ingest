@@ -206,14 +206,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
     loggedMsgs.contains(
-      "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+      "1 entry (objects) in the metadata.json for batchId 'TEST-ID' has failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
     ) should equal(true)
-    loggedMsgs.contains("""{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"name, title"}""") should equal(true)
+    loggedMsgs.contains("""{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"name"}""") should equal(true)
 
     outputOrErr match {
       case ex: Throwable =>
         ex.getMessage should equal(
-          "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+          "1 entry (objects) in the metadata.json for batchId 'TEST-ID' has failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
         )
       case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }
@@ -252,7 +252,8 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       "5 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
     ) should equal(true)
     loggedMsgs.contains("""{"id":"\"27354aa8-975f-48d1-af79-121b9a349cbe\"","fieldNamesWithErrors":"type"}""") should equal(true)
-    loggedMsgs.count(_.contains("""{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"id"}""")) should equal(2)
+    loggedMsgs.contains("""{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"id"}""") should equal(true)
+    loggedMsgs.contains("""{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"name, id"}""") should equal(true)
     loggedMsgs.contains(
       """{"id":"\"b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6\"","fieldNamesWithErrors":"originalMetadataFiles, originalFiles"}"""
     ) should equal(true)

@@ -69,7 +69,8 @@ object ExternalServicesTestUtils {
         "representationType" -> "Preservation",
         "representationSuffix" -> 1,
         "location" -> "s3://test-source-bucket/b0147dea-878b-4a25-891f-66eba66194ca",
-        "checksum_sha256" -> "ab41c540b192c7cd58d044527e2a849a6206fe95974910fe855bb92bc69c75a5"
+        "checksum_sha256" -> "ab41c540b192c7cd58d044527e2a849a6206fe95974910fe855bb92bc69c75a5",
+        "metadataFile" -> false
       ),
       Obj(
         "id" -> "d4f8613d-2d2a-420d-a729-700c841244f3",
@@ -82,7 +83,8 @@ object ExternalServicesTestUtils {
         "representationType" -> "Preservation",
         "representationSuffix" -> 1,
         "location" -> "s3://test-source-bucket/d4f8613d-2d2a-420d-a729-700c841244f3",
-        "checksum_sha256" -> "05fdca35f031b6d3246becd5888b2e2a538305fe48183fb3bf0dd6cdc7d6f7f5"
+        "checksum_sha256" -> "05fdca35f031b6d3246becd5888b2e2a538305fe48183fb3bf0dd6cdc7d6f7f5",
+        "metadataFile" -> true
       )
     ) ::: newObjectsToAdd
 
@@ -117,11 +119,11 @@ object ExternalServicesTestUtils {
     val typeOfEntry = entry(entryType).str
     val potentialParentId = entry(parentId).strOpt
     typeOfEntry match {
-      case "ArchiveFolder"                                      => ArchiveFolderEntry(potentialParentId)
-      case "ContentFolder"                                      => ContentFolderEntry(potentialParentId)
-      case "Asset"                                              => AssetEntry(potentialParentId)
-      case "File" if entry(name).str.endsWith("-metadata.json") => MetadataFileEntry(potentialParentId)
-      case "File"                                               => FileEntry(potentialParentId)
+      case "ArchiveFolder"                      => ArchiveFolderEntry(potentialParentId)
+      case "ContentFolder"                      => ContentFolderEntry(potentialParentId)
+      case "Asset"                              => AssetEntry(potentialParentId)
+      case "File" if entry("metadataFile").bool => MetadataFileEntry(potentialParentId)
+      case "File"                               => FileEntry(potentialParentId)
     }
   }
 

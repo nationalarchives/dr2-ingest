@@ -91,7 +91,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       fileEntries = validatedEntries("File")
       fileEntriesWithValidatedLocation <- valueValidator.checkFileIsInCorrectS3Location(s3Client, fileEntries)
 
-      idsOfMetadataFiles = getIdsOfMetadataFiles(validatedEntries("Asset"))
+      idsOfMetadataFiles = getIdsOfMetadataFiles(fileEntries, validatedEntries("Asset"))
       (metadataEntries, nonMetadataEntries) =
         separateMetadataFilesFromNonMetadataFiles(fileEntriesWithValidatedLocation, idsOfMetadataFiles)
       metadataEntriesWithValidatedExtensions = valueValidator.checkMetadataFileNamesHaveJsonExtensions(metadataEntries)
@@ -201,12 +201,21 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       s"$errorName $errorNum:" -> InvalidValidationResult(nelOfErrors.toList)
     }
 
-  private def getIdsOfMetadataFiles(assets: List[ValidatedEntry]) = assets.flatMap { assetEntry =>
-    assetEntry.collect {
-      case (fieldName, validatedValue) if fieldName == "originalMetadataFiles" =>
-        val listOfValues = validatedValue.getOrElse(Arr()).arr.toList
-        listOfValues.map(_.str)
-    }.flatten
+  private def getIdsOfMetadataFiles(fileEntries: List[ValidatedEntry], assets: List[ValidatedEntry]) = {
+    // Get the metadata ids from both places in case one of them is wrong
+    val metadataIdsInJson = fileEntries.flatMap { fileEntry =>
+      val isMetadataFile = fileEntry.get("metadataFile").exists(_.getOrElse(Bool(false)).bool)
+      if isMetadataFile then fileEntry.get("id").flatMap(_.getOrElse(Null).strOpt).toList else Nil
+    }
+
+    val metadataIdsInOriginalMetadataFiles = assets.flatMap { assetEntry =>
+      assetEntry.collect {
+        case (fieldName, validatedValue) if fieldName == "originalMetadataFiles" =>
+          val listOfValues = validatedValue.getOrElse(Arr()).arr.toList
+          listOfValues.map(_.str)
+      }.flatten
+    }
+    (metadataIdsInJson ::: metadataIdsInOriginalMetadataFiles).distinct
   }
 
   private def separateMetadataFilesFromNonMetadataFiles(fileEntries: List[ValidatedEntry], idsOfMetadataFiles: List[String]) =

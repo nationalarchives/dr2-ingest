@@ -107,8 +107,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       val contentFolderMetadataObject = metadataObjects.collect { case contentFolderMetadataObject: ContentFolderMetadataObject => contentFolderMetadataObject }.head
       val assetMetadataObject = metadataObjects.collect { case assetMetadataObject: AssetMetadataObject => assetMetadataObject }.head
       val fileMetadataObjects = metadataObjects.collect { case fileMetadataObject: FileMetadataObject => fileMetadataObject }
-      val fileMetadataObject = fileMetadataObjects.filterNot(_.name.endsWith("-metadata.json")).head
-      val metadataFileMetadataObject = fileMetadataObjects.filter(_.name.endsWith("-metadata.json")).head
+      val fileMetadataObject = fileMetadataObjects.filterNot(_.metadataFile).head
+      val metadataFileMetadataObject = fileMetadataObjects.filter(_.metadataFile).head
 
       contentFolderMetadataObject.name should equal(testData.tdrRef)
       contentFolderMetadataObject.title should equal(None)
@@ -144,6 +144,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       fileMetadataObject.representationSuffix should equal(1)
       fileMetadataObject.location should equal(URI.create("s3://bucket/key"))
       fileMetadataObject.checksumSha256 should equal(testData.checksum)
+      fileMetadataObject.metadataFile should equal(false)
 
       metadataFileMetadataObject.parentId should equal(Option(tdrFileId))
       metadataFileMetadataObject.title should equal(s"$tdrFileId-metadata")
@@ -154,6 +155,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       metadataFileMetadataObject.representationSuffix should equal(1)
       metadataFileMetadataObject.location should equal(URI.create("s3://bucket/key.metadata"))
       metadataFileMetadataObject.checksumSha256 should equal(metadataChecksum)
+      metadataFileMetadataObject.metadataFile should equal(true)
 
       output.groupId should equal(testData.groupId)
       output.batchId should equal(testData.batchId)

@@ -115,7 +115,7 @@ object ExternalUtils {
             .deepDropNullValues
         }
 
-    case FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksumSha256) =>
+    case FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksumSha256, metadataFile) =>
       Json
         .obj(
           ("sortOrder", Json.fromInt(sortOrder)),
@@ -123,7 +123,8 @@ object ExternalUtils {
           ("representationType", Json.fromString(representationType.toString)),
           ("representationSuffix", Json.fromInt(representationSuffix)),
           ("location", Json.fromString(location.toString)),
-          ("checksum_sha256", Json.fromString(checksumSha256))
+          ("checksum_sha256", Json.fromString(checksumSha256)),
+          ("metadataFile", Json.fromBoolean(metadataFile))
         )
         .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), Type.File, name))
   }
@@ -174,7 +175,8 @@ object ExternalUtils {
       representationType: RepresentationType,
       representationSuffix: Int,
       location: URI,
-      checksumSha256: String
+      checksumSha256: String,
+      metadataFile: Boolean
   ) extends MetadataObject
 
   enum MessageType:
