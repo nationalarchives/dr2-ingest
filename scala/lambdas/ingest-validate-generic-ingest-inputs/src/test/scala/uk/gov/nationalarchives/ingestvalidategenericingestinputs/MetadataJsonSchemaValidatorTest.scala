@@ -18,7 +18,7 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
   private val optionalPropertiesAndInvalidValues = Map(
     ArchiveFolder -> Map("id_URI" -> Str("")),
     ContentFolder -> Map("id_Code" -> Str("")),
-    Asset -> Map("series" -> Str(""), "correlationId" -> Str("")),
+    Asset -> Map("series" -> Str(""), "correlationId" -> Str(""), "description" -> Str("")),
     File -> Map("checksum_sha256" -> Str("")),
     UnknownType -> Map("checksum_" -> Str("fa2d0b0345b9dcc4e68eac7f4b9bc76"))
   )
@@ -405,6 +405,8 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
         case "originalFiles" | "originalMetadataFiles" =>
           SchemaValueError("stringInsteadOfInt", s"$$.$name: string found, array expected").invalidNel[Value]
         case "parentId" | "title" if List("ArchiveFolder", "ContentFolder").contains(schemaType) =>
+          SchemaValueError("123", s"$$.$name: integer found, [string, null] expected").invalidNel[Value]
+        case "parentId" | "description" if schemaType == "Asset" =>
           SchemaValueError("123", s"$$.$name: integer found, [string, null] expected").invalidNel[Value]
         case "type" =>
           if List("ArchiveFolder", "ContentFolder").contains(value.str) then
