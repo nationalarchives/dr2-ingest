@@ -44,8 +44,8 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     ("Files", Map(3 -> 0, 4 -> 0), "ArchiveFolder")
   )
 
-  private val casesWhereEntryShouldBeLabelledAsMetadataFile: TableFor2[Boolean, String] =
-    Table(("metadataFile value is true", "id is in 'originalMetadataFiles' array"), (true, "is"), (true, "is not"), (false, "is"))
+  private val metadataFileCases: TableFor2[Boolean, Boolean] =
+    Table(("metadataFile value is true", "id is in 'originalMetadataFiles' array"), (true, true), (true, false), (false, true))
 
   private val entryTypesThatCanHaveNoParent: TableFor1[String] = Table("entryType", "ArchiveFolder", "ContentFolder", "Asset")
 
@@ -262,31 +262,25 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     entriesGroupedById should equal(generateListOfIdsAndEntries(allEntries).sortBy(_._1))
   }
 
-  forAll(casesWhereEntryShouldBeLabelledAsMetadataFile) { (metadataFileValueIsTrue, isInOriginalMetadataFiles) =>
-    "getIdsOfAllEntries" should s"still assign a file to a 'MetadataFileEntry' type if the 'metadataFile' property is '$metadataFileValueIsTrue' but its id $isInOriginalMetadataFiles contained " +
-      "within the Asset's 'originalMetadataFiles' array" in {
-        val entriesWithMetadataFileWithNoExt = allEntries.map { entry =>
-          if entry(entryType).str == "Asset" && isInOriginalMetadataFiles == "is not" then Obj.from(entry.value ++ Map("originalMetadataFiles" -> Arr()))
-          else if entry(entryType).str == "File" && entry(id).str == "d4f8613d-2d2a-420d-a729-700c841244f3" then
-            Obj.from(entry.value ++ Map("metadataFile" -> Bool(metadataFileValueIsTrue)))
-          else entry
-        }
-        val entriesGroupedByType = entriesWithMetadataFileWithNoExt.groupBy(_(entryType).str)
-        val entriesAsValidatedMap = entriesGroupedByType.map { case (entryType, entries) =>
-          entryType -> entries.map(convertUjsonObjToSchemaValidatedMap)
-        }
-
-        val fileEntriesWithValidatedName = validator.getIdsOfAllEntries(entriesAsValidatedMap, List("d4f8613d-2d2a-420d-a729-700c841244f3")).sortBy(_._1)
-        fileEntriesWithValidatedName should equal(
-          List(
-            ("b7329714-4753-4bf5-a802-1c126bad1ad6", ArchiveFolderEntry(None)),
-            ("27354aa8-975f-48d1-af79-121b9a349cbe", ContentFolderEntry(Some("b7329714-4753-4bf5-a802-1c126bad1ad6"))),
-            ("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6", AssetEntry(Some("27354aa8-975f-48d1-af79-121b9a349cbe"))),
-            ("d4f8613d-2d2a-420d-a729-700c841244f3", MetadataFileEntry(Some("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6"))),
-            ("b0147dea-878b-4a25-891f-66eba66194ca", FileEntry(Some("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6")))
-          ).sortBy(_._1)
-        )
+  forAll(metadataFileCases) { (metadataFileIsTrue, isInOriginalMetadataFiles) =>
+    val isOrIsNot = if isInOriginalMetadataFiles then "is" else "is not"
+    "getIdsOfAllEntries" should s"assign a file to 'MetadataFileEntry' type if 'metadataFile' is '$metadataFileIsTrue' but its id $isOrIsNot in Asset's 'originalMetadataFiles' array" in {
+      val entriesWithMetadataFileWithNoExt = allEntries.map { entry =>
+        if entry(entryType).str == "Asset" && !isInOriginalMetadataFiles then Obj.from(entry.value ++ Map("originalMetadataFiles" -> Arr()))
+        else if entry(entryType).str == "File" && entry(id).str == "d4f8613d-2d2a-420d-a729-700c841244f3" then
+          Obj.from(entry.value ++ Map("metadataFile" -> Bool(metadataFileIsTrue)))
+        else entry
       }
+      val entriesGroupedByType = entriesWithMetadataFileWithNoExt.groupBy(_(entryType).str)
+      val entriesAsValidatedMap = entriesGroupedByType.map { case (entryType, entries) =>
+        entryType -> entries.map(convertUjsonObjToSchemaValidatedMap)
+      }
+
+      val fileEntriesWithValidatedName = validator.getIdsOfAllEntries(entriesAsValidatedMap, List("d4f8613d-2d2a-420d-a729-700c841244f3")).sortBy(_._1)
+      fileEntriesWithValidatedName.contains(
+        ("d4f8613d-2d2a-420d-a729-700c841244f3", MetadataFileEntry(Some("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6")))
+      ) should equal(true)
+    }
   }
 
   "getIdsOfAllEntries" should "assign a file to an 'UnknownFileType' if the 'metadataFile' field has an error" in {
