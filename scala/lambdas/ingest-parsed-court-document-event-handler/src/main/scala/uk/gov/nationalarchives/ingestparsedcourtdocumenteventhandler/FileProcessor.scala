@@ -138,7 +138,8 @@ class FileProcessor(
         RepresentationType.Preservation,
         1,
         fileInfo.location,
-        treMetadata.parameters.TDR.`Document-Checksum-sha256`
+        treMetadata.parameters.TDR.`Document-Checksum-sha256`,
+        false
       )
     val fileMetadataObject = FileMetadataObject(
       metadataFileInfo.id,
@@ -150,7 +151,8 @@ class FileProcessor(
       RepresentationType.Preservation,
       1,
       metadataFileInfo.location,
-      metadataFileInfo.sha256Checksum
+      metadataFileInfo.sha256Checksum,
+      true
     )
     List(archiveFolderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
   }

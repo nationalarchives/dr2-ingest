@@ -12,8 +12,10 @@ import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryValidation
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.EntryTypeSchema.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.testUtils.ExternalServicesTestUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.{ArchiveFolderMetadataObject, AssetMetadataObject, ContentFolderMetadataObject, FileMetadataObject}
 
 class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
+  private type MetadataObjectType = ContentFolderMetadataObject.type | ArchiveFolderMetadataObject.type | AssetMetadataObject.type | FileMetadataObject.type
   private val entryTypeSchemas: TableFor1[EntryTypeSchema] = Table("entryType", ArchiveFolder, ContentFolder, Asset, File, UnknownType)
   private val optionalPropertiesAndInvalidValues = Map(
     ArchiveFolder -> Map("id_URI" -> Str("")),
@@ -102,6 +104,30 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
     else entryWithoutASeries
   }
 
+  private def checkNewMetadataObjectKeysAreAccountedFor(entry: Obj, metadataObject: MetadataObjectType): (List[String], String) = {
+    val metadataObjectProperties = metadataObject.getClass.getDeclaredFields.map(_.toString).toList
+    val entryProperties = entry.value.keys.toList
+    val propertiesNotAccountedFor = metadataObjectProperties.filterNot(entryProperties.contains)
+    (propertiesNotAccountedFor, metadataObject.getClass.getSimpleName)
+  }
+
+  forAll(Table("testEntries", testValidMetadataJson()*)) { entry =>
+    // If this test fails, in addition to updating the testValidMetadataJson(), the schema files might need updating also
+    val typeOfEntry = entry(entryType).str
+    val (propertiesNotAccountedFor, metadataObjectName) = typeOfEntry match {
+      case "ArchiveFolder" => checkNewMetadataObjectKeysAreAccountedFor(entry, ArchiveFolderMetadataObject)
+      case "ContentFolder" => checkNewMetadataObjectKeysAreAccountedFor(entry, ContentFolderMetadataObject)
+      case "Asset"         => checkNewMetadataObjectKeysAreAccountedFor(entry, AssetMetadataObject)
+      case "File"          => checkNewMetadataObjectKeysAreAccountedFor(entry, FileMetadataObject)
+    }
+    assert(
+      propertiesNotAccountedFor.nonEmpty,
+      s"There are properties that have been added to $metadataObjectName but not to $typeOfEntry in 'testValidMetadataJson': " +
+        s"${propertiesNotAccountedFor.mkString(", ")}"
+    )
+
+  }
+
   "checkJsonForAtLeastOneEntryWithSeriesAndNullParent" should "return 0 errors if the JSON contains at least one entry with a series and a parentId with a null value" in {
     val jsonString = convertUjsonToString(testValidMetadataJson())
     val errors = MetadataJsonSchemaValidator.checkJsonForAtLeastOneEntryWithSeriesAndNullParent(jsonString).unsafeRunSync()
@@ -164,17 +190,17 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
       }
   }
 
-  "validateMetadataJsonObject" should s", for an entry of type 'File', return 0 errors if a file, with a 'name' ending in '-metadata.json', has an empty title" in {
+  "validateMetadataJsonObject" should s", for an entry of type 'File', return 0 errors if a file with a 'true' value for 'metadataFile', has an empty title" in {
     val metadataFileEntry = testValidMetadataJson().filter(_(entryType).str == File.toString).last
     val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(metadataFileEntry).unsafeRunSync()
     validatedJsonObjectAsMap should equal(convertUjsonObjToSchemaValidatedMap(metadataFileEntry))
   }
 
-  "validateMetadataJsonObject" should s", for an entry of type 'File', return an error if a file doesn't have a 'name' ending in '-metadata.json', but has an empty title" in {
+  "validateMetadataJsonObject" should s", for an entry of type 'File', return an error if a file doesn't have a 'true' value for 'metadataFile', but has an empty title" in {
     val metadataFileEntry = testValidMetadataJson().filter(_(entryType).str == File.toString).last
-    val metadataFileEntryWithoutExceptionalName = Obj.from(metadataFileEntry.value ++ Map("name" -> Str("nameMissingAHypenBeforemetadata.json")))
-    val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(metadataFileEntryWithoutExceptionalName).unsafeRunSync()
-    val expectedValidatedJsonObjectAsMap = convertUjsonObjToSchemaValidatedMap(metadataFileEntryWithoutExceptionalName) ++ Map(
+    val metadataFileEntryWithMetadataFileAsFalse = Obj.from(metadataFileEntry.value ++ Map("metadataFile" -> Bool(false)))
+    val validatedJsonObjectAsMap = MetadataJsonSchemaValidator(File).validateMetadataJsonObject(metadataFileEntryWithMetadataFileAsFalse).unsafeRunSync()
+    val expectedValidatedJsonObjectAsMap = convertUjsonObjToSchemaValidatedMap(metadataFileEntryWithMetadataFileAsFalse) ++ Map(
       "title" ->
         SchemaValueError("", "$.title: must be at least 1 characters long").invalidNel[Value]
     )
@@ -406,6 +432,8 @@ class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with
           SchemaValueError("stringInsteadOfInt", s"$$.$name: string found, array expected").invalidNel[Value]
         case "parentId" | "title" if List("ArchiveFolder", "ContentFolder").contains(schemaType) =>
           SchemaValueError("123", s"$$.$name: integer found, [string, null] expected").invalidNel[Value]
+        case "metadataFile" =>
+          SchemaValueError("123", s"$$.$name: integer found, boolean expected").invalidNel[Value]
         case "type" =>
           if List("ArchiveFolder", "ContentFolder").contains(value.str) then
             NonEmptyList
