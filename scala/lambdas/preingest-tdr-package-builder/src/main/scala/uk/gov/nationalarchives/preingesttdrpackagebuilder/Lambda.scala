@@ -54,7 +54,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             LocalDateTime.parse(tdrMetadata.TransferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
             "TDR",
             "Born Digital",
-            "TDR",
+            None,
             List(
               IdField("Code", s"${tdrMetadata.Series}/${tdrMetadata.FileReference}"),
               IdField("UpstreamSystemReference", tdrMetadata.FileReference),

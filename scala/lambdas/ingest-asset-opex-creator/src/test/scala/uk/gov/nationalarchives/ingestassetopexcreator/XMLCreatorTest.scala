@@ -156,7 +156,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     OffsetDateTime.parse("2023-06-01T00:00Z"),
     "upstreamSystem",
     "digitalAssetSource",
-    "digitalAssetSubtype",
+    Option("digitalAssetSubtype"),
     List(UUID.fromString("dec2b921-20e3-41e8-a299-f3cbc13131a2")),
     List(UUID.fromString("3f42e3f2-fffe-4fe9-87f7-262e95b86d75")),
     true,
