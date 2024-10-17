@@ -276,6 +276,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
   val notMatched = "Court Documents (court not matched)"
   val unknown = "Court Documents (court unknown)"
   val tdrUuid: String = UUID.randomUUID().toString
+  val potentialCorrelationId: Option[String] = Option(UUID.randomUUID().toString)
 
   private val treMetadata = TREMetadata(
     TREMetadataParameters(
@@ -360,6 +361,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                   "TRE: FCL Parser workflow",
                   "Born Digital",
                   "FCL",
+                  potentialCorrelationId,
                   List(
                     Option(IdField("UpstreamSystemReference", reference)),
                     potentialUri.map(uri => IdField("URI", uri)),
@@ -405,7 +407,8 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                     potentialFileReference,
                     department,
                     series,
-                    tdrUuid
+                    tdrUuid,
+                    potentialCorrelationId
                   )
 
               metadataObjects should equal(expectedMetadataObjects)

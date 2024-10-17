@@ -34,7 +34,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
 
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
-    def processNonMetadataObjects(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI, metadataId: UUID): Stream[IO, MetadataObject] = {
+    def processNonMetadataObjects(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI, metadataId: UUID, messageId: String): Stream[IO, MetadataObject] = {
       tdrMetadataJsonStream
         .through(fs2Decoder[IO, TDRMetadata])
         .flatMap { tdrMetadata =>
@@ -55,6 +55,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             "TDR",
             "Born Digital",
             "TDR",
+            Option(messageId),
             List(
               IdField("Code", s"${tdrMetadata.Series}/${tdrMetadata.FileReference}"),
               IdField("UpstreamSystemReference", tdrMetadata.FileReference),
@@ -121,10 +122,10 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         }
     }
 
-    def processTdrMetadata(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI): Stream[IO, MetadataObject] = {
+    def processTdrMetadata(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI, messageId: UUID): Stream[IO, MetadataObject] = {
       val metadataId = dependencies.uuidGenerator()
       tdrMetadataJsonStream.broadcastThrough(
-        jsonStream => processNonMetadataObjects(jsonStream, fileLocation, metadataId),
+        jsonStream => processNonMetadataObjects(jsonStream, fileLocation, metadataId, messageId.toString),
         jsonStream => processMetadataFiles(jsonStream, fileLocation, metadataId)
       )
     }
@@ -132,6 +133,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     def downloadMetadataFile(lockTableMessage: LockTableMessage) = {
       val fileLocation = lockTableMessage.location
       val metadataUri = getMetadataUri(fileLocation)
+      val messageId = lockTableMessage.id
       dependencies.s3Client
         .download(metadataUri.getHost, metadataUri.getPath.drop(1))
         .map { pub =>
@@ -139,7 +141,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             .toStreamBuffered[IO](bufferSize)
             .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
             .through(byteStreamParser[IO])
-            .through(metadataJsonStream => processTdrMetadata(metadataJsonStream, fileLocation))
+            .through(metadataJsonStream => processTdrMetadata(metadataJsonStream, fileLocation, messageId))
         }
     }
 

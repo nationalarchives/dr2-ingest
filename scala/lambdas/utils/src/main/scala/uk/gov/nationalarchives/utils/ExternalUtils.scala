@@ -92,6 +92,7 @@ object ExternalUtils {
           upstreamSystem,
           digitalAssetSource,
           digitalAssetSubtype,
+          correlationId,
           assetMetadataIdFields
         ) =>
       val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) => fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
@@ -110,7 +111,8 @@ object ExternalUtils {
               ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
               ("upstreamSystem", Json.fromString(upstreamSystem)),
               ("digitalAssetSource", Json.fromString(digitalAssetSource)),
-              ("digitalAssetSubtype", Json.fromString(digitalAssetSubtype))
+              ("digitalAssetSubtype", Json.fromString(digitalAssetSubtype)),
+              ("correlationId", correlationId.map(Json.fromString).getOrElse(Null)),
             )
             .deepDropNullValues
         }
@@ -161,6 +163,7 @@ object ExternalUtils {
       upstreamSystem: String,
       digitalAssetSource: String,
       digitalAssetSubtype: String,
+      correlationId: Option[String],
       idFields: List[IdField] = Nil
   ) extends MetadataObject
 
