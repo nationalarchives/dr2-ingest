@@ -2,9 +2,9 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.24.1"
   lazy val pureConfigVersion = "0.17.7"
-  lazy val daAwsClientsVersion = "0.1.94"
+  lazy val daAwsClientsVersion = "0.1.95"
   private val fs2Version = "3.11.0"
-  private val sttpVersion = "3.10.0"
+  private val sttpVersion = "3.10.1"
   private val circeVersion = "0.14.10"
   private val log4CatsVersion = "2.7.0"
   private val awsLibraryVersion = "1.12.773"
@@ -34,10 +34,10 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % s"$scalaTestVersion.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.105"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.106"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
-  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.10"
+  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.11"
   lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.18.1"
   lazy val scalaCheckPlus = "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0"
   lazy val scanamo = "org.scanamo" %% "scanamo" % "2.0.0"
