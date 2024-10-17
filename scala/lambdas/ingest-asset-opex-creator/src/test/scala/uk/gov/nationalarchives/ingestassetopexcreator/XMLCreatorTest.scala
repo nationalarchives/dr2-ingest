@@ -207,6 +207,19 @@ class XMLCreatorTest extends AnyFlatSpec {
     verifyXmlEqual(xml, expectedOpexXml)
   }
 
+  "createOpex" should "create the opex xml with empty digital asset subtype element " in {
+    val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
+    val assetWithoutDigitalAssetSubType = asset.copy(
+      potentialDigitalAssetSubtype = None
+    )
+    val xml = XMLCreator(ingestDateTime).createOpex(assetWithoutDigitalAssetSubType, children, 4, identifiers).unsafeRunSync()
+    val expectedOpexXmlWithoutDigitalAssetSubType = expectedOpexXml.toString.replace(
+      "<DigitalAssetSubtype>digitalAssetSubtype</DigitalAssetSubtype>", "<DigitalAssetSubtype/>")
+
+    verifyXmlEqual(xml, expectedOpexXmlWithoutDigitalAssetSubType)
+  }
+
+
   "createOpex" should "create the correct opex xml with identifiers and an asset with the exact title that was in the table " +
     "(with relevant chars escaped) even if the title has an ASCII character in it" in {
       val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
