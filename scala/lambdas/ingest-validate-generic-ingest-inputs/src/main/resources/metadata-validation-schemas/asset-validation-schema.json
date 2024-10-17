@@ -34,7 +34,10 @@
       "minLength": 1
     },
     "digitalAssetSubtype": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "minLength": 1
     },
     "id_BornDigitalRef": {
