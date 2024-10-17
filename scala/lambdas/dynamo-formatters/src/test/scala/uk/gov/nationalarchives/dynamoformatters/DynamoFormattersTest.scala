@@ -58,7 +58,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       batchId -> fromS("testBatchId"),
       id -> fromS(UUID.randomUUID().toString),
       parentPath -> fromS("testParentPath"),
-      name -> fromS("testName"),
       typeField -> fromS("Asset"),
       transferringBody -> fromS("testTransferringBody"),
       transferCompleteDatetime -> fromS("2023-06-01T00:00Z"),
@@ -378,7 +377,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     assetRow.batchId should equal("testBatchId")
     assetRow.id should equal(UUID.fromString(allAssetFieldsPopulated(id).s()))
     assetRow.potentialParentPath.get should equal("testParentPath")
-    assetRow.name should equal("testName")
     assetRow.`type` should equal(Asset)
     assetRow.transferringBody should equal("testTransferringBody")
     assetRow.transferCompleteDatetime should equal(OffsetDateTime.parse("2023-06-01T00:00Z"))
@@ -505,8 +503,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       batchId,
       uuid,
       None,
-      name,
-      ContentFolder,
+      Asset,
       None,
       None,
       transferringBody,
@@ -527,8 +524,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val resultMap = res.toAttributeValue.m().asScala
     resultMap(batchId).s() should equal(batchId)
     resultMap(id).s() should equal(uuid.toString)
-    resultMap(name).s() should equal(name)
-    resultMap(typeField).s() should equal("ContentFolder")
+    resultMap(typeField).s() should equal("Asset")
     resultMap(transferringBody).s() should equal(transferringBody)
     resultMap(transferCompleteDatetime).s() should equal("2023-06-01T00:00Z")
     resultMap(upstreamSystem).s() should equal(upstreamSystem)
@@ -683,7 +679,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       batchId,
       uuid,
       Option(parentPath),
-      name,
       Asset,
       Option(title),
       Option(description),

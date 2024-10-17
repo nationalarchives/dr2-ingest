@@ -37,7 +37,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
       val xml =
         <opex:OPEXMetadata xmlns:opex={opexNamespace}>
           <opex:Transfer>
-            <opex:SourceID>{asset.name}</opex:SourceID>
+            <opex:SourceID>{asset.id}</opex:SourceID>
             <opex:Manifest>
               <opex:Files>
                 <opex:File type="metadata" size={assetXipSize.toString}>{asset.id}.xip</opex:File>
@@ -65,7 +65,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
             </opex:Manifest>
           </opex:Transfer>
           <opex:Properties>
-            <opex:Title>{asset.potentialTitle.getOrElse(asset.name)}</opex:Title>
+            <opex:Title>{asset.potentialTitle.getOrElse(asset.id)}</opex:Title>
             <opex:Description>{asset.potentialDescription.getOrElse("")}</opex:Description>
             <opex:SecurityDescriptor>{securityDescriptor}</opex:SecurityDescriptor>
             {

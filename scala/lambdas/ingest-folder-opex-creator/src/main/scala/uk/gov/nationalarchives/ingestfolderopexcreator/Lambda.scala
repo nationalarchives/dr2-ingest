@@ -26,21 +26,32 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def toFolderOrAssetItem[T <: DynamoItem](dynamoValue: DynamoValue)(using dynamoFormat: DynamoFormat[T]): Either[DynamoReadError, FolderOrAssetItem] =
     dynamoFormat.read(dynamoValue).map { item =>
-      {
-        val skipIngest = item match
-          case asset: AssetDynamoItem => asset.skipIngest
-          case _                      => false
-        FolderOrAssetItem(
-          item.batchId,
-          item.id,
-          item.potentialParentPath,
-          item.name,
-          item.`type`,
-          item.potentialTitle,
-          item.potentialDescription,
-          item.identifiers,
-          skipIngest
-        )
+      item match {
+        case asset: AssetDynamoItem =>
+          AssetItem(item.batchId, item.id, item.potentialParentPath, item.`type`, item.potentialTitle, item.potentialDescription, item.identifiers, asset.skipIngest)
+        case contentFolder: ContentFolderDynamoItem =>
+          FolderItem(
+            item.batchId,
+            item.id,
+            item.potentialParentPath,
+            contentFolder.name,
+            item.`type`,
+            item.potentialTitle,
+            item.potentialDescription,
+            item.identifiers
+          )
+        case archiveFolder: ArchiveFolderDynamoItem =>
+          FolderItem(
+            item.batchId,
+            item.id,
+            item.potentialParentPath,
+            archiveFolder.name,
+            item.`type`,
+            item.potentialTitle,
+            item.potentialDescription,
+            item.identifiers
+          )
+        case _ => throw new RuntimeException("Row is not an 'Asset' or a 'Folder'")
       }
     }
 
@@ -142,7 +153,18 @@ object Lambda {
 
   case class AssetWithFileSize(asset: FolderOrAssetItem, fileSize: Long)
 
-  case class FolderOrAssetItem(
+  sealed trait FolderOrAssetItem {
+    def batchId: String
+    def id: UUID
+    def parentPath: Option[String]
+    def `type`: Type
+    def title: Option[String]
+    def description: Option[String]
+    def identifiers: List[Identifier]
+    def skipIngest: Boolean
+  }
+
+  case class FolderItem(
       batchId: String,
       id: UUID,
       parentPath: Option[String],
@@ -152,7 +174,18 @@ object Lambda {
       description: Option[String],
       identifiers: List[Identifier],
       skipIngest: Boolean = false
-  )
+  ) extends FolderOrAssetItem
+
+  case class AssetItem(
+      batchId: String,
+      id: UUID,
+      parentPath: Option[String],
+      `type`: Type,
+      title: Option[String],
+      description: Option[String],
+      identifiers: List[Identifier],
+      skipIngest: Boolean = false
+  ) extends FolderOrAssetItem
 
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], s3Client: DAS3Client[IO], xmlCreator: XMLCreator)
 

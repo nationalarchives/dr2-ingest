@@ -225,7 +225,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal(s"No entity found using SourceID 'acdb2e57-923b-4caa-8fd9-a2f79f650c43'")
+    ex.getMessage should equal(s"No entity found using SourceID '68b1c80b-36b8-4f0f-94d6-92589002d87e'")
 
     argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
   }
@@ -238,7 +238,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val ex = intercept[Exception] {
       new Lambda().handler(input, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal(s"More than one entity found using SourceID 'acdb2e57-923b-4caa-8fd9-a2f79f650c43'")
+    ex.getMessage should equal(s"More than one entity found using SourceID '68b1c80b-36b8-4f0f-94d6-92589002d87e'")
     argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0, 0, 1, 0)
   }
 
@@ -362,7 +362,6 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
     stateOutput.reason should equal("")
     stateOutput.wasReconciled should equal(true)
-    stateOutput.assetName should equal(assetName)
     stateOutput.assetId should equal(assetId)
 
     argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1)
@@ -386,7 +385,6 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
       stateOutput.reason should equal("")
       stateOutput.wasReconciled should equal(true)
-      stateOutput.assetName should equal(assetName)
       stateOutput.assetId should equal(assetId)
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1)
@@ -414,7 +412,6 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
 
       stateOutput.reason should equal("")
       stateOutput.wasReconciled should equal(true)
-      stateOutput.assetName should equal(assetName)
       stateOutput.assetId should equal(assetId)
 
       argumentVerifier.verifyInvocationsAndArgumentsPassed(numOfFileTableGetRequests = 1, numOfFileTableUpdateRequests = 1)
