@@ -309,14 +309,15 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       }
       val dynamoItemAttributeNames = itemAttributeNames.toList
       val dynamoItemAttributeNamesMapped = dynamoItemAttributeNames.map {
-        case "potentialParentPath"    => "parentPath"
-        case "potentialTitle"         => "title"
-        case "potentialDescription"   => "description"
-        case "potentialFileExtension" => "fileExtension"
-        case "identifiers"            => "id_Test"
-        case "ingestedPreservica"     => "ingested_PS"
-        case "ingestedCustodialCopy"  => "ingested_CC"
-        case theRest                  => theRest
+        case "potentialParentPath"          => "parentPath"
+        case "potentialTitle"               => "title"
+        case "potentialDescription"         => "description"
+        case "potentialFileExtension"       => "fileExtension"
+        case "identifiers"                  => "id_Test"
+        case "ingestedPreservica"           => "ingested_PS"
+        case "ingestedCustodialCopy"        => "ingested_CC"
+        case "potentialDigitalAssetSubtype" => "digitalAssetSubtype"
+        case theRest                        => theRest
       }
 
       val fieldsPopulated = populatedFields(rowType)
@@ -382,7 +383,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     assetRow.transferCompleteDatetime should equal(OffsetDateTime.parse("2023-06-01T00:00Z"))
     assetRow.upstreamSystem should equal("testUpstreamSystem")
     assetRow.digitalAssetSource should equal("testDigitalAssetSource")
-    assetRow.digitalAssetSubtype should equal("testDigitalAssetSubtype")
+    assetRow.potentialDigitalAssetSubtype.get should equal("testDigitalAssetSubtype")
     assetRow.originalFiles should equal(List(UUID.fromString("dec2b921-20e3-41e8-a299-f3cbc13131a2")))
     assetRow.originalMetadataFiles should equal(List(UUID.fromString("3f42e3f2-fffe-4fe9-87f7-262e95b86d75")))
     assetRow.potentialTitle.get should equal("testTitle")
@@ -510,7 +511,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       OffsetDateTime.parse("2023-06-01T00:00Z"),
       upstreamSystem,
       digitalAssetSource,
-      digitalAssetSubtype,
+      None,
       List(originalFilesUuid),
       List(originalMetadataFilesUuid),
       true,
@@ -529,13 +530,15 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(transferCompleteDatetime).s() should equal("2023-06-01T00:00Z")
     resultMap(upstreamSystem).s() should equal(upstreamSystem)
     resultMap(digitalAssetSource).s() should equal(digitalAssetSource)
-    resultMap(digitalAssetSubtype).s() should equal(digitalAssetSubtype)
     resultMap(originalFiles).ss().asScala.toList should equal(List(originalFilesUuid.toString))
     resultMap(originalMetadataFiles).ss().asScala.toList should equal(List(originalMetadataFilesUuid.toString))
     resultMap(ingestedPreservica).s() should equal("true")
     resultMap(ingestedCustodialCopy).s() should equal("true")
-    List(parentPath, title, description, sortOrder, fileSize, "checksums", fileExtension, "identifiers", skipIngest, correlationId)
-      .forall(resultMap.contains) should be(false)
+    val optionalsInResult =
+      List(parentPath, title, description, sortOrder, fileSize, "checksums", fileExtension, "identifiers", skipIngest, correlationId, digitalAssetSubtype).filter(
+        resultMap.contains
+      )
+    assert(optionalsInResult.size == 0, s"The following fields are not ignored: ${optionalsInResult.mkString(",")}")
   }
 
   "assetItemFormat write" should "write skipIngest if set to true and not write it otherwise" in {
@@ -686,7 +689,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       OffsetDateTime.parse("2023-06-01T00:00Z"),
       upstreamSystem,
       digitalAssetSource,
-      digitalAssetSubtype,
+      Option(digitalAssetSubtype),
       List(originalFilesUuid),
       List(originalMetadataFilesUuid),
       ingestedPreservica,
