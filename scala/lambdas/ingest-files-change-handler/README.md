@@ -53,15 +53,13 @@ The input is provided by Dynamo DB.
 There is no output from this Lambda. It sends a message to an SNS topic depending on its input and the state of other
 entries in Dynamo.
 
-[Link to the infrastructure code](https://github.com/nationalarchives/dp-terraform-environments)
-
 ## Environment Variables
 
-| Name              | Description                                                               |
-|-------------------|---------------------------------------------------------------------------|
-| DYNAMO_TABLE_NAME | The name of the ingest files dynamo table                                 |
-| DYNAMO_GSI_NAME   | The global secondary index name. Used to search by batchId and parentPath |
-| TOPIC_ARN         | The output SNS topic arn                                                  |
+| Name                                 | Description                                                               |
+|--------------------------------------|---------------------------------------------------------------------------|
+| FILES_DDB_TABLE                      | The name of the ingest files dynamo table                                 |
+| FILES_DDB_TABLE_BATCHPARENT_GSI_NAME | The global secondary index name. Used to search by batchId and parentPath |
+| OUTPUT_TOPIC_ARN                     | The output SNS topic arn                                                  |
 
 ## Lambda logic
 The logic which determines whether to send a message and which message, is described with this pseudocode

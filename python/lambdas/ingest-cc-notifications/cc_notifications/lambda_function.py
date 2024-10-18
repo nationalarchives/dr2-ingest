@@ -49,7 +49,7 @@ def get_messages_from_json_event(event) -> list[dict]:
 
 def lambda_handler(event, context):
     client = boto3.client('dynamodb')
-    table_name = os.environ["DYNAMO_TABLE_NAME"]
+    table_name = os.environ["FILES_DDB_TABLE"]
     primary_key = "id"
     sort_key = "batchId"
 

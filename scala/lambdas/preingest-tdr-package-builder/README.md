@@ -45,9 +45,9 @@ The lambda outputs this json.
 
 ## Environment Variables
 
-| Name                        | Description                                                                                                                             |
-|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
-| DDB_LOCK_TABLE              | The lock table name in Dynamo                                                                                                           |
-| LOCK_DDB_TABLE_GROUP_ID_IDX | The lock table global secondary index name in Dynamo                                                                                    |
-| RAW_CACHE_BUCKET            | The bucket the TDR file and metadata file are stored in                                                                                 |
-| CONCURRENCY                 | An optional parameter which configures how many items the lambda processes in parallel. Used for performance tweaking. Defaults to 1000 |
+| Name                            | Description                                                                                                                             |
+|---------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| LOCK_DDB_TABLE                  | The lock table name in Dynamo                                                                                                           |
+| LOCK_DDB_TABLE_GROUPID_GSI_NAME | The lock table global secondary index name in Dynamo                                                                                    |
+| OUTPUT_BUCKET_NAME              | The bucket the TDR file and metadata file are stored in                                                                                 |
+| CONCURRENCY                     | An optional parameter which configures how many items the lambda processes in parallel. Used for performance tweaking. Defaults to 1000 |

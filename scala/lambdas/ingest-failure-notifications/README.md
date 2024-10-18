@@ -17,13 +17,10 @@ The lambda takes the following input from an EventBridge event:
 
 There is no output
 
-[Link to the infrastructure code](https://github.com/nationalarchives/dr2-terraform-environments)
-
 ## Environment Variables
 
-| Name                        | Description                                |
-|-----------------------------|--------------------------------------------|
-| DDB_LOCK_TABLE              | The name of the Dynamo lock table          |
-| LOCK_DDB_TABLE_GROUP_ID_IDX | The name of the lock table secondary index |
-| TOPIC_ARN                   | The arn of the notifications topic         |
-
+| Name                            | Description                                 |
+|---------------------------------|---------------------------------------------|
+| LOCK_DDB_TABLE                  | The name of the Dynamo lock table.          |
+| LOCK_DDB_TABLE_GROUPID_GSI_NAME | The name of the lock table secondary index. |
+| OUTPUT_TOPIC_ARN                | The arn of the notifications topic.         |

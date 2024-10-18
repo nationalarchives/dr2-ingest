@@ -11,7 +11,7 @@ The Lambda
 * Creates the required OPEX components to represent this asset within the batch.
   * Creates a XIP XML file and uploads it to S3
   * Create an OPEX XML file and uploads it to S3.
-  * Copies and renames the digital file objects from source to `$DESTINATION_BUCKET`.
+  * Copies and renames the digital file objects from source to `$OUTPUT_BUCKET_NAME`.
 
 ## Example
 Given the input
@@ -72,8 +72,8 @@ opex
 
 ## Environment Variables
 
-| Name               | Description                                                                         |
-|--------------------|-------------------------------------------------------------------------------------|
-| DESTINATION_BUCKET | The staging bucket to copy the files to                                             |
-| DYNAMO_GSI_NAME    | The name of the global secondary index. This is used for querying fields in the GSI |
-| DYNAMO_TABLE_NAME  | The name of the table to read assets and their children from                        |
+| Name                                    | Description                                                                         |
+|-----------------------------------------|-------------------------------------------------------------------------------------|
+| FILES_DDB_TABLE                         | The name of the table to read assets and their children from                        |
+| FILES_DDB_TABLE_BATCHPARENT_GSI_NAME    | The name of the global secondary index. This is used for querying fields in the GSI |
+| OUTPUT_BUCKET_NAME                      | The staging bucket to copy the files to                                             |

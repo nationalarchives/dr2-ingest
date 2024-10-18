@@ -9,8 +9,8 @@ from botocore.exceptions import ClientError
 import lambda_function
 
 
-@patch.dict('os.environ', {'DESTINATION_BUCKET': 'destination-bucket'})
-@patch.dict('os.environ', {'DESTINATION_QUEUE': 'destination-queue'})
+@patch.dict('os.environ', {'OUTPUT_BUCKET_NAME': 'destination-bucket'})
+@patch.dict('os.environ', {'OUTPUT_QUEUE_URL': 'destination-queue'})
 class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.create_multipart_upload')
@@ -20,7 +20,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.s3_client.get_object')
     @patch('lambda_function.validate_mandatory_fields_exist')
     @patch('lambda_function.validate_formats')
-    @patch.dict(os.environ, {'DESTINATION_BUCKET': 'destination-bucket'})
+    @patch.dict(os.environ, {'OUTPUT_BUCKET_NAME': 'destination-bucket'})
     def test_copy(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
                   mock_send_message, mock_complete_multipart_upload, _,
                   mock_create_multipart_upload,
