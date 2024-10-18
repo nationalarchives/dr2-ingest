@@ -534,8 +534,11 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(originalMetadataFiles).ss().asScala.toList should equal(List(originalMetadataFilesUuid.toString))
     resultMap(ingestedPreservica).s() should equal("true")
     resultMap(ingestedCustodialCopy).s() should equal("true")
-    List(parentPath, title, description, sortOrder, fileSize, "checksums", fileExtension, "identifiers", skipIngest, correlationId)
-      .forall(resultMap.contains) should be(false)
+    val optionalsInResult =
+      List(parentPath, title, description, sortOrder, fileSize, "checksums", fileExtension, "identifiers", skipIngest, correlationId, digitalAssetSubtype).filter(
+        resultMap.contains
+      )
+    assert(optionalsInResult.size == 0, s"The following fields are not ignored: ${optionalsInResult.mkString(",")}")
   }
 
   "assetItemFormat write" should "write skipIngest if set to true and not write it otherwise" in {
