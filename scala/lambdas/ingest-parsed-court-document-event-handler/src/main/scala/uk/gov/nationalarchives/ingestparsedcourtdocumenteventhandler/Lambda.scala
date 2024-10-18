@@ -78,7 +78,8 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             fileReference,
             departmentAndSeries.potentialDepartment,
             departmentAndSeries.potentialSeries,
-            tdrUuid
+            tdrUuid,
+            treInput.properties.messageId
           )
           _ <- fileProcessor.createMetadataJson(metadata, metadataPackage)
           _ <- logWithFileRef(s"Copied metadata.json to bucket $outputBucket")

@@ -17,7 +17,7 @@ def lambda_handler(event, context):
     destination_bucket = os.environ["DESTINATION_BUCKET"]
     destination_queue = os.environ["DESTINATION_QUEUE"]
     for record in event["Records"]:
-        body = json.loads(record["body"])
+        body: dict[str, str] = json.loads(record["body"])
         file_id = body["fileId"]
         metadata_file_id = f"{file_id}.metadata"
         source_bucket = body["bucket"]
@@ -26,8 +26,10 @@ def lambda_handler(event, context):
         validate_metadata(source_bucket, metadata_file_id)
         file_location = copy_objects(destination_bucket, file_id, source_bucket)
         copy_objects(destination_bucket, metadata_file_id, source_bucket)
-        sqs_body = json.dumps({"id": file_id, "location": file_location})
-        sqs_client.send_message(QueueUrl=destination_queue, MessageBody=sqs_body)
+        potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
+        sqs_body = {"id": file_id, "location": file_location}
+        sqs_body.update(potential_message_id)
+        sqs_client.send_message(QueueUrl=destination_queue, MessageBody=json.dumps(sqs_body))
 
 
 def assert_objects_exist_in_bucket(source_bucket, files):

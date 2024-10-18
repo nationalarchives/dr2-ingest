@@ -7,7 +7,8 @@ Each lock table row has a message with an id and a file location
 ```json
 {
   "id": "0c76c5d0-bb8e-4ebb-98c7-5900dc26a1a0",
-  "location": "s3://raw-cache-bucket/0c76c5d0-bb8e-4ebb-98c7-5900dc26a1a0"
+  "location": "s3://raw-cache-bucket/0c76c5d0-bb8e-4ebb-98c7-5900dc26a1a0",
+  "messageId": "optionalMessageId"
 }
 ```
 
