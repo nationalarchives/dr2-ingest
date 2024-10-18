@@ -9,3 +9,5 @@ We have divided our architecture into logical components, each with correspondin
 - [Court Document Preingest](/docs/preingest-court-documents.md)
 - [TDR Preingest]()
 - [Ingest](./ingest.md)
+
+And our decision making has been documented through [Architecture Decision Records](./architecture-decision-records/0001-record-architectural-decisions.md).
