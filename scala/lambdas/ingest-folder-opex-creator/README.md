@@ -17,8 +17,8 @@ There is no output from this Lambda.
 
 ## Environment Variables
 
-| Name              | Description                                                 |
-|-------------------|-------------------------------------------------------------|
-| BUCKET_NAME       | The name of the bucket to write the opex files to.          |
-| DYNAMO_GSI_NAME   | The name of the global secondary index used to query Dynamo |
-| DYNAMO_TABLE_NAME | The dynamo table to read the folders and children from      |
+| Name                                 | Description                                                 |
+|--------------------------------------|-------------------------------------------------------------|
+| FILES_DDB_TABLE                      | The dynamo table to read the folders and children from      |
+| FILES_DDB_TABLE_BATCHPARENT_GSI_NAME | The name of the global secondary index used to query Dynamo |
+| OUTPUT_BUCKET_NAME                   | The name of the bucket to write the opex files to.          |

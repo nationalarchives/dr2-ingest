@@ -18,6 +18,6 @@ This project is for a lambda that is triggered by a notification, sent via our C
 
 | Name                           | Description                 |
 |--------------------------------|-----------------------------|
-| DYNAMO_TABLE_NAME              | The name of the files table |
+| FILES_DDB_TABLE                | The name of the files table |
 
 

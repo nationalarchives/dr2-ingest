@@ -48,7 +48,7 @@ The lambda:
 
 ## Environment Variables
 
-| Name                | Description                                                  |
-|---------------------|--------------------------------------------------------------|
-| DYNAMO_TABLE_NAME   | The table to write the values to                             |
-| INGEST_STATE_BUCKET | The bucket to write the JSON files (containing the UUIDs) to |
+| Name               | Description                                                  |
+|--------------------|--------------------------------------------------------------|
+| FILES_DDB_TABLE    | The table to write the values to                             |
+| OUTPUT_BUCKET_NAME | The bucket to write the JSON files (containing the UUIDs) to |

@@ -38,8 +38,8 @@ There is no output from this Lambda.
 
 ## Environment Variables
 
-| Name                      | Description                                |
-| ------------------------- | ------------------------------------------ |
-| PRESERVICA_API_URL        | The Preservica API url                     |
-| PRESERVICA_SECRET_NAME    | The secret used to call the Preservica API |
-| ARCHIVE_FOLDER_TABLE_NAME | The name of the table to get folders from  |
+| Name                   | Description                                |
+| ---------------------- | ------------------------------------------ |
+| FILES_DDB_TABLE        | The name of the table to get folders from  |
+| PRESERVICA_API_URL     | The Preservica API url                     |
+| PRESERVICA_SECRET_NAME | The secret used to call the Preservica API |

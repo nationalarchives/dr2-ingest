@@ -36,7 +36,7 @@ The lambda doesn't return anything, but it sends a message to `DESTINATION_QUEUE
 
 ## Environment Variables
 
-| Name               | Description                                              |
-|--------------------|----------------------------------------------------------|
-| DESTINATION_BUCKET | The DR2 bucket to copy the files to                      |
-| DESTINATION_QUEUE  | The SQS queue to send the non-metadata file locations to |
+| Name                  | Description                                              |
+|-----------------------|----------------------------------------------------------|
+| OUTPUT_BUCKET_NAME    | The DR2 bucket to copy the files to                      |
+| OUTPUT_QUEUE_URL      | The SQS queue to send the non-metadata file locations to |
