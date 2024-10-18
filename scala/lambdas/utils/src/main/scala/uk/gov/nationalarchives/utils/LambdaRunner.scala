@@ -20,7 +20,7 @@ abstract class LambdaRunner[Event, Result, Config, Dependencies](using
     val encoder: Encoder[Result]
 ) extends RequestStreamHandler {
 
-  private val lambdaName: String = sys.env("AWS_LAMBDA_FUNCTION_NAME")
+  val lambdaName: String = sys.env("AWS_LAMBDA_FUNCTION_NAME")
   given LoggerName = LoggerName(lambdaName)
   val logger: SelfAwareStructuredLogger[IO] = Slf4jFactory.create[IO].getLogger
   def log(logCtx: Map[String, String]): String => IO[Unit] = {
