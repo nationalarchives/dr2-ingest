@@ -23,11 +23,16 @@ import java.net.URI
 import java.nio.ByteBuffer
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPropertyChecks {
-  type OutputOrError = StateOutput | Throwable
+  type UnitOrError = Unit | Throwable
   val config: Config = Config()
-  val batchId = "TEST-ID"
+  val groupId = "TEST-ID"
+  val retryCount = 0
+  val batchId = s"${groupId}_$retryCount"
+
   val metadataPackage: URI = URI.create("s3://outputBucket/TEST-REFERENCE/metadata.json")
-  val input: Input = Input(batchId, metadataPackage)
+
+  val retrySfnArn = "sfnArn"
+  val input: Input = new Input(batchId, groupId, metadataPackage, retryCount, retrySfnArn)
   private val s3Client = getS3Client(metadataJsonAsObj = testValidMetadataJson())
   private val stringArgToCauseTestToFail = "This string will deliberately cause the test in the mock 'upload' method to fail if " +
     "'upload' method (called in the lambda) was invoked unintentionally OR if the method is expected to be invoked but a dev " +
@@ -89,11 +94,11 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     override def log(logCtx: Map[String, String]): String => IO[Unit] = msg => ref.update(loggedMsgs => msg :: loggedMsgs)
 
   object LambdaWithLogSpy:
-    def apply(input: Input, config: Config, dependencies: Dependencies): (List[String], OutputOrError) = (for {
+    def apply(input: Input, config: Config, dependencies: Dependencies): (List[String], UnitOrError) = (for {
       ref <- Ref.of[IO, List[String]](Nil)
-      outputOrErr: OutputOrError <- new LambdaWithLogSpy(ref).handler(input, config, dependencies).recover(err => err)
+      unitOrErr: UnitOrError <- new LambdaWithLogSpy(ref).handler(input, config, dependencies).recover(err => err)
       loggedMsgs <- ref.get
-    } yield (loggedMsgs, outputOrErr)).unsafeRunSync()
+    } yield (loggedMsgs, unitOrErr)).unsafeRunSync()
   end LambdaWithLogSpy
 
   "the lambda" should "not throw an exception nor log any entries if there were no error encountered" in {
@@ -119,14 +124,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         """one of which is 'type': 'Asset'\",\"properties\":{\"type\":{\"type\":\"string\",\"const\":\"Asset\"}}}"}]}}"""
 
     val s3Client = getS3Client(metadataJsonAsObj = jsonWithoutAsset, stringsExpectedInJson = List(errorThatJsonShouldContain))
-    val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
+    val (loggedMsgs: List[String], unitOrErr: UnitOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
     loggedMsgs.contains(
-      "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json\n\n"
+      "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID_0'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json\n\n"
     ) should equal(true)
 
-    outputOrErr match {
-      case ex: Throwable => ex.getMessage.contains("1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'") should equal(true)
+    unitOrErr match {
+      case ex: Throwable => ex.getMessage.contains("1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID_0'") should equal(true)
       case _             => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }
   }
@@ -139,15 +144,15 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         """\"description\":\"There must be at least one object in the JSON that has both a series and a parent that is null\",""" +
         """\"properties\":{\"parentId\":{\"type\":\"null\",\"const\":null},\"series\":true},\"required\":[\"series\",\"parentId\"]}"}]}}"""
     val s3Client = getS3Client(metadataJsonAsObj = jsonWithoutAsset, stringsExpectedInJson = List(errorThatJsonShouldContain))
-    val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
+    val (loggedMsgs: List[String], unitOrErr: UnitOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
     loggedMsgs.contains(
-      "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json\n\n"
+      "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID_0'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json\n\n"
     ) should equal(true)
-    outputOrErr match {
+    unitOrErr match {
       case ex: Throwable =>
         ex.getMessage.contains(
-          "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+          "1 thing wrong with the structure of the metadata.json for batchId 'TEST-ID_0'; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
         ) should equal(true)
       case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }
@@ -164,18 +169,18 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         metadataJsonAsObj = testValidMetadataJson(),
         stringsExpectedInJson = List(expectedLocationJsonError1, expectedLocationJsonError2)
       )
-      val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
+      val (loggedMsgs: List[String], unitOrErr: UnitOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
       loggedMsgs.contains(
-        "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+        "2 entries (objects) in the metadata.json for batchId 'TEST-ID_0' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
       ) should equal(true)
       loggedMsgs.contains("""{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"location"}""") should equal(true)
       loggedMsgs.contains("""{"id":"\"b0147dea-878b-4a25-891f-66eba66194ca\"","fieldNamesWithErrors":"location"}""") should equal(true)
 
-      outputOrErr match {
+      unitOrErr match {
         case ex: Throwable =>
           ex.getMessage should equal(
-            "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+            "2 entries (objects) in the metadata.json for batchId 'TEST-ID_0' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
           )
         case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
       }
@@ -203,17 +208,17 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       stringsExpectedInJson = expectedExtensionMethodString,
       stringsNotExpectedInJson = unexpectedExtensionMethodString
     )
-    val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
+    val (loggedMsgs: List[String], unitOrErr: UnitOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
     loggedMsgs.contains(
-      "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+      "2 entries (objects) in the metadata.json for batchId 'TEST-ID_0' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
     ) should equal(true)
     loggedMsgs.contains("""{"id":"\"d4f8613d-2d2a-420d-a729-700c841244f3\"","fieldNamesWithErrors":"name, title"}""") should equal(true)
 
-    outputOrErr match {
+    unitOrErr match {
       case ex: Throwable =>
         ex.getMessage should equal(
-          "2 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+          "2 entries (objects) in the metadata.json for batchId 'TEST-ID_0' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
         )
       case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }
@@ -246,10 +251,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val expectedJsonErrors = expectedErrorsPerMethod.values.toList.flatten
 
     val s3Client = getS3Client(metadataJsonAsObj = entriesWithoutUuidsAndUniqueIds, stringsExpectedInJson = expectedJsonErrors)
-    val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
+    val (loggedMsgs: List[String], unitOrErr: UnitOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
     loggedMsgs.contains(
-      "5 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+      "5 entries (objects) in the metadata.json for batchId 'TEST-ID_0' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
     ) should equal(true)
     loggedMsgs.contains("""{"id":"\"27354aa8-975f-48d1-af79-121b9a349cbe\"","fieldNamesWithErrors":"type"}""") should equal(true)
     loggedMsgs.count(_.contains("""{"id":"29dc3d9b-e451-4a92-bbcd-88ba3a8d1935","fieldNamesWithErrors":"id"}""")) should equal(2)
@@ -258,10 +263,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     ) should equal(true)
     loggedMsgs.contains("""{"id":"non-uuid id","fieldNamesWithErrors":"id"}""") should equal(true)
 
-    outputOrErr match {
+    unitOrErr match {
       case ex: Throwable =>
         ex.getMessage should equal(
-          "5 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+          "5 entries (objects) in the metadata.json for batchId 'TEST-ID_0' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
         )
       case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }
@@ -295,10 +300,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val expectedJsonErrors = expectedErrorsPerMethod.values.toList.flatten
 
     val s3Client = getS3Client(metadataJsonAsObj = entriesWithAdditionalFoldersAndAssetWithNoFiles, stringsExpectedInJson = expectedJsonErrors)
-    val (loggedMsgs: List[String], outputOrErr: OutputOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
+    val (loggedMsgs: List[String], unitOrErr: UnitOrError) = LambdaWithLogSpy(input, config, dependencies(s3Client))
 
     loggedMsgs.contains(
-      "3 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+      "3 entries (objects) in the metadata.json for batchId 'TEST-ID_0' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
     ) should equal(true)
     loggedMsgs.contains(
       """{"id":"\"b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6\"","fieldNamesWithErrors":"originalFiles"}"""
@@ -309,10 +314,10 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     loggedMsgs.contains(
       """{"id":"\"3ede334c-b1ea-4642-ba31-d4574b0ddf5b\"","fieldNamesWithErrors":"parentId"}"""
     ) should equal(true)
-    outputOrErr match {
+    unitOrErr match {
       case ex: Throwable =>
         ex.getMessage should equal(
-          "3 entries (objects) in the metadata.json for batchId 'TEST-ID' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
+          "3 entries (objects) in the metadata.json for batchId 'TEST-ID_0' have failed validation; the results can be found here: outputBucket/TEST-REFERENCE/metadata-entries-with-errors.json"
         )
       case _ => throw new TestFailedException("Lambda handler method didn't return a throwable", 1)
     }

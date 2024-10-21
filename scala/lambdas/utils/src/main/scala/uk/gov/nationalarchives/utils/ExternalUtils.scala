@@ -195,4 +195,6 @@ object ExternalUtils {
   case class OutputParameters(assetId: UUID, status: MessageStatus)
 
   case class OutputMessage(properties: OutputProperties, parameters: OutputParameters)
+
+  case class StepFunctionInput(batchId: String, groupId: String, metadataPackage: URI, retryCount: Int, retrySfnArn: String)
 }

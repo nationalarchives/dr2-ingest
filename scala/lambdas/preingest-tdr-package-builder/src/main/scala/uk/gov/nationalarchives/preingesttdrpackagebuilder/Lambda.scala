@@ -166,7 +166,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     dependencies.dynamoDbClient
       .queryItems(config.lockTableName, "groupId" === input.groupId, Option(config.lockTableGsiName))
       .flatMap(processLockTableItems)
-      .map(_ => Output(input.groupId, input.batchId, input.retryCount, URI.create(s"s3://${config.rawCacheBucket}/${input.batchId}/metadata.json")))
+      .map(_ => new Output(input.batchId, input.groupId, URI.create(s"s3://${config.rawCacheBucket}/${input.batchId}/metadata.json"), input.retryCount, ""))
   }
 
   private def getMetadataUri(fileLocation: URI): URI = {
@@ -201,4 +201,4 @@ object Lambda:
 
   case class Input(groupId: String, batchId: String, waitFor: Int, retryCount: Int = 0)
 
-  case class Output(groupId: String, batchId: String, retryCount: Int, packageMetadata: URI)
+  type Output = StepFunctionInput
