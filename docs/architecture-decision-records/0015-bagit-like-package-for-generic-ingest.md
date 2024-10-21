@@ -10,11 +10,11 @@ In [`./0007-single-generic-ingest-function.md`](./0007-single-generic-ingest-fun
 
 We will use a format based on [BagIt v1.0](https://datatracker.ietf.org/doc/html/rfc8493). This format is designed to support our AWS Serverless workflows by enabling parallel processing and secure storage of payload files in S3.
 
-We have decided to extend BagIt v1.0 as there is already precedent using it within the department and development team. BagIt is a well known format within the digital preservation sector.
+We have decided to extend BagIt v1.0 as there is already precedent for using it within the department and development team. BagIt is a well known format within the digital preservation sector.
 
 ### Changes from BagIt v1.0
 
-This document is structured to match the BagIt v1.0 specification. Changes to facilitate DR2 bags are included within the existing headings. New or modified wording is signified by bold text.
+This document is structured to match the BagIt v1.0 specification. Changes to facilitate DR2 bags are included within the existing headings.
 
 #### 2. Structure
 
@@ -25,18 +25,18 @@ This document is structured to match the BagIt v1.0 specification. Changes to fa
 ##### 2.1.1. Bag Declaration: bagit.txt
 
 - _ENCODING_ MUST be "UTF-8"
-- A "bagit.json" MUST be included containing a JSON representation of the same data, this is for system use.
+- A "bagit.json" MUST be included, containing a JSON representation of the same data; this is for system use.
 
 ##### 2.1.2. Payload Directory: data/
 
-- Payload files MUST NOT be organized in arbitrary subdirectory structures within the payload directory.
+- Payload files MUST NOT be organised in arbitrary subdirectory structures within the payload directory.
 - Payload files MUST be named with a UUID and no file extension.
 
 #### (New) 2.1.4. Metadata Tag File: payload-metadata.json
 
-The “payload-metadata.json” file is a tag file that contains metadata describing each entity within the payload of the bag. The metadata within this file is intended primarily for system use. The file consists of a single JSON array with an object for each entity within the bag. As the payload directory requires a flat structure of UUID filenames, hierarchy MAY be represented within this file using the “parent” field upon an entity. To represent hierarchy, the following types MAY be used in the “type” field; “ArchiveFolder”, “ContentFolder”, “Asset”, “File”.
+The “payload-metadata.json” file is a tag file that contains metadata describing each entity within the payload of the bag. The metadata within this file is intended primarily for system use. The file consists of a single JSON array with an object for each entity within the bag. As the payload directory requires a flat structure of UUID filenames, hierarchy MAY be represented within this file using the “parent” field upon an entity. To represent hierarchy, the following types MAY be used in the “type” field: “ArchiveFolder”, “ContentFolder”, “Asset”, “File”.
 
-“ArchiveFolder” represents a folder created to manage archival hierarchy. This differs from “ContentFolder” which is used to represent a folder that is part of the transfer. “Assets” are an abstraction from “File”, one “Asset” MAY contain multiple “File”. Each “File” MUST BE identified with a UUID that is present within the payload directory, and each file within the payload directory MUST be included within “metadata.json”.
+“ArchiveFolder” represents a folder created to manage archival hierarchy. This differs from “ContentFolder” which is used to represent a folder that is part of the transfer. “Assets” are an abstraction from “File”; one “Asset” MAY contain multiple “File”. Each “File” MUST BE identified with a UUID that is present within the payload directory, and each file within the payload directory MUST be included within “metadata.json”.
 
 The schema for this file is below.
 
@@ -140,4 +140,4 @@ s3://<bucket/
 ## Consequences
 
 - Our preingest workflows must produce this package to invoke the Generic Ingest workflow.
-- The Mapper Lambda will be responsible for parsing this package and transforming into the required schemas for ingest.
+- The Mapper Lambda will be responsible for parsing this package and transforming it into the required schemas for ingest.

@@ -4,11 +4,11 @@
 
 ## Context
 
-When ingesting to the Preservation System we have a choice to represent the record as an asset or a folder. Many archives choose to represent records as a folders within their Catalogue and Preservation System, removing the need to describe individual objects within a collection.
+When ingesting to the Preservation System, we have a choice to represent the record as an Asset or a Folder. Many archives choose to represent records as folders within their Catalogue and Preservation System, removing the need to describe individual objects within a collection.
 
 ## Decision
 
-We will represent records as assets within the Preservation System. This decision has been made for the following reasons.
+We will represent records as assets within the Preservation System; this decision has been made for the following reasons.
 
 - Digital Asset Management vs Archive Catalogue. Although we are an archive, our requirements for access drive our end to end system (Transfer through to Access) to be a digital asset manager as opposed to an archive catalogue. We must handle the preservation of individual digital objects and make these available to the presentation systems, it is up to these systems to decide how to use the objects.
 

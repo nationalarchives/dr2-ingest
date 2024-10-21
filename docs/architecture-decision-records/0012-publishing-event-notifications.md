@@ -4,7 +4,7 @@
 
 ## Context
 
-Other services within the organisation may want to act upon changes within the Preservation Service. For example, transfer systems deleting their copy of a record once it has been ingested to ours.
+Other services within the organisation may want to act upon changes within the Preservation Service, for example, transfer systems deleting their copy of a record once it has been ingested to ours.
 
 ## Decision
 

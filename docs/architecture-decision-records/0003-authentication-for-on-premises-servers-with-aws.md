@@ -4,7 +4,7 @@
 
 ## Context
 
-As an organization, we have an on-premises server that needs to integrate with our Amazon Web Services (AWS) infrastructure. The server hosts critical data which will be used for our custodial copy workflow. We need to establish a robust and secure authentication mechanism to allow the server to access the resources it needs in AWS and to minimise the risk of data or credentials being leaked or the backup data being lost.
+As an organisation, we have an on-premises server that needs to integrate with our Amazon Web Services (AWS) infrastructure. The server hosts critical data which will be used for our custodial copy workflow. We need to establish a robust and secure authentication mechanism to allow the server to access the resources it needs in AWS and to minimise the risk of data or credentials being leaked or the backup data being lost.
 
 ## Decision
 
@@ -36,7 +36,7 @@ This uses JWT tokens from an authentication server which are then swapped for te
 
 ### Disadvantages
 
-- IAM users use long-lived access keys. They are static credentials that remain valid until explicitly revoked. If these keys are compromised or leaked, an attacker has an extended period to exploit them for unauthorized access or malicious activities. This risk can be managed by rotating the keys frequently and having an automated process which will disable keys when they are too old.
+- IAM users use long-lived access keys. They are static credentials that remain valid until explicitly revoked. If these keys are compromised or leaked, an attacker has an extended period to exploit them for unauthorised access or malicious activities. This risk can be managed by rotating the keys frequently and having an automated process which will disable keys when they are too old.
 - If an overly permissive policy is attached to the user, it can allow attackers access to a wider range of services. This can be mitigated by ensuring that the principle of least privilege is applied to the policies and making sure any changes are tracked and reviewed in source control.
 - IAM users can have console access. This could lead to phishing attempts to get the username and password which would allow access to the console. For this reason, we should switch off console access.
 

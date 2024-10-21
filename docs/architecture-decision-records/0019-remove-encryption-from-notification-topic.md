@@ -1,10 +1,10 @@
-# 19. Remove encryption from notifications SNS topic
+# 19. Remove encryption from Notifications SNS topic
 
 **Date:** 2024-06-28
 
 ## Context
 
-We originally implemented KMS (Key Management Service) encryption on the notifications SNS (Simple Notification Service) topic to ensure tighter control over who could read the messages and to encrypt any potentially sensitive data at rest. The encrypted topic was intended to provide an additional layer of security for sensitive information.
+We originally implemented KMS (Key Management Service) encryption on the Notifications SNS (Simple Notification Service) topic to ensure tighter control over who could read the messages and to encrypt any potentially sensitive data at rest. The encrypted topic was intended to provide an additional layer of security for sensitive information.
 
 However, our SNS topic will be subscribed to by multiple accounts, and coordinating with different teams to grant them access to the KMS encrypted topic has proven to be complex and time-consuming. Additionally, none of the content in the messages is sensitive, which makes the encryption overhead unnecessary.
 
@@ -28,7 +28,7 @@ We have decided to remove KMS encryption from the SNS topic completely.
 
 ### Negative Consequences:
 
-- Loss of Encryption: Messages in the SNS topic will no longer be encrypted at rest, which might be a concern if the message content changes in the future to include sensitive information. Unlike other AWS services (S3, SQS, etc.), AWS does not offer a low-maintainance cross-account encyrption method for SNS.
+- Loss of Encryption: Messages in the SNS topic will no longer be encrypted at rest, which might be a concern if the message content changes in the future to include sensitive information. Unlike other AWS services (S3, SQS, etc.), AWS does not offer a low-maintenance cross-account encryption method for SNS.
 - Reduced Control: Without KMS encryption, we have less granular control over who can read the messages, potentially increasing the risk of unauthorised access.
 - Ongoing architectural policy: We must ensure that the messages published to this topic do not contain sensitive information.
 

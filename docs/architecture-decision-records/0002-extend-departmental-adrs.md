@@ -4,7 +4,7 @@
 
 ## Context
 
-Within our organization, architectural decision records (ADRs) are used at the department level to document and track architectural choices across various projects. These departmental ADRs serve as a valuable resource for capturing and communicating architectural decisions across teams. However, it is important to recognize that certain projects may have unique architectural considerations and requirements that warrant the creation of project-specific ADRs in addition to the departmental ADRs.
+Within our organisation, architectural decision records (ADRs) are used at the department level to document and track architectural choices across various projects. These departmental ADRs serve as a valuable resource for capturing and communicating architectural decisions across teams. However, it is important to recognise that certain projects may have unique architectural considerations and requirements that warrant the creation of project-specific ADRs in addition to the departmental ADRs.
 
 ## Decision
 

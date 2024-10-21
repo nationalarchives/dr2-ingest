@@ -20,14 +20,14 @@ When the Preservation System is configured to use an SSO provider, the UI is loc
 
 SSO prevents human user access using username/password authentication, but the API will still require this authentication method. The API is authenticated in 2 stages: firstly a 15 minute access token is generated using the username/password, then the access token is used as a header on the GET/PUT/POST/DELETE request made by the user. Although the access token is short-lived, leaked credentials can be used to generate a new access token and a user is not limited to the number of active tokens at one time.
 
-To reduce the period of validity if credentials are unknowingly exposed an automated process will be used to rotate API user credentials every few hours. The runbook for this service should also contain steps to take if credentials are knowingly exposed to manually trigger password rotation.
+To reduce the period of validity if credentials are unknowingly exposed, an automated process will be used to rotate API user credentials every few hours. The runbook for this service should also contain steps to take if credentials are knowingly exposed, in order to manually trigger password rotation.
 
 ### API users - principal of least privilege
 
-As we do in AWS, our services should only have the access they require to carry out their task. Extending this principle into the Preservation System, our API user actions should be limited. This will not be perfect; as all our API users will likely need to see all closed metadata the permissions granted will be rather wide, but it can protect file content from being read by a compromised API user.
+As we do in AWS, our services should only have the access they require to carry out their task. Extending this principle into the Preservation System, our API user actions should be limited. This will not be perfect; as all of our API users will likely need to see all closed metadata, the permissions granted will be rather wide, but it can protect file content from being read by a compromised API user.
 
-### Restrict access to the application to managed devices and automated processes
+### Restrict access to the application to only managed devices and automated processes
 
 As the Preservation System will be available on the public internet, there is potential for users to access the application from anywhere globally and on any device. When compared to the outgoing legacy system, this introduces additional risk as leaked credentials could be easily used, or a user’s device may be compromised, enabling credentials or session data to be replicated on another machine. Whilst the supplier is committed to creating a secure system, having a publicly available system increases the risk posed our to data.
 
-We will work with the supplier to restrict access to a range of known IP addresses covering user access from on-premise, staff managed devices through the IT VPN solution, and our automated processes running in our own AWS accounts. Traffic will continue to flow through the public internet between us and the the application, but will be encrypted using HTTPS.
+We will work with the supplier to restrict access to a range of known IP addresses covering user access from: on-premise, staff managed devices through the IT VPN solution, and our automated processes running in our own AWS accounts. Traffic will continue to flow through the public internet between us and the application, but will be encrypted using HTTPS.

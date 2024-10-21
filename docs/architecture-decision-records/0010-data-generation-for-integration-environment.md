@@ -28,7 +28,7 @@ The following factors influenced the decision:
 While anonymising live data presents several advantages, it introduces several negative consequences:
 
 - Divergence between Test and Production Systems: The integration system now has a different architecture to production as a result of the anonymiser in circuit. This divergence could impact the accuracy of certain tests and potentially lead to scenarios not accurately representing the production environment.
-- Developer Time and Effort: Implementing the anonymisation process requires additional developer time to write and maintain the code responsible for anonymising live data, as well as managing dependency updates to mitigate the risk of security issues in out of date dependencies. This could potentially divert resources from other critical development tasks, impacting overall project timelines.
+- Developer Time and Effort: Implementing the anonymisation process requires additional developer time to write and maintain the code responsible for anonymising live data, as well as managing dependency updates to mitigate the risk of security issues in out-of-date dependencies. This could potentially divert resources from other critical development tasks, impacting overall project timelines.
 - Effort for Managing Divergence: The team will need to expend effort to manage and mitigate the divergence between the test and production systems. This includes monitoring for potential discrepancies and implementing strategies to address any issues that arise.
 
 ### Future Considerations

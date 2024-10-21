@@ -10,4 +10,4 @@ We have divided our architecture into logical components, each with correspondin
 - [TDR Preingest]()
 - [Ingest](./ingest.md)
 
-And our decision making has been documented through [Architecture Decision Records](./architecture-decision-records/0001-record-architectural-decisions.md).
+And our decision making has been documented through [Architecture Decision Records](./architecture-decision-records).
