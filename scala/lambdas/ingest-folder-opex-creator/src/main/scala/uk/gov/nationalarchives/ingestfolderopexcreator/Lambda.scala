@@ -141,13 +141,13 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   override def dependencies(config: Config): IO[Dependencies] = {
     val xmlCreator: XMLCreator = XMLCreator()
     val dynamoClient: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
-    val s3Client: DAS3Client[IO] = DAS3Client[IO](config.roleArn, lambdaName)
+    val s3Client: DAS3Client[IO] = DAS3Client[IO]()
     IO(Dependencies(dynamoClient, s3Client, xmlCreator))
   }
 }
 
 object Lambda {
-  case class Config(dynamoTableName: String, bucketName: String, dynamoGsiName: String, roleArn: String) derives ConfigReader
+  case class Config(dynamoTableName: String, bucketName: String, dynamoGsiName: String) derives ConfigReader
 
   case class Input(id: UUID, batchId: String, executionName: String)
 
