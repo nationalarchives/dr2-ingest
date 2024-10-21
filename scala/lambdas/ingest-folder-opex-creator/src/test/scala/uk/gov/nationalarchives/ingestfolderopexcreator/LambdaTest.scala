@@ -114,7 +114,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val childId: UUID = UUID.fromString("feedd76d-e368-45c8-96e3-c37671476793")
   val batchId: String = "TEST-ID"
   val executionName = "test-execution"
-  private val config: Config = Config(tableName, "test-destination-bucket", "test-gsi", "role-arn")
+  private val config: Config = Config(tableName, "test-destination-bucket", "test-gsi")
   private val input: Input = Input(folderId, batchId, executionName)
 
   val emptyDynamoGetResponse: String = s"""{"Responses": {"$tableName": []}}"""
