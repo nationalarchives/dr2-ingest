@@ -17,7 +17,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
   val dynamoServer = new WireMockServer(9003)
   val s3Server = new WireMockServer(9004)
   private val testUtils = new ExternalServicesTestUtils(dynamoServer, s3Server)
-  private val config: Config = Config("test-table", "test-gsi", "test-destination-bucket")
+  private val config: Config = Config("test-table", "test-gsi", "test-destination-bucket", "role-arn")
   import testUtils._
 
   override def beforeEach(): Unit = {
