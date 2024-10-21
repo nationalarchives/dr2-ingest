@@ -12,7 +12,7 @@ import uk.gov.nationalarchives.ingestparentfolderopexcreator.testUtils.ExternalS
 
 class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
   val input: Input = Input("9e32383f-52a7-4591-83dc-e3e598a6f1a7")
-  val config: Config = Config("stagingCacheBucketName")
+  val config: Config = Config("stagingCacheBucketName", "role-arn")
 
   "handler" should "send an s3 'upload' request to upload Opex files with the correct content, file name and size" in {
     val commonPrefixes = List(
