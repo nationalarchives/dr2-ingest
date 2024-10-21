@@ -2,16 +2,13 @@ package uk.gov.nationalarchives.ingestparentfolderopexcreator
 
 import cats.effect.IO
 import fs2.*
-import org.reactivestreams.{FlowAdapters, Publisher}
-import pureconfig.generic.derivation.default.*
 import io.circe.generic.auto.*
+import org.reactivestreams.{FlowAdapters, Publisher}
 import pureconfig.ConfigReader
+import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.ArchiveFolderDynamoItem
-import uk.gov.nationalarchives.DADynamoDBClient.given
-import org.scanamo.syntax.*
+import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestparentfolderopexcreator.Lambda.*
-import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
@@ -73,7 +70,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     } yield completedUpload.head
   }
 
-  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DAS3Client[IO](config.roleArn, lambdaName), DADynamoDBClient[IO]()))
+  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DAS3Client[IO](config.roleArn, lambdaName)))
 }
 
 object Lambda extends App {
@@ -86,5 +83,5 @@ object Lambda extends App {
   case class Input(executionId: String)
   case class Config(destinationBucket: String, roleArn: String) derives ConfigReader
 
-  case class Dependencies(s3Client: DAS3Client[IO], dynamoClient: DADynamoDBClient[IO])
+  case class Dependencies(s3Client: DAS3Client[IO])
 }
