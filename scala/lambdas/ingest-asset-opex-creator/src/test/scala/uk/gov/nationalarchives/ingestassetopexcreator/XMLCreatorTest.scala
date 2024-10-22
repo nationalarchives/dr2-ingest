@@ -156,7 +156,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     OffsetDateTime.parse("2023-06-01T00:00Z"),
     "upstreamSystem",
     "digitalAssetSource",
-    "digitalAssetSubtype",
+    Option("digitalAssetSubtype"),
     List(UUID.fromString("dec2b921-20e3-41e8-a299-f3cbc13131a2")),
     List(UUID.fromString("3f42e3f2-fffe-4fe9-87f7-262e95b86d75")),
     true,
@@ -205,6 +205,17 @@ class XMLCreatorTest extends AnyFlatSpec {
     val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
     val xml = XMLCreator(ingestDateTime).createOpex(asset, children, 4, identifiers).unsafeRunSync()
     verifyXmlEqual(xml, expectedOpexXml)
+  }
+
+  "createOpex" should "create the opex xml with empty digital asset subtype element " in {
+    val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
+    val assetWithoutDigitalAssetSubType = asset.copy(
+      potentialDigitalAssetSubtype = None
+    )
+    val xml = XMLCreator(ingestDateTime).createOpex(assetWithoutDigitalAssetSubType, children, 4, identifiers).unsafeRunSync()
+    val expectedOpexXmlWithoutDigitalAssetSubType = expectedOpexXml.toString.replace("<DigitalAssetSubtype>digitalAssetSubtype</DigitalAssetSubtype>", "<DigitalAssetSubtype/>")
+
+    verifyXmlEqual(xml, expectedOpexXmlWithoutDigitalAssetSubType)
   }
 
   "createOpex" should "create the correct opex xml with identifiers and an asset with the exact title that was in the table " +
