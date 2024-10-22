@@ -56,7 +56,8 @@ object ExternalServicesTestUtils {
         "parentId" -> "27354aa8-975f-48d1-af79-121b9a349cbe",
         "title" -> "fhfghfgh",
         "type" -> "Asset",
-        "correlationId" -> "gxcvsdfkna"
+        "correlationId" -> "gxcvsdfkna",
+        "description" -> ""
       ),
       Obj(
         "id" -> "b0147dea-878b-4a25-891f-66eba66194ca",
