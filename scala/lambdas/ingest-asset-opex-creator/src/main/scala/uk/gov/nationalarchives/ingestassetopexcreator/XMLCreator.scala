@@ -85,7 +85,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
           <opex:DescriptiveMetadata>
             <Source xmlns="http://dr2.nationalarchives.gov.uk/source">
               <DigitalAssetSource>{asset.digitalAssetSource}</DigitalAssetSource>
-              <DigitalAssetSubtype>{asset.digitalAssetSubtype}</DigitalAssetSubtype>
+              <DigitalAssetSubtype>{asset.potentialDigitalAssetSubtype.getOrElse("")}</DigitalAssetSubtype>
               <IngestDateTime>{ingestDateTime}</IngestDateTime>
               <OriginalFiles>
                 {asset.originalFiles.map(originalFile => <File>{originalFile}</File>)}
