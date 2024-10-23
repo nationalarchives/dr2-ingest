@@ -25,17 +25,17 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     def fileString: String = s"$prefix.$suffix"
   }
   case class TestData(
-      series: String,
-      body: String,
-      date: String,
-      tdrRef: String,
-      fileName: FileName,
-      fileSize: Long,
-      checksum: String,
-      fileRef: String,
-      groupId: String,
-      batchId: String
-  )
+                       series: String,
+                       body: String,
+                       date: String,
+                       tdrRef: String,
+                       fileName: FileName,
+                       fileSize: Long,
+                       checksum: String,
+                       fileRef: String,
+                       groupId: String,
+                       batchId: String
+                     )
   val dateGen: Gen[String] = for {
     year <- Gen.posNum[Int]
     month <- Gen.choose(1, 12)
@@ -73,7 +73,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       val fileId = UUID.fromString("4e03a500-4f29-47c5-9c08-26e12f631fd8")
       val metadataFileId = UUID.fromString("427789a1-e7af-4172-9fa7-02da1d60125f")
       val tdrFileId = UUID.fromString("a2834c9d-46e8-42d9-a300-2a4ed31c1e1a")
-      val uuids = Iterator(metadataFileId, archiveFolderId, fileId)
+      val uuids = Iterator(metadataFileId, fileId, archiveFolderId)
       val uuidIterator: () => UUID = () => uuids.next
       val tdrMetadata = TDRMetadata(
         testData.series,
@@ -201,14 +201,14 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   }
 
   private def runHandler(
-      uuidIterator: () => UUID = () => UUID.randomUUID,
-      initialS3Objects: Map[String, S3Objects] = Map.empty,
-      initialDynamoObjects: List[IngestLockTableItem] = Nil,
-      input: Input = Input("TST-123", "", 1, 1),
-      downloadError: Boolean = false,
-      uploadError: Boolean = false,
-      queryError: Boolean = false
-  ): (Map[String, S3Objects], Output) = {
+                          uuidIterator: () => UUID = () => UUID.randomUUID,
+                          initialS3Objects: Map[String, S3Objects] = Map.empty,
+                          initialDynamoObjects: List[IngestLockTableItem] = Nil,
+                          input: Input = Input("TST-123", "", 1, 1),
+                          downloadError: Boolean = false,
+                          uploadError: Boolean = false,
+                          queryError: Boolean = false
+                        ): (Map[String, S3Objects], Output) = {
     (for {
       initialS3Objects <- Ref.of[IO, Map[String, S3Objects]](initialS3Objects)
       initialDynamoObjects <- Ref.of[IO, List[IngestLockTableItem]](initialDynamoObjects)

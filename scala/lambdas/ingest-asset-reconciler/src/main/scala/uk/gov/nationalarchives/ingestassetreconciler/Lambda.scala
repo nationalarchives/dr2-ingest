@@ -19,6 +19,7 @@ import uk.gov.nationalarchives.dp.client.EntityClient.RepresentationType.*
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters
 import uk.gov.nationalarchives.ingestassetreconciler.Lambda.*
+import uk.gov.nationalarchives.ingestassetreconciler.Lambda.FailureReason.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.time.OffsetDateTime
@@ -80,7 +81,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       assetId: UUID,
       representationType: RepresentationType
   ) = {
-    val childrenThatDidNotMatchOnChecksum =
+    val failedChildren =
       childrenForRepresentationType.filter { assetChild =>
         val bitstreamWithSameChecksum = bitstreamInfoPerContentObject.find { bitstreamInfoForCo =>
           doesChecksumMatchFixity(assetChild, bitstreamInfoForCo.fixities) &&
@@ -89,15 +90,11 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
         bitstreamWithSameChecksum.isEmpty
       }
-
-    if (childrenThatDidNotMatchOnChecksum.isEmpty) StateOutput(wasReconciled = true, "", assetId)
+    if failedChildren.isEmpty then StateOutput(true, Nil, assetId)
     else
       StateOutput(
-        wasReconciled = false,
-        s":alert-noflash-slow: Reconciliation Failure - Out of the *${childrenForRepresentationType.length}* files expected " +
-          s"to be ingested for `assetId` '*$assetId*' with `representationType` *$representationType*, " +
-          s"a _*checksum*_ and _*title*_ could not be matched with a file on Preservica for:\n" +
-          childrenThatDidNotMatchOnChecksum.zip(LazyList.from(1)).map((child, index) => s"$index. ${child.id}").mkString("\n"),
+        wasReconciled = failedChildren.isEmpty,
+        List(Failures(TitleChecksumMismatch, failedChildren.map(_.id))),
         assetId
       )
   }
@@ -126,7 +123,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       log = logger.info(logCtx)(_)
       _ <- log(s"Asset $assetId retrieved from Dynamo")
 
-      entitiesWithAssetId <- dependencies.entityClient.entitiesByIdentifier(PreservicaIdentifier(sourceId, assetId.toString))
+      entitiesMap <- dependencies.entityClient.entitiesPerIdentifier(Seq(PreservicaIdentifier(sourceId, assetId.toString)))
+      entitiesWithAssetId = entitiesMap.map { case (identifier, entities) => identifier.value -> entities }.getOrElse(assetId.toString, Nil)
       _ <- IO.raiseWhen(entitiesWithAssetId.length > 1)(
         new Exception(s"More than one entity found using $sourceId '$assetId'")
       )
@@ -152,7 +150,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
           for {
             urlsToIoRepresentations <- dependencies.entityClient.getUrlsToIoRepresentations(entity.ref, Some(representationType))
             contentObjects <- urlsToIoRepresentations.map { urlToIoRepresentation =>
-              val generationVersion = urlToIoRepresentation.reverse.takeWhile(_ != '/').toInt
+              val generationVersion = urlToIoRepresentation.split("/").last.toInt
               dependencies.entityClient.getContentObjectsFromRepresentation(entity.ref, representationType, generationVersion)
             }.flatSequence
 
@@ -161,7 +159,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
             stateOutput <-
               if (contentObjects.isEmpty)
                 IO.pure(
-                  StateOutput(wasReconciled = false, s"There were no Content Objects returned for entity ref '${entity.ref}'", assetId)
+                  StateOutput(wasReconciled = false, List(Failures(NoContentObjects, childrenForRepresentationType.map(_.id))), assetId)
                 )
               else
                 for {
@@ -176,7 +174,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         .toList
         .sequence
       allReconciled = stateOutputs.forall(_.wasReconciled)
-    } yield StateOutput(allReconciled, stateOutputs.map(_.reason).sorted.toSet.mkString("\n").trim, assetId)
+    } yield StateOutput(allReconciled, stateOutputs.flatMap(_.failures), assetId)
 
   override def dependencies(config: Config): IO[Dependencies] =
     Fs2Client
@@ -190,7 +188,12 @@ object Lambda {
 
   case class AssetMessage(messageId: UUID, parentMessageId: Option[UUID] = None, executionId: Option[String])
 
-  case class StateOutput(wasReconciled: Boolean, reason: String, assetId: UUID)
+  enum FailureReason:
+    case NoContentObjects, TitleChecksumMismatch
+
+  case class Failures(failureReason: FailureReason, childIds: List[UUID])
+
+  case class StateOutput(wasReconciled: Boolean, failures: List[Failures], assetId: UUID)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO], newMessageId: UUID, datetime: () => OffsetDateTime)
 
