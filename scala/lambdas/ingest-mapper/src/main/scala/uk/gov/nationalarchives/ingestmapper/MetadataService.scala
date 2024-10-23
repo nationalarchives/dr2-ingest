@@ -88,7 +88,26 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
           Stream.evals {
             topLevelIdsToDepartmentSeries.map { itemToDepartmentSeries =>
               val parentPaths = getParentPaths(json, itemToDepartmentSeries)
-              val updatedJson = jsonArr.map { metadataEntry =>
+              val childCountMap = parentPaths.groupBy(_._2).view.mapValues(_.size).toMap
+
+              def addChildCount(obj: Obj) = {
+                val values = obj.value.toMap
+                val id = values("id").str
+                val parentPath = values.get("parentPath").map(parentPath => s"${parentPath.str}/").getOrElse("")
+                val objId = s"$parentPath$id"
+                val childCount = childCountMap.getOrElse(objId, 1)
+                Obj.from(values + ("childCount" -> Num(childCount)))
+              }
+
+              val departmentSeriesObjects = itemToDepartmentSeries.values.toList
+                .distinctBy(item => item.potentialSeriesItem.map(obj => obj("name")))
+                .flatMap { departmentSeries =>
+                  List(
+                    departmentSeries.potentialSeriesItem.map(addChildCount),
+                    Option(addChildCount(departmentSeries.departmentItem))
+                  ).flatten
+                }
+              jsonArr.map { metadataEntry =>
                 val id = UUID.fromString(metadataEntry("id").str)
                 val name = metadataEntry("name").str
                 val parentPath = parentPaths(id)
@@ -104,14 +123,19 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
                       case _             => Null
                     }
                   else Null
+                val childCount = Num(childCountMap.getOrElse(s"$parentPath/$id", 0))
                 val metadataMap: Map[String, Value] =
-                  Map("batchId" -> Str(input.batchId), "parentPath" -> Str(parentPath), "checksum_sha256" -> checksum, "fileExtension" -> fileExtension) ++ metadataEntry.obj.view
+                  Map(
+                    "batchId" -> Str(input.batchId),
+                    "parentPath" -> Str(parentPath),
+                    "checksum_sha256" -> checksum,
+                    "fileExtension" -> fileExtension,
+                    "childCount" -> childCount
+                  ) ++ metadataEntry.obj.view
                     .filterKeys(_ != "parentId")
                     .toMap
                 Obj.from(metadataMap)
-              } ++ itemToDepartmentSeries.values.flatMap(_.potentialSeriesItem).toList.distinctBy(obj => obj("id")) ++
-                itemToDepartmentSeries.values.map(_.departmentItem).toList.distinctBy(obj => obj("id"))
-              addChildCountAttributes(updatedJson)
+              } ++ departmentSeriesObjects
             }
           }
 
