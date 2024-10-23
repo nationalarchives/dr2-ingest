@@ -2,20 +2,20 @@ package uk.gov.nationalarchives.ingestfindexistingasset.testUtils
 
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock._
+import com.github.tomakehurst.wiremock.client.WireMock.*
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient
-import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.{Config, Input, StateOutput}
+import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.{Config, Input, InputItems, StateOutput}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.EntityClient.*
@@ -36,7 +36,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
   val batchId: String = "TEST-ID"
   val executionName = "test-execution"
   val config: Config = Config("http://localhost:9016", "", tableName)
-  val input: Input = Input(assetId, batchId)
+  val input: Input = Input(List(InputItems(assetId, batchId)))
 
   val defaultEntityWithSourceIdReturnValue: IO[Seq[Entity]] =
     IO.pure(
@@ -177,7 +177,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       serveEvents.map(_.getRequest.getBodyAsString) should equal(
         List.fill(numOfDynamoUpdateRequests)(expectedUpdateRequest) ++ List.fill(numOfDynamoGetRequests)(expectedGetRequest)
       )
-      potentialResponse.foreach(response => response.assetExists should equal(expectedAssetExistsResponse))
+      potentialResponse.flatMap(_.items.headOption).foreach(response => response.assetExists should equal(expectedAssetExistsResponse))
     }
   }
 }

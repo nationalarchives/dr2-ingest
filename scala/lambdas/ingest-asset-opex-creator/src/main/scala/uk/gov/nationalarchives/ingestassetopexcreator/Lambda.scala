@@ -28,38 +28,43 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     val xmlCreator = dependencies.xmlCreator
     val dynamoClient = dependencies.dynamoClient
     val s3Client = dependencies.s3Client
-    for {
-      assetItems <- dynamoClient.getItems[AssetDynamoItem, FilesTablePrimaryKey](
-        List(FilesTablePrimaryKey(FilesTablePartitionKey(input.id), FilesTableSortKey(input.batchId))),
-        config.dynamoTableName
-      )
-      asset <- IO.fromOption(assetItems.headOption)(
-        new Exception(s"No asset found for ${input.id} and ${input.batchId}")
-      )
-      fileReference = asset.identifiers.find(_.identifierName == "BornDigitalRef").map(_.value).orNull
-      log = logger.info(Map("batchRef" -> input.batchId, "fileReference" -> fileReference, "assetId" -> asset.id.toString))(_)
-      _ <- IO.whenA(asset.`type` != Asset)(IO.raiseError(new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")))
-      _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
+    input.items
+      .filterNot(_.assetExists)
+      .parTraverse { item =>
+        for {
+          assetItems <- dynamoClient.getItems[AssetDynamoItem, FilesTablePrimaryKey](
+            List(FilesTablePrimaryKey(FilesTablePartitionKey(item.id), FilesTableSortKey(item.batchId))),
+            config.dynamoTableName
+          )
+          asset <- IO.fromOption(assetItems.headOption)(
+            new Exception(s"No asset found for ${item.id} and ${item.batchId}")
+          )
+          fileReference = asset.identifiers.find(_.identifierName == "BornDigitalRef").map(_.value).orNull
+          log = logger.info(Map("batchRef" -> item.batchId, "fileReference" -> fileReference, "assetId" -> asset.id.toString))(_)
+          _ <- IO.whenA(asset.`type` != Asset)(IO.raiseError(new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")))
+          _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
 
-      children <- childrenOfAsset(dynamoClient, asset, config.dynamoTableName, config.dynamoGsiName)
-      _ <- IO.raiseWhen(children.length != asset.childCount)(
-        new Exception(s"Asset id ${asset.id}: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
-      )
-      _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
-      _ <- log(s"${children.length} children found for asset ${asset.id}")
+          children <- childrenOfAsset(dynamoClient, asset, config.dynamoTableName, config.dynamoGsiName)
+          _ <- IO.raiseWhen(children.length != asset.childCount)(
+            new Exception(s"Asset id ${asset.id}: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
+          )
+          _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${item.id} and ${item.batchId}"))
+          _ <- log(s"${children.length} children found for asset ${asset.id}")
 
-      _ <- log(s"Starting copy from ${children.map(_.location).mkString(", ")} to ${config.destinationBucket}")
-      _ <- children.map(child => copyFromSourceToDestination(s3Client, input, config.destinationBucket, asset, child, xmlCreator)).sequence
-      xip <- xmlCreator.createXip(asset, children.sortBy(_.sortOrder))
-      _ <- ValidateXmlAgainstXsd[IO](XipXsdSchemaV7).xmlStringIsValid(xip)
-      _ <- uploadXMLToS3(s3Client, xip, config.destinationBucket, s"${assetPath(input, asset)}/${asset.id}.xip")
-      _ <- log(s"XIP ${assetPath(input, asset)}/${asset.id}.xip uploaded to ${config.destinationBucket}")
+          _ <- log(s"Starting copy from ${children.map(_.location).mkString(", ")} to ${config.destinationBucket}")
+          _ <- children.parTraverse(child => copyFromSourceToDestination(s3Client, item, config.destinationBucket, asset, child, xmlCreator))
+          xip <- xmlCreator.createXip(asset, children.sortBy(_.sortOrder))
+          _ <- ValidateXmlAgainstXsd[IO](XipXsdSchemaV7).xmlStringIsValid(xip)
+          _ <- uploadXMLToS3(s3Client, xip, config.destinationBucket, s"${assetPath(item, asset)}/${asset.id}.xip")
+          _ <- log(s"XIP ${assetPath(item, asset)}/${asset.id}.xip uploaded to ${config.destinationBucket}")
 
-      opex <- xmlCreator.createOpex(asset, children, xip.getBytes.length, asset.identifiers)
-      _ <- ValidateXmlAgainstXsd[IO](OpexMetadataSchema).xmlStringIsValid(opex)
-      _ <- uploadXMLToS3(s3Client, opex, config.destinationBucket, s"${parentPath(input, asset)}/${asset.id}.pax.opex")
-      _ <- log(s"OPEX ${parentPath(input, asset)}/${asset.id}.pax.opex uploaded to ${config.destinationBucket}")
-    } yield ()
+          opex <- xmlCreator.createOpex(asset, children, xip.getBytes.length, asset.identifiers)
+          _ <- ValidateXmlAgainstXsd[IO](OpexMetadataSchema).xmlStringIsValid(opex)
+          _ <- uploadXMLToS3(s3Client, opex, config.destinationBucket, s"${parentPath(item, asset)}/${asset.id}.pax.opex")
+          _ <- log(s"OPEX ${parentPath(item, asset)}/${asset.id}.pax.opex uploaded to ${config.destinationBucket}")
+        } yield ()
+      }
+      .void
   }
 
   private def uploadXMLToS3(s3Client: DAS3Client[IO], xmlString: String, destinationBucket: String, key: String): IO[CompletedUpload] =
@@ -69,7 +74,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def copyFromSourceToDestination(
       s3Client: DAS3Client[IO],
-      input: Input,
+      item: InputItem,
       destinationBucket: String,
       asset: AssetDynamoItem,
       child: FileDynamoItem,
@@ -79,16 +84,16 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       child.location.getHost,
       child.location.getPath.drop(1),
       destinationBucket,
-      destinationPath(input, asset, child, xmlCreator)
+      destinationPath(item, asset, child, xmlCreator)
     )
   }
 
-  private def parentPath(input: Input, asset: AssetDynamoItem) = s"opex/${input.executionName}${asset.potentialParentPath.map(path => s"/$path").getOrElse("")}"
+  private def parentPath(item: InputItem, asset: AssetDynamoItem) = s"opex/${item.batchId}${asset.potentialParentPath.map(path => s"/$path").getOrElse("")}"
 
-  private def assetPath(input: Input, asset: AssetDynamoItem) = s"${parentPath(input, asset)}/${asset.id}.pax"
+  private def assetPath(item: InputItem, asset: AssetDynamoItem) = s"${parentPath(item, asset)}/${asset.id}.pax"
 
-  private def destinationPath(input: Input, asset: AssetDynamoItem, child: FileDynamoItem, xmlCreator: XMLCreator) =
-    s"${assetPath(input, asset)}/${xmlCreator.bitstreamPath(child)}/${xmlCreator.childFileName(child)}"
+  private def destinationPath(item: InputItem, asset: AssetDynamoItem, child: FileDynamoItem, xmlCreator: XMLCreator) =
+    s"${assetPath(item, asset)}/${xmlCreator.bitstreamPath(child)}/${xmlCreator.childFileName(child)}"
 
   private def childrenOfAsset(dynamoClient: DADynamoDBClient[IO], asset: AssetDynamoItem, tableName: String, gsiName: String): IO[List[FileDynamoItem]] = {
     val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
@@ -99,7 +104,9 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
 object Lambda {
 
-  case class Input(id: UUID, batchId: String, executionName: String)
+  case class InputItem(id: UUID, batchId: String, assetExists: Boolean)
+
+  case class Input(items: List[InputItem])
 
   case class Config(dynamoTableName: String, dynamoGsiName: String, destinationBucket: String) derives ConfigReader
 

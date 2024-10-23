@@ -2,14 +2,14 @@ package uk.gov.nationalarchives.ingestassetopexcreator.testUtils
 
 import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock._
+import com.github.tomakehurst.wiremock.client.WireMock.*
 import org.apache.commons.io.output.ByteArrayOutputStream
 import org.scalatest.prop.TableDrivenPropertyChecks
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
-import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.{Dependencies, Input}
+import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.{Dependencies, Input, InputItem}
 import uk.gov.nationalarchives.ingestassetopexcreator.XMLCreator
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
@@ -23,8 +23,8 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
   def stubPutRequest(): (String, String) = {
     val bucket = "test-destination-bucket"
 
-    val xipPath = s"/opex/$executionName/$assetParentPath/$assetId.pax/$assetId.xip"
-    val opexPath = s"/opex/$executionName/$assetParentPath/$assetId.pax.opex"
+    val xipPath = s"/opex/$batchId/$assetParentPath/$assetId.pax/$assetId.xip"
+    val opexPath = s"/opex/$batchId/$assetParentPath/$assetId.pax.opex"
     List(xipPath, opexPath).foreach { itemPath =>
       val postResponse = <InitiateMultipartUploadResult>
         <Bucket>{bucket}</Bucket>
@@ -68,7 +68,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
 
   def stubCopyRequest(childId: UUID, suffix: String): (String, String) = {
     val sourceName = s"/$batchId/$childId"
-    val destinationName = s"/opex/$executionName/$assetParentPath/$assetId.pax/Representation_Preservation/$childId/Generation_1/$childId.$suffix"
+    val destinationName = s"/opex/$batchId/$assetParentPath/$assetId.pax/Representation_Preservation/$childId/Generation_1/$childId.$suffix"
     val response =
       <CopyObjectResult>
         <LastModified>2023-08-29T17:50:30.000Z</LastModified>
@@ -157,9 +157,8 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
   val childIdJson: UUID = UUID.fromString("feedd76d-e368-45c8-96e3-c37671476793")
   val childIdDocx: UUID = UUID.fromString("a25d33f3-7726-4fb3-8e6f-f66358451c4e")
   val batchId: String = "TEST-ID"
-  val executionName = "test-execution"
 
-  val input: Input = Input(assetId, batchId, executionName)
+  val input: Input = Input(List(InputItem(assetId, batchId, false)))
 
   def outputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
 
