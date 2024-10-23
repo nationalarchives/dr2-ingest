@@ -44,6 +44,9 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     ("Files", Map(3 -> 0, 4 -> 0), "ArchiveFolder")
   )
 
+  private val metadataFileCases: TableFor2[Boolean, Boolean] =
+    Table(("metadataFile value is true", "id is in 'originalMetadataFiles' array"), (true, true), (true, false), (false, true))
+
   private val entryTypesThatCanHaveNoParent: TableFor1[String] = Table("entryType", "ArchiveFolder", "ContentFolder", "Asset")
 
   private val nonFileEntryParentIdIsNullStates: TableFor3[String, Boolean, String] = Table(
@@ -259,10 +262,14 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
     entriesGroupedById should equal(generateListOfIdsAndEntries(allEntries).sortBy(_._1))
   }
 
-  "getIdsOfAllEntries" should "still assign a file to an 'MetadataType' if it doesn't end in '-metadata.json' but is contained " +
-    "within the Asset's 'originalMetadataFiles' array" in {
+  forAll(metadataFileCases) { (metadataFileIsTrue, isInOriginalMetadataFiles) =>
+    val isOrIsNot = if isInOriginalMetadataFiles then "is" else "is not"
+    "getIdsOfAllEntries" should s"assign a file to 'MetadataFileEntry' type if 'metadataFile' is '$metadataFileIsTrue' but its id $isOrIsNot in Asset's 'originalMetadataFiles' array" in {
       val entriesWithMetadataFileWithNoExt = allEntries.map { entry =>
-        if entry(id).str == "d4f8613d-2d2a-420d-a729-700c841244f3" then Obj.from(entry.value ++ Map(name -> Str("TDD-2023-ABC-metadata"))) else entry
+        if entry(entryType).str == "Asset" && !isInOriginalMetadataFiles then Obj.from(entry.value ++ Map("originalMetadataFiles" -> Arr()))
+        else if entry(entryType).str == "File" && entry(id).str == "d4f8613d-2d2a-420d-a729-700c841244f3" then
+          Obj.from(entry.value ++ Map("metadataFile" -> Bool(metadataFileIsTrue)))
+        else entry
       }
       val entriesGroupedByType = entriesWithMetadataFileWithNoExt.groupBy(_(entryType).str)
       val entriesAsValidatedMap = entriesGroupedByType.map { case (entryType, entries) =>
@@ -270,27 +277,22 @@ class MetadataJsonValueValidatorTest extends AnyFlatSpec with MockitoSugar with 
       }
 
       val fileEntriesWithValidatedName = validator.getIdsOfAllEntries(entriesAsValidatedMap, List("d4f8613d-2d2a-420d-a729-700c841244f3")).sortBy(_._1)
-      fileEntriesWithValidatedName should equal(
-        List(
-          ("b7329714-4753-4bf5-a802-1c126bad1ad6", ArchiveFolderEntry(None)),
-          ("27354aa8-975f-48d1-af79-121b9a349cbe", ContentFolderEntry(Some("b7329714-4753-4bf5-a802-1c126bad1ad6"))),
-          ("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6", AssetEntry(Some("27354aa8-975f-48d1-af79-121b9a349cbe"))),
-          ("d4f8613d-2d2a-420d-a729-700c841244f3", MetadataFileEntry(Some("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6"))),
-          ("b0147dea-878b-4a25-891f-66eba66194ca", FileEntry(Some("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6")))
-        ).sortBy(_._1)
-      )
+      fileEntriesWithValidatedName.contains(
+        ("d4f8613d-2d2a-420d-a729-700c841244f3", MetadataFileEntry(Some("b3bcfd9b-3fe6-41eb-8620-0cb3c40655d6")))
+      ) should equal(true)
     }
+  }
 
-  "getIdsOfAllEntries" should "assign a file to an 'UnknownFileType' if the name field has an error" in {
+  "getIdsOfAllEntries" should "assign a file to an 'UnknownFileType' if the 'metadataFile' field has an error" in {
     val entriesWithIncorrectFileNames = allEntries.map { entry =>
-      if entry(entryType).str == "File" then Obj.from(entry.value ++ Map(name -> Num(123))) else entry
+      if entry(entryType).str == "File" then Obj.from(entry.value ++ Map("metadataFile" -> Num(123))) else entry
     }
     val entriesGroupedByType = entriesWithIncorrectFileNames.groupBy(_(entryType).str)
     val entriesWhereIdsHaveError = entriesGroupedByType.map { case (entryType, entries) =>
       entryType ->
         entries.map { entry =>
           convertUjsonObjToSchemaValidatedMap(entry) ++ Map(
-            name -> SchemaValueError("123", s"$$.$name: integer found, string expected").invalidNel[Value]
+            "metadataFile" -> SchemaValueError("123", s"$$.metadataFile: integer found, boolean expected").invalidNel[Value]
           )
         }
     }

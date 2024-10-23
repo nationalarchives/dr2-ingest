@@ -114,6 +114,9 @@
       "type": "string",
       "minLength": 1
     },
+    "metadataFile": {
+      "type": "boolean"
+    },
     "checksum_sha256": {
       "type": "string",
       "$comment": "(Optional) But if File entry contains one, we ca ensure it's the correct type and length",

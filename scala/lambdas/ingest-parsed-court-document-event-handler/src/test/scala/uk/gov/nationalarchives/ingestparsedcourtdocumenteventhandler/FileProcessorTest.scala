@@ -371,7 +371,7 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                   ).flatten
                 )
               val files = List(
-                FileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1, URI.create("s3://bucket/key"), "abcde"),
+                FileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1, URI.create("s3://bucket/key"), "abcde", false),
                 FileMetadataObject(
                   metadataId,
                   Option(assetId),
@@ -382,7 +382,8 @@ class FileProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPr
                   RepresentationType.Preservation,
                   1,
                   URI.create("s3://bucket/metadataKey"),
-                  "metadataChecksum"
+                  "metadataChecksum",
+                  true
                 )
               )
               val expectedMetadataObjects: List[MetadataObject] = List(folder, asset) ++ files

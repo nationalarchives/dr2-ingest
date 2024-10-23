@@ -296,12 +296,12 @@ class MetadataJsonValueValidator {
         val parentIdNel = entry("parentId")
         val entryTypeUpdated =
           if entryType == "File" then
-            val nameNel = entry("name")
-            nameNel match {
-              case Validated.Valid(nameValue) =>
+            val metadataFileNel = entry("metadataFile")
+            metadataFileNel match {
+              case Validated.Valid(metadataFileValue) =>
                 val idOfFile = idNel.getOrElse(Str("idFieldHasErrorInIt")).str
-                val nameAsString = nameValue.str
-                if nameAsString.endsWith("-metadata.json") || metadataFileIds.contains(idOfFile) then "MetadataFile" else entryType
+                val isMetadataFile = metadataFileValue.bool
+                if isMetadataFile || metadataFileIds.contains(idOfFile) then "MetadataFile" else entryType
               case invalidNel => "UnknownFileType"
             }
           else entryType

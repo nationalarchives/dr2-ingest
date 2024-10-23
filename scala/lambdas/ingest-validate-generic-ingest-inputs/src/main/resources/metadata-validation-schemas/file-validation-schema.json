@@ -40,6 +40,9 @@
       "type": "string",
       "minLength": 1
     },
+    "metadataFile": {
+      "type": "boolean"
+    },
     "checksum_sha256": {
       "type": "string",
       "$comment": "(Optional) But if File entry contains one, we can ensure it's the correct type and length",
@@ -65,7 +68,8 @@
     "fileSize",
     "representationType",
     "representationSuffix",
-    "location"
+    "location",
+    "metadataFile"
   ],
   "additionalProperties": {
     "minLength": 1,
@@ -76,10 +80,9 @@
   },
   "if": {
     "properties": {
-      "name": {
-        "type": "string",
-        "pattern": "\\-metadata.json$",
-        "minLength": 14
+      "metadataFile": {
+        "type": "boolean",
+        "const": true
       }
     }
   },

@@ -77,7 +77,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                   Preservation,
                   1,
                   fileLocation,
-                  tdrMetadata.SHA256ServerSideChecksum
+                  tdrMetadata.SHA256ServerSideChecksum,
+                  false
                 )
                 List(contentFolderMetadata, assetMetadata, fileMetadata)
               }
@@ -113,7 +114,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                 Preservation,
                 1,
                 getMetadataUri(fileLocation),
-                checksum
+                checksum,
+                true
               )
               List(metadata)
             }

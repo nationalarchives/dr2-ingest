@@ -155,7 +155,8 @@ object TestUtils:
       representationSuffix <- c.downField("representationSuffix").as[Int]
       location <- c.downField("location").as[URI]
       checksum <- c.downField("checksum_sha256").as[String]
-    } yield FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksum)
+      metadataFile <- c.downField("metadataFile").as[Boolean]
+    } yield FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksum, metadataFile)
 
   given Decoder[MetadataObject] = (c: HCursor) =>
     for {
