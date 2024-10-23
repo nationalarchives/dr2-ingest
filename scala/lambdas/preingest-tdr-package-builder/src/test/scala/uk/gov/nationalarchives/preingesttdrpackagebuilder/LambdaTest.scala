@@ -158,7 +158,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       output.groupId should equal(testData.groupId)
       output.batchId should equal(testData.batchId)
       output.retryCount should equal(2)
-      output.packageMetadata should equal(URI.create(s"s3://cacheBucket/${testData.batchId}/metadata.json"))
+      output.metadataPackage should equal(URI.create(s"s3://cacheBucket/${testData.batchId}/metadata.json"))
+      output.retrySfnArn should equal("")
     }
   }
 

@@ -3,8 +3,6 @@ package uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler
 import cats.effect.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.*
 
-import java.net.URI
-
 class SeriesMapper(validCourts: Set[Court]) {
   def createDepartmentAndSeries(
       potentialCourt: Option[String],
@@ -28,11 +26,6 @@ class SeriesMapper(validCourts: Set[Court]) {
 }
 
 object SeriesMapper {
-  case class Output(
-      batchId: String,
-      metadataPackage: URI
-  )
-
   case class DepartmentAndSeries(potentialDepartment: Option[String], potentialSeries: Option[String])
   case class Court(code: String, dept: String, series: String)
 
