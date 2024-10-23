@@ -328,7 +328,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         OffsetDateTime.parse("2023-10-31T13:40:54Z"),
         "TRE: FCL Parser workflow",
         "Born Digital",
-        "FCL",
+        Option("FCL"),
         potentialCorrelationId,
         List(
           Option(IdField("UpstreamSystemReference", reference)),
