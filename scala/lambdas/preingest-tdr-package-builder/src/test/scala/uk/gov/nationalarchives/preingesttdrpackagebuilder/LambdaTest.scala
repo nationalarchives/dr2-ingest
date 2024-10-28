@@ -25,17 +25,17 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     def fileString: String = s"$prefix.$suffix"
   }
   case class TestData(
-                       series: String,
-                       body: String,
-                       date: String,
-                       tdrRef: String,
-                       fileName: FileName,
-                       fileSize: Long,
-                       checksum: String,
-                       fileRef: String,
-                       groupId: String,
-                       batchId: String
-                     )
+      series: String,
+      body: String,
+      date: String,
+      tdrRef: String,
+      fileName: FileName,
+      fileSize: Long,
+      checksum: String,
+      fileRef: String,
+      groupId: String,
+      batchId: String
+  )
   val dateGen: Gen[String] = for {
     year <- Gen.posNum[Int]
     month <- Gen.choose(1, 12)
@@ -201,14 +201,14 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   }
 
   private def runHandler(
-                          uuidIterator: () => UUID = () => UUID.randomUUID,
-                          initialS3Objects: Map[String, S3Objects] = Map.empty,
-                          initialDynamoObjects: List[IngestLockTableItem] = Nil,
-                          input: Input = Input("TST-123", "", 1, 1),
-                          downloadError: Boolean = false,
-                          uploadError: Boolean = false,
-                          queryError: Boolean = false
-                        ): (Map[String, S3Objects], Output) = {
+      uuidIterator: () => UUID = () => UUID.randomUUID,
+      initialS3Objects: Map[String, S3Objects] = Map.empty,
+      initialDynamoObjects: List[IngestLockTableItem] = Nil,
+      input: Input = Input("TST-123", "", 1, 1),
+      downloadError: Boolean = false,
+      uploadError: Boolean = false,
+      queryError: Boolean = false
+  ): (Map[String, S3Objects], Output) = {
     (for {
       initialS3Objects <- Ref.of[IO, Map[String, S3Objects]](initialS3Objects)
       initialDynamoObjects <- Ref.of[IO, List[IngestLockTableItem]](initialDynamoObjects)
