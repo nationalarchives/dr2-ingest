@@ -33,13 +33,13 @@ flowchart LR;
 
 | Name        | Required | Description                                                                                                                                                                                                                     |
 | ----------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| description | no       | The description of the folder. On ingest the description of the folder in the Preservation System is set to this value if present, on subsequent ingests the description is only updated if a `description` is given.           |
+| description | no       | The description of the folder. On ingest, the description of the folder in the Preservation System is set to this value if present; on subsequent ingests, the description is only updated if a `description` is given.           |
 | id          | yes      | A unique identifier within the ingest package for this folder.                                                                                                                                                                  |
 | id\_\*      | no       | Sets an identifier in the Preservation System. E.g. `id_Code` becomes the `Code` identifier.                                                                                                                                    |
 | name        | yes      | The name of the folder, can be used to refer to the same folder across ingests. As this is the ArchiveFolder type it will be stored in the Preservation System and used as the key for future updates to this folder.           |
 | parentId    | yes\*    | The `id` of the object's parent (also within this JSON file).                                                                                                                                                                   |
-| series      | yes\*    | If the item is a root node in this ingest package set this to the series reference the item should ingest under or `Unknown`.                                                                                                   |
-| title       | no       | The title of the folder, `name` will be used if not given. On ingest the title of the folder in the Preservation System is set to this value if present, on subsequent ingests the title is only updated if a `title` is given. |
+| series      | yes\*    | If the item is a root node in this ingest package, set this to the series reference the item should ingest under or `Unknown`.                                                                                                   |
+| title       | no       | The title of the folder; `name` will be used if not given. On ingest, the title of the folder in the Preservation System is set to this value if present; on subsequent ingests, the title is only updated if a `title` is given. |
 | type        | yes      | The item type (`ArchiveFolder`).                                                                                                                                                                                                |
 
 \*Either a `parentId` or `series` is required.
@@ -72,7 +72,7 @@ flowchart LR;
 | originalMetadataFiles    | yes\*\*  | A JSON array of file `id`s that make up the asset metadata as transferred.                                                    |
 | parentId                 | yes\*    | The `id` of the object's parent (also within this JSON file).                                                                 |
 | series                   | yes\*    | If the item is a root node in this ingest package set this to the series reference the item should ingest under or `Unknown`. |
-| title                    | no       | The title of this asset, `id` will be used if not given.                                                                      |
+| title                    | no       | The title of this asset; `id` will be used if not given.                                                                      |
 | transferCompleteDatetime | yes\*\*  | The datetime the transfer to The National Archives was completed.                                                             |
 | transferringBody         | yes\*\*  | The organisation that transferred this record to The National Archives.                                                       |
 | type                     | yes      | The item type (`Asset`).                                                                                                      |
