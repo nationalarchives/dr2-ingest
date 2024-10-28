@@ -26,7 +26,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 import java.time.ZonedDateTime
 import java.util.UUID
 
-class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll {
+class ExternalServicesTestUtilsOld extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll {
   val graphQlServerPort = 9001
 
   val wiremockGraphqlServer = new WireMockServer(graphQlServerPort)

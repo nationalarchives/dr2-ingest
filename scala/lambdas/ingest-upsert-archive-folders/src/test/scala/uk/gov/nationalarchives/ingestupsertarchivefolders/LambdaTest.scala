@@ -3,7 +3,6 @@ package uk.gov.nationalarchives.ingestupsertarchivefolders
 import cats.syntax.all.*
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers.*
-import org.scalatestplus.mockito.MockitoSugar
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
@@ -13,7 +12,7 @@ import uk.gov.nationalarchives.ingestupsertarchivefolders.testUtils.ExternalServ
 
 import java.util.UUID
 
-class LambdaTest extends ExternalServicesTestUtils with MockitoSugar with EitherValues {
+class LambdaTest extends ExternalServicesTestUtils with EitherValues {
 
   "handler" should "add one entity and identifier to the preservation system if one is not present" in {
     val folderOne = generateItem("1")

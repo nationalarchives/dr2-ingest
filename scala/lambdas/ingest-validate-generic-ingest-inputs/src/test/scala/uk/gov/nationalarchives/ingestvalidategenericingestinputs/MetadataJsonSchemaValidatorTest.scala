@@ -6,14 +6,13 @@ import cats.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.*
-import org.scalatestplus.mockito.MockitoSugar
 import ujson.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryValidationError.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.EntryTypeSchema.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.testUtils.ExternalServicesTestUtils.*
 
-class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
+class MetadataJsonSchemaValidatorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
   private val entryTypeSchemas: TableFor1[EntryTypeSchema] = Table("entryType", ArchiveFolder, ContentFolder, Asset, File, UnknownType)
   private val optionalPropertiesAndInvalidValues = Map(
     ArchiveFolder -> Map("id_URI" -> Str("")),

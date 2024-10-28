@@ -158,7 +158,7 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
     OffsetDateTime.parse("2023-06-01T00:00Z"),
     upstreamSystem,
     digitalAssetSource,
-    digitalAssetSubtype,
+    Option(digitalAssetSubtype),
     Nil,
     Nil,
     true,
