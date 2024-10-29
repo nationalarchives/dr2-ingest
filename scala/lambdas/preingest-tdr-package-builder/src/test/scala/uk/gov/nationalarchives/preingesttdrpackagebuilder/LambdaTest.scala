@@ -181,17 +181,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       "reference"
     )
 
-    val tdrMetadataTwo = TDRMetadata(
-      "TST 123",
-      tdrFileId,
-      None,
-      "body",
-      "2024-10-18 00:00:01",
-      "TDR-EFGH",
-      s"file.txt",
-      "checksum",
-      "reference"
-    )
+    val tdrMetadataTwo = tdrMetadataOne.copy(ConsignmentReference = "TDR-EFGH")
 
     val groupId = UUID.randomUUID.toString
     val batchId = s"${groupId}_0"
