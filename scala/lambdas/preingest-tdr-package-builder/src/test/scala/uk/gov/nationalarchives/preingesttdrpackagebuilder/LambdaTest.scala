@@ -126,7 +126,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       assetMetadataObject.transferCompleteDatetime should equal(LocalDateTime.parse(testData.date.replace(" ", "T")).atOffset(ZoneOffset.UTC))
       assetMetadataObject.upstreamSystem should equal("TDR")
       assetMetadataObject.digitalAssetSource should equal("Born Digital")
-      assetMetadataObject.digitalAssetSubtype should equal("TDR")
+      assetMetadataObject.digitalAssetSubtype should equal(None)
       def checkIdField(name: String, value: String) =
         assetMetadataObject.idFields.find(_.name == name).map(_.value).get should equal(value)
       checkIdField("Code", s"${testData.series}/${testData.fileRef}")
