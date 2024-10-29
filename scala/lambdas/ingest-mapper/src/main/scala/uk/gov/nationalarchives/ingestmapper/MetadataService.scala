@@ -86,20 +86,20 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
             .sequence
             .map(_.flatten.toMap)
           Stream.evals {
-            topLevelIdsToDepartmentSeries.map { itemToDepartmentSeries =>
-              val parentPaths = getParentPaths(json, itemToDepartmentSeries)
-              val childCountMap = parentPaths.groupBy(_._2).view.mapValues(_.size).toMap
+            topLevelIdsToDepartmentSeries.map { idToDepartmentSeries =>
+              val idToParent = getParentPaths(json, idToDepartmentSeries)
+              val parentToChildCount = idToParent.groupBy(_._2).view.mapValues(_.size).toMap
 
               def addChildCount(obj: Obj) = {
-                val values = obj.value.toMap
-                val id = values("id").str
-                val parentPath = values.get("parentPath").map(parentPath => s"${parentPath.str}/").getOrElse("")
-                val objId = s"$parentPath$id"
-                val childCount = childCountMap.getOrElse(objId, 1)
-                Obj.from(values + ("childCount" -> Num(childCount)))
+                val attributes = obj.value.toMap
+                val id = attributes("id").str
+                val parentPath = attributes.get("parentPath").map(parentPath => s"${parentPath.str}/").getOrElse("")
+                val childParentPath = s"$parentPath$id"
+                val childCount = parentToChildCount.getOrElse(childParentPath, 1) // Department folder has no entry in the map but always one series at this point.
+                Obj.from(attributes + ("childCount" -> Num(childCount)))
               }
 
-              val departmentSeriesObjects = itemToDepartmentSeries.values.toList
+              val departmentSeriesObjects = idToDepartmentSeries.values.toList
                 .distinctBy(item => item.potentialSeriesItem.map(obj => obj("name")))
                 .flatMap { departmentSeries =>
                   List(
@@ -110,7 +110,7 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
               jsonArr.map { metadataEntry =>
                 val id = UUID.fromString(metadataEntry("id").str)
                 val name = metadataEntry("name").str
-                val parentPath = parentPaths(id)
+                val parentPath = idToParent(id)
                 val checksum: Value = Try(metadataEntry("checksum_sha256")).toOption
                   .map(_.str)
                   .map(Str.apply)
@@ -123,7 +123,7 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
                       case _             => Null
                     }
                   else Null
-                val childCount = Num(childCountMap.getOrElse(s"$parentPath/$id", 0))
+                val childCount = Num(parentToChildCount.getOrElse(s"$parentPath/$id", 0))
                 val metadataMap: Map[String, Value] =
                   Map(
                     "batchId" -> Str(input.batchId),
