@@ -15,7 +15,7 @@ import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityT
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, EntityClient}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{AssetDynamoItem, DynamoItem, batchId, digitalAssetSource, digitalAssetSubtype, transferringBody, upstreamSystem}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{AssetDynamoItem, digitalAssetSource, digitalAssetSubtype, transferringBody, upstreamSystem}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestfindexistingasset.Lambda
 import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.*
