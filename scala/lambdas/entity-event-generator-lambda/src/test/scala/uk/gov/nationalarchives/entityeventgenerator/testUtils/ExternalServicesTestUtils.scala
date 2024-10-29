@@ -67,7 +67,7 @@ object ExternalServicesTestUtils {
       override def entityEventActions(entity: Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] =
         IO.raiseWhen(errors.exists(_.getEventActionsError))(new Exception("Error getting event actions")) >> IO.pure(eventActions)
 
-      override def entitiesPerIdentifier(identifiers: Seq[EntityClient.Identifier]): IO[Map[EntityClient.Identifier, Seq[Entity]]] = notImplemented
+      override def entitiesByIdentifier(identifier: EntityClient.Identifier): IO[Seq[Entity]] = notImplemented
 
       override def addIdentifierForEntity(entityRef: UUID, entityType: EntityClient.EntityType, identifier: EntityClient.Identifier): IO[String] = notImplemented
 
