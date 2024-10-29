@@ -48,6 +48,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
       item("title").str should equal(expectedTableItem.title)
       item("parentPath").str should equal(expectedTableItem.parentPath)
       item("batchId").str should equal(expectedTableItem.batchId)
+      item("childCount").num.toInt should equal(expectedTableItem.childCount)
       item.value.get("description").map(_.str).getOrElse("") should equal(expectedTableItem.description)
       item.value.get("fileSize").flatMap(_.numOpt).map(_.toLong) should equal(expectedTableItem.fileSize)
       item("type").str should equal(expectedTableItem.`type`.toString)
@@ -141,7 +142,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
             checkTableItems(
               result,
               List(seriesId),
-              DynamoFilesTableItem(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"), 1, expectedTimeInSecs)
+              DynamoFilesTableItem(batchId, seriesId, departmentId.toString, "series", ArchiveFolder, "series Title", "series Description", Some("series"), 2, expectedTimeInSecs)
             )
           )
           checkTableItems(result, List(folderIdOne), DynamoFilesTableItem(batchId, folderIdOne, prefix, "TestName", ArchiveFolder, "TestTitle", "", None, 1, expectedTimeInSecs))
@@ -157,7 +158,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               "TestAssetTitle",
               "",
               None,
-              1,
+              2,
               expectedTimeInSecs,
               customMetadataAttribute1 = Option("customMetadataAttributeValue"),
               originalFiles = List(fileIdOne.toString),
@@ -176,7 +177,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               "Test",
               "",
               Some(name),
-              1,
+              0,
               expectedTimeInSecs,
               Option(1),
               Option(s"$name-checksum"),
@@ -195,7 +196,7 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
               "",
               "",
               Some("TEST-metadata.json"),
-              1,
+              0,
               expectedTimeInSecs,
               Option(2),
               Option(s"metadata-checksum"),
