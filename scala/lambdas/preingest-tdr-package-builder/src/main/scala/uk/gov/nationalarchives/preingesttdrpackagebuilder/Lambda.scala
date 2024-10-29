@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives.preingesttdrpackagebuilder
 
 import cats.effect.IO
+import cats.effect.std.AtomicCell
 import fs2.Collector.string
 import fs2.hashing.{HashAlgorithm, Hashing}
 import fs2.interop.reactivestreams.*
@@ -34,17 +35,20 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
 
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
-    def processNonMetadataObjects(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI, metadataId: UUID): Stream[IO, MetadataObject] = {
+    def processNonMetadataObjects(
+        tdrMetadataJsonStream: Stream[IO, Json],
+        fileLocation: URI,
+        metadataId: UUID,
+        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
+    ): Stream[IO, MetadataObject] = {
       tdrMetadataJsonStream
         .through(fs2Decoder[IO, TDRMetadata])
         .flatMap { tdrMetadata =>
-          val contentFolderId = dependencies.uuidGenerator()
           val assetId = tdrMetadata.UUID
           val fileId = dependencies.uuidGenerator()
-          val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, tdrMetadata.Series, Nil)
           val assetMetadata = AssetMetadataObject(
             assetId,
-            Option(contentFolderId),
+            None,
             stripFileExtension(tdrMetadata.Filename),
             assetId.toString,
             List(fileId),
@@ -54,7 +58,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             LocalDateTime.parse(tdrMetadata.TransferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
             "TDR",
             "Born Digital",
-            "TDR",
+            None,
             List(
               IdField("Code", s"${tdrMetadata.Series}/${tdrMetadata.FileReference}"),
               IdField("UpstreamSystemReference", tdrMetadata.FileReference),
@@ -64,9 +68,10 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             )
           )
           Stream.evals {
-            dependencies.s3Client
-              .headObject(fileLocation.getHost, fileLocation.getPath.drop(1))
-              .map { headObjectResponse =>
+            for {
+              headObjectResponse <- dependencies.s3Client
+                .headObject(fileLocation.getHost, fileLocation.getPath.drop(1))
+              childObjects <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
                 val fileMetadata = FileMetadataObject(
                   fileId,
                   Option(assetId),
@@ -79,8 +84,17 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                   fileLocation,
                   tdrMetadata.SHA256ServerSideChecksum
                 )
-                List(contentFolderMetadata, assetMetadata, fileMetadata)
+
+                val potentialContentFolder = contentFolderMap.get(tdrMetadata.ConsignmentReference)
+                if potentialContentFolder.isDefined then (contentFolderMap, List(assetMetadata.copy(parentId = potentialContentFolder.map(_.id)), fileMetadata))
+                else
+                  val contentFolderId = dependencies.uuidGenerator()
+                  val contentFolder = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, tdrMetadata.Series, Nil)
+                  val updatedMap = contentFolderMap + (tdrMetadata.ConsignmentReference -> contentFolder)
+                  val allMetadata = List(contentFolder, assetMetadata.copy(parentId = Option(contentFolder.id)), fileMetadata)
+                  updatedMap -> allMetadata
               }
+            } yield childObjects
           }
         }
     }
@@ -121,15 +135,19 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         }
     }
 
-    def processTdrMetadata(tdrMetadataJsonStream: Stream[IO, Json], fileLocation: URI): Stream[IO, MetadataObject] = {
+    def processTdrMetadata(
+        tdrMetadataJsonStream: Stream[IO, Json],
+        fileLocation: URI,
+        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
+    ): Stream[IO, MetadataObject] = {
       val metadataId = dependencies.uuidGenerator()
       tdrMetadataJsonStream.broadcastThrough(
-        jsonStream => processNonMetadataObjects(jsonStream, fileLocation, metadataId),
+        jsonStream => processNonMetadataObjects(jsonStream, fileLocation, metadataId, contentFolderCell),
         jsonStream => processMetadataFiles(jsonStream, fileLocation, metadataId)
       )
     }
 
-    def downloadMetadataFile(lockTableMessage: LockTableMessage) = {
+    def downloadMetadataFile(lockTableMessage: LockTableMessage, contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]): IO[Stream[IO, MetadataObject]] = {
       val fileLocation = lockTableMessage.location
       val metadataUri = getMetadataUri(fileLocation)
       dependencies.s3Client
@@ -139,28 +157,30 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             .toStreamBuffered[IO](bufferSize)
             .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
             .through(byteStreamParser[IO])
-            .through(metadataJsonStream => processTdrMetadata(metadataJsonStream, fileLocation))
+            .through(metadataJsonStream => processTdrMetadata(metadataJsonStream, fileLocation, contentFolderCell))
         }
     }
 
     def processLockTableItems(lockTableItems: List[IngestLockTableItem]): IO[Unit] = {
-      Stream
-        .emits(lockTableItems)
-        .map(_.message)
-        .through(stringStreamParser[IO])
-        .through(fs2Decoder[IO, LockTableMessage])
-        .parEvalMap(config.concurrency)(downloadMetadataFile)
-        .parJoin(config.concurrency)
-        .compile
-        .toList
-        .flatMap { metadata =>
-          IO.raiseWhen(metadata.isEmpty)(new Exception(s"Metadata list for ${input.groupId} is empty")) >> {
-            val metadataBytes = metadata.asJson.noSpaces.getBytes
-            Stream.emits(metadataBytes).chunks.map(_.toByteBuffer).toPublisherResource[IO, ByteBuffer].use { publisher =>
-              dependencies.s3Client.upload(config.rawCacheBucket, s"${input.batchId}/metadata.json", FlowAdapters.toPublisher(publisher)) >> IO.unit
+      AtomicCell[IO].of[Map[String, ContentFolderMetadataObject]](Map()).flatMap { contentFolderCell =>
+        Stream
+          .emits(lockTableItems)
+          .map(_.message)
+          .through(stringStreamParser[IO])
+          .through(fs2Decoder[IO, LockTableMessage])
+          .parEvalMap(config.concurrency)(lockTableMessage => downloadMetadataFile(lockTableMessage, contentFolderCell))
+          .parJoin(config.concurrency)
+          .compile
+          .toList
+          .flatMap { metadata =>
+            IO.raiseWhen(metadata.isEmpty)(new Exception(s"Metadata list for ${input.groupId} is empty")) >> {
+              val metadataBytes = metadata.asJson.noSpaces.getBytes
+              Stream.emits(metadataBytes).chunks.map(_.toByteBuffer).toPublisherResource[IO, ByteBuffer].use { publisher =>
+                dependencies.s3Client.upload(config.rawCacheBucket, s"${input.batchId}/metadata.json", FlowAdapters.toPublisher(publisher)) >> IO.unit
+              }
             }
           }
-        }
+      }
     }
 
     dependencies.dynamoDbClient
