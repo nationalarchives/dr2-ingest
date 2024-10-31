@@ -16,7 +16,7 @@ import ujson.*
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryValidationError.{MissingPropertyError, SchemaValidationError, ValidationError, ValueError}
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.LambdaOld.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.EntryTypeSchema.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.ValidatedUtils.ValidatedEntry
@@ -25,7 +25,7 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 import java.net.URI
 import java.nio.ByteBuffer
 
-class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
+class LambdaOld extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   lazy private val bufferSize = 1024 * 5
 
   given Encoder[Value] = value => Json.fromString(value.toString)
@@ -250,7 +250,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       .void
 }
 
-object Lambda {
+object LambdaOld {
   sealed trait ValidationResult:
     val result: String | List[ValidationError | MissingPropertyError | ValueError]
 

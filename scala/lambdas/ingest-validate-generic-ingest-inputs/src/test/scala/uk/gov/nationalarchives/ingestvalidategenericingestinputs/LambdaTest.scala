@@ -16,7 +16,7 @@ import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObje
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import ujson.{Arr, Obj, Str, write}
 import uk.gov.nationalarchives.DAS3Client
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.LambdaOld.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.testUtils.ExternalServicesTestUtils.{entryType, testValidMetadataJson}
 
 import java.net.URI
@@ -85,7 +85,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     Flux.just(ByteBuffer.wrap(jsonAsString.getBytes()))
   }
 
-  class LambdaWithLogSpy(ref: Ref[IO, List[String]]) extends Lambda():
+  class LambdaWithLogSpy(ref: Ref[IO, List[String]]) extends LambdaOld():
     override def log(logCtx: Map[String, String]): String => IO[Unit] = msg => ref.update(loggedMsgs => msg :: loggedMsgs)
 
   object LambdaWithLogSpy:
@@ -105,7 +105,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   "the lambda" should "error if S3 returns an error when trying to download the json file" in {
     val s3Client = getS3Client(downloadResponseError = true, metadataJsonAsObj = testValidMetadataJson())
     val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies(s3Client)).unsafeRunSync()
+      new LambdaOld().handler(input, config, dependencies(s3Client)).unsafeRunSync()
     }
     ex.getMessage should equal("Key could not be found")
   }
