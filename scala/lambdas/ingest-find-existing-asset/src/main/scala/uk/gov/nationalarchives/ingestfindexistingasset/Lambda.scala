@@ -21,6 +21,13 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 import java.util.UUID
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
+
+  private def output(assetDynamoItem: AssetDynamoItem, exists: Boolean): OutputAsset = OutputAsset(assetDynamoItem.id, assetDynamoItem.batchId, exists)
+
+  private def notExistsOutput(assetDynamoItem: AssetDynamoItem) = output(assetDynamoItem, false)
+
+  private def existsOutput(assetDynamoItem: AssetDynamoItem) = output(assetDynamoItem, true)
+
   private val sourceId = "SourceID"
   override def handler: (
       Input,
@@ -57,9 +64,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       }
       .flatMap { assets =>
         val identifiers = assets.map(asset => PreservicaIdentifier(sourceId, asset.id.toString))
-        def output(assetDynamoItem: AssetDynamoItem, exists: Boolean) = OutputItems(assetDynamoItem.id, assetDynamoItem.batchId, exists)
-        def notExistsOutput(assetDynamoItem: AssetDynamoItem) = output(assetDynamoItem, false)
-        def existsOutput(assetDynamoItem: AssetDynamoItem) = output(assetDynamoItem, true)
 
         for {
           (existingAssets, missingAssets) <- identifiers
@@ -85,12 +89,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 object Lambda {
   case class Config(apiUrl: String, secretName: String, dynamoTableName: String) derives ConfigReader
 
-  case class InputItems(id: UUID, batchId: String)
-  case class OutputItems(id: UUID, batchId: String, assetExists: Boolean)
+  case class InputAsset(id: UUID, batchId: String)
+  case class OutputAsset(id: UUID, batchId: String, assetExists: Boolean)
 
-  case class Input(Items: List[InputItems])
+  case class Input(Items: List[InputAsset])
 
-  case class StateOutput(items: List[OutputItems])
+  case class StateOutput(items: List[OutputAsset])
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO])
 }

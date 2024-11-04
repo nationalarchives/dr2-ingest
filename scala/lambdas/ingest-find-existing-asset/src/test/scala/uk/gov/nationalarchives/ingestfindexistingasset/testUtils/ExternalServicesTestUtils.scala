@@ -15,7 +15,7 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient
-import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.{Config, Input, InputItems, StateOutput}
+import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.{Config, Input, InputAsset, StateOutput}
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.EntityClient.*
@@ -36,7 +36,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
   val batchId: String = "TEST-ID"
   val executionName = "test-execution"
   val config: Config = Config("http://localhost:9016", "", tableName)
-  val input: Input = Input(List(InputItems(assetId, batchId)))
+  val input: Input = Input(List(InputAsset(assetId, batchId)))
 
   val defaultEntityWithSourceIdReturnValue: IO[Seq[Entity]] =
     IO.pure(

@@ -74,7 +74,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def copyFromSourceToDestination(
       s3Client: DAS3Client[IO],
-      item: InputItem,
+      item: InputAsset,
       destinationBucket: String,
       asset: AssetDynamoItem,
       child: FileDynamoItem,
@@ -88,11 +88,11 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     )
   }
 
-  private def parentPath(item: InputItem, asset: AssetDynamoItem) = s"opex/${item.batchId}${asset.potentialParentPath.map(path => s"/$path").getOrElse("")}"
+  private def parentPath(item: InputAsset, asset: AssetDynamoItem) = s"opex/${item.batchId}${asset.potentialParentPath.map(path => s"/$path").getOrElse("")}"
 
-  private def assetPath(item: InputItem, asset: AssetDynamoItem) = s"${parentPath(item, asset)}/${asset.id}.pax"
+  private def assetPath(item: InputAsset, asset: AssetDynamoItem) = s"${parentPath(item, asset)}/${asset.id}.pax"
 
-  private def destinationPath(item: InputItem, asset: AssetDynamoItem, child: FileDynamoItem, xmlCreator: XMLCreator) =
+  private def destinationPath(item: InputAsset, asset: AssetDynamoItem, child: FileDynamoItem, xmlCreator: XMLCreator) =
     s"${assetPath(item, asset)}/${xmlCreator.bitstreamPath(child)}/${xmlCreator.childFileName(child)}"
 
   private def childrenOfAsset(dynamoClient: DADynamoDBClient[IO], asset: AssetDynamoItem, tableName: String, gsiName: String): IO[List[FileDynamoItem]] = {
@@ -104,9 +104,9 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
 object Lambda {
 
-  case class InputItem(id: UUID, batchId: String, assetExists: Boolean)
+  case class InputAsset(id: UUID, batchId: String, assetExists: Boolean)
 
-  case class Input(items: List[InputItem])
+  case class Input(items: List[InputAsset])
 
   case class Config(dynamoTableName: String, dynamoGsiName: String, destinationBucket: String) derives ConfigReader
 

@@ -9,7 +9,7 @@ import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCrede
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
-import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.{Dependencies, Input, InputItem}
+import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.{Dependencies, Input, InputAsset}
 import uk.gov.nationalarchives.ingestassetopexcreator.XMLCreator
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
@@ -158,7 +158,7 @@ class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMock
   val childIdDocx: UUID = UUID.fromString("a25d33f3-7726-4fb3-8e6f-f66358451c4e")
   val batchId: String = "TEST-ID"
 
-  val input: Input = Input(List(InputItem(assetId, batchId, false)))
+  val input: Input = Input(List(InputAsset(assetId, batchId, false)))
 
   def outputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
 
