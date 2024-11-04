@@ -1,5 +1,6 @@
 package uk.gov.nationalarchives.e2etests
 
+import cats.Parallel
 import cats.effect.{Async, Clock, Ref}
 import cats.effect.std.AtomicCell
 import cats.syntax.all.*
@@ -25,7 +26,7 @@ import java.util.UUID
 import scala.reflect.ClassTag
 import scala.util.Random
 
-trait StepDefs[F[_]: Async] {
+trait StepDefs[F[_]: Async: Parallel] {
 
   given SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger
 
@@ -50,7 +51,7 @@ object StepDefs {
   val ccDiskStatus = "Asset has been written to custodial copy disk."
   val assetErrorStatus = "There has been an error ingesting the asset."
 
-  def apply[F[_]: Async](messageUuidCell: AtomicCell[F, List[SqsMessage]]): StepDefs[F] = {
+  def apply[F[_]: Async: Parallel](messageUuidCell: AtomicCell[F, List[SqsMessage]]): StepDefs[F] = {
     val s3Client: DAS3Client[F] = DAS3Client[F]()
     val sqsClient: DASQSClient[F] = DASQSClient[F]()
     val dynamoClient: DADynamoDBClient[F] = DADynamoDBClient[F]()
@@ -59,7 +60,7 @@ object StepDefs {
     StepDefs(messageUuidCell, s3Client, sqsClient, dynamoClient, sfnClient, pollingDuration)
   }
 
-  def apply[F[_]: Async](
+  def apply[F[_]: Async: Parallel](
       messageUuidCell: AtomicCell[F, List[SqsMessage]],
       s3Client: DAS3Client[F],
       sqsClient: DASQSClient[F],
@@ -125,7 +126,7 @@ object StepDefs {
         val ids = List.fill(number)(UUID.randomUUID)
         for {
           _ <- Logger[F].info(s"$number ids created")
-          createdFileIds <- ids.traverse { id =>
+          createdFileIds <- ids.parTraverse { id =>
             for {
               checksum <- Async[F].pure(if emptyChecksum then "" else if invalidChecksum then invalidChecksumValue else DigestUtils.sha256Hex(id.toString))
               _ <- createFile(config.inputBucket, id.toString, id.toString.getBytes)
