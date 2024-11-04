@@ -1,91 +1,50 @@
 package uk.gov.nationalarchives.getlatestpreservicaversion
 
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
-import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
+import cats.syntax.all.*
+import org.scalatest.EitherValues
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
-import org.scalatestplus.mockito.MockitoSugar
-import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
-import software.amazon.awssdk.services.sns.model.SnsException
-import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.Config
-import uk.gov.nationalarchives.dp.client.PreservicaClientException
-import uk.gov.nationalarchives.getlatestpreservicaversion.testUtils.ExternalServicesTestUtils
+import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.GetDr2PreservicaVersionResponse
+import uk.gov.nationalarchives.getlatestpreservicaversion.testUtils.ExternalServicesTestUtils.*
 
-class LambdaTest extends ExternalServicesTestUtils with MockitoSugar {
-  private val mockScheduleEvent = mock[ScheduledEvent]
-  val config: Config = Config("", "", "arn:aws:sns:eu-west-2:123456789012:MockResourceId", "table-name")
+class LambdaTest extends AnyFlatSpec with EitherValues {
 
-  "handler" should "make the correct amount of calls to the client, DDB and SNS if everything goes correctly" +
-    "and there is a new version" in {
-      val argumentVerifier = ArgumentVerifier()
+  "handler" should "send an SNS message if there is an update to the version" in {
+    val dynamoResponses = List(GetDr2PreservicaVersionResponse(1.0))
 
-      new Lambda().handler(mockScheduleEvent, config, argumentVerifier.dependencies).unsafeRunSync()
-      argumentVerifier.verifyInvocationsAndArgumentsPassed()
-    }
+    val (_, snsMessages) = runLambda(dynamoResponses, 2.0)
 
-  "handler" should "only call 'getItems' and return an DynamoDB exception if one was thrown when it tried to get the current version" in {
-    val argumentVerifier = ArgumentVerifier(
-      getCurrentPreservicaVersionReturnValue = IO.raiseError(
-        ResourceNotFoundException
-          .builder()
-          .message("Table name not found")
-          .build()
-      )
-    )
+    snsMessages.length should equal(1)
+    snsMessages.head.message should equal("Preservica has upgraded to version 2.0; we are using 1.0")
+    snsMessages.head.version should equal(2.0)
+  }
 
-    val thrownException = intercept[ResourceNotFoundException] {
-      new Lambda().handler(mockScheduleEvent, config, argumentVerifier.dependencies).unsafeRunSync()
-    }
+  "handler" should "return an error if there is an error from Dynamo" in {
+    val (result, snsMessages) = runLambda(Nil, 2.0, Errors(dynamoError = true).some)
 
-    thrownException.getMessage should be("Table name not found")
-
-    argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0)
+    result.left.value.getMessage should equal("Error getting version from Dynamo")
+    snsMessages.size should equal(0)
   }
 
   "handler" should "only call 'getItems' but return a runtimeException if the list of items returned was empty" in {
-    val argumentVerifier = ArgumentVerifier(getCurrentPreservicaVersionReturnValue = IO.pure(Nil))
+    val (result, snsMessages) = runLambda(Nil, 2.0)
 
-    val thrownException = intercept[RuntimeException] {
-      new Lambda().handler(mockScheduleEvent, config, argumentVerifier.dependencies).unsafeRunSync()
-    }
-
-    thrownException.getMessage should be("The version of Preservica we are using was not found")
-
-    argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 0, 0)
+    result.left.value.getMessage should be("The version of Preservica we are using was not found")
   }
 
-  "handler" should "call the 'getItems' but after calling 'getPreservicaNamespaceVersion', return an exception " +
-    "if one was thrown when it tried to get the latest version of Preservica" in {
-      val argumentVerifier = ArgumentVerifier(
-        getPreservicaNamespaceVersionReturnValue = IO.raiseError(
-          PreservicaClientException("An error occurred")
-        )
-      )
-      val thrownException = intercept[PreservicaClientException] {
-        new Lambda().handler(mockScheduleEvent, config, argumentVerifier.dependencies).unsafeRunSync()
-      }
+  "handler" should "return an error if there is an error getting the Preservica version" in {
+    val dynamoResponses = List(GetDr2PreservicaVersionResponse(1.0))
+    val (result, snsMessages) = runLambda(dynamoResponses, 2.0, Errors(preservicaError = true).some)
 
-      thrownException.getMessage should be("An error occurred")
+    result.left.value.getMessage should equal("Error getting Preservica version")
+    snsMessages.length should equal(0)
+  }
 
-      argumentVerifier.verifyInvocationsAndArgumentsPassed(1, 1, 0)
-    }
+  "handler" should "return an error if there is an error publishing to SNS" in {
+    val dynamoResponses = List(GetDr2PreservicaVersionResponse(1.0))
+    val (result, snsMessages) = runLambda(dynamoResponses, 2.0, Errors(snsError = true).some)
 
-  "handler" should "call the 'getItems' and 'getPreservicaNamespaceVersion' but after calling 'publish', return an exception " +
-    "if one was thrown when it tried to publish to an SNS topic" in {
-      val argumentVerifier = ArgumentVerifier(
-        snsPublishReturnValue = IO.raiseError(
-          SnsException
-            .builder()
-            .message("An SNS error has occurred")
-            .build()
-        )
-      )
-      val thrownException = intercept[SnsException] {
-        new Lambda().handler(mockScheduleEvent, config, argumentVerifier.dependencies).unsafeRunSync()
-      }
-
-      thrownException.getMessage should be("An SNS error has occurred")
-
-      argumentVerifier.verifyInvocationsAndArgumentsPassed()
-    }
+    result.left.value.getMessage should equal("Error sending to SNS")
+    snsMessages.length should equal(0)
+  }
 }
