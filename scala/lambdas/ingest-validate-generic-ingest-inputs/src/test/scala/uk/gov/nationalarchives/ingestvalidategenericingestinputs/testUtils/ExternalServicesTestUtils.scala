@@ -48,7 +48,6 @@ object ExternalServicesTestUtils {
         "transferCompleteDatetime" -> "2024-01-01T12:38:41Z",
         "upstreamSystem" -> "TDD",
         "digitalAssetSource" -> "Asset Source",
-        "digitalAssetSubtype" -> "SUBTYPE",
         "id_BornDigitalRef" -> "BDR",
         "id_ConsignmentReference" -> "sfsdf",
         "id_RecordID" -> "f5d6c25c-e586-4e63-a45b-9c175b095c48",
