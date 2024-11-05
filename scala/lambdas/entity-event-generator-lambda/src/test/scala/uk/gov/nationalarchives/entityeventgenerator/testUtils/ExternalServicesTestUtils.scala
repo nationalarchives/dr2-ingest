@@ -1,264 +1,141 @@
 package uk.gov.nationalarchives.entityeventgenerator.testUtils
 
-import cats.effect.IO
-import com.github.tomakehurst.wiremock.WireMockServer
+import cats.effect.{IO, Ref}
+import cats.effect.unsafe.implicits.global
+import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import io.circe.Encoder
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{times, verify, when}
-import org.mockito.{ArgumentCaptor, Mockito}
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers.*
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import org.scalatestplus.mockito.MockitoSugar.mock
+import org.joda.time.DateTime
 import org.scanamo.DynamoFormat
-import software.amazon.awssdk.services.dynamodb.model.*
+import org.scanamo.request.RequestCondition
+import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
+import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
-import uk.gov.nationalarchives.entityeventgenerator.Lambda.{CompactEntity, Dependencies, GetItemsResponse, PartitionKey}
+import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 import uk.gov.nationalarchives.dp.client.DataProcessor.EventAction
 import uk.gov.nationalarchives.dp.client.Entities.Entity
-import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.*
+import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
+import uk.gov.nationalarchives.entityeventgenerator.Lambda
+import uk.gov.nationalarchives.entityeventgenerator.Lambda.{CompactEntity, Config, Dependencies, GetItemsResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
-import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
-
+import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll {
-  val graphQlServerPort = 9001
+object ExternalServicesTestUtils {
 
-  val wiremockGraphqlServer = new WireMockServer(graphQlServerPort)
+  val config: Config = Config("", "", "arn:aws:sns:eu-west-2:123456789012:MockResourceId", "table-name")
 
-  override def beforeAll(): Unit = {
-    wiremockGraphqlServer.start()
+  def event(time: String): ScheduledEvent = {
+    val event = new ScheduledEvent()
+    event.setTime(DateTime.parse(time))
+    event
   }
 
-  override def afterAll(): Unit = {
-    wiremockGraphqlServer.stop()
-  }
+  def notImplemented[T]: IO[T] = IO.raiseError(new Exception("Not implemented"))
 
-  override def afterEach(): Unit = {
-    wiremockGraphqlServer.resetAll()
-  }
+  def preservicaClient(ref: Ref[IO, List[Entity]], eventActions: List[EventAction], errors: Option[Errors]): EntityClient[IO, Fs2Streams[IO]] =
+    new EntityClient[IO, Fs2Streams[IO]]:
 
-  case class ArgumentVerifier(
-      entitiesUpdatedSinceReturnValue: List[IO[Seq[Entity]]] = List(
-        IO.pure(
-          Seq(
-            Entity(
-              Option(ContentObject),
-              UUID.fromString("4148ffe3-fffc-4252-9676-595c22b4fcd2"),
-              Some("test file1"),
-              Some("test file1 description"),
-              deleted = false,
-              Option("path/1")
-            ),
-            Entity(
-              Option(InformationObject),
-              UUID.fromString("7f094550-7af2-4dc3-a954-9cd7f5c25d7f"),
-              Some("test file2"),
-              Some("test file2 description"),
-              deleted = false,
-              Option("path/2")
-            ),
-            Entity(
-              Option(StructuralObject),
-              UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50"),
-              Some("test file3"),
-              Some("test file3 description"),
-              deleted = false,
-              Option("path/3")
-            )
-          )
-        ),
-        IO.pure(
-          Seq(
-            Entity(
-              Option(StructuralObject),
-              UUID.fromString("b10d021d-c013-48b1-90f9-e4ccc6149602"),
-              Some("test file4"),
-              Some("test file4 description"),
-              deleted = false,
-              Option("path/4")
-            ),
-            Entity(
-              Option(InformationObject),
-              UUID.fromString("e9f6182f-f1b4-4683-89be-9505f5c943ec"),
-              Some("test file5"),
-              Some("test file5 description"),
-              deleted = false,
-              Option("path/5")
-            ),
-            Entity(
-              Option(ContentObject),
-              UUID.fromString("97f49c11-3be4-4ffa-980d-e698d4faa52a"),
-              Some("test file6"),
-              Some("test file6 description"),
-              deleted = false,
-              Option("path/6")
-            )
-          )
-        )
-      ),
-      entityEventActionsReturnValue: IO[Seq[EventAction]] = IO.pure(
-        Seq(
-          EventAction(
-            UUID.fromString("f24313ce-dd5d-4b28-9ebc-b47893f55a8e"),
-            "Ingest",
-            ZonedDateTime.parse("2023-06-06T20:39:53.377170+01:00")
-          )
-        )
-      ),
-      getAttributeValuesReturnValue: IO[List[GetItemsResponse]] = IO.pure(
-        List(GetItemsResponse("2023-06-06T20:39:53.377170+01:00"))
-      ),
-      snsPublishReturnValue: IO[List[PublishBatchResponse]] = IO(List(PublishBatchResponse.builder().build())),
-      updateAttributeValuesReturnValue: IO[Int] = IO.pure(200)
-  ) {
-    val apiUrlCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-    val updatedSinceCaptor: ArgumentCaptor[ZonedDateTime] = ArgumentCaptor.forClass(classOf[ZonedDateTime])
-    val entitiesStartFromCaptor: ArgumentCaptor[Int] = ArgumentCaptor.forClass(classOf[Int])
-    val eventActionsStartFromCaptor: ArgumentCaptor[Int] = ArgumentCaptor.forClass(classOf[Int])
+      override val dateFormatter: DateTimeFormatter = DateTimeFormatter.BASIC_ISO_DATE
 
-    val entityCaptor: ArgumentCaptor[Entity] = ArgumentCaptor.forClass(classOf[Entity])
+      override def metadataForEntity(entity: Entity): IO[EntityClient.EntityMetadata] = notImplemented
 
-    val getItemsCaptor: ArgumentCaptor[List[PartitionKey]] = ArgumentCaptor.forClass(classOf[List[PartitionKey]])
-    val tableNameCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-    val updateAttributeValuesCaptor: ArgumentCaptor[DADynamoDbRequest] =
-      ArgumentCaptor.forClass(classOf[DADynamoDbRequest])
+      override def getBitstreamInfo(contentRef: UUID): IO[Seq[Client.BitStreamInfo]] = notImplemented
 
-    val snsArnCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-    val publishEntitiesCaptor: ArgumentCaptor[List[CompactEntity]] =
-      ArgumentCaptor.forClass(classOf[List[CompactEntity]])
+      override def getEntity(entityRef: UUID, entityType: EntityClient.EntityType): IO[Entity] = notImplemented
 
-    val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
-    val mockDynamoDBClient: DADynamoDBClient[IO] = mock[DADynamoDBClient[IO]]
-    val mockSnsClient: DASNSClient[IO] = mock[DASNSClient[IO]]
+      override def getEntityIdentifiers(entity: Entity): IO[Seq[Entities.IdentifierResponse]] = notImplemented
 
-    Mockito.reset(mockEntityClient, mockSnsClient, mockDynamoDBClient)
+      override def getUrlsToIoRepresentations(ioEntityRef: UUID, representationType: Option[EntityClient.RepresentationType]): IO[Seq[String]] = notImplemented
 
-    val dependencies: Dependencies = Dependencies(mockEntityClient, mockSnsClient, mockDynamoDBClient)
+      override def getContentObjectsFromRepresentation(ioEntityRef: UUID, representationType: EntityClient.RepresentationType, repTypeIndex: Int): IO[Seq[Entity]] = notImplemented
 
-    when(mockEntityClient.entitiesUpdatedSince(any[ZonedDateTime], any[Int], any[Int]))
-      .thenReturn(
-        entitiesUpdatedSinceReturnValue.headOption.getOrElse(IO.pure(Nil)),
-        if entitiesUpdatedSinceReturnValue.length > 1 then entitiesUpdatedSinceReturnValue(1) else IO.pure(Nil),
-        IO.pure(Nil)
-      )
-    when(mockEntityClient.entityEventActions(any[Entity], any[Int], any[Int]))
-      .thenReturn(entityEventActionsReturnValue)
+      override def addEntity(addEntityRequest: EntityClient.AddEntityRequest): IO[UUID] = notImplemented
 
-    when(
-      mockDynamoDBClient.getItems[GetItemsResponse, PartitionKey](any[List[PartitionKey]], any[String])(using
-        any[DynamoFormat[GetItemsResponse]],
-        any[DynamoFormat[PartitionKey]]
-      )
-    ).thenReturn(getAttributeValuesReturnValue)
-    when(mockDynamoDBClient.updateAttributeValues(any[DADynamoDbRequest]))
-      .thenReturn(updateAttributeValuesReturnValue)
+      override def updateEntity(updateEntityRequest: EntityClient.UpdateEntityRequest): IO[String] = notImplemented
 
-    when(mockSnsClient.publish(any[String])(any[List[CompactEntity]])(using any[Encoder[CompactEntity]]))
-      .thenReturn(snsPublishReturnValue)
+      override def updateEntityIdentifiers(entity: Entity, identifiers: Seq[Entities.IdentifierResponse]): IO[Seq[Entities.IdentifierResponse]] = notImplemented
 
-    def verifyInvocationsAndArgumentsPassed(
-        numOfGetAttributeValuesInvocations: Int,
-        numOfEntitiesUpdatedSinceInvocations: Int,
-        numOfEntityEventActionsInvocations: Int,
-        numOfPublishInvocations: Int,
-        numOfUpdateAttributeValuesInvocations: Int
-    ): Unit = {
+      override def streamBitstreamContent[T](stream: capabilities.Streams[Fs2Streams[IO]])(url: String, streamFn: stream.BinaryStream => IO[T]): IO[T] = notImplemented
 
-      verify(mockDynamoDBClient, times(numOfGetAttributeValuesInvocations)).getItems[GetItemsResponse, PartitionKey](
-        getItemsCaptor.capture(),
-        tableNameCaptor.capture()
-      )(using any[DynamoFormat[GetItemsResponse]], any[DynamoFormat[PartitionKey]])
-      getItemsCaptor.getAllValues.toArray.toList should be(
-        List.fill(numOfGetAttributeValuesInvocations)(
-          List(PartitionKey("LastPolled"))
-        )
-      )
+      override def entitiesUpdatedSince(dateTime: ZonedDateTime, startEntry: Int, maxEntries: Int): IO[Seq[Entity]] = ref.getAndUpdate { existing =>
+        Nil
+      }
 
-      tableNameCaptor.getAllValues.toArray.toList should be(
-        List.fill(numOfGetAttributeValuesInvocations)("table-name")
-      )
+      override def entityEventActions(entity: Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] =
+        IO.raiseWhen(errors.exists(_.getEventActionsError))(new Exception("Error getting event actions")) >> IO.pure(eventActions)
 
-      verify(mockEntityClient, times(numOfEntitiesUpdatedSinceInvocations)).entitiesUpdatedSince(
-        updatedSinceCaptor.capture(),
-        entitiesStartFromCaptor.capture(),
-        any[Int]
-      )
-      updatedSinceCaptor.getAllValues.toArray.toList should be(
-        List.fill(numOfEntitiesUpdatedSinceInvocations)(ZonedDateTime.parse("2023-06-06T20:39:53.377170+01:00"))
-      )
-      entitiesStartFromCaptor.getAllValues.toArray.toList should be(
-        List(0, 1000, 2000).take(numOfEntitiesUpdatedSinceInvocations)
-      )
+      override def entitiesByIdentifier(identifier: EntityClient.Identifier): IO[Seq[Entity]] = notImplemented
 
-      verify(mockEntityClient, times(numOfEntityEventActionsInvocations)).entityEventActions(
-        entityCaptor.capture(),
-        eventActionsStartFromCaptor.capture(),
-        any[Int]
-      )
-      entityCaptor.getAllValues.toArray.toList should be(
-        List(
-          Entity(
-            Option(StructuralObject),
-            UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50"),
-            Some("test file3"),
-            Some("test file3 description"),
-            deleted = false,
-            Option("path/3")
-          ),
-          Entity(
-            Option(ContentObject),
-            UUID.fromString("97f49c11-3be4-4ffa-980d-e698d4faa52a"),
-            Some("test file6"),
-            Some("test file6 description"),
-            deleted = false,
-            Option("path/6")
-          )
-        ).take(numOfEntityEventActionsInvocations)
-      )
-      eventActionsStartFromCaptor.getAllValues.toArray.toList should be(
-        List.fill(numOfEntityEventActionsInvocations)(0)
-      )
+      override def addIdentifierForEntity(entityRef: UUID, entityType: EntityClient.EntityType, identifier: EntityClient.Identifier): IO[String] = notImplemented
 
-      verify(mockSnsClient, times(numOfPublishInvocations)).publish(
-        snsArnCaptor.capture()
-      )(publishEntitiesCaptor.capture())(using any[Encoder[CompactEntity]])
-      snsArnCaptor.getAllValues.toArray.toList should be(
-        List.fill(numOfPublishInvocations)("arn:aws:sns:eu-west-2:123456789012:MockResourceId")
-      )
-      publishEntitiesCaptor.getAllValues.toArray.toList should be(
-        List(
-          List(
-            CompactEntity("co:4148ffe3-fffc-4252-9676-595c22b4fcd2", deleted = false),
-            CompactEntity("io:7f094550-7af2-4dc3-a954-9cd7f5c25d7f", deleted = false),
-            CompactEntity("so:d7879799-a7de-4aa6-8c7b-afced66a6c50", deleted = false)
-          ),
-          List(
-            CompactEntity("so:b10d021d-c013-48b1-90f9-e4ccc6149602", deleted = false),
-            CompactEntity("io:e9f6182f-f1b4-4683-89be-9505f5c943ec", deleted = false),
-            CompactEntity("co:97f49c11-3be4-4ffa-980d-e698d4faa52a", deleted = false)
-          )
-        ).take(numOfPublishInvocations)
-      )
+      override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = notImplemented
 
-      verify(mockDynamoDBClient, times(numOfUpdateAttributeValuesInvocations)).updateAttributeValues(
-        updateAttributeValuesCaptor.capture()
-      )
-      updateAttributeValuesCaptor.getAllValues.toArray.toList should be(
-        List.fill(numOfUpdateAttributeValuesInvocations)(
-          DADynamoDbRequest(
-            "table-name",
-            Map("id" -> AttributeValue.builder().s("LastPolled").build()),
-            Map("datetime" -> Some(AttributeValue.builder().s("2023-06-06T20:39:53.377170+01:00").build()))
-          )
-        )
-      )
-      ()
-    }
-  }
+  def dynamoClient(ref: Ref[IO, List[String]], errors: Option[Errors]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
+    override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
+
+    override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = notImplemented
+
+    override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
+
+    override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
+      notImplemented
+
+    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] =
+      IO.raiseWhen(errors.exists(_.getItemsError))(new Exception("Error getting items from Dynamo")) >>
+        ref.get.map(existing => existing.map(GetItemsResponse.apply).map(_.asInstanceOf[T]))
+
+    override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] =
+      IO.raiseWhen(errors.exists(_.updateAttributeValuesError))(new Exception("Error updating Dynamo attribute values")) >>
+        ref
+          .update { _ =>
+            dynamoDbRequest.attributeNamesAndValuesToUpdate.getOrElse("datetime", None).map(_.s()).toList
+          }
+          .map(_ => 1)
+
+  def snsClient(ref: Ref[IO, List[CompactEntity]], errors: Option[Errors]): DASNSClient[IO] = new DASNSClient[IO]:
+    override def publish[T <: Product](topicArn: String)(messages: List[T])(using enc: Encoder[T]): IO[List[PublishBatchResponse]] =
+      IO.raiseWhen(errors.exists(_.publishError))(new Exception("Error publishing to SNS")) >>
+        ref
+          .update { existing =>
+            existing ++ messages.collect { case ce: CompactEntity => ce }
+          }
+          .map(_ => Nil)
+
+  case class Errors(getItemsError: Boolean = false, updateAttributeValuesError: Boolean = false, getEventActionsError: Boolean = false, publishError: Boolean = false)
+
+  def runLambda(
+      event: ScheduledEvent,
+      entities: List[Entity],
+      eventActions: List[EventAction],
+      dateTimes: List[String],
+      errors: Option[Errors] = None
+  ): (List[String], List[CompactEntity], Either[Throwable, Int]) = (for {
+    preservicaRef <- Ref.of[IO, List[Entity]](entities)
+    dynamoRef <- Ref.of[IO, List[String]](dateTimes)
+    snsRef <- Ref.of[IO, List[CompactEntity]](Nil)
+    dependencies = Dependencies(preservicaClient(preservicaRef, eventActions, errors), snsClient(snsRef, errors), dynamoClient(dynamoRef, errors))
+    res <- new Lambda().handler(event, config, dependencies).attempt
+    dynamoResult <- dynamoRef.get
+    snsResult <- snsRef.get
+  } yield (dynamoResult, snsResult, res)).unsafeRunSync()
+
+  def generateEventAction(time: String): EventAction = EventAction(
+    UUID.randomUUID,
+    "event",
+    ZonedDateTime.parse(time)
+  )
+
+  def generateEntity: Entity = Entity(
+    Option(InformationObject),
+    UUID.randomUUID,
+    Some(s"mock title"),
+    Some(s"mock description"),
+    deleted = false,
+    Option(InformationObject.entityPath),
+    Some(Open),
+    None
+  )
 }
