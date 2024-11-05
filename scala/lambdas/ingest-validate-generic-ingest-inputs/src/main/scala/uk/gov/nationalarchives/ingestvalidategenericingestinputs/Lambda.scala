@@ -1,270 +1,198 @@
 package uk.gov.nationalarchives.ingestvalidategenericingestinputs
 
-import cats.data.{NonEmptyList, Validated, ValidatedNel}
+import cats.*
 import cats.effect.IO
+import cats.effect.std.AtomicCell
 import cats.implicits.*
-import fs2.interop.reactivestreams.*
-import fs2.{Chunk, Stream, text}
+import cats.syntax.all.*
+import com.networknt.schema.InputFormat.JSON
+import com.networknt.schema.SpecVersion.VersionFlag
+import com.networknt.schema.{JsonSchema, JsonSchemaFactory}
+import fs2.Stream
+import fs2.io.file.*
+import fs2.io.{file => fs2File}
 import io.circe.*
-import io.circe.generic.auto.*
+import io.circe.parser.*
 import io.circe.syntax.*
 import org.reactivestreams.FlowAdapters
-import org.scanamo.generic.semiauto.*
-import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
-import ujson.*
+import org.typelevel.jawn.Facade
+import org.typelevel.jawn.fs2.*
 import uk.gov.nationalarchives.DAS3Client
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.EntryValidationError.{MissingPropertyError, SchemaValidationError, ValidationError, ValueError}
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.*
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.EntryTypeSchema.*
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.ValidatedUtils.ValidatedEntry
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.ErrorMessage.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.LambdaConfiguration.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.MandatoryFields.*
+import uk.gov.nationalarchives.utils.ExternalUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.Type.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 
-import java.net.URI
-import java.nio.ByteBuffer
+import java.util.UUID
+import scala.annotation.tailrec
+import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
-  lazy private val bufferSize = 1024 * 5
+  given Facade[Json] = io.circe.jawn.CirceSupportParser.facade
 
-  given Encoder[Value] = value => Json.fromString(value.toString)
+  private def updateCounts(mandatoryFields: MandatoryFields, countsCell: AtomicCell[IO, ObjectCounts]): IO[Unit] =
+    val parentId = mandatoryFields.parentId
 
-  given Encoder[Map[String, ValidValidationResult | InvalidValidationResult]] =
-    entry =>
-      entry.map { case (fieldName, value) =>
-        value match {
-          case valid: ValidValidationResult => (fieldName, Json.obj("Valid" -> Json.fromString(valid.result)))
-          case invalid: InvalidValidationResult =>
-            fieldName -> Json.obj {
-              "Invalid" ->
-                invalid.result.map {
-                  case valueError: ValueError =>
-                    Json.obj(
-                      ("errorType", Json.fromString(valueError.getClass.getSimpleName)),
-                      ("valueThatCausedError", Json.fromString(valueError.valueThatCausedError)),
-                      ("errorMessage", Json.fromString(valueError.errorMessage))
-                    )
-                  case missingPropertyError: MissingPropertyError =>
-                    Json.obj(
-                      ("errorType", Json.fromString(missingPropertyError.getClass.getSimpleName)),
-                      ("propertyWithError", Json.fromString(missingPropertyError.propertyWithError)),
-                      ("errorMessage", Json.fromString(missingPropertyError.errorMessage))
-                    )
-                  case validationError: ValidationError =>
-                    Json.obj(
-                      ("errorType", Json.fromString(validationError.getClass.getSimpleName)),
-                      ("errorMessage", Json.fromString(validationError.errorMessage))
-                    )
-                }.asJson
-            }
-        }
-      }.asJson
+    def updateTopLevelCount(series: Option[String]) =
+      val topLevelIncrement = if series.nonEmpty && parentId.isEmpty then 1 else 0
+      countsCell.update(counts => counts.copy(topLevelCount = counts.topLevelCount + topLevelIncrement))
 
-  override def dependencies(config: Config): IO[Dependencies] =
-    IO(Dependencies(DAS3Client[IO]()))
+    mandatoryFields match
+      case maf: MandatoryArchiveFolderFields => updateTopLevelCount(maf.series)
+      case mcf: MandatoryContentFolderFields => updateTopLevelCount(mcf.series)
+      case maf: MandatoryAssetFields         => updateTopLevelCount(maf.series) >> countsCell.update(counts => counts.copy(assetCount = counts.assetCount + 1))
+      case mff: MandatoryFileFields          => countsCell.update(counts => counts.copy(fileCount = counts.fileCount + 1))
 
-  override def handler: (
-      Input,
-      Config,
-      Dependencies
-  ) => IO[StateOutput] = (input, config, dependencies) =>
-    for {
-      log <- IO(log(Map("batchRef" -> input.batchId)))
-      _ <- log(s"Processing batchRef ${input.batchId}")
-      s3Client = dependencies.s3
-      bucket = input.metadataPackage.getHost
-      key = input.metadataPackage.getPath.drop(1)
-      metadataJson <- parseFileFromS3(s3Client, bucket, key)
-      _ <- log("Retrieving metadata.json from s3 bucket")
-
-      minimumAssetsAndFilesErrors <- MetadataJsonSchemaValidator.checkJsonForMinimumObjects(metadataJson)
-      _ <- log("Checking that JSON has at least one Asset and one File")
-
-      atLeastOneEntryWithSeriesAndNullParentErrors <- MetadataJsonSchemaValidator.checkJsonForAtLeastOneEntryWithSeriesAndNullParent(metadataJson)
-      _ <- log("Checking that JSON has at least one entry that has both a series and a null parent")
-
-      validatedEntries <- validateAgainstSchema(metadataJson) // all entries validated except for where the 'type' could not be found
-      _ <- log("Checking that each entry type in JSON matches a schema")
-
-      valueValidator = new MetadataJsonValueValidator
-      fileEntries = validatedEntries("File")
-      fileEntriesWithValidatedLocation <- valueValidator.checkFileIsInCorrectS3Location(s3Client, fileEntries)
-
-      idsOfMetadataFiles = getIdsOfMetadataFiles(validatedEntries("Asset"))
-      (metadataEntries, nonMetadataEntries) =
-        separateMetadataFilesFromNonMetadataFiles(fileEntriesWithValidatedLocation, idsOfMetadataFiles)
-      metadataEntriesWithValidatedExtensions = valueValidator.checkMetadataFileNamesHaveJsonExtensions(metadataEntries)
-
-      fileEntriesWithValidatedExtensions = metadataEntriesWithValidatedExtensions ::: nonMetadataEntries
-
-      updatedEntries = validatedEntries ++ Map("File" -> fileEntriesWithValidatedExtensions)
-      allEntryIds = valueValidator.getIdsOfAllEntries(updatedEntries, idsOfMetadataFiles)
-      entriesWithValidatedUniqueIds = valueValidator.checkIfAllIdsAreUnique(updatedEntries, allEntryIds)
-      entriesWithValidatedUuids = valueValidator.checkIfAllIdsAreUuids(entriesWithValidatedUniqueIds)
-
-      entryTypesGrouped = allEntryIds.groupBy { case (_, entryType) => entryType }
-      entriesWithValidatedParentIds = valueValidator.checkIfEntriesHaveCorrectParentIds(entriesWithValidatedUuids, allEntryIds.toMap, entryTypesGrouped)
-      entriesCompletelyValidated = valueValidator.checkForCircularDependenciesInFolders(entriesWithValidatedParentIds)
-
-      jsonStructuralErrors = {
-        toListOfInvalidValidationResult(minimumAssetsAndFilesErrors) :::
-          toListOfInvalidValidationResult(atLeastOneEntryWithSeriesAndNullParentErrors)
-      }.toMap
-
-      entriesThatFailedValidation = entriesCompletelyValidated.flatMap { case (_, entries) =>
-        entries.collect {
-          case entry if entry.exists { case (_, value) => value.isInvalid } =>
-            entry.map { case (entryName, value) =>
-              val transformedValue: ValidValidationResult | InvalidValidationResult =
-                value match {
-                  case Validated.Valid(value)                  => ValidValidationResult(value.toString)
-                  case Validated.Invalid(nonEmptyListOfErrors) => InvalidValidationResult(nonEmptyListOfErrors.toList)
-                }
-              entryName -> transformedValue
-            }
-        }
-      }.toList
-      numOfJsonStructureErrors = jsonStructuralErrors.size
-      numOfEntriesWithFailures = entriesThatFailedValidation.length
-
-      _ <- IO.whenA((numOfJsonStructureErrors + numOfEntriesWithFailures) > 0) {
-        lazy val keyWithoutOriginalFileName = key.split('/').dropRight(1).mkString("/")
-        lazy val keyOfResultsFile = s"$keyWithoutOriginalFileName/metadata-entries-with-errors.json"
-        lazy val fullLocationOfResultsFile = s"$bucket/$keyOfResultsFile"
-
-        val jsonStructureErrorMessage =
-          if numOfJsonStructureErrors > 0 then
-            val s = if numOfJsonStructureErrors == 1 then "" else "s"
-            s"$numOfJsonStructureErrors thing$s wrong with the structure of the metadata.json for batchId '${input.batchId}'; the results can be found here: $fullLocationOfResultsFile\n\n"
-          else ""
-
-        val entriesErrorMessage =
-          if numOfEntriesWithFailures > 0 then
-            val (entryOrEntries, hasOrHave) = if numOfEntriesWithFailures == 1 then ("entry", "has") else ("entries", "have")
-            s"$numOfEntriesWithFailures $entryOrEntries (objects) in the metadata.json for batchId '${input.batchId}' $hasOrHave failed validation; the results can be found here: $fullLocationOfResultsFile"
-          else ""
-
-        val allJsonErrors = entriesThatFailedValidation.+:(jsonStructuralErrors)
-        logErrorMessages(jsonStructureErrorMessage, entriesErrorMessage, log, entriesThatFailedValidation) >>
-          uploadResults(s3Client, bucket, keyOfResultsFile, allJsonErrors) >>
-          IO.raiseError(JsonValidationException(jsonStructureErrorMessage + entriesErrorMessage))
-      }
-    } yield StateOutput(input.batchId, input.metadataPackage)
-
-  private def validateAgainstSchema(metadataJson: String) =
-    for {
-      metadataJsonAsUjson <- IO(read(metadataJson).arr.toList)
-      entriesGroupedByType = metadataJsonAsUjson.groupBy {
-        case value if value.obj.contains("type") && List("ArchiveFolder", "ContentFolder", "Asset", "File").contains(value("type").str) => value("type").str
-        case value                                                                                                                      => "UnknownType"
-      }
-      validateJsonObjects = validateJsonPerType(entriesGroupedByType)
-      fileEntries <- validateJsonObjects(File)
-      assetEntries <- validateJsonObjects(Asset)
-      archivedFolderEntries <- validateJsonObjects(ArchiveFolder)
-      contentFolderEntries <- validateJsonObjects(ContentFolder)
-      unknownTypeEntries <- validateJsonObjects(UnknownType)
-
-      allValidatedEntries = Map(
-        "File" -> fileEntries,
-        "Asset" -> assetEntries,
-        "ArchiveFolder" -> archivedFolderEntries,
-        "ContentFolder" -> contentFolderEntries,
-        "UnknownType" -> unknownTypeEntries
-      )
-    } yield allValidatedEntries
-
-  private def validateJsonPerType(
-      entriesGroupedByType: Map[String, List[Value]]
-  )(entryType: EntryTypeSchema): IO[List[Map[FieldName, ValidatedNel[ValidationError, Value]]]] = {
-    val entryObjectValidator = MetadataJsonSchemaValidator(entryType)
-    val entriesOfSpecifiedType = entriesGroupedByType.getOrElse(entryType.toString, Nil)
-    entriesOfSpecifiedType.parTraverse { entryOfSpecifiedType => entryObjectValidator.validateMetadataJsonObject(entryOfSpecifiedType.obj) }
-  }
-
-  private def parseFileFromS3(s3: DAS3Client[IO], bucket: String, key: String): IO[String] =
-    for {
-      pub <- s3.download(bucket, key)
-      s3FileString <- pub
-        .toStreamBuffered[IO](bufferSize)
-        .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
-        .through(text.utf8.decode)
-        .compile
-        .string
-    } yield s3FileString
-
-  private def toListOfInvalidValidationResult(listOfErrors: List[ValidatedNel[SchemaValidationError, String]]) =
-    listOfErrors.zipWithIndex.map { (error, errorNum) =>
-      val nelOfErrors = error.swap.toOption.get
-      val errorName = nelOfErrors.head.getClass.getSimpleName
-      s"$errorName $errorNum:" -> InvalidValidationResult(nelOfErrors.toList)
+  private def updateParentCount(mandatoryFields: MandatoryFields, parentIdCountCell: AtomicCell[IO, Map[Option[UUID], Int]]): IO[Unit] =
+    parentIdCountCell.update { parentIdCount =>
+      val parentId = mandatoryFields.parentId
+      val childCount = parentIdCount.getOrElse(parentId, 0)
+      parentIdCount + (parentId -> (childCount + 1))
     }
 
-  private def getIdsOfMetadataFiles(assets: List[ValidatedEntry]) = assets.flatMap { assetEntry =>
-    assetEntry.collect {
-      case (fieldName, validatedValue) if fieldName == "originalMetadataFiles" =>
-        val listOfValues = validatedValue.getOrElse(Arr()).arr.toList
-        listOfValues.map(_.str)
-    }.flatten
-  }
-
-  private def separateMetadataFilesFromNonMetadataFiles(fileEntries: List[ValidatedEntry], idsOfMetadataFiles: List[String]) =
-    fileEntries.partition { fileEntry =>
-      val fileEntryId = fileEntry(id).getOrElse(Str("idFieldHasErrorInIt")).str
-      idsOfMetadataFiles.contains(fileEntryId)
+  private def updateIdToParentType(mandatoryFields: MandatoryFields, idToParentIdTypeCell: AtomicCell[IO, Map[UUID, ParentWithType]]): IO[Unit] =
+    idToParentIdTypeCell.update { idToParentIdType =>
+      val newField = mandatoryFields.id -> ParentWithType(mandatoryFields.parentId, mandatoryFields.getType)
+      idToParentIdType + newField
     }
 
-  private def logErrorMessages(
-      jsonStructureErrorMessage: String,
-      entriesErrorMessage: String,
-      log: String => IO[Unit],
-      entriesThatFailedValidation: List[Map[String, ValidValidationResult | InvalidValidationResult]]
-  ) =
-    for {
-      _ <- if jsonStructureErrorMessage.isEmpty then IO.unit else log(jsonStructureErrorMessage)
-      _ <-
-        if entriesErrorMessage.isEmpty then IO.unit
-        else
-          log(entriesErrorMessage) >> entriesThatFailedValidation.parTraverse { entry =>
-            val entryId = entry("id") match {
-              case ValidValidationResult(id) => id
-              case InvalidValidationResult(listOfErrors) =>
-                val potentialIdValues = listOfErrors.collect { case valueError: ValueError => valueError.valueThatCausedError }
-                potentialIdValues.headOption.getOrElse("idUnknown")
-            }
+  private def createSchemaMap: IO[Map[Type, List[JsonSchema]]] =
+    val schemaFactory = JsonSchemaFactory.getInstance(VersionFlag.V202012)
+    Type.values.toList
+      .traverse { typeValue =>
+        fs2File
+          .Files[IO]
+          .list(Path(getClass.getResource(s"/${typeValue.toString.toLowerCase}").getPath))
+          .flatMap(Files[IO].readUtf8)
+          .map(schemaFactory.getSchema)
+          .compile
+          .toList
+          .map(contents => typeValue -> contents)
+      }
+      .map(_.toMap)
 
-            val fieldNamesWithErrors = entry.collect { case (name, value) if value.getClass.getSimpleName == "InvalidValidationResult" => name }.mkString(", ")
-            val mapToSendAsJson = Map("id" -> entryId, "fieldNamesWithErrors" -> fieldNamesWithErrors)
+  private def validateWholeFile(idToParentType: Map[UUID, ParentWithType], parentIdCount: Map[Option[UUID], Int], counts: ObjectCounts): List[String] = {
+    val parentIdDiff = parentIdCount.keys.toSet.flatten.diff(idToParentType.keys.toSet)
 
-            log(mapToSendAsJson.asJson.noSpaces)
+    @tailrec
+    def validateParentIds(id: UUID, errors: List[ErrorMessage] = Nil, existingParents: List[UUID] = Nil): List[ErrorMessage] = {
+      val parentIdOpt = idToParentType.get(id).flatMap(_.parentId)
+      val fileTypeOpt = idToParentType.get(id).map(_.objectType)
+      val parentTypeOpt = parentIdOpt.flatMap(idToParentType.get).map(_.objectType)
+      def errorOrNil(condition: Boolean, errorMessage: ErrorMessage) = if condition then List(errorMessage) else Nil
+      val typeErrors =
+        errorOrNil(!fileTypeOpt.exists(_.validParent(parentTypeOpt)), ParentTypeInvalid(parentTypeOpt, fileTypeOpt, id)) ++
+          errorOrNil(parentIdOpt.isDefined && existingParents.containsSlice(parentIdOpt.toList), CircularDependency(id, existingParents)) ++
+          errorOrNil(fileTypeOpt.contains(Asset) && parentIdCount.getOrElse(id.some, 0) == 0, NoAssetChildren(id))
+
+      if parentIdOpt.isEmpty then errors
+      else if typeErrors.collect { case cd: CircularDependency => cd }.nonEmpty then errors ++ typeErrors // Exit early to prevent infinite loop
+      else validateParentIds(parentIdOpt.get, typeErrors ++ errors, existingParents ++ parentIdOpt.toList)
+    }
+
+    val parentTypeErrors = idToParentType.keys.flatMap(id => validateParentIds(id)).toList
+
+    val parentMissingErrors =
+      if parentIdDiff.nonEmpty
+      then parentIdDiff.map(MissingParent.apply)
+      else Nil
+    val missingEntryErrors =
+      List(
+        if counts.topLevelCount == 0 then List(NoTopLevelFolder) else Nil,
+        if counts.assetCount == 0 then List(NoAsset) else Nil,
+        if counts.fileCount == 0 then List(NoFile) else Nil
+      ).flatten
+
+    (parentTypeErrors ++ parentMissingErrors ++ missingEntryErrors).map(_.show)
+  }
+
+  override def handler: (Input, Config, Dependencies) => IO[StateOutput] = (input, _, dependencies) => {
+
+    def uploadErrors(input: Input, allValidation: WholeFileValidationResult) = {
+      IO.whenA(allValidation.anyErrors) {
+        val bucket = input.metadataPackage.getHost
+        val resultPath = s"${input.metadataPackage.getPath}/validation-result.json"
+        Stream.evals[IO, List, Byte](IO.pure(allValidation.asJson.noSpaces.getBytes.toList)).chunks.map(_.toByteBuffer).toPublisherResource.use { pub =>
+          dependencies.s3.upload(bucket, resultPath, FlowAdapters.toPublisher(pub)).void
+        } >> IO.raiseError(new Exception(s"Validation failed. Results are at s3://$bucket/$resultPath"))
+      }
+    }
+
+    def validateIndividualObjects(stream: Stream[IO, Byte], schemaMap: Map[Type, List[JsonSchema]])(
+        idToParentCell: AtomicCell[IO, Map[UUID, ParentWithType]],
+        parentCountCell: AtomicCell[IO, Map[Option[UUID], Int]],
+        objectCountsCell: AtomicCell[IO, ObjectCounts]
+    ): IO[List[SingleValidationResult]] = {
+
+      def checkObjectInS3(mandatoryFields: MandatoryFields): IO[List[String]] =
+        mandatoryFields match
+          case f: MandatoryFileFields =>
+            dependencies.s3
+              .headObject(f.location.getHost, f.location.getPath.drop(1))
+              .map(_ => Nil)
+              .handleError(_ => List(s"File ${f.id} can not be found in S3"))
+          case _ => IO(Nil)
+
+      def validateAgainstSchemas(mandatoryFields: MandatoryFields, json: Json): IO[List[String]] = {
+        schemaMap
+          .get(mandatoryFields.getType)
+          .toList
+          .flatten
+          .parTraverse { schema =>
+            IO.blocking(schema.validate(json.noSpaces, JSON).asScala.map(result => s"${mandatoryFields.id} ${result.getMessage}"))
           }
-    } yield ()
+          .map(_.flatten)
+      }
 
-  private def uploadResults(s3Client: DAS3Client[IO], bucket: String, keyOfResultsFile: String, allJsonErrors: List[Map[String, ValidValidationResult | InvalidValidationResult]]) =
-    Stream
-      .eval(IO.pure(allJsonErrors.asJson.noSpaces))
-      .map(s => ByteBuffer.wrap(s.getBytes()))
-      .toPublisherResource
-      .use(pub => s3Client.upload(bucket, keyOfResultsFile, FlowAdapters.toPublisher(pub)))
-      .void
-}
+      def validateSingleObject(json: Json) = decodeAccumulating[MandatoryFields](json.noSpaces)
+        .fold(
+          errors => IO.pure(errors.toList.map(_.getMessage)),
+          mandatoryFields =>
+            for {
+              updateIdParentFiber <- updateIdToParentType(mandatoryFields, idToParentCell).start
+              updateParentCountFiber <- updateParentCount(mandatoryFields, parentCountCell).start
+              updateCountsFiber <- updateCounts(mandatoryFields, objectCountsCell).start
+              s3ErrorsFiber <- checkObjectInS3(mandatoryFields).start
+              schemaValidationErrorsFiber <- validateAgainstSchemas(mandatoryFields, json).start
+              _ <- List(updateIdParentFiber, updateParentCountFiber, updateCountsFiber).traverse(_.join)
+              s3ErrorsOutcome <- s3ErrorsFiber.join
+              schemaValidationOutcome <- schemaValidationErrorsFiber.join
+              s3Errors <- s3ErrorsOutcome.embedError
+              schemaValidationErrors <- schemaValidationOutcome.embedError
+            } yield s3Errors ++ schemaValidationErrors
+        )
+        .map(errors => if errors.nonEmpty then SingleValidationResult(json, errors).some else None)
 
-object Lambda {
-  sealed trait ValidationResult:
-    val result: String | List[ValidationError | MissingPropertyError | ValueError]
+      stream.chunks
+        .unwrapJsonArray[Json]
+        .parEvalMap(1000) { json =>
+          validateSingleObject(json)
+        }
+        .compile
+        .toList
+        .map(_.flatten)
+    }
+    given Monoid[Map[UUID, ParentWithType]] = Monoid.instance[Map[UUID, ParentWithType]](Map.empty, (_, second) => second)
+    for {
+      pub <- dependencies.s3.download(input.metadataPackage.getHost, input.metadataPackage.getPath.drop(1))
+      schemaMap <- createSchemaMap
+      idToParentIdTypeCell <- AtomicCell[IO].empty[Map[UUID, ParentWithType]]
+      parentIdCountCell <- AtomicCell[IO].empty[Map[Option[UUID], Int]]
+      countsCell <- AtomicCell[IO].of(ObjectCounts(0, 0, 0))
+      singleObjectValidation <- validateIndividualObjects(pub.toByteStream, schemaMap)(idToParentIdTypeCell, parentIdCountCell, countsCell)
+      _ <- IO.whenA(singleObjectValidation.nonEmpty)(uploadErrors(input, WholeFileValidationResult(Nil, singleObjectValidation)))
+      parentIdType <- idToParentIdTypeCell.get
+      parentIdCount <- parentIdCountCell.get
+      counts <- countsCell.get
+      allValidation = WholeFileValidationResult(validateWholeFile(parentIdType, parentIdCount, counts), singleObjectValidation)
+      _ <- uploadErrors(input, allValidation)
+    } yield {
+      StateOutput(input.batchId, input.metadataPackage)
+    }
+  }
 
-  case class StateOutput(batchId: String, metadataPackage: URI)
-
-  case class Input(batchId: String, metadataPackage: URI)
-
-  case class Config() derives ConfigReader
-
-  case class Dependencies(s3: DAS3Client[IO])
-
-  case class ValidValidationResult(result: String) extends ValidationResult
-  case class InvalidValidationResult(result: List[ValidationError | MissingPropertyError | ValueError]) extends ValidationResult
-
-  case class JsonValidationException(message: String) extends Exception(message)
-
+  override def dependencies(config: Config): IO[Dependencies] = IO.pure(Dependencies(DAS3Client[IO]()))
 }

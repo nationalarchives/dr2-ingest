@@ -3,36 +3,6 @@
   "title": "Asset validation",
   "description": "All Assets that are checked by this schema must have these properties",
   "properties": {
-    "originalFiles": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      }
-    },
-    "originalMetadataFiles": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      }
-    },
-    "transferringBody": {
-      "type": "string",
-      "minLength": 1
-    },
-    "transferCompleteDatetime": {
-      "type": "string",
-      "minLength": 1
-    },
-    "upstreamSystem": {
-      "type": "string",
-      "minLength": 1
-    },
-    "digitalAssetSource": {
-      "type": "string",
-      "minLength": 1
-    },
     "digitalAssetSubtype": {
       "type": [
         "string",
@@ -56,13 +26,6 @@
       "type": "string",
       "minLength": 1
     },
-    "parentId": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "minLength": 1
-    },
     "description": {
       "type": [
         "string",
@@ -73,10 +36,6 @@
     "title": {
       "type": "string",
       "minLength": 1
-    },
-    "type": {
-      "type": "string",
-      "const": "Asset"
     },
     "series": {
       "$comment": "(Optional) If the Asset is the top-level entry in the JSON, then it will have a Series",
@@ -90,20 +49,10 @@
     }
   },
   "required": [
-    "originalFiles",
-    "originalMetadataFiles",
-    "transferringBody",
-    "transferCompleteDatetime",
-    "upstreamSystem",
-    "digitalAssetSource",
-    "digitalAssetSubtype",
     "id_BornDigitalRef",
     "id_ConsignmentReference",
     "id_RecordID",
-    "id",
-    "parentId",
-    "title",
-    "type"
+    "title"
   ],
   "additionalProperties": {
     "minLength": 1,

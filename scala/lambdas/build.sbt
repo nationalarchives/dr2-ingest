@@ -246,7 +246,10 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
     libraryDependencies ++= Seq(
       awsCrt,
       catsEffect,
+      circeFs2,
+      fs2IO,
       fs2Reactive,
+      jawnFs2,
       jsonSchemaValidator,
       s3Client,
       sfnClient,

@@ -1,0 +1,16 @@
+{
+  "input": [
+    {
+      "type": "Asset"
+    }
+  ],
+  "expectedErrors": [
+    "DecodingFailure at .digitalAssetSource: Missing required field",
+    "DecodingFailure at .id: Missing required field",
+    "DecodingFailure at .originalFiles: Missing required field",
+    "DecodingFailure at .originalMetadataFiles: Missing required field",
+    "DecodingFailure at .transferCompleteDatetime: Missing required field",
+    "DecodingFailure at .transferringBody: Missing required field",
+    "DecodingFailure at .upstreamSystem: Missing required field"
+  ]
+}

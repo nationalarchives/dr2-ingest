@@ -1,0 +1,22 @@
+{
+  "input": [
+    {
+      "type": "File",
+      "id": "0f9cab98-114d-4e72-b378-695559155c45",
+      "name": "TestName",
+      "parentId": "122980ac-2664-4965-9879-f27c524f3668",
+      "representationSuffix": 1,
+      "representationType": "Preservation",
+      "sortOrder": 1,
+      "location": "s3://bucket/key",
+      "checksum_sha256": "abcd",
+      "checksum_md5": "abcd",
+      "title": "title"
+    }
+  ],
+  "expectedErrors": [
+    "0f9cab98-114d-4e72-b378-695559155c45 $.checksum_md5: must be at least 32 characters long",
+    "0f9cab98-114d-4e72-b378-695559155c45 $.checksum_sha256: must be at least 32 characters long",
+    "0f9cab98-114d-4e72-b378-695559155c45 $.checksum_sha256: must be at least 64 characters long"
+  ]
+}

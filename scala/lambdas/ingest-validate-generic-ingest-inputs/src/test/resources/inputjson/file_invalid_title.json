@@ -1,0 +1,18 @@
+{
+  "input": [
+    {
+      "type": "File",
+      "id": "0f9cab98-114d-4e72-b378-695559155c45",
+      "name": "Test",
+      "parentId": "122980ac-2664-4965-9879-f27c524f3668",
+      "representationSuffix": 1,
+      "representationType": "Preservation",
+      "sortOrder": 1,
+      "location": "s3://bucket/key",
+      "title": ""
+    }
+  ],
+  "expectedErrors": [
+    "0f9cab98-114d-4e72-b378-695559155c45 $.title: must be at least 1 characters long"
+  ]
+}

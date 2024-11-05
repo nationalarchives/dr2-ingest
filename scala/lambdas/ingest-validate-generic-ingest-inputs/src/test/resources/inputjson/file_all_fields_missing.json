@@ -1,0 +1,15 @@
+{
+  "input": [
+    {
+      "type": "File"
+    }
+  ],
+  "expectedErrors": [
+    "DecodingFailure at .id: Missing required field",
+    "DecodingFailure at .location: Missing required field",
+    "DecodingFailure at .name: Missing required field",
+    "DecodingFailure at .representationSuffix: Missing required field",
+    "DecodingFailure at .representationType: Missing required field",
+    "DecodingFailure at .sortOrder: Missing required field"
+  ]
+}

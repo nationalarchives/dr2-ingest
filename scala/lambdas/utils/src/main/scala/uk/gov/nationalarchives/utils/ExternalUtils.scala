@@ -32,6 +32,12 @@ object ExternalUtils {
   enum Type:
     case ArchiveFolder, ContentFolder, Asset, File
 
+    def validParent(parentType: Option[Type]): Boolean = this match
+      case ArchiveFolder => List(ArchiveFolder).containsSlice(parentType.toList)
+      case ContentFolder => List(ContentFolder, ArchiveFolder).containsSlice(parentType.toList)
+      case Asset => List(ContentFolder, ArchiveFolder, Asset).containsSlice(parentType.toList)
+      case File => List(Asset).containsSlice(parentType.toList)
+
   private val convertIdFieldsToJson = (idFields: List[IdField]) =>
     idFields.map { idField =>
       (s"id_${idField.name}", Json.fromString(idField.value))

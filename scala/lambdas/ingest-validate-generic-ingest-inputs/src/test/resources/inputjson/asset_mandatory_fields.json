@@ -1,0 +1,26 @@
+{
+  "input": [
+    {
+      "type": "Asset",
+      "id": "0f9cab98-114d-4e72-b378-695559155c45",
+      "name": "TestName",
+      "parentId": "122980ac-2664-4965-9879-f27c524f3668",
+      "title": "Test title",
+      "digitalAssetSource": "digitalAssetSource",
+      "originalFiles": [
+        "9e3d0cab-3900-4f5d-948f-fa8f35f38758"
+      ],
+      "originalMetadataFiles": [
+        "8664d643-fe3b-4fa4-be89-9806143b5dda"
+      ],
+      "transferCompleteDatetime": "2023-10-31T13:40:54Z",
+      "transferringBody": "body",
+      "upstreamSystem": "upstreamSystem"
+    }
+  ],
+  "expectedErrors": [
+    "0f9cab98-114d-4e72-b378-695559155c45 $: required property 'id_BornDigitalRef' not found",
+    "0f9cab98-114d-4e72-b378-695559155c45 $: required property 'id_ConsignmentReference' not found",
+    "0f9cab98-114d-4e72-b378-695559155c45 $: required property 'id_RecordID' not found"
+  ]
+}

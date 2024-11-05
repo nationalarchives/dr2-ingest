@@ -1,0 +1,12 @@
+{
+  "input": [
+    {
+      "type": "ContentFolder",
+      "id": "23fe7773-2638-4918-a63e-42058b0f552a",
+      "name": "TestName"
+    }
+  ],
+  "expectedErrors": [
+    "23fe7773-2638-4918-a63e-42058b0f552a $: required property 'title' not found"
+  ]
+}
