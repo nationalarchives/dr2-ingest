@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.24.1"
   lazy val pureConfigVersion = "0.17.7"
-  lazy val daAwsClientsVersion = "0.1.96"
+  lazy val daAwsClientsVersion = "0.1.99"
   private val fs2Version = "3.11.0"
   private val sttpVersion = "3.10.1"
   private val circeVersion = "0.14.10"
@@ -10,10 +10,10 @@ object Dependencies {
   private val awsLibraryVersion = "1.12.777"
   private lazy val scalaTestVersion = "3.2.18"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.31.3"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.33.0"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val awsSecretsManager = "com.amazonaws" % "aws-java-sdk-secretsmanager" % awsLibraryVersion
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.4"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.5"
   lazy val circeCore = "io.circe" %% "circe-core" % circeVersion
   lazy val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
@@ -25,7 +25,7 @@ object Dependencies {
   lazy val fs2IO = "co.fs2" %% "fs2-io" % fs2Version
   lazy val fs2Reactive = "co.fs2" %% "fs2-reactive-streams" % fs2Version
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
-  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "1.5.2"
+  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "1.5.3"
   lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.2.3"
   lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.14.0"
   lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion;
