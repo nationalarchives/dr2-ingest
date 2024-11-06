@@ -117,7 +117,7 @@ object TestUtils:
       transferCompleteDatetime <- c.downField("transferCompleteDatetime").as[String]
       upstreamSystem <- c.downField("upstreamSystem").as[String]
       digitalAssetSource <- c.downField("digitalAssetSource").as[String]
-      digitalAssetSubtype <- c.downField("digitalAssetSubtype").as[String]
+      digitalAssetSubtype <- c.downField("digitalAssetSubtype").as[Option[String]]
       correlationId <- c.downField("correlationId").as[Option[String]]
       idFields = c.keys
         .map(_.toList)

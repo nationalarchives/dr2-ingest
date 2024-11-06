@@ -1,4 +1,3 @@
-import io
 import json
 import os
 import unittest
@@ -7,6 +6,7 @@ from unittest.mock import patch
 from botocore.exceptions import ClientError
 
 import lambda_function
+from test_utils import copy_helper
 
 
 @patch.dict('os.environ', {'DESTINATION_BUCKET': 'destination-bucket'})
@@ -25,41 +25,32 @@ class TestLambdaFunction(unittest.TestCase):
                   mock_send_message, mock_complete_multipart_upload, _,
                   mock_create_multipart_upload,
                   mock_head_object):
-        content_length = 5 * 1024 * 1024 * 1024
-        mock_head_object.return_value = {'ContentLength': content_length}
-        mock_create_multipart_upload.return_value = {'UploadId': 'test-upload-id'}
-        mock_validate_mandatory_fields_exist.return_value = True
-        mock_validate_formats.return_value = True
-        mock_get_object.return_value = {
-            'Body': io.BytesIO(
-                b'{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series": "SMTH 123", "TransferInitiatedDatetime": "2024-09-19 07:21:57","UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"}'),
-        }
+        copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
+                         mock_send_message, mock_complete_multipart_upload, _,
+                         mock_create_multipart_upload,
+                         mock_head_object, {'body': '{"bucket": "source-bucket","fileId":"test-file"}'},
+                         '{"id": "test-file", "location": "s3://destination-bucket/test-file"}')
 
-        event = {
-            'Records': [
-                {'body': '{"bucket": "source-bucket","fileId":"test-file"}'}
-            ]
-        }
+    @patch('lambda_function.s3_client.head_object')
+    @patch('lambda_function.s3_client.create_multipart_upload')
+    @patch('lambda_function.s3_client.upload_part_copy')
+    @patch('lambda_function.s3_client.complete_multipart_upload')
+    @patch('lambda_function.sqs_client.send_message')
+    @patch('lambda_function.s3_client.get_object')
+    @patch('lambda_function.validate_mandatory_fields_exist')
+    @patch('lambda_function.validate_formats')
+    @patch.dict(os.environ, {'DESTINATION_BUCKET': 'destination-bucket'})
+    def test_copy_returns_messageId_when_in_body(self, mock_validate_formats, mock_validate_mandatory_fields_exist,
+                                                 mock_get_object, mock_send_message, mock_complete_multipart_upload, _,
+                                                 mock_create_multipart_upload, mock_head_object):
 
-        context = {}
-        lambda_function.lambda_handler(event, context)
-
-        expected_body = '{"id": "test-file", "location": "s3://destination-bucket/test-file"}'
-        expected_sqs_args = {'MessageBody': expected_body, 'QueueUrl': 'destination-queue'}
-
-        self.assertEqual(mock_create_multipart_upload.call_count, 2)
-
-        def assert_create_multipart_arguments(idx, key):
-            self.assertEqual(mock_create_multipart_upload.call_args_list[idx][1], {'Bucket': 'destination-bucket',
-                                                                                   'Key': key})
-
-        assert_create_multipart_arguments(0, "test-file")
-        assert_create_multipart_arguments(1, "test-file.metadata")
-        self.assertEqual(mock_complete_multipart_upload.call_count, 2)
-        self.assertEqual(mock_send_message.call_args_list[0][1], expected_sqs_args)
-
-        mock_validate_mandatory_fields_exist.assert_called_once()
-        mock_validate_formats.assert_called_once()
+        body_with_message_id = {'body': '{"bucket": "source-bucket","fileId":"test-file", "messageId": "message-id"}'}
+        expected_message_id = ('{"id": "test-file", "location": "s3://destination-bucket/test-file", "messageId": '
+                               '"message-id"}')
+        copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
+                         mock_send_message, mock_complete_multipart_upload, _,
+                         mock_create_multipart_upload,
+                         mock_head_object, body_with_message_id, expected_message_id)
 
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.copy_object')
