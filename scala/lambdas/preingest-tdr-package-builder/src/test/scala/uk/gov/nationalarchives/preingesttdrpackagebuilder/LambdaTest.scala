@@ -15,8 +15,8 @@ import uk.gov.nationalarchives.preingesttdrpackagebuilder.TestUtils.{*, given}
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 
 import java.net.URI
-import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneOffset}
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
@@ -73,7 +73,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       val fileId = UUID.fromString("4e03a500-4f29-47c5-9c08-26e12f631fd8")
       val metadataFileId = UUID.fromString("427789a1-e7af-4172-9fa7-02da1d60125f")
       val tdrFileId = UUID.fromString("a2834c9d-46e8-42d9-a300-2a4ed31c1e1a")
-      val uuids = Iterator(metadataFileId, archiveFolderId, fileId)
+      val uuids = Iterator(metadataFileId, fileId, archiveFolderId)
       val uuidIterator: () => UUID = () => uuids.next
       val tdrMetadata = TDRMetadata(
         testData.series,
@@ -126,7 +126,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       assetMetadataObject.transferCompleteDatetime should equal(LocalDateTime.parse(testData.date.replace(" ", "T")).atOffset(ZoneOffset.UTC))
       assetMetadataObject.upstreamSystem should equal("TDR")
       assetMetadataObject.digitalAssetSource should equal("Born Digital")
-      assetMetadataObject.digitalAssetSubtype should equal("TDR")
+      assetMetadataObject.digitalAssetSubtype should equal(None)
       def checkIdField(name: String, value: String) =
         assetMetadataObject.idFields.find(_.name == name).map(_.value).get should equal(value)
       checkIdField("Code", s"${testData.series}/${testData.fileRef}")
@@ -161,6 +161,57 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       output.metadataPackage should equal(URI.create(s"s3://cacheBucket/${testData.batchId}/metadata.json"))
       output.retrySfnArn should equal("")
     }
+  }
+
+  "lambda handler" should "create two content folders for two consignments with 10 files each" in {
+    val archiveFolderId = UUID.fromString("dd28dde8-9d94-4843-8f46-fd3da71afaae")
+    val fileId = UUID.fromString("4e03a500-4f29-47c5-9c08-26e12f631fd8")
+    val metadataFileId = UUID.fromString("427789a1-e7af-4172-9fa7-02da1d60125f")
+    val tdrFileId = UUID.fromString("a2834c9d-46e8-42d9-a300-2a4ed31c1e1a")
+    val uuids = Iterator(metadataFileId, fileId, archiveFolderId)
+    val uuidIterator: () => UUID = () => UUID.randomUUID
+    val tdrMetadataOne = TDRMetadata(
+      "TST 123",
+      tdrFileId,
+      None,
+      "body",
+      "2024-10-18 00:00:01",
+      "TDR-ABCD",
+      s"file.txt",
+      "checksum",
+      "reference"
+    )
+
+    val tdrMetadataTwo = tdrMetadataOne.copy(ConsignmentReference = "TDR-EFGH")
+
+    val groupId = UUID.randomUUID.toString
+    val batchId = s"${groupId}_0"
+    val initialS3Objects: Map[String, S3Objects] = Map.from((1 to 10).toList.flatMap { idx =>
+      List(
+        s"keyOne$idx.metadata" -> tdrMetadataOne,
+        s"keyOne$idx" -> MockTdrFile(1),
+        s"keyTwo$idx.metadata" -> tdrMetadataTwo,
+        s"keyTwo$idx" -> MockTdrFile(1)
+      )
+    })
+
+    val initialDynamoObjects = (1 to 10).toList.flatMap { idx =>
+      val lockTableMessageOne = LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/keyOne$idx")).asJson.noSpaces
+      val lockTableMessageTwo = LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/keyTwo$idx")).asJson.noSpaces
+      List(IngestLockTableItem(UUID.randomUUID(), groupId, lockTableMessageOne), IngestLockTableItem(UUID.randomUUID(), groupId, lockTableMessageTwo))
+    }
+    val input = Input(groupId, batchId, 1, 2)
+    val (s3Contents, output) = runHandler(uuidIterator, initialS3Objects, initialDynamoObjects, input)
+
+    val metadataObjects: List[MetadataObject] = s3Contents(s"$batchId/metadata.json").asInstanceOf[List[MetadataObject]]
+    val assetMetadataObjects = metadataObjects.collect { case assetMetadataObject: AssetMetadataObject => assetMetadataObject }
+    val contentFolderMetadataObjects = metadataObjects.collect { case contentFolderMetadataObject: ContentFolderMetadataObject => contentFolderMetadataObject }
+
+    contentFolderMetadataObjects.size should equal(2)
+
+    assetMetadataObjects.count(_.parentId == Option(contentFolderMetadataObjects.head.id)) should equal(10)
+    assetMetadataObjects.count(_.parentId == Option(contentFolderMetadataObjects.last.id)) should equal(10)
+
   }
 
   "lambda handler" should "return an error if the metadata list is empty" in {
