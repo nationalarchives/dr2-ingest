@@ -124,7 +124,7 @@ class FileProcessor(
         treMetadata.parameters.TDR.`Consignment-Export-Datetime`,
         "TRE: FCL Parser workflow",
         "Born Digital",
-        "FCL",
+        Option("FCL"),
         assetMetadataIdFields
       )
     val fileRowMetadataObject =
