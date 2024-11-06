@@ -14,7 +14,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentat
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{AssetDynamoItem, Checksum, FileDynamoItem, FilesTablePrimaryKey, Identifier}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
-import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.{Config, Dependencies, Input}
+import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.{Config, Dependencies, Input, InputAsset}
 import uk.gov.nationalarchives.ingestassetopexcreator.{Lambda, XMLCreator}
 
 import java.net.URI
@@ -33,7 +33,7 @@ object ExternalServicesTestUtils:
   case class AssetWithChildren(asset: AssetDynamoItem, children: List[FileDynamoItem])
   case class S3Object(bucket: String, key: String, content: String)
 
-  def generateInput(assetId: UUID): Input = Input(assetId, batchId, batchId)
+  def generateInput(assetId: UUID): Input = Input(List(InputAsset(assetId, batchId, false)))
 
   val config: Config = Config("", "", "destinationBucket")
 

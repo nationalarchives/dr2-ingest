@@ -1,112 +1,101 @@
 package uk.gov.nationalarchives.getlatestpreservicaversion.testUtils
 
-import cats.effect.IO
-import com.github.tomakehurst.wiremock.WireMockServer
+import cats.effect.{IO, Ref}
+import cats.effect.unsafe.implicits.global
+import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import io.circe.Encoder
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{times, verify, when}
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers.*
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import org.scalatestplus.mockito.MockitoSugar.mock
 import org.scanamo.DynamoFormat
+import org.scanamo.request.RequestCondition
+import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
+import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.{Dependencies, GetDr2PreservicaVersionResponse, LatestPreservicaVersionMessage, PartitionKey}
-import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
+import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
+import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda
+import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.{Config, Dependencies, GetDr2PreservicaVersionResponse, LatestPreservicaVersionMessage}
 
-class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll {
-  val graphQlServerPort = 9002
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.UUID
 
-  val wiremockGraphqlServer = new WireMockServer(graphQlServerPort)
+object ExternalServicesTestUtils:
 
-  override def beforeAll(): Unit = {
-    wiremockGraphqlServer.start()
+  def notImplemented[T]: IO[T] = IO.raiseError(new Exception("Not implemented"))
+
+  def dynamoClient(responses: List[GetDr2PreservicaVersionResponse], errors: Option[Errors]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
+    override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
+
+    override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = notImplemented
+
+    override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
+
+    override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
+      notImplemented
+
+    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] =
+      errors.raise(_.dynamoError, "Error getting version from Dynamo") >> IO.pure(responses.map(_.asInstanceOf[T]))
+
+    override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = notImplemented
+
+  def preservicaClient(version: Float, errors: Option[Errors]): EntityClient[IO, Fs2Streams[IO]] = new EntityClient[IO, Fs2Streams[IO]] {
+
+    override val dateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_DATE_TIME
+
+    override def metadataForEntity(entity: Entities.Entity): IO[EntityClient.EntityMetadata] = notImplemented
+
+    override def getBitstreamInfo(contentRef: UUID): IO[Seq[Client.BitStreamInfo]] = notImplemented
+
+    override def getEntity(entityRef: UUID, entityType: EntityClient.EntityType): IO[Entities.Entity] = notImplemented
+
+    override def getEntityIdentifiers(entity: Entities.Entity): IO[Seq[Entities.IdentifierResponse]] = notImplemented
+
+    override def getUrlsToIoRepresentations(ioEntityRef: UUID, representationType: Option[EntityClient.RepresentationType]): IO[Seq[String]] = notImplemented
+
+    override def getContentObjectsFromRepresentation(ioEntityRef: UUID, representationType: EntityClient.RepresentationType, repTypeIndex: Int): IO[Seq[Entities.Entity]] =
+      notImplemented
+
+    override def addEntity(addEntityRequest: EntityClient.AddEntityRequest): IO[UUID] = notImplemented
+
+    override def updateEntity(updateEntityRequest: EntityClient.UpdateEntityRequest): IO[String] = notImplemented
+
+    override def updateEntityIdentifiers(entity: Entities.Entity, identifiers: Seq[Entities.IdentifierResponse]): IO[Seq[Entities.IdentifierResponse]] = notImplemented
+
+    override def streamBitstreamContent[T](stream: capabilities.Streams[Fs2Streams[IO]])(url: String, streamFn: stream.BinaryStream => IO[T]): IO[T] = notImplemented
+
+    override def entitiesUpdatedSince(dateTime: ZonedDateTime, startEntry: Int, maxEntries: Int): IO[Seq[Entities.Entity]] = notImplemented
+
+    override def entityEventActions(entity: Entities.Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] = notImplemented
+
+    override def entitiesByIdentifier(identifier: EntityClient.Identifier): IO[Seq[Entities.Entity]] = notImplemented
+
+    override def addIdentifierForEntity(entityRef: UUID, entityType: EntityClient.EntityType, identifier: EntityClient.Identifier): IO[String] = notImplemented
+
+    override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = errors.raise(_.preservicaError, "Error getting Preservica version") >> IO.pure(version)
   }
 
-  override def afterAll(): Unit = {
-    wiremockGraphqlServer.stop()
-  }
+  def snsClient(ref: Ref[IO, List[LatestPreservicaVersionMessage]], errors: Option[Errors]): DASNSClient[IO] = new DASNSClient[IO]:
+    override def publish[T <: Product](topicArn: String)(messages: List[T])(using enc: Encoder[T]): IO[List[PublishBatchResponse]] =
+      errors.raise(_.snsError, "Error sending to SNS") >>
+        ref
+          .update { existing =>
+            messages.map(_.asInstanceOf[LatestPreservicaVersionMessage]) ++ existing
+          }
+          .map(_ => Nil)
 
-  override def afterEach(): Unit = {
-    wiremockGraphqlServer.resetAll()
-  }
+  val config: Config = Config("", "", "", "")
 
-  case class ArgumentVerifier(
-      getPreservicaNamespaceVersionReturnValue: IO[Float] = IO.pure(7.0f),
-      getCurrentPreservicaVersionReturnValue: IO[List[GetDr2PreservicaVersionResponse]] = IO.pure(List(GetDr2PreservicaVersionResponse(6.9f))),
-      snsPublishReturnValue: IO[List[PublishBatchResponse]] = IO(List(PublishBatchResponse.builder().build()))
-  ) {
-    val endpointSinceCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-    val getItemsCaptor: ArgumentCaptor[List[PartitionKey]] = ArgumentCaptor.forClass(classOf[List[PartitionKey]])
-    val tableNameCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
+  case class Errors(dynamoError: Boolean = false, preservicaError: Boolean = false, snsError: Boolean = false)
 
-    val snsArnCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-    val publishEntitiesCaptor: ArgumentCaptor[List[LatestPreservicaVersionMessage]] =
-      ArgumentCaptor.forClass(classOf[List[LatestPreservicaVersionMessage]])
+  extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
-    val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
-    val mockDynamoDBClient: DADynamoDBClient[IO] = mock[DADynamoDBClient[IO]]
-    val mockSnsClient: DASNSClient[IO] = mock[DASNSClient[IO]]
-    when(mockEntityClient.getPreservicaNamespaceVersion(any[String]))
-      .thenReturn(getPreservicaNamespaceVersionReturnValue)
-
-    when(
-      mockDynamoDBClient
-        .getItems[GetDr2PreservicaVersionResponse, PartitionKey](any[List[PartitionKey]], any[String])(using
-          any[DynamoFormat[GetDr2PreservicaVersionResponse]],
-          any[DynamoFormat[PartitionKey]]
-        )
-    ).thenReturn(getCurrentPreservicaVersionReturnValue)
-
-    when(
-      mockSnsClient.publish(any[String])(any[List[LatestPreservicaVersionMessage]])(using
-        any[Encoder[LatestPreservicaVersionMessage]]
-      )
-    )
-      .thenReturn(snsPublishReturnValue)
-
-    val dependencies: Dependencies = Dependencies(mockEntityClient, mockSnsClient, mockDynamoDBClient)
-
-    def verifyInvocationsAndArgumentsPassed(
-        numOfCurrentPreservicaVersionInvocations: Int = 1,
-        numOfLatestPreservicaVersionInvocations: Int = 1,
-        numOfPublishInvocations: Int = 1
-    ): Unit = {
-      verify(mockDynamoDBClient, times(numOfCurrentPreservicaVersionInvocations))
-        .getItems[GetDr2PreservicaVersionResponse, PartitionKey](
-          getItemsCaptor.capture(),
-          tableNameCaptor.capture()
-        )(using any[DynamoFormat[GetDr2PreservicaVersionResponse]], any[DynamoFormat[PartitionKey]])
-      (0 until numOfCurrentPreservicaVersionInvocations).foreach { _ =>
-        getItemsCaptor.getValue should be(List(PartitionKey("DR2PreservicaVersion")))
-        tableNameCaptor.getValue should be("table-name")
-      }
-
-      verify(mockEntityClient, times(numOfLatestPreservicaVersionInvocations)).getPreservicaNamespaceVersion(
-        endpointSinceCaptor.capture()
-      )
-      (0 until numOfLatestPreservicaVersionInvocations).foreach { _ =>
-        endpointSinceCaptor.getValue should be("entities/by-identifier?type=tnaTest&value=getLatestPreservicaVersion")
-      }
-
-      verify(mockSnsClient, times(numOfPublishInvocations)).publish(
-        snsArnCaptor.capture()
-      )(publishEntitiesCaptor.capture())(using any[Encoder[LatestPreservicaVersionMessage]])
-      (0 until numOfPublishInvocations).foreach { _ =>
-        snsArnCaptor.getValue should be("arn:aws:sns:eu-west-2:123456789012:MockResourceId")
-        publishEntitiesCaptor.getValue should be(
-          List(
-            LatestPreservicaVersionMessage(
-              "Preservica has upgraded to version 7.0; we are using 6.9",
-              7.0f
-            )
-          )
-        )
-      }
-      ()
-    }
-  }
-}
+  def runLambda(
+      dynamoResponses: List[GetDr2PreservicaVersionResponse],
+      preservicaVersion: Float,
+      errors: Option[Errors] = None
+  ): (Either[Throwable, Unit], List[LatestPreservicaVersionMessage]) = (for {
+    messagesRef <- Ref.of[IO, List[LatestPreservicaVersionMessage]](Nil)
+    dependencies = Dependencies(preservicaClient(preservicaVersion, errors), snsClient(messagesRef, errors), dynamoClient(dynamoResponses, errors))
+    res <- new Lambda().handler(new ScheduledEvent(), config, dependencies).attempt
+    messages <- messagesRef.get
+  } yield (res, messages)).unsafeRunSync()
