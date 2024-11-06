@@ -110,13 +110,12 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     ): IO[Map[String, Entity]] = {
       val identifiers = folderRows
         .map(_.name)
-        .toSet
         .map(name => Identifier(sourceId, name))
-        .toList
+        .distinct
       for {
         entityMap <- dependencies.entityClient.entitiesPerIdentifier(identifiers)
         multipleEntries = entityMap.filter { case (value, entities) => entities.length > 1 }
-        _ <- IO.raiseWhen(multipleEntries.nonEmpty)(new Exception(s"There is more than 1 entity with the same SourceIDs ${multipleEntries.keys.map(_.value).mkString(" ")}"))
+        _ <- IO.raiseWhen(multipleEntries.nonEmpty)(new Exception(s"There is more than 1 entity with these SourceIDs: ${multipleEntries.keys.map(_.value).mkString(" ")}"))
 
       } yield entityMap.collect { case (identifier, entity :: Nil) =>
         identifier.value -> entity

@@ -13,7 +13,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.DADynamoDBClient
 import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.*
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier as PreservicaIdentifier, *}
+import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier as AssetIdentifier, *}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.utils.LambdaRunner
@@ -56,13 +56,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         } yield asset
       }
       .flatMap { assets =>
-        val identifiers = assets.map(asset => PreservicaIdentifier(sourceId, asset.id.toString))
+        val identifiers = assets.map(asset => AssetIdentifier(sourceId, asset.id.toString))
         def output(assetDynamoItem: AssetDynamoItem, exists: Boolean) = OutputItems(assetDynamoItem.id, assetDynamoItem.batchId, exists)
         def notExistsOutput(assetDynamoItem: AssetDynamoItem) = output(assetDynamoItem, false)
         def existsOutput(assetDynamoItem: AssetDynamoItem) = output(assetDynamoItem, true)
         for {
           (existingAssets, missingAssets) <- dependencies.entityClient.entitiesPerIdentifier(identifiers).map { entityMap =>
-            assets.partition(asset => entityMap.get(PreservicaIdentifier(sourceId, asset.id.toString)).flatMap(_.headOption).flatMap(_.entityType).contains(InformationObject))
+            assets.partition(asset => entityMap.get(AssetIdentifier(sourceId, asset.id.toString)).flatMap(_.headOption).flatMap(_.entityType).contains(InformationObject))
           }
           _ <- existingAssets.parTraverse(updateSkipIngest)
         } yield StateOutput(existingAssets.map(existsOutput) ++ missingAssets.map(notExistsOutput))

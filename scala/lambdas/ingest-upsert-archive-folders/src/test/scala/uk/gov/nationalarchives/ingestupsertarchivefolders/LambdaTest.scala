@@ -117,7 +117,7 @@ class LambdaTest extends ExternalServicesTestUtils with EitherValues {
     val entityWithIdentifiersTwo = generateEntity("1", folderOne.name)
     val (_, _, err) = runLambda(List(folderOne, folderTwo), List(entityWithIdentifiersOne, entityWithIdentifiersTwo))
 
-    err.getMessage should be("There is more than 1 entity with the same SourceIDs mock name_1")
+    err.getMessage should be("There is more than 1 entity with these SourceIDs: mock name_1")
 
   }
 

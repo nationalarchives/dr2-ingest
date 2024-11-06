@@ -130,12 +130,9 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
           ref.get.map { existing =>
             existing
               .flatMap(_.identifiers)
-              .map { value =>
-                value -> existing.filter(_.identifiers.contains(value)).map(_.entity)
+              .collect {
+                case value if identifiers.contains(value) => value -> existing.filter(_.identifiers.contains(value)).map(_.entity)
               }
-              .toMap
-              .view
-              .filterKeys(identifiers.contains)
               .toMap
           }
 
