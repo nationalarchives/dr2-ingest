@@ -39,6 +39,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         tdrMetadataJsonStream: Stream[IO, Json],
         fileLocation: URI,
         metadataId: UUID,
+        potentialMessageId: Option[String],
         contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
     ): Stream[IO, MetadataObject] = {
       tdrMetadataJsonStream
@@ -59,6 +60,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             "TDR",
             "Born Digital",
             None,
+            potentialMessageId,
             List(
               IdField("Code", s"${tdrMetadata.Series}/${tdrMetadata.FileReference}"),
               IdField("UpstreamSystemReference", tdrMetadata.FileReference),
@@ -138,11 +140,12 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     def processTdrMetadata(
         tdrMetadataJsonStream: Stream[IO, Json],
         fileLocation: URI,
+        potentialMessageId: Option[String],
         contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
     ): Stream[IO, MetadataObject] = {
       val metadataId = dependencies.uuidGenerator()
       tdrMetadataJsonStream.broadcastThrough(
-        jsonStream => processNonMetadataObjects(jsonStream, fileLocation, metadataId, contentFolderCell),
+        jsonStream => processNonMetadataObjects(jsonStream, fileLocation, metadataId, potentialMessageId, contentFolderCell),
         jsonStream => processMetadataFiles(jsonStream, fileLocation, metadataId)
       )
     }
@@ -150,6 +153,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     def downloadMetadataFile(lockTableMessage: LockTableMessage, contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]): IO[Stream[IO, MetadataObject]] = {
       val fileLocation = lockTableMessage.location
       val metadataUri = getMetadataUri(fileLocation)
+      val potentialMessageId = lockTableMessage.messageId
       dependencies.s3Client
         .download(metadataUri.getHost, metadataUri.getPath.drop(1))
         .map { pub =>
@@ -157,7 +161,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             .toStreamBuffered[IO](bufferSize)
             .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
             .through(byteStreamParser[IO])
-            .through(metadataJsonStream => processTdrMetadata(metadataJsonStream, fileLocation, contentFolderCell))
+            .through(metadataJsonStream => processTdrMetadata(metadataJsonStream, fileLocation, potentialMessageId, contentFolderCell))
         }
     }
 
@@ -213,7 +217,7 @@ object Lambda:
       FileReference: String
   )
 
-  case class LockTableMessage(id: UUID, location: URI)
+  type LockTableMessage = NotificationMessage
 
   case class Config(lockTableName: String, lockTableGsiName: String, rawCacheBucket: String, concurrency: Int) derives ConfigReader
 

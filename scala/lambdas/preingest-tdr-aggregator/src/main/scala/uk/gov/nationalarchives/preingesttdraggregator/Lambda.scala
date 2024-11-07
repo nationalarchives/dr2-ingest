@@ -11,7 +11,6 @@ import pureconfig.ConfigReader.Result
 import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
-import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.*
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
