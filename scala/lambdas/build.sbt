@@ -120,19 +120,6 @@ lazy val ingestWorkflowMonitor = (project in file("ingest-workflow-monitor"))
     libraryDependencies += preservicaClient
   )
 
-lazy val preservicaConfig = (project in file("preservica-config"))
-  .settings(commonSettings)
-  .dependsOn(utils)
-  .settings(
-    libraryDependencies ++= Seq(
-      preservicaClient,
-      s3Client,
-      scalaXml,
-      scalaParserCombinators,
-      jaxb
-    )
-  )
-
 lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"))
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
