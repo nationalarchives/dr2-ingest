@@ -24,7 +24,6 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestWorkflowMonitor,
     preingestTdrAggregator,
     preIngestTdrPackageBuilder,
-    preservicaConfig,
     rotatePreservationSystemPassword,
     startWorkflow
   )
