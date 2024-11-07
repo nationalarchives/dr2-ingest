@@ -22,7 +22,7 @@ import xml.etree.ElementTree
 import re
 import sys
 
-SOURCE_SCHEMA = "http://dr2.nationalarchives.gov.uk/source"
+SOURCE_NAMESPACE = "http://dr2.nationalarchives.gov.uk/source"
 
 if len(sys.argv) < 4:
     print("Usage: python3 remove-digital-asset-subtype.py '<username>' '<password>' '<consignment_reference>'")
@@ -33,14 +33,15 @@ username = sys.argv[1]
 password = sys.argv[2]
 consignment_reference = sys.argv[3]
 
-entity_client = pyPreservica.EntityAPI(username, password, None, "tna.preservica.com")
+# Change the server url to be the correct one corresponding to your environment
+entity_client = pyPreservica.EntityAPI(username, password, None, "demo.example.com")
 assets = entity_client.identifier("ConsignmentReference", consignment_reference)
 for asset in assets:
     print(f"processing {asset.reference}")
     asset_entity = entity_client.asset(asset.reference)
-    met = entity_client.metadata_for_entity(asset, SOURCE_SCHEMA)
+    met = entity_client.metadata_for_entity(asset, SOURCE_NAMESPACE)
     xml_fragment = xml.etree.ElementTree.fromstring(met)
-    namespace = {'ns0': SOURCE_SCHEMA}
+    namespace = {'ns0': SOURCE_NAMESPACE}
     old_subtype = xml_fragment.find('ns0:DigitalAssetSubtype', namespaces=namespace)
     if old_subtype is not None and old_subtype.text == "TDR":
         old_subtype.text = None
@@ -52,7 +53,7 @@ for asset in assets:
 
         #however, the top element 'Source' need to be prefixed with the namespace otherwise we get parsing error
         modified_xml_string = modified_xml_string.replace("<Source", "<ns0:Source").replace("</Source", "</ns0:Source")
-        entity_client.update_metadata(asset_entity, SOURCE_SCHEMA, modified_xml_string)
+        entity_client.update_metadata(asset_entity, SOURCE_NAMESPACE, modified_xml_string)
         print(f"{asset.reference} Done")
     else:
         print(f"Old subtype for '{asset.reference}' is not 'TDR', it is '{old_subtype}'")
