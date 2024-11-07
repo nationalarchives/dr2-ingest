@@ -18,6 +18,7 @@ import ujson.{Arr, Obj, Str, write}
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.testUtils.ExternalServicesTestUtils.{entryType, testValidMetadataJson}
+import uk.gov.nationalarchives.utils.ExternalUtils.StepFunctionInput
 
 import java.net.URI
 import java.nio.ByteBuffer
@@ -32,7 +33,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   val metadataPackage: URI = URI.create("s3://outputBucket/TEST-REFERENCE/metadata.json")
 
   val retrySfnArn = "sfnArn"
-  val input: Input = new Input(batchId, groupId, metadataPackage, retryCount, retrySfnArn)
+  val input: StepFunctionInput = StepFunctionInput(batchId, groupId, metadataPackage, retryCount, retrySfnArn)
   private val s3Client = getS3Client(metadataJsonAsObj = testValidMetadataJson())
   private val stringArgToCauseTestToFail = "This string will deliberately cause the test in the mock 'upload' method to fail if " +
     "'upload' method (called in the lambda) was invoked unintentionally OR if the method is expected to be invoked but a dev " +
@@ -94,7 +95,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     override def log(logCtx: Map[String, String]): String => IO[Unit] = msg => ref.update(loggedMsgs => msg :: loggedMsgs)
 
   object LambdaWithLogSpy:
-    def apply(input: Input, config: Config, dependencies: Dependencies): (List[String], UnitOrError) = (for {
+    def apply(input: StepFunctionInput, config: Config, dependencies: Dependencies): (List[String], UnitOrError) = (for {
       ref <- Ref.of[IO, List[String]](Nil)
       unitOrErr: UnitOrError <- new LambdaWithLogSpy(ref).handler(input, config, dependencies).recover(err => err)
       loggedMsgs <- ref.get

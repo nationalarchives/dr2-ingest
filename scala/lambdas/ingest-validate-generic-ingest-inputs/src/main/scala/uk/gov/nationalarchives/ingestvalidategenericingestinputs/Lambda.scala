@@ -26,7 +26,7 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 import java.net.URI
 import java.nio.ByteBuffer
 
-class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
+class Lambda extends LambdaRunner[StepFunctionInput, Unit, Config, Dependencies] {
   lazy private val bufferSize = 1024 * 5
 
   given Encoder[Value] = value => Json.fromString(value.toString)
@@ -66,7 +66,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     IO(Dependencies(DAS3Client[IO]()))
 
   override def handler: (
-      Input,
+      StepFunctionInput,
       Config,
       Dependencies
   ) => IO[Unit] = (input, config, dependencies) =>
@@ -254,8 +254,6 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 object Lambda {
   sealed trait ValidationResult:
     val result: String | List[ValidationError | MissingPropertyError | ValueError]
-
-  type Input = StepFunctionInput
 
   case class Config() derives ConfigReader
 
