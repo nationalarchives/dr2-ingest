@@ -1,206 +1,115 @@
 package uk.gov.nationalarchives.rotatepreservationsystempassword
 
-import cats.effect.IO
-import org.scalatest.flatspec.AnyFlatSpec
-import cats.effect.unsafe.implicits.global
-import io.circe.{Decoder, Encoder}
-import org.mockito.{ArgumentCaptor, ArgumentMatcher, ArgumentMatchers}
-import org.mockito.ArgumentMatchers.{any, argThat}
-import org.mockito.Mockito.{times, verify, when}
+import cats.syntax.all.*
 import org.scalatest.EitherValues
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
-import org.scalatestplus.mockito.MockitoSugar
-import software.amazon.awssdk.services.secretsmanager.model.{DescribeSecretResponse, PutSecretValueResponse, UpdateSecretVersionStageResponse}
-import uk.gov.nationalarchives.DASecretsManagerClient
-import uk.gov.nationalarchives.DASecretsManagerClient.Stage
-import uk.gov.nationalarchives.DASecretsManagerClient.Stage.*
-import uk.gov.nationalarchives.dp.client.UserClient
-import uk.gov.nationalarchives.dp.client.UserClient.ResetPasswordRequest
 import uk.gov.nationalarchives.rotatepreservationsystempassword.Lambda.*
 import uk.gov.nationalarchives.rotatepreservationsystempassword.Lambda.RotationStep.*
+import uk.gov.nationalarchives.rotatepreservationsystempassword.TestUtils.*
+import uk.gov.nationalarchives.DASecretsManagerClient.Stage.*
 
-import scala.jdk.CollectionConverters.*
-
-class LambdaTest extends AnyFlatSpec with MockitoSugar with EitherValues {
-
-  def mockSecretsManagerClient(idToStages: Map[String, List[String]] = Map("token" -> List("AWSPENDING")), rotationEnabled: Boolean = true): DASecretsManagerClient[IO] = {
-    val validDescribeResponse = DescribeSecretResponse.builder
-      .rotationEnabled(rotationEnabled)
-      .versionIdsToStages(idToStages.view.mapValues(_.asJava).toMap.asJava)
-      .build
-    val secretsManagerClient = mock[DASecretsManagerClient[IO]]
-    when(secretsManagerClient.describeSecret()).thenReturn(IO(validDescribeResponse))
-    secretsManagerClient
-  }
+class LambdaTest extends AnyFlatSpec with EitherValues {
 
   "handler" should "fail if rotation is not enabled" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost")
-    val userClient = mock[UserClient[IO]]
-    val secretsManagerClient = mockSecretsManagerClient(rotationEnabled = false)
-    when(secretsManagerClient.describeSecret()).thenReturn(IO(DescribeSecretResponse.builder.rotationEnabled(false).build))
-    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
+    val (_, _, res) = runLambda(rotationEvent, Secret(Map.empty, false), Credentials("", ""))
 
-    val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
-
-    ex.getMessage should equal("Secret id is not enabled for rotation.")
+    res.left.value.getMessage should equal("Secret id is not enabled for rotation.")
   }
 
   "handler" should "fail if there are no stages for the secret version" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost")
-    val userClient = mock[UserClient[IO]]
-    val secretsManagerClient = mockSecretsManagerClient(Map("anotherToken" -> List("AWSCURRENT")))
-    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
+    val secret = Secret(Map("anotherToken" -> List(SecretStage(Map.empty, Current))))
 
-    val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
+    val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", ""))
 
-    ex.getMessage should equal("Secret version token has no stage set for rotation of secret id.")
+    res.left.value.getMessage should equal("Secret version token has no stage set for rotation of secret id.")
   }
 
   "handler" should "fail if the version is already current" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost")
-    val userClient = mock[UserClient[IO]]
-    val secretsManagerClient = mockSecretsManagerClient(Map("token" -> List("AWSCURRENT")))
+    val secret = Secret(Map("token" -> List(SecretStage(Map.empty, Current))))
 
-    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
+    val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", ""))
 
-    val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
-
-    ex.getMessage should equal("Secret id is already at AWSCURRENT.")
+    res.left.value.getMessage should equal("Secret id is already at AWSCURRENT.")
   }
 
   "handler" should "fail if the version does not have a pending stage" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost")
-    val userClient = mock[UserClient[IO]]
-    val secretsManagerClient = mockSecretsManagerClient(Map("token" -> Nil))
+    val secret = Secret(Map("token" -> Nil))
 
-    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
+    val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", ""))
 
-    val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
-
-    ex.getMessage should equal("Secret version token not set as AWSPENDING for rotation of secret id.")
+    res.left.value.getMessage should equal("Secret version token not set as AWSPENDING for rotation of secret id.")
   }
 
-  "handler createSecret" should "return an error if the current secret doesn't exist" in {
+  "handler createSecret" should "return an error if there is an error getting the secret" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost")
-    val userClient = mock[UserClient[IO]]
-    val secretsManagerClient = mockSecretsManagerClient()
+    val secret = Secret(Map("token" -> List(SecretStage(Map.empty, Pending))))
 
-    when(secretsManagerClient.getSecretValue[String](any[Stage])(using any[Decoder[String]]))
-      .thenReturn(IO.raiseError(new Exception("Cannot find secret id")))
-    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
+    val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", ""), Errors(getSecret = true).some)
 
-    val ex = new Lambda().handler(rotationEvent, config, dependencies).attempt.unsafeRunSync().left.value
-
-    ex.getMessage should equal("Cannot find secret id")
+    res.left.value.getMessage should equal("Error getting secret")
   }
 
   "handler createSecret" should "not call putSecretValue if a Pending value already exists" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost")
-    val userClient = mock[UserClient[IO]]
-    val secretsManagerClient = mockSecretsManagerClient()
+    val secret = Secret(Map("token" -> List(SecretStage(Map.empty, Pending))))
 
-    when(secretsManagerClient.getSecretValue[Map[String, String]](any[Stage])(using any[Decoder[Map[String, String]]]))
-      .thenReturn(IO(Map("user" -> "secret")))
-    when(secretsManagerClient.getSecretValue[Map[String, String]](any[String], any[Stage])(using any[Decoder[Map[String, String]]]))
-      .thenReturn(IO(Map("user" -> "pendingSecret")))
-    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
+    val (secretResult, _, _) = runLambda(rotationEvent, secret, Credentials("", ""))
 
-    new Lambda().handler(rotationEvent, config, dependencies).unsafeRunSync()
-
-    verify(secretsManagerClient, times(0)).putSecretValue(any[String], any[Stage], any[Option[String]])(using any[Encoder[String]])
+    secretResult.versionToStage.size should equal(1)
   }
 
   "handler createSecret" should "putSecretValue if a Pending value does not already exist" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val config = Config("http://localhost")
-    val userClient = mock[UserClient[IO]]
-    val secretsManagerClient = mockSecretsManagerClient()
+    val versionToStage = Map(
+      "token" -> List(SecretStage(Map.empty, Pending)),
+      "anotherToken" -> List(SecretStage(Map("user" -> "currentSecret"), Current))
+    )
+    val secret = Secret(versionToStage)
 
-    when(secretsManagerClient.getSecretValue[Map[String, String]](any[Stage])(using any[Decoder[Map[String, String]]]))
-      .thenReturn(IO(Map("user" -> "secret")))
-    when(secretsManagerClient.getSecretValue[Map[String, String]](any[String], any[Stage])(using any[Decoder[Map[String, String]]]))
-      .thenReturn(IO.raiseError(new Exception("Pending secret does not exist")))
-    when(secretsManagerClient.generateRandomPassword(any[Int], any[String])).thenReturn(IO("newPassword"))
-    when(secretsManagerClient.putSecretValue(any[String], any[Stage], any[Option[String]])(using any[Encoder[String]]))
-      .thenReturn(IO(PutSecretValueResponse.builder.build))
-    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
+    val (secretResult, _, _) = runLambda(rotationEvent, secret, Credentials("", ""))
 
-    new Lambda().handler(rotationEvent, config, dependencies).unsafeRunSync()
-
-    verify(secretsManagerClient, times(1)).putSecretValue[Map[String, String]](
-      ArgumentMatchers.eq(Map("user" -> "newPassword")),
-      argThat[Stage] {
-        case Pending => true
-        case _       => true
-      },
-      ArgumentMatchers.eq(Option("token"))
-    )(using any[Encoder[Map[String, String]]])
+    val newPassword = secretResult.versionToStage("token").head.value("user")
+    newPassword.length should equal(15)
   }
 
   "handler setSecret" should "call reset password with the correct credentials" in {
     val rotationEvent = RotationEvent(SetSecret, "id", "token")
-    val config = Config("http://localhost")
-    val userClient = mock[UserClient[IO]]
-    val secretsManagerClient = mockSecretsManagerClient()
+    val versionToStage = Map(
+      "token" -> List(SecretStage(Map("user" -> "pendingSecret"), Pending)),
+      "anotherToken" -> List(SecretStage(Map("user" -> "currentSecret"), Current))
+    )
+    val secret = Secret(versionToStage)
 
-    val resetPasswordCaptor: ArgumentCaptor[ResetPasswordRequest] = ArgumentCaptor.forClass(classOf[ResetPasswordRequest])
-    when(secretsManagerClient.getSecretValue[Map[String, String]](argThat[Stage] {
-      case Pending => false
-      case _       => true
-    })(using any[Decoder[Map[String, String]]]))
-      .thenReturn(IO(Map("apiUser" -> "secret")))
-    when(secretsManagerClient.getSecretValue[Map[String, String]](argThat[Stage] {
-      case Pending => true
-      case _       => false
-    })(using any[Decoder[Map[String, String]]]))
-      .thenReturn(IO(Map("apiUser" -> "newSecret")))
+    val (_, credentials, res) = runLambda(rotationEvent, secret, Credentials("", ""))
 
-    when(userClient.resetPassword(resetPasswordCaptor.capture())).thenReturn(IO.unit)
-    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
-
-    new Lambda().handler(rotationEvent, config, dependencies).unsafeRunSync()
-
-    resetPasswordCaptor.getValue.password should equal("secret")
-    resetPasswordCaptor.getValue.newPassword should equal("newSecret")
+    credentials.oldPassword should equal("currentSecret")
+    credentials.newPassword should equal("pendingSecret")
   }
 
-  "handler testSecret" should "call the testSecret method in UserClient" in {
+  "handler testSecret" should "return an error if test secret fails" in {
     val rotationEvent = RotationEvent(TestSecret, "id", "token")
-    val config = Config("http://localhost")
-    val userClient = mock[UserClient[IO]]
-    val secretsManagerClient = mockSecretsManagerClient()
 
-    when(userClient.testNewPassword()).thenReturn(IO.unit)
-    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
+    val secret = Secret(Map("token" -> List(SecretStage(Map.empty, Pending))))
+    val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", "", testSuccess = false))
 
-    new Lambda().handler(rotationEvent, config, dependencies).unsafeRunSync()
-
-    verify(userClient, times(1)).testNewPassword()
+    res.left.value.getMessage should equal("Password test failed")
   }
 
   "handler finishSecret" should "return an error if the pending secret has no version" in {
-    val rotationEvent = RotationEvent(FinishSecret, "id", "newVersion")
-    val config = Config("http://localhost")
-    val userClient = mock[UserClient[IO]]
+    val rotationEvent = RotationEvent(FinishSecret, "id", "token")
+    val pendingStages = List(SecretStage(Map("user" -> "pendingSecret"), Pending))
+    val currentStages = List(SecretStage(Map("user" -> "currentSecret"), Current))
+    val versionToStage = Map("token" -> pendingStages, "anotherToken" -> currentStages)
+    val secret = Secret(versionToStage)
 
-    val moveToCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-    val moveFromCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
+    val (secretResult, _, res) = runLambda(rotationEvent, secret, Credentials("", ""))
+    val expectedResult = Secret(Map("token" -> (currentStages ++ pendingStages), "anotherToken" -> Nil))
 
-    val secretsManagerClient = mockSecretsManagerClient(Map("currentVersion" -> List("AWSCURRENT"), "newVersion" -> List("AWSPENDING")))
-
-    when(secretsManagerClient.updateSecretVersionStage(moveToCaptor.capture, moveFromCaptor.capture, any[Stage])).thenReturn(IO(UpdateSecretVersionStageResponse.builder.build))
-
-    val dependencies = Dependencies(secretId => IO.pure(userClient), secretId => secretsManagerClient)
-
-    new Lambda().handler(rotationEvent, config, dependencies).unsafeRunSync()
-
-    moveToCaptor.getValue should equal("newVersion")
-    moveFromCaptor.getValue should equal("currentVersion")
+    secretResult should equal(expectedResult)
   }
 }
