@@ -95,9 +95,10 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
         .to(string)
         .unsafeRunSync()
 
+      val potentialLockTableMessageId = Some("messageId")
       val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(testData.fileSize))
-      val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
-      val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), testData.groupId, lockTableMessage))
+      val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key"), potentialLockTableMessageId).asJson.noSpaces
+      val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), testData.groupId, lockTableMessageAsString))
       val input = Input(testData.groupId, testData.batchId, 1, 2)
       val (s3Contents, output) = runHandler(uuidIterator, initialS3Objects, initialDynamoObjects, input)
 
@@ -127,6 +128,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       assetMetadataObject.upstreamSystem should equal("TDR")
       assetMetadataObject.digitalAssetSource should equal("Born Digital")
       assetMetadataObject.digitalAssetSubtype should equal(None)
+      assetMetadataObject.correlationId should equal(potentialLockTableMessageId)
       def checkIdField(name: String, value: String) =
         assetMetadataObject.idFields.find(_.name == name).map(_.value).get should equal(value)
       checkIdField("Code", s"${testData.series}/${testData.fileRef}")
@@ -195,8 +197,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     })
 
     val initialDynamoObjects = (1 to 10).toList.flatMap { idx =>
-      val lockTableMessageOne = LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/keyOne$idx")).asJson.noSpaces
-      val lockTableMessageTwo = LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/keyTwo$idx")).asJson.noSpaces
+      val lockTableMessageOne = NotificationMessage(UUID.randomUUID(), URI.create(s"s3://bucket/keyOne$idx")).asJson.noSpaces
+      val lockTableMessageTwo = NotificationMessage(UUID.randomUUID(), URI.create(s"s3://bucket/keyTwo$idx")).asJson.noSpaces
       List(IngestLockTableItem(UUID.randomUUID(), groupId, lockTableMessageOne), IngestLockTableItem(UUID.randomUUID(), groupId, lockTableMessageTwo))
     }
     val input = Input(groupId, batchId, 1, 2)
@@ -221,8 +223,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   }
 
   "lambda handler" should "return an error if the s3 download fails" in {
-    val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
-    val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessage))
+    val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
+    val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString))
 
     val ex = intercept[Throwable] {
       runHandler(initialDynamoObjects = initialDynamoObjects, downloadError = true)
@@ -231,8 +233,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   }
 
   "lambda handler" should "return an error if the s3 upload fails" in {
-    val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
-    val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessage))
+    val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
+    val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString))
 
     val tdrMetadata = TDRMetadata("", UUID.randomUUID, None, "", "2024-10-04 10:00:00", "", "test.txt", "", "")
     val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(1))
@@ -243,7 +245,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   }
 
   "lambda handler" should "return an error if the dynamo query fails" in {
-    val lockTableMessage = LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
+    val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
 
     val ex = intercept[Throwable] {
       runHandler(queryError = true)
