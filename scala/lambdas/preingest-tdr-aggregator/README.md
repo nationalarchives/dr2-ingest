@@ -35,7 +35,8 @@ The lambda takes an SQS event as the input. The body of the event is:
 ```json
 {
   "id": "709e506e-e9d2-416f-9c72-c11ddeead51e",
-  "location": "s3://bucket/key"
+  "location": "s3://bucket/key",
+  "messageId": "optionalMessageId"
 }
 ```
 

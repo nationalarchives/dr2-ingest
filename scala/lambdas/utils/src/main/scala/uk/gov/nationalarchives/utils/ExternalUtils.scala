@@ -98,6 +98,7 @@ object ExternalUtils {
           upstreamSystem,
           digitalAssetSource,
           digitalAssetSubtype,
+          correlationId,
           assetMetadataIdFields
         ) =>
       val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) => fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
@@ -116,7 +117,8 @@ object ExternalUtils {
               ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
               ("upstreamSystem", Json.fromString(upstreamSystem)),
               ("digitalAssetSource", Json.fromString(digitalAssetSource)),
-              ("digitalAssetSubtype", digitalAssetSubtype.map(Json.fromString).getOrElse(Null))
+              ("digitalAssetSubtype", digitalAssetSubtype.map(Json.fromString).getOrElse(Null)),
+              ("correlationId", correlationId.map(Json.fromString).getOrElse(Null))
             )
             .deepDropNullValues
         }
@@ -167,6 +169,7 @@ object ExternalUtils {
       upstreamSystem: String,
       digitalAssetSource: String,
       digitalAssetSubtype: Option[String],
+      correlationId: Option[String],
       idFields: List[IdField] = Nil
   ) extends MetadataObject
 
@@ -196,9 +199,13 @@ object ExternalUtils {
     case IngestStarted extends MessageStatus("Asset has started the ingest process.")
     case IngestError extends MessageStatus("There has been an error ingesting the asset.")
 
+  case class NotificationMessage(id: UUID, location: URI, messageId: Option[String]=None)
+
   case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, messageType: MessageType)
 
   case class OutputParameters(assetId: UUID, status: MessageStatus)
 
   case class OutputMessage(properties: OutputProperties, parameters: OutputParameters)
+
+  case class StepFunctionInput(batchId: String, groupId: String, metadataPackage: URI, retryCount: Int, retrySfnArn: String)
 }

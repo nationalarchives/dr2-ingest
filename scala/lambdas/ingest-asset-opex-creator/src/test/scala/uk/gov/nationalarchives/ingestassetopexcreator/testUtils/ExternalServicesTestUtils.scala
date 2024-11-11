@@ -1,386 +1,204 @@
 package uk.gov.nationalarchives.ingestassetopexcreator.testUtils
 
-import cats.effect.IO
-import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock._
-import org.apache.commons.io.output.ByteArrayOutputStream
-import org.scalatest.prop.TableDrivenPropertyChecks
-import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
-import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import software.amazon.awssdk.services.s3.S3AsyncClient
-import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.{Dependencies, Input}
-import uk.gov.nationalarchives.ingestassetopexcreator.XMLCreator
+import fs2.interop.reactivestreams.*
+import cats.effect.{IO, Ref}
+import cats.effect.unsafe.implicits.global
+import org.reactivestreams.Publisher
+import org.scanamo.DynamoFormat
+import org.scanamo.request.RequestCondition
+import software.amazon.awssdk.core.async.SdkPublisher
+import software.amazon.awssdk.services.dynamodb.model.{BatchWriteItemResponse, ResourceNotFoundException}
+import software.amazon.awssdk.services.s3.model.{CopyObjectResponse, DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
+import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.PreservationRepresentationType
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{AssetDynamoItem, Checksum, FileDynamoItem, FilesTablePrimaryKey, Identifier}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.{Config, Dependencies, Input, InputAsset}
+import uk.gov.nationalarchives.ingestassetopexcreator.{Lambda, XMLCreator}
 
 import java.net.URI
+import java.nio.ByteBuffer
 import java.time.OffsetDateTime
+import scala.jdk.CollectionConverters.*
 import java.util.UUID
 import scala.xml.Elem
 
-class ExternalServicesTestUtils(dynamoServer: WireMockServer, s3Server: WireMockServer) extends TableDrivenPropertyChecks {
+object ExternalServicesTestUtils:
 
-  def stubPutRequest(): (String, String) = {
-    val bucket = "test-destination-bucket"
-
-    val xipPath = s"/opex/$executionName/$assetParentPath/$assetId.pax/$assetId.xip"
-    val opexPath = s"/opex/$executionName/$assetParentPath/$assetId.pax.opex"
-    List(xipPath, opexPath).foreach { itemPath =>
-      val postResponse = <InitiateMultipartUploadResult>
-        <Bucket>{bucket}</Bucket>
-        <Key>{itemPath}</Key>
-        <UploadId>id</UploadId>
-      </InitiateMultipartUploadResult>.toString
-      s3Server.stubFor(
-        post(urlEqualTo(s"$itemPath?uploads"))
-          .withHost(equalTo(s"$bucket.localhost"))
-          .willReturn(okXml(postResponse))
-      )
-      s3Server.stubFor(
-        post(urlPathEqualTo(itemPath))
-          .withQueryParam("uploadId", equalTo("id"))
-          .withHost(equalTo(s"$bucket.localhost"))
-          .willReturn(okXml(postResponse))
-      )
-      s3Server.stubFor(
-        delete(urlPathEqualTo(itemPath))
-          .withQueryParam("uploadId", equalTo("id"))
-          .withHost(equalTo(s"$bucket.localhost"))
-          .willReturn(ok())
-      )
-      s3Server.stubFor(
-        put(urlPathEqualTo(itemPath))
-          .withQueryParam("uploadId", equalTo("id"))
-          .withHost(equalTo(s"$bucket.localhost"))
-          .willReturn(ok().withHeader("ETag", "ETag"))
-      )
-      s3Server.stubFor(
-        head(urlEqualTo(s"/$itemPath"))
-          .willReturn(ok())
-      )
-    }
-    (xipPath, opexPath)
-  }
-
-  def stubJsonCopyRequest(): (String, String) = stubCopyRequest(childIdJson, "json")
-
-  def stubDocxCopyRequest(): (String, String) = stubCopyRequest(childIdDocx, "docx")
-
-  def stubCopyRequest(childId: UUID, suffix: String): (String, String) = {
-    val sourceName = s"/$batchId/$childId"
-    val destinationName = s"/opex/$executionName/$assetParentPath/$assetId.pax/Representation_Preservation/$childId/Generation_1/$childId.$suffix"
-    val response =
-      <CopyObjectResult>
-        <LastModified>2023-08-29T17:50:30.000Z</LastModified>
-        <ETag>"9b2cf535f27731c974343645a3985328"</ETag>
-      </CopyObjectResult>
-    s3Server.stubFor(
-      head(urlEqualTo(destinationName))
-        .willReturn(ok().withHeader("Content-Length", "1"))
-    )
-    s3Server.stubFor(
-      head(urlEqualTo(sourceName))
-        .willReturn(ok().withHeader("Content-Length", "1"))
-    )
-    s3Server.stubFor(
-      put(urlEqualTo(destinationName))
-        .withHost(equalTo("test-destination-bucket.localhost"))
-        .withHeader("x-amz-copy-source", equalTo(s"test-source-bucket$sourceName"))
-        .willReturn(okXml(response.toString()))
-    )
-    (sourceName, destinationName)
-  }
-
-  def stubGetRequest(batchGetResponse: String): Unit =
-    dynamoServer.stubFor(
-      post(urlEqualTo("/"))
-        .withRequestBody(matchingJsonPath("$.RequestItems", containing("test-table")))
-        .willReturn(ok().withBody(batchGetResponse))
-    )
-
-  def stubPostRequest(postResponse: String): Unit =
-    dynamoServer.stubFor(
-      post(urlEqualTo("/"))
-        .withRequestBody(matchingJsonPath("$.TableName", equalTo("test-table")))
-        .willReturn(ok().withBody(postResponse))
-    )
-
-  val expectedOpex: Elem =
-    <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
-      <opex:Transfer>
-        <opex:SourceID>68b1c80b-36b8-4f0f-94d6-92589002d87e</opex:SourceID>
-        <opex:Manifest>
-          <opex:Files>
-            <opex:File type="metadata" size="3052">68b1c80b-36b8-4f0f-94d6-92589002d87e.xip</opex:File>
-            <opex:File type="content" size="1">Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e/Generation_1/a25d33f3-7726-4fb3-8e6f-f66358451c4e.docx</opex:File>
-            <opex:File type="content" size="2">Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793/Generation_1/feedd76d-e368-45c8-96e3-c37671476793.json</opex:File>
-          </opex:Files>
-          <opex:Folders>
-            <opex:Folder>Representation_Preservation</opex:Folder>
-            <opex:Folder>Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e</opex:Folder>
-            <opex:Folder>Representation_Preservation/a25d33f3-7726-4fb3-8e6f-f66358451c4e/Generation_1</opex:Folder>
-            <opex:Folder>Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793</opex:Folder>
-            <opex:Folder>Representation_Preservation/feedd76d-e368-45c8-96e3-c37671476793/Generation_1</opex:Folder>
-          </opex:Folders>
-        </opex:Manifest>
-      </opex:Transfer>
-      <opex:Properties>
-        <opex:Title>68b1c80b-36b8-4f0f-94d6-92589002d87e</opex:Title>
-        <opex:Description/>
-        <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
-        <opex:Identifiers>
-          <opex:Identifier type="UpstreamSystemReference">UpstreamSystemReference</opex:Identifier>
-          <opex:Identifier type="Code">Code</opex:Identifier>
-        </opex:Identifiers>
-      </opex:Properties>
-      <opex:DescriptiveMetadata>
-        <Source xmlns="http://dr2.nationalarchives.gov.uk/source">
-          <DigitalAssetSource>Test Digital Asset Source</DigitalAssetSource>
-          <DigitalAssetSubtype>Test Digital Asset Subtype</DigitalAssetSubtype>
-          <IngestDateTime>2023-09-01T00:00Z</IngestDateTime>
-          <OriginalFiles>
-            <File>b6102810-53e3-43a2-9f69-fafe71d4aa40</File>
-          </OriginalFiles>
-          <OriginalMetadataFiles>
-            <File>c019df6a-fccd-4f81-86d8-085489fc71db</File>
-          </OriginalMetadataFiles>
-          <TransferDateTime>2023-08-01T00:00Z</TransferDateTime>
-          <TransferringBody>Test Transferring Body</TransferringBody>
-          <UpstreamSystem>Test Upstream System</UpstreamSystem>
-          <UpstreamSystemRef>UpstreamSystemReference</UpstreamSystemRef>
-        </Source>
-      </opex:DescriptiveMetadata>
-    </opex:OPEXMetadata>
-
-  val assetId: UUID = UUID.fromString("68b1c80b-36b8-4f0f-94d6-92589002d87e")
-  val assetParentPath: String = "a/parent/path"
-  val childIdJson: UUID = UUID.fromString("feedd76d-e368-45c8-96e3-c37671476793")
-  val childIdDocx: UUID = UUID.fromString("a25d33f3-7726-4fb3-8e6f-f66358451c4e")
   val batchId: String = "TEST-ID"
-  val executionName = "test-execution"
 
-  val input: Input = Input(assetId, batchId, executionName)
+  val ingestDateTime: OffsetDateTime = OffsetDateTime.now
 
-  def outputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
+  case class AssetWithChildren(asset: AssetDynamoItem, children: List[FileDynamoItem])
+  case class S3Object(bucket: String, key: String, content: String)
 
-  val emptyDynamoGetResponse: String = """{"Responses": {"test-table": []}}"""
-  val emptyDynamoPostResponse: String = """{"Count": 0, "Items": []}"""
-  val dynamoPostResponse: String =
-    s"""{
-       |  "Count": 2,
-       |  "Items": [
-       |    {
-       |      "checksum_sha256": {
-       |        "S": "checksumdocx"
-       |      },
-       |      "fileExtension": {
-       |        "S": "docx"
-       |      },
-       |      "fileSize": {
-       |        "N": "1"
-       |      },
-       |      "sortOrder": {
-       |        "N": "1"
-       |      },
-       |      "childCount": {
-       |        "N": "0"
-       |      },
-       |      "id": {
-       |        "S": "$childIdDocx"
-       |      },
-       |      "parentPath": {
-       |        "S": "parent/path"
-       |      },
-       |      "name": {
-       |        "S": "$batchId.docx"
-       |      },
-       |      "type": {
-       |        "S": "File"
-       |      },
-       |      "batchId": {
-       |        "S": "$batchId"
-       |      },
-       |      "location": {
-       |        "S": "s3://test-source-bucket/$batchId/$childIdDocx"
-       |      },
-       |      "transferringBody": {
-       |        "S": "Test Transferring Body"
-       |      },
-       |      "transferCompleteDatetime": {
-       |        "S": "2023-09-01T00:00Z"
-       |      },
-       |      "upstreamSystem": {
-       |        "S": "Test Upstream System"
-       |      },
-       |      "digitalAssetSource": {
-       |        "S": "Test Digital Asset Source"
-       |      },
-       |      "digitalAssetSubtype": {
-       |        "S": "Test Digital Asset Subtype"
-       |      },
-       |      "representationType": {
-       |        "S": "Preservation"
-       |      },
-       |      "representationSuffix": {
-       |        "N": "1"
-       |      },
-       |      "originalFiles": {
-       |        "L": [ { "S" : "b6102810-53e3-43a2-9f69-fafe71d4aa40" } ]
-       |      },
-       |      "originalMetadataFiles": {
-       |        "L": [ { "S" : "c019df6a-fccd-4f81-86d8-085489fc71db" } ]
-       |      },
-       |      "id_Code": {
-       |          "S": "Code"
-       |      },
-       |      "id_UpstreamSystemReference": {
-       |        "S": "UpstreamSystemReference"
-       |      }
-       |    },
-       |    {
-       |      "checksum_sha256": {
-       |        "S": "checksum"
-       |      },
-       |      "fileExtension": {
-       |        "S": "json"
-       |      },
-       |      "fileSize": {
-       |        "N": "2"
-       |      },
-       |      "sortOrder": {
-       |        "N": "2"
-       |      },
-       |      "childCount": {
-       |        "N": "0"
-       |      },
-       |      "id": {
-       |        "S": "$childIdJson"
-       |      },
-       |      "parentPath": {
-       |        "S": "parent/path"
-       |      },
-       |      "name": {
-       |        "S": "$batchId.json"
-       |      },
-       |      "type": {
-       |        "S": "File"
-       |      },
-       |      "batchId": {
-       |        "S": "$batchId"
-       |      },
-       |      "location": {
-       |        "S": "s3://test-source-bucket/$batchId/$childIdJson"
-       |      },
-       |      "transferringBody": {
-       |        "S": "Test Transferring Body"
-       |      },
-       |      "transferCompleteDatetime": {
-       |        "S": "2023-09-01T00:00Z"
-       |      },
-       |      "upstreamSystem": {
-       |        "S": "Test Upstream System"
-       |      },
-       |      "digitalAssetSource": {
-       |        "S": "Test Digital Asset Source"
-       |      },
-       |      "digitalAssetSubtype": {
-       |        "S": "Test Digital Asset Subtype"
-       |      },
-       |      "representationType": {
-       |        "S": "Preservation"
-       |      },
-       |      "representationSuffix": {
-       |        "N": "1"
-       |      },
-       |      "originalFiles": {
-       |        "L": [ { "S" : "b6102810-53e3-43a2-9f69-fafe71d4aa40" } ]
-       |      },
-       |      "originalMetadataFiles": {
-       |        "L": [ { "S" : "c019df6a-fccd-4f81-86d8-085489fc71db" } ]
-       |      },
-       |      "id_Code": {
-       |          "S": "Code"
-       |      },
-       |      "id_UpstreamSystemReference": {
-       |        "S": "UpstreamSystemReference"
-       |      }
-       |    }
-       |  ]
-       |}
-       |""".stripMargin
+  def generateInput(assetId: UUID): Input = Input(List(InputAsset(assetId, batchId, false)))
 
-  def dynamoGetResponse(childCount: Int = 2): String =
-    s"""{
-       |  "Responses": {
-       |    "test-table": [
-       |      {
-       |        "id": {
-       |          "S": "$assetId"
-       |        },
-       |        "name": {
-       |          "S": "Test Name"
-       |        },
-       |        "parentPath": {
-       |          "S": "$assetParentPath"
-       |        },
-       |        "type": {
-       |          "S": "Asset"
-       |        },
-       |        "batchId": {
-       |          "S": "$batchId"
-       |        },
-       |        "childCount": {
-       |          "N": "$childCount"
-       |        },
-       |        "transferringBody": {
-       |          "S": "Test Transferring Body"
-       |        },
-       |        "transferCompleteDatetime": {
-       |          "S": "2023-08-01T00:00Z"
-       |        },
-       |        "upstreamSystem": {
-       |          "S": "Test Upstream System"
-       |        },
-       |        "digitalAssetSource": {
-       |          "S": "Test Digital Asset Source"
-       |        },
-       |        "digitalAssetSubtype": {
-       |          "S": "Test Digital Asset Subtype"
-       |        },
-       |        "originalFiles": {
-       |          "L": [ { "S" : "b6102810-53e3-43a2-9f69-fafe71d4aa40" } ]
-       |        },
-       |        "originalMetadataFiles": {
-       |          "L": [ { "S" : "c019df6a-fccd-4f81-86d8-085489fc71db" } ]
-       |        },
-       |        "id_Code": {
-       |          "S": "Code"
-       |        },
-       |        "id_UpstreamSystemReference": {
-       |          "S": "UpstreamSystemReference"
-       |        }
-       |      }
-       |    ]
-       |  }
-       |}
-       |""".stripMargin
+  val config: Config = Config("", "", "destinationBucket")
 
-  private val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
-  private val asyncDynamoClient: DynamoDbAsyncClient = DynamoDbAsyncClient
-    .builder()
-    .endpointOverride(URI.create("http://localhost:9003"))
-    .region(Region.EU_WEST_2)
-    .credentialsProvider(creds)
-    .build()
+  def resourceNotFound(dynamoError: Boolean): IO[Unit] = IO.raiseWhen(dynamoError)(ResourceNotFoundException.builder.message("Error getting items from Dynamo").build)
+  def itemsNotFound(dynamoError: Boolean): IO[Unit] = IO.raiseWhen(dynamoError)(ResourceNotFoundException.builder.message("Error querying Dynamo").build)
+  def s3CopyError(s3Error: Boolean): IO[Unit] = IO.raiseWhen(s3Error)(new Exception("Error copying s3 objects"))
+  def s3UploadError(s3Error: Boolean): IO[Unit] = IO.raiseWhen(s3Error)(new Exception("Error uploading s3 objects"))
 
-  private val asyncS3Client: S3AsyncClient = S3AsyncClient
-    .crtBuilder()
-    .endpointOverride(URI.create("http://localhost:9004"))
-    .region(Region.EU_WEST_2)
-    .credentialsProvider(creds)
-    .targetThroughputInGbps(20.0)
-    .minimumPartSizeInBytes(10 * 1024 * 1024)
-    .build()
+  def notImplemented[T]: IO[T] = IO.raiseError(new Exception("Not implemented"))
 
-  val dependencies: Dependencies = Dependencies(DADynamoDBClient[IO](asyncDynamoClient), DAS3Client[IO](asyncS3Client), XMLCreator(OffsetDateTime.parse("2023-09-01T00:00Z")))
-}
+  def dynamoClient(assets: List[AssetWithChildren], errors: Option[Errors]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
+    override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
+
+    override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = notImplemented
+
+    override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
+
+    override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
+      itemsNotFound(errors.exists(_.dynamoQueryError)) >> IO {
+        (for {
+          dynamoValues <- requestCondition.dynamoValues
+          value <- dynamoValues.toExpressionAttributeValues
+          parentPath <- value.asScala.get(":parentPath")
+          batchId <- value.asScala.get(":batchId")
+        } yield {
+          assets
+            .filter(each => each.asset.id.toString == parentPath.s() && each.asset.batchId == batchId.s())
+            .flatMap(_.children)
+            .map(_.asInstanceOf[U])
+        }).getOrElse(Nil)
+      }
+
+    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] =
+      val key = primaryKeys.head.asInstanceOf[FilesTablePrimaryKey]
+      resourceNotFound(errors.exists(_.dynamoGetError)) >> IO {
+        assets.map(_.asset).filter(_.id == key.partitionKey.id).map(_.asInstanceOf[T])
+      }
+
+    override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = notImplemented
+
+  def s3Client(ref: Ref[IO, List[S3Object]], errors: Option[Errors]): DAS3Client[IO] = new DAS3Client[IO]:
+    override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] =
+      s3CopyError(errors.exists(_.s3CopyError)) >>
+        ref
+          .update { existing =>
+            existing
+              .find(obj => obj.bucket == sourceBucket && obj.key == sourceKey)
+              .map(obj => obj.copy(bucket = destinationBucket, key = destinationKey))
+              .toList
+          }
+          .map(_ => CompletedCopy.builder.response(CopyObjectResponse.builder.build).build)
+
+    override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = notImplemented
+
+    override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] =
+      s3UploadError(errors.exists(_.s3UploadError)) >>
+        (for {
+          content <- publisher
+            .toStreamBuffered[IO](1024)
+            .map(_.array().map(_.toChar).mkString)
+            .compile
+            .string
+          _ <- ref.update(existing => S3Object(bucket, key, content) :: existing)
+        } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build)
+
+    override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = notImplemented
+
+    override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = notImplemented
+
+    override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = notImplemented
+
+  case class Errors(dynamoGetError: Boolean = false, dynamoQueryError: Boolean = false, s3CopyError: Boolean = false, s3UploadError: Boolean = false)
+
+  def runLambda(input: Input, dynamoItems: List[AssetWithChildren], s3Objects: List[S3Object], errors: Option[Errors] = None): (Either[Throwable, Unit], List[S3Object]) = (for {
+    s3Ref <- Ref.of[IO, List[S3Object]](s3Objects)
+    dependencies = Dependencies(dynamoClient(dynamoItems, errors), s3Client(s3Ref, errors), XMLCreator(ingestDateTime))
+    result <- new Lambda().handler(input, config, dependencies).attempt
+    s3Objects <- s3Ref.get
+  } yield (result, s3Objects)).unsafeRunSync()
+
+  def generateAsset: AssetDynamoItem = AssetDynamoItem(
+    batchId,
+    UUID.randomUUID,
+    None,
+    Asset,
+    None,
+    None,
+    "Body",
+    OffsetDateTime.parse("2023-06-01T00:00Z"),
+    "upstreamSystem",
+    "digitalAssetSource",
+    None,
+    Nil,
+    Nil,
+    true,
+    true,
+    List(Identifier("UpstreamSystemReference", "upstreamSystemReference")),
+    1,
+    false,
+    None
+  )
+
+  def generateFile: FileDynamoItem = FileDynamoItem(
+    batchId,
+    UUID.randomUUID(),
+    None,
+    "name",
+    File,
+    None,
+    None,
+    1,
+    2,
+    List(Checksum("SHA256", "testChecksumAlgo1")),
+    Option("ext"),
+    PreservationRepresentationType,
+    1,
+    false,
+    true,
+    Nil,
+    1,
+    URI.create("s3://bucket/key")
+  )
+
+  def generateExpectedOpex(asset: AssetDynamoItem, files: List[FileDynamoItem]): Elem = {
+    val fileOne = files.head
+    val fileTwo = files.last
+    <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
+        <opex:Transfer>
+          <opex:SourceID>{asset.id}</opex:SourceID>
+          <opex:Manifest>
+            <opex:Files>
+              <opex:File type="metadata" size="3046">{asset.id}.xip</opex:File>
+              <opex:File type="content" size={fileOne.fileSize.toString}>Representation_Preservation/{fileOne.id}/Generation_1/{fileOne.id}.ext</opex:File>
+              <opex:File type="content" size={fileTwo.fileSize.toString}>Representation_Preservation/{fileTwo.id}/Generation_1/{fileTwo.id}.ext</opex:File>
+            </opex:Files>
+            <opex:Folders>
+              <opex:Folder>Representation_Preservation</opex:Folder>
+              <opex:Folder>Representation_Preservation/{fileOne.id}</opex:Folder>
+              <opex:Folder>Representation_Preservation/{fileOne.id}/Generation_1</opex:Folder>
+              <opex:Folder>Representation_Preservation/{fileTwo.id}</opex:Folder>
+              <opex:Folder>Representation_Preservation/{fileTwo.id}/Generation_1</opex:Folder>
+            </opex:Folders>
+          </opex:Manifest>
+        </opex:Transfer>
+        <opex:Properties>
+          <opex:Title>{asset.id}</opex:Title>
+          <opex:Description/>
+          <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+          <opex:Identifiers>
+            <opex:Identifier type="UpstreamSystemReference">upstreamSystemReference</opex:Identifier>
+          </opex:Identifiers>
+        </opex:Properties>
+        <opex:DescriptiveMetadata>
+          <Source xmlns="http://dr2.nationalarchives.gov.uk/source">
+            <DigitalAssetSource>{asset.digitalAssetSource}</DigitalAssetSource>
+            <DigitalAssetSubtype/>
+            <IngestDateTime>{ingestDateTime}</IngestDateTime>
+            <OriginalFiles></OriginalFiles>
+            <OriginalMetadataFiles></OriginalMetadataFiles>
+            <TransferDateTime>{asset.transferCompleteDatetime}</TransferDateTime>
+            <TransferringBody>{asset.transferringBody}</TransferringBody>
+            <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
+            <UpstreamSystemRef>upstreamSystemReference</UpstreamSystemRef>
+          </Source>
+        </opex:DescriptiveMetadata>
+      </opex:OPEXMetadata>
+  }
+end ExternalServicesTestUtils

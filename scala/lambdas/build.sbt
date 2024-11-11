@@ -24,7 +24,6 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestWorkflowMonitor,
     preingestTdrAggregator,
     preIngestTdrPackageBuilder,
-    preservicaConfig,
     rotatePreservationSystemPassword,
     startWorkflow
   )
@@ -118,19 +117,6 @@ lazy val ingestWorkflowMonitor = (project in file("ingest-workflow-monitor"))
   .dependsOn(utils)
   .settings(
     libraryDependencies += preservicaClient
-  )
-
-lazy val preservicaConfig = (project in file("preservica-config"))
-  .settings(commonSettings)
-  .dependsOn(utils)
-  .settings(
-    libraryDependencies ++= Seq(
-      preservicaClient,
-      s3Client,
-      scalaXml,
-      scalaParserCombinators,
-      jaxb
-    )
   )
 
 lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"))

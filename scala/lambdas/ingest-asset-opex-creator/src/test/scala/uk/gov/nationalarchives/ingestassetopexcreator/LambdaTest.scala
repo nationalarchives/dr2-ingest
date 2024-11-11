@@ -1,196 +1,120 @@
 package uk.gov.nationalarchives.ingestassetopexcreator
 
-import cats.effect.unsafe.implicits.global
-import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.http.RequestMethod
-import org.scalatest.BeforeAndAfterEach
+import cats.syntax.all.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
-import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.Config
-import uk.gov.nationalarchives.ingestassetopexcreator.testUtils.ExternalServicesTestUtils
+import org.scalatest.{BeforeAndAfterEach, EitherValues}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.ArchiveFolder
+import uk.gov.nationalarchives.ingestassetopexcreator.testUtils.ExternalServicesTestUtils.*
 
-import java.net.URI
-import scala.jdk.CollectionConverters.*
+import java.util.UUID
 import scala.xml.{Utility, XML}
 
-class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
-  val dynamoServer = new WireMockServer(9003)
-  val s3Server = new WireMockServer(9004)
-  private val testUtils = new ExternalServicesTestUtils(dynamoServer, s3Server)
-  private val config: Config = Config("test-table", "test-gsi", "test-destination-bucket")
-  import testUtils._
-
-  override def beforeEach(): Unit = {
-    dynamoServer.start()
-    s3Server.start()
-  }
-
-  override def afterEach(): Unit = {
-    dynamoServer.resetAll()
-    s3Server.resetAll()
-    dynamoServer.stop()
-    s3Server.stop()
-  }
+class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with EitherValues {
 
   "handler" should "return an error if the asset is not found in dynamo" in {
-    stubGetRequest(emptyDynamoGetResponse)
-    val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
-    }
-    ex.getMessage should equal(s"No asset found for $assetId and $batchId")
+    val assetId = UUID.randomUUID
+    val (result, _) = runLambda(generateInput(assetId), Nil, Nil)
+    result.left.value.getMessage should equal(s"No asset found for $assetId and $batchId")
   }
 
   "handler" should "return an error if no children are found for the asset" in {
-    stubGetRequest(dynamoGetResponse(0))
-    stubPostRequest(emptyDynamoPostResponse)
-
-    val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
-    }
-    ex.getMessage should equal(s"No children found for $assetId and $batchId")
+    val asset = generateAsset.copy(childCount = 0)
+    val assets = List(AssetWithChildren(asset, Nil))
+    val (result, _) = runLambda(generateInput(asset.id), assets, Nil)
+    result.left.value.getMessage should equal(s"No children found for ${asset.id} and $batchId")
   }
 
   "handler" should "return an error if childCount is higher than the number of rows returned" in {
-    stubGetRequest(dynamoGetResponse(3))
-    stubPostRequest(dynamoPostResponse)
-
-    val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
-    }
-    ex.getMessage should equal(s"Asset id $assetId: has 3 children in the files table but found 2 children in the Preservation system")
+    val asset = generateAsset.copy(childCount = 2)
+    val assets = List(AssetWithChildren(asset, List(generateFile)))
+    val (result, _) = runLambda(generateInput(asset.id), assets, Nil)
+    result.left.value.getMessage should equal(s"Asset id ${asset.id}: has 2 children in the files table but found 1 children in the Preservation system")
   }
 
   "handler" should "return an error if the dynamo entry does not have a type of 'Asset'" in {
-    stubGetRequest(dynamoGetResponse().replace(""""S": "Asset"""", """"S": "ArchiveFolder""""))
-    stubPostRequest(emptyDynamoPostResponse)
-
-    val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
-    }
-    ex.getMessage should equal(s"Object $assetId is of type ArchiveFolder and not 'Asset'")
-  }
-
-  "handler" should "pass the correct id to dynamo getItem" in {
-    stubGetRequest(emptyDynamoGetResponse)
-    intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
-    }
-    val serveEvents = dynamoServer.getAllServeEvents.asScala
-    serveEvents.size should equal(1)
-    serveEvents.head.getRequest.getBodyAsString should equal(s"""{"RequestItems":{"test-table":{"Keys":[{"batchId":{"S":"TEST-ID"},"id":{"S":"$assetId"}}]}}}""")
-  }
-
-  "handler" should "pass the correct parameters to dynamo for the query request" in {
-    stubGetRequest(dynamoGetResponse())
-    stubPostRequest(emptyDynamoPostResponse)
-    intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
-    }
-    val serveEvents = dynamoServer.getAllServeEvents.asScala
-    val queryEvent = serveEvents.head
-    val requestBody = queryEvent.getRequest.getBodyAsString
-    val expectedRequestBody =
-      """{"TableName":"test-table","IndexName":"test-gsi","KeyConditionExpression":"#A = :batchId AND #B = :parentPath",""" +
-        s""""ExpressionAttributeNames":{"#A":"batchId","#B":"parentPath"},"ExpressionAttributeValues":{":batchId":{"S":"TEST-ID"},":parentPath":{"S":"$assetParentPath/$assetId"}}}"""
-    requestBody should equal(expectedRequestBody)
+    val asset = generateAsset.copy(`type` = ArchiveFolder)
+    val assets = List(AssetWithChildren(asset, Nil))
+    val (result, _) = runLambda(generateInput(asset.id), assets, Nil)
+    result.left.value.getMessage should equal(s"Object ${asset.id} is of type ArchiveFolder and not 'Asset'")
   }
 
   "handler" should "copy the correct child assets from source to destination" in {
-    stubGetRequest(dynamoGetResponse())
-    stubPostRequest(dynamoPostResponse)
-    val (sourceJson, destinationJson) = stubJsonCopyRequest()
-    val (sourceDocx, destinationDocx) = stubDocxCopyRequest()
-    stubPutRequest()
+    val asset = generateAsset
+    val file = generateFile
+    val initialS3Objects = List(S3Object(file.location.getHost, file.location.getPath.drop(1), ""))
+    val assets = List(AssetWithChildren(asset, List(file)))
+    val (result, s3Objects) = runLambda(generateInput(asset.id), assets, initialS3Objects)
 
-    new Lambda().handler(input, config, dependencies).unsafeRunSync()
-
-    def checkCopyRequest(source: String, destination: String) = {
-      val s3CopyRequest = s3Server.getAllServeEvents.asScala.filter(_.getRequest.getUrl == destination).head.getRequest
-      s3CopyRequest.getUrl should equal(destination)
-      s3CopyRequest.getHost should equal("test-destination-bucket.localhost")
-      s3CopyRequest.getHeader("x-amz-copy-source") should equal(s"test-source-bucket$source")
-    }
-    checkCopyRequest(sourceJson, destinationJson)
-    checkCopyRequest(sourceDocx, destinationDocx)
+    s3Objects.size should equal(3)
+    s3Objects.last.bucket should equal("destinationBucket")
+    s3Objects.last.key should equal(s"opex/$batchId/${asset.id}.pax/Representation_Preservation/${file.id}/Generation_1/${file.id}.${file.potentialFileExtension.get}")
   }
 
   "handler" should "upload the xip and opex files" in {
-    stubGetRequest(dynamoGetResponse())
-    stubPostRequest(dynamoPostResponse)
-    val (xipPath, opexPath) = stubPutRequest()
-    stubJsonCopyRequest()
-    stubDocxCopyRequest()
+    val asset = generateAsset
+    val file = generateFile
+    val initialS3Objects = List(S3Object(file.location.getHost, file.location.getPath.drop(1), ""))
+    val assets = List(AssetWithChildren(asset, List(file)))
+    val (result, s3Objects) = runLambda(generateInput(asset.id), assets, initialS3Objects)
 
-    new Lambda().handler(input, config, dependencies).unsafeRunSync()
-
-    val s3CopyRequests = s3Server.getAllServeEvents.asScala
-    s3CopyRequests.count(req => URI.create(req.getRequest.getUrl).getPath == xipPath) should equal(3)
-    s3CopyRequests.count(req => URI.create(req.getRequest.getUrl).getPath == opexPath) should equal(3)
+    s3Objects.count(_.key == s"opex/$batchId/${asset.id}.pax.opex") should equal(1)
+    s3Objects.count(_.key == s"opex/$batchId/${asset.id}.pax/${asset.id}.xip") should equal(1)
   }
 
   "handler" should "write the xip content objects in the correct order" in {
-    stubGetRequest(dynamoGetResponse())
-    stubPostRequest(dynamoPostResponse)
-    val (xipPath, _) = stubPutRequest()
-    stubJsonCopyRequest()
-    stubDocxCopyRequest()
+    val asset = generateAsset.copy(childCount = 2)
+    val files = List(generateFile, generateFile.copy(sortOrder = 2))
+    val initialS3Objects = files.map(file => S3Object(file.location.getHost, file.location.getPath.drop(1), ""))
+    val assets = List(AssetWithChildren(asset, files))
+    val (result, s3Objects) = runLambda(generateInput(asset.id), assets, initialS3Objects)
 
-    new Lambda().handler(input, config, dependencies).unsafeRunSync()
-
-    val s3CopyRequests = s3Server.getAllServeEvents.asScala
-    val xipString = s3CopyRequests
-      .filter(req => URI.create(req.getRequest.getUrl).getPath == xipPath && req.getRequest.getMethod == RequestMethod.PUT)
-      .head
-      .getRequest
-      .getBodyAsString
-      .split('\n')
-      .tail
-      .dropRight(4)
-      .mkString("\n")
+    val xipString = s3Objects.find(_.key == s"opex/$batchId/${asset.id}.pax/${asset.id}.xip").map(_.content).getOrElse("")
     val contentObjects = XML.loadString(xipString) \ "Representation" \ "ContentObjects" \ "ContentObject"
-    contentObjects.head.text should equal(childIdDocx.toString)
-    contentObjects.last.text should equal(childIdJson.toString)
+    contentObjects.head.text should equal(files.head.id.toString)
+    contentObjects.last.text should equal(files.last.id.toString)
   }
 
   "handler" should "upload the correct opex file to s3" in {
-    stubGetRequest(dynamoGetResponse())
-    stubPostRequest(dynamoPostResponse)
+    val asset = generateAsset.copy(childCount = 2)
+    val files = List(generateFile, generateFile.copy(sortOrder = 2))
+    val initialS3Objects = files.map(file => S3Object(file.location.getHost, file.location.getPath.drop(1), ""))
+    val assets = List(AssetWithChildren(asset, files))
+    val (result, s3Objects) = runLambda(generateInput(asset.id), assets, initialS3Objects)
 
-    val (_, opexPath) = stubPutRequest()
-    stubJsonCopyRequest()
-    stubDocxCopyRequest()
-
-    new Lambda().handler(input, config, dependencies).unsafeRunSync()
-
-    val s3UploadRequests = s3Server.getAllServeEvents.asScala
-    val opexString = s3UploadRequests
-      .filter(req => URI.create(req.getRequest.getUrl).getPath == opexPath && req.getRequest.getMethod == RequestMethod.PUT)
-      .head
-      .getRequest
-      .getBodyAsString
-      .split('\n')
-      .tail
-      .dropRight(3)
-      .mkString("\n")
+    val opexString = s3Objects.find(_.key == s"opex/$batchId/${asset.id}.pax.opex").map(_.content).getOrElse("")
     val opexXml = XML.loadString(opexString)
-    Utility.trim(opexXml) should equal(Utility.trim(expectedOpex))
+    val expectedOpex = generateExpectedOpex(asset, files)
+    Utility.trim(opexXml).toString should equal(Utility.trim(expectedOpex).toString)
   }
 
-  "handler" should "return an error if the Dynamo API is unavailable" in {
-    dynamoServer.stop()
-    val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
-    }
-    ex.getMessage should equal("Unable to execute HTTP request: Connection refused: localhost/127.0.0.1:9003")
+  "handler" should "return an error if the Dynamo get call fails" in {
+    val (result, _) = runLambda(generateInput(UUID.randomUUID), Nil, Nil, Errors(dynamoGetError = true).some)
+    result.left.value.getMessage should equal("Error getting items from Dynamo")
   }
 
-  "handler" should "return an error if the S3 API is unavailable" in {
-    s3Server.stop()
-    stubGetRequest(dynamoGetResponse())
-    stubPostRequest(dynamoPostResponse)
-    val ex = intercept[Exception] {
-      new Lambda().handler(input, config, dependencies).unsafeRunSync()
-    }
-    ex.getMessage should equal("Failed to send the request: socket connection refused.")
+  "handler" should "return an error if the Dynamo query call fails" in {
+    val asset = generateAsset
+    val (result, _) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, Nil)), Nil, Errors(dynamoQueryError = true).some)
+    result.left.value.getMessage should equal("Error querying Dynamo")
+  }
+
+  "handler" should "return an error if the S3 copy call fails" in {
+    val asset = generateAsset
+    val file = generateFile
+    val assets = List(AssetWithChildren(asset, List(file)))
+    val (result, _) = runLambda(generateInput(asset.id), assets, Nil, Errors(s3CopyError = true).some)
+
+    result.left.value.getMessage should equal("Error copying s3 objects")
+  }
+
+  "handler" should "return an error if the S3 upload call fails" in {
+    val asset = generateAsset
+    val file = generateFile
+    val assets = List(AssetWithChildren(asset, List(file)))
+    val s3Objects = S3Object(file.location.getHost, file.location.getPath.drop(1), "")
+    val (result, _) = runLambda(generateInput(asset.id), assets, Nil, Errors(s3UploadError = true).some)
+
+    result.left.value.getMessage should equal("Error uploading s3 objects")
   }
 }

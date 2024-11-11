@@ -74,7 +74,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     val attributes = dynamoDbWriteItemRequest.attributeNamesAndValuesToWrite
     attributes("assetId").s() should equal(assetId.toString)
     attributes("groupId").s() should equal(groupId.groupValue)
-    attributes("message").s() should equal(s"""{"id":"$assetId","location":"s3://bucket/key"}""")
+    attributes("message").s() should equal(s"""{"id":"$assetId","location":"s3://bucket/key","messageId":"message-id"}""")
   }
 
   def generators(instant: Instant): Generators = new Generators:
@@ -104,7 +104,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
         val sqsMessage = new SQSMessage()
         sqsMessage.setEventSourceArn("eventSourceArn")
-        sqsMessage.setBody(s"""{"id":"$assetId","location":"s3://bucket/key"}""")
+        sqsMessage.setBody(s"""{"id":"$assetId","location":"s3://bucket/key","messageId":"message-id"}""")
 
         Aggregator[IO].aggregate(config, groupAtomicCell, List(sqsMessage), 1000)
       }
