@@ -1,443 +1,292 @@
 package uk.gov.nationalarchives.ingestupsertarchivefolders.testUtils
 
-import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import cats.effect.{IO, Ref}
+import cats.syntax.all.*
 import io.circe.Encoder
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers.*
-import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor6}
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import org.scalatestplus.mockito.MockitoSugar
+import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor5}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, EitherValues}
 import org.scanamo.DynamoFormat
+import org.scanamo.request.RequestCondition
+import software.amazon.awssdk.services.dynamodb.model.{BatchWriteItemResponse, ResourceNotFoundException}
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
+import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{
-  ArchiveFolderDynamoItem,
-  FilesTablePartitionKey,
-  FilesTablePrimaryKey,
-  FilesTableSortKey,
-  Identifier as DynamoIdentifier
-}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
-import uk.gov.nationalarchives.utils.ExternalUtils.DetailType
-import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda.{Dependencies, Detail, EntityWithUpdateEntityRequest}
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
-import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.Identifier
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
-import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest}
+import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, Identifier, UpdateEntityRequest, Identifier as PreservicaIdentifier}
+import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, EntityClient}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoItem, Identifier as DynamoIdentifier}
+import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda
+import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
 
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.UUID
-import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters.*
 
-class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll with TableDrivenPropertyChecks with MockitoSugar {
+class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll with TableDrivenPropertyChecks with EitherValues {
 
-  case class TestIdentifier(name: String, value: String)
+  private val config: Config = Config("http://localhost:9014", "", "table-name")
 
-  val folderIdsAndRows: ListMap[UUID, ArchiveFolderDynamoItem] = ListMap(
-    UUID.fromString("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176") ->
-      ArchiveFolderDynamoItem(
-        "batchId",
-        UUID.fromString("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176"),
-        None,
-        "mock title_1",
-        ArchiveFolder,
-        Some("mock title_1"),
-        Some("mock description_1"),
-        List(DynamoIdentifier("Code", "code")),
-        1
-      ),
-    UUID.fromString("e88e433a-1f3e-48c5-b15f-234c0e663c27") -> ArchiveFolderDynamoItem(
-      "batchId",
-      UUID.fromString("e88e433a-1f3e-48c5-b15f-234c0e663c27"),
-      Some("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176"),
-      "mock title_1_1",
-      ArchiveFolder,
-      Some("mock title_1_1"),
-      Some("mock description_1_1"),
-      List(DynamoIdentifier("Code", "code")),
-      1
-    ),
-    UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2") -> ArchiveFolderDynamoItem(
-      "batchId",
-      UUID.fromString("93f5a200-9ee7-423d-827c-aad823182ad2"),
-      Some("f0d3d09a-5e3e-42d0-8c0d-3b2202f0e176/e88e433a-1f3e-48c5-b15f-234c0e663c27"),
-      "mock title_1_1_1",
-      ArchiveFolder,
-      Some("mock title_1_1_1"),
-      Some("mock description_1_1_1"),
-      List(DynamoIdentifier("Code", "code")),
-      1
-    )
+  val input: StepFnInput = StepFnInput("TDD-2023-ABC", Nil)
+
+  def notImplemented[T]: IO[T] = IO.raiseError(new Exception("Not implemented"))
+
+  def dynamoClient(ref: Ref[IO, List[ArchiveFolderDynamoItem]], dynamoError: Boolean): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
+    override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
+
+    override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = notImplemented
+
+    override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
+
+    override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
+      notImplemented
+
+    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] =
+      IO.raiseWhen(dynamoError)(ResourceNotFoundException.builder.message(s"$tableName not found").build) >> ref.get.map(_.map(_.asInstanceOf[T]))
+
+    override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = notImplemented
+
+  case class PreservicaErrors(entitiesPerIdentifier: Boolean = false, addEntity: Boolean = false, updateEntity: Boolean = false)
+
+  def preservicaClient(ref: Ref[IO, List[EntityWithIdentifiers]], errors: Option[PreservicaErrors]): EntityClient[IO, Fs2Streams[IO]] =
+    new EntityClient[IO, Fs2Streams[IO]] {
+
+      override val dateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_DATE_TIME
+
+      override def metadataForEntity(entity: Entity): IO[EntityClient.EntityMetadata] = notImplemented
+
+      override def getBitstreamInfo(contentRef: UUID): IO[Seq[Client.BitStreamInfo]] = notImplemented
+
+      override def getEntity(entityRef: UUID, entityType: EntityType): IO[Entity] = notImplemented
+
+      override def getEntityIdentifiers(entity: Entity): IO[Seq[IdentifierResponse]] = ref.get.map { existing =>
+        identifierResponses(entity, existing)
+      }
+
+      override def getUrlsToIoRepresentations(ioEntityRef: UUID, representationType: Option[EntityClient.RepresentationType]): IO[Seq[String]] = notImplemented
+
+      override def getContentObjectsFromRepresentation(ioEntityRef: UUID, representationType: EntityClient.RepresentationType, repTypeIndex: Int): IO[Seq[Entity]] = notImplemented
+
+      override def addEntity(aer: AddEntityRequest): IO[UUID] =
+        IO.raiseWhen(errors.exists(_.addEntity))(new Exception("API has encountered an issue adding entity")) >> ref.modify { existing =>
+          val newEntity = Entity(aer.entityType.some, aer.ref.getOrElse(UUID.randomUUID), aer.title.some, aer.description, false, None, aer.securityTag.some, aer.parentRef)
+          (EntityWithIdentifiers(newEntity, Nil) :: existing, newEntity.ref)
+        }
+
+      override def updateEntity(uer: UpdateEntityRequest): IO[String] =
+        IO.raiseWhen(errors.exists(_.updateEntity))(new Exception("API has encountered an issue updating an entity")) >> ref
+          .update { existing =>
+            existing.map { each =>
+              if each.entity.ref == uer.ref then
+                val newDescription = uer.descriptionToChange <+> each.entity.description
+                val newEntity = Entity(uer.entityType.some, uer.ref, uer.title.some, newDescription, false, None, uer.securityTag.some, uer.parentRef)
+                each.copy(entity = newEntity)
+              else each
+            }
+          }
+          .map(_ => "")
+
+      override def updateEntityIdentifiers(entity: Entity, identifiers: Seq[IdentifierResponse]): IO[Seq[IdentifierResponse]] = ref.modify { existing =>
+        val updatedEntities = existing.map { each =>
+          if each.entity.ref == entity.ref then
+            val newIdentifiers = each.identifiers.map { eachIdentifier =>
+              identifiers
+                .find(_.identifierName == eachIdentifier.identifierName)
+                .map(id => eachIdentifier.copy(value = id.value))
+                .getOrElse(eachIdentifier)
+            }
+            each.copy(identifiers = newIdentifiers)
+          else each
+        }
+        val response = identifierResponses(entity, updatedEntities)
+        (updatedEntities, response)
+      }
+
+      override def streamBitstreamContent[T](stream: capabilities.Streams[Fs2Streams[IO]])(url: String, streamFn: stream.BinaryStream => IO[T]): IO[T] = notImplemented
+
+      override def entitiesUpdatedSince(dateTime: ZonedDateTime, startEntry: Int, maxEntries: Int): IO[Seq[Entity]] = notImplemented
+
+      override def entityEventActions(entity: Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] = notImplemented
+
+      override def entitiesPerIdentifier(identifiers: Seq[PreservicaIdentifier]): IO[Map[PreservicaIdentifier, Seq[Entity]]] =
+        IO.raiseWhen(errors.exists(_.entitiesPerIdentifier))(new Exception("API has encountered and issue")) >>
+          ref.get.map { existing =>
+            existing
+              .flatMap(_.identifiers)
+              .map { value =>
+                value -> existing.filter(_.identifiers.contains(value)).map(_.entity)
+              }
+              .toMap
+              .view
+              .filterKeys(identifiers.contains)
+              .toMap
+          }
+
+      override def addIdentifierForEntity(entityRef: UUID, entityType: EntityType, identifier: PreservicaIdentifier): IO[String] = ref
+        .update { existing =>
+          existing.map { eachExisting =>
+            if eachExisting.entity.ref == entityRef then eachExisting.copy(identifiers = identifier :: eachExisting.identifiers)
+            else eachExisting
+          }
+        }
+        .map(_ => "")
+
+      override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = notImplemented
+    }
+
+  private def identifierResponses(entity: Entity, existing: List[EntityWithIdentifiers]) = {
+    existing
+      .filter(_.entity.ref == entity.ref)
+      .flatMap(_.identifiers)
+      .map(id => IdentifierResponse(entity.ref.toString, id.identifierName, id.value))
+  }
+
+  def eventbridgeClient(ref: Ref[IO, List[Detail]]): DAEventBridgeClient[IO] = new DAEventBridgeClient[IO]:
+    override def publishEventToEventBridge[T, U](sourceId: String, detailType: U, detail: T)(using enc: Encoder[T]): IO[PutEventsResponse] = ref
+      .update { existing =>
+        detail.asInstanceOf[Detail] :: existing
+      }
+      .map(_ => PutEventsResponse.builder.build)
+
+  def runLambda(
+      items: List[ArchiveFolderDynamoItem],
+      entities: List[EntityWithIdentifiers],
+      dynamoError: Boolean = false,
+      preservicaErrors: Option[PreservicaErrors] = None
+  ): (List[EntityWithIdentifiers], List[Detail], Throwable) = (for {
+    itemsRef <- Ref.of[IO, List[ArchiveFolderDynamoItem]](items)
+    entitiesRef <- Ref.of[IO, List[EntityWithIdentifiers]](entities)
+    detailRef <- Ref.of[IO, List[Detail]](Nil)
+    res <- Lambda().handler(input, config, Dependencies(preservicaClient(entitiesRef, preservicaErrors), dynamoClient(itemsRef, dynamoError), eventbridgeClient(detailRef))).attempt
+    entities <- entitiesRef.get
+    details <- detailRef.get
+  } yield (entities, details, if res.isRight then new Exception("Error not found") else res.left.value)).unsafeRunSync()
+
+  def validateParentHierarchy(entities: List[Entity]): Boolean = {
+    val ids = entities.map(_.ref).toSet
+    entities.forall {
+      case Entity(_, _, _, _, _, _, _, None)         => true
+      case Entity(_, _, _, _, _, _, _, Some(parent)) => ids.contains(parent)
+    }
+  }
+
+  def generateItem(suffix: String = "", parentPath: Option[String] = None, identifiers: List[DynamoIdentifier] = Nil): ArchiveFolderDynamoItem = ArchiveFolderDynamoItem(
+    "batchId",
+    UUID.randomUUID,
+    parentPath,
+    s"mock name_$suffix",
+    ArchiveFolder,
+    Some(s"mock title_$suffix"),
+    Some(s"mock description_$suffix"),
+    identifiers,
+    1
   )
+  case class EntityWithIdentifiers(entity: Entity, identifiers: List[Identifier])
 
-  val structuralObjects: Map[Int, Seq[Entity]] = Map(
-    0 -> Seq(
-      Entity(
-        Some(StructuralObject),
-        UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50"),
-        Some("mock title_1"),
-        Some("mock description_1"),
-        deleted = false,
-        Some(StructuralObject.entityPath),
-        Some(Open),
-        None
-      )
-    ),
-    1 -> Seq(
-      Entity(
-        Some(StructuralObject),
-        UUID.fromString("a2d39ea3-6216-4f93-b078-62c7896b174c"),
-        Some("mock title_1_1"),
-        Some("mock description_1_1"),
-        deleted = false,
-        Some(StructuralObject.entityPath),
-        Some(Open),
-        Some(UUID.fromString("d7879799-a7de-4aa6-8c7b-afced66a6c50"))
-      )
-    ),
-    2 -> Seq(
-      Entity(
-        Some(StructuralObject),
-        UUID.fromString("9dfc40be-5f44-4fa1-9c25-fbe03dd3f539"),
-        Some("mock title_1_1_1"),
-        Some("mock description_1_1_1"),
-        deleted = false,
-        Some(StructuralObject.entityPath),
-        Some(Open),
-        Some(UUID.fromString("a2d39ea3-6216-4f93-b078-62c7896b174c"))
-      )
+  def generateEntity(suffix: String = "", identifierValue: String = "", parent: Option[UUID] = None): EntityWithIdentifiers = {
+    val entity = Entity(
+      Some(StructuralObject),
+      UUID.randomUUID,
+      Some(s"mock title_$suffix"),
+      Some(s"mock description_$suffix"),
+      deleted = false,
+      Some(StructuralObject.entityPath),
+      Some(Open),
+      parent
     )
-  )
+    EntityWithIdentifiers(entity, List(Identifier("SourceID", identifierValue)))
+  }
 
-  val defaultEntitiesWithSourceIdReturnValues: List[IO[Seq[Entity]]] =
-    List(IO.pure(structuralObjects(0)), IO.pure(structuralObjects(1)), IO.pure(structuralObjects(2)))
-
-  val defaultIdentifiersReturnValue: IO[Seq[IdentifierResponse]] = IO.pure(Seq(IdentifierResponse("id", "Code", "code")))
-
-  val missingTitleInDbScenarios: TableFor6[String, Option[String], Option[String], Option[String], Option[String], String] = Table(
+  val missingTitleInDbScenarios: TableFor5[String, Option[String], Option[String], Option[String], Option[String]] = Table(
     (
       "Test",
       "Title from DB",
       "Title from Preservica",
       "Description from DB",
-      "Description from Preservica",
-      "Test result"
+      "Description from Preservica"
     ),
     (
       "title not found in DB, title was found in Preservica but no description updates necessary",
       None,
       Some(""),
       Some("mock description_1"),
-      Some("mock description_1"),
-      "make no calls to 'updateEntity'"
+      Some("mock description_1")
     ),
     (
       "title not found in DB, title was found in Preservica but description needs to be updated",
       None,
       Some(""),
       Some("mock description_1"),
-      Some("mock description_old_1"),
-      "call to updateEntity to update description, using existing Entity title as 'title'"
+      Some("mock description_old_1")
     ),
     (
       "title and description not found in DB, title and description found in Preservica",
       None,
       Some(""),
       None,
-      Some(""),
-      "make no calls to 'updateEntity'"
+      Some("")
     ),
     (
       "title and description not found in DB, title found in Preservica but not description",
       None,
       Some(""),
       None,
-      None,
-      "make no calls to 'updateEntity'"
+      None
     )
   )
 
-  val missingDescriptionInDbScenarios: TableFor6[String, Option[String], Option[String], Option[String], Option[String], String] = Table(
+  val missingDescriptionInDbScenarios: TableFor5[String, Option[String], Option[String], Option[String], Option[String]] = Table(
     (
       "Test",
       "Title from DB",
       "Title from Preservica",
       "Description from DB",
-      "Description from Preservica",
-      "Test result"
+      "Description from Preservica"
     ),
     (
       "description not found in DB, description was found in Preservica but no title updates necessary",
       Some("mock title_1"),
       Some("mock title_1"),
       None,
-      Some(""),
-      "make no calls to 'updateEntity'"
+      Some("")
     ),
     (
       "description not found in DB, description was found in Preservica but title needs to be updated",
       Some("mock title_1"),
       Some("mock title_old_1"),
       None,
-      Some(""),
-      "call to updateEntity to update title, using None as the 'description'"
+      Some("")
     ),
     (
       "description not found in DB, description not found in Preservica but no title updates necessary",
       Some("mock title_1"),
       Some("mock title_1"),
       None,
-      None,
-      "make no calls to 'updateEntity'"
+      None
     ),
     (
       "description not found in DB, description not found in Preservica but title needs to be updated",
       Some("mock title_1"),
       Some("mock title_old_1"),
       None,
-      None,
-      "call to updateEntity to update title, using None as the 'description'"
+      None
     )
   )
 
-  private val singleIdentifier1: List[TestIdentifier] = List(TestIdentifier("Test1", "Value1"))
-  private val singleIdentifier1DifferentValue: List[TestIdentifier] = List(TestIdentifier("Test1", "Value2"))
-  private val singleIdentifier2: List[TestIdentifier] = List(TestIdentifier("Test2", "Value2"))
-  private val multipleIdentifiers: List[TestIdentifier] = singleIdentifier1 ++ singleIdentifier2
-  private val singleIdentifier3: List[TestIdentifier] = List(TestIdentifier("Test2", "Value3"))
+  def dynamoIdentifier(name: String, value: String): List[DynamoIdentifier] = List(DynamoIdentifier(name, value))
+  def preservicaIdentifier(name: String, value: String): List[Identifier] = List(Identifier(name, value))
 
-  val identifierScenarios: TableFor6[List[TestIdentifier], List[TestIdentifier], List[TestIdentifier], List[TestIdentifier], String, String] = Table(
-    ("identifierFromDynamo", "identifierFromPreservica", "addIdentifierRequest", "updateIdentifierRequest", "addResult", "updateResult"),
-    (singleIdentifier1, singleIdentifier1, Nil, Nil, addIdentifiersDescription(Nil), updateIdentifiersDescription(Nil)),
-    (
-      singleIdentifier1DifferentValue,
-      singleIdentifier1,
-      Nil,
-      singleIdentifier1DifferentValue,
-      addIdentifiersDescription(Nil),
-      updateIdentifiersDescription(singleIdentifier1)
-    ),
-    (singleIdentifier1, singleIdentifier2, singleIdentifier1, Nil, addIdentifiersDescription(singleIdentifier1), updateIdentifiersDescription(Nil)),
-    (
-      multipleIdentifiers,
-      singleIdentifier3,
-      singleIdentifier1,
-      singleIdentifier2,
-      addIdentifiersDescription(singleIdentifier1),
-      updateIdentifiersDescription(singleIdentifier2)
-    )
+  val identifierScenarios: TableFor3[List[DynamoIdentifier], List[Identifier], List[Identifier]] = Table(
+    ("identifierFromDynamo", "identifierFromPreservica", "expectedResult"),
+    (dynamoIdentifier("1", "1"), preservicaIdentifier("1", "1"), preservicaIdentifier("1", "1")),
+    (dynamoIdentifier("1", "2"), preservicaIdentifier("1", "1"), preservicaIdentifier("1", "2")),
+    (dynamoIdentifier("1", "1"), preservicaIdentifier("2", "2"), preservicaIdentifier("2", "2") ++ preservicaIdentifier("1", "1")),
+    (dynamoIdentifier("1", "1") ++ dynamoIdentifier("2", "2"), preservicaIdentifier("2", "3"), preservicaIdentifier("2", "2") ++ preservicaIdentifier("1", "1"))
   )
-
-  private def addIdentifiersDescription(identifiers: List[TestIdentifier]) = identifiersTestDescription(identifiers, "add")
-  private def updateIdentifiersDescription(identifiers: List[TestIdentifier]) = identifiersTestDescription(identifiers, "update")
-  private def identifiersTestDescription(identifiers: List[TestIdentifier], operation: String) =
-    if (identifiers.isEmpty) {
-      s"not $operation any identifiers"
-    } else {
-      val identifiersString = identifiers.map(i => s"${i.name}=${i.value}").mkString(" ")
-      s"add $identifiersString"
-    }
-
-  case class ArgumentVerifier(
-      getAttributeValuesReturnValue: IO[List[ArchiveFolderDynamoItem]],
-      entitiesWithSourceIdReturnValue: List[IO[Seq[Entity]]] = defaultEntitiesWithSourceIdReturnValues,
-      addEntityReturnValues: List[IO[UUID]] = List(
-        IO.pure(structuralObjects(0).head.ref),
-        IO.pure(structuralObjects(1).head.ref),
-        IO.pure(structuralObjects(2).head.ref)
-      ),
-      addIdentifierReturnValue: IO[String] = IO.pure("The Identifier was added"),
-      updateEntityReturnValues: IO[String] = IO.pure("Entity was updated"),
-      getIdentifiersForEntityReturnValues: IO[Seq[IdentifierResponse]] = defaultIdentifiersReturnValue
-  ) {
-    val testEventBridgeClient: DAEventBridgeClient[IO] = mock[DAEventBridgeClient[IO]]
-    val eventBridgeMessageCaptors: ArgumentCaptor[Detail] = ArgumentCaptor.forClass(classOf[Detail])
-    when(
-      testEventBridgeClient.publishEventToEventBridge[Detail, DetailType](
-        any[String],
-        any[DetailType],
-        eventBridgeMessageCaptors.capture()
-      )(using any[Encoder[Detail]])
-    ).thenReturn(IO(PutEventsResponse.builder.build))
-    val apiUrlCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-    def getIdentifierToGetCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
-    def getAddFolderRequestCaptor: ArgumentCaptor[AddEntityRequest] = ArgumentCaptor.forClass(classOf[AddEntityRequest])
-    def getRefCaptor: ArgumentCaptor[UUID] = ArgumentCaptor.forClass(classOf[UUID])
-    def structuralObjectCaptor: ArgumentCaptor[EntityType] =
-      ArgumentCaptor.forClass(classOf[EntityType])
-    def identifiersToAddCaptor: ArgumentCaptor[Identifier] = ArgumentCaptor.forClass(classOf[Identifier])
-    def getUpdateFolderRequestCaptor: ArgumentCaptor[UpdateEntityRequest] =
-      ArgumentCaptor.forClass(classOf[UpdateEntityRequest])
-
-    val entityCaptor: ArgumentCaptor[Entity] = ArgumentCaptor.forClass(classOf[Entity])
-
-    def getPartitionKeysCaptor: ArgumentCaptor[List[FilesTablePrimaryKey]] =
-      ArgumentCaptor.forClass(classOf[List[FilesTablePrimaryKey]])
-    def getTableNameCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-
-    val mockEntityClient: EntityClient[IO, Fs2Streams[IO]] = mock[EntityClient[IO, Fs2Streams[IO]]]
-    val mockDynamoDBClient: DADynamoDBClient[IO] = mock[DADynamoDBClient[IO]]
-
-    when(
-      mockDynamoDBClient.getItems[ArchiveFolderDynamoItem, FilesTablePrimaryKey](any[List[FilesTablePrimaryKey]], any[String])(using
-        any[DynamoFormat[ArchiveFolderDynamoItem]],
-        any[DynamoFormat[FilesTablePrimaryKey]]
-      )
-    ).thenReturn(
-      getAttributeValuesReturnValue
-    )
-
-    when(mockEntityClient.entitiesByIdentifier(any[Identifier]))
-      .thenReturn(
-        entitiesWithSourceIdReturnValue.head,
-        entitiesWithSourceIdReturnValue(1),
-        entitiesWithSourceIdReturnValue(2)
-      )
-    when(mockEntityClient.addEntity(any[AddEntityRequest])).thenReturn(
-      addEntityReturnValues.head,
-      addEntityReturnValues.lift(1).getOrElse(IO.pure(UUID.randomUUID())),
-      addEntityReturnValues.lift(2).getOrElse(IO.pure(UUID.randomUUID()))
-    )
-    when(
-      mockEntityClient.addIdentifierForEntity(
-        any[UUID],
-        any[StructuralObject.type],
-        any[Identifier]
-      )
-    )
-      .thenReturn(addIdentifierReturnValue)
-    when(mockEntityClient.updateEntity(any[UpdateEntityRequest]))
-      .thenReturn(updateEntityReturnValues)
-    when(mockEntityClient.getEntityIdentifiers(any[Entity]))
-      .thenReturn(getIdentifiersForEntityReturnValues)
-    when(mockEntityClient.updateEntityIdentifiers(any[Entity], any[Seq[IdentifierResponse]]))
-      .thenReturn(getIdentifiersForEntityReturnValues)
-
-    val dependencies: Dependencies = Dependencies(mockEntityClient, mockDynamoDBClient, testEventBridgeClient)
-
-    def verifyInvocationsAndArgumentsPassed(
-        folderIdsAndRows: Map[UUID, ArchiveFolderDynamoItem],
-        numOfEntitiesByIdentifierInvocations: Int,
-        addEntityRequests: List[AddEntityRequest] = Nil,
-        numOfAddIdentifierRequests: Int = 0,
-        updateEntityRequests: List[EntityWithUpdateEntityRequest] = Nil
-    ): Unit = {
-      val attributesValuesCaptor = getPartitionKeysCaptor
-      val tableNameCaptor = getTableNameCaptor
-      verify(mockDynamoDBClient, times(1)).getItems[ArchiveFolderDynamoItem, FilesTablePrimaryKey](
-        attributesValuesCaptor.capture(),
-        tableNameCaptor.capture()
-      )(using any[DynamoFormat[ArchiveFolderDynamoItem]], any[DynamoFormat[FilesTablePrimaryKey]])
-      attributesValuesCaptor.getValue.toArray.toList should be(
-        folderIdsAndRows.map { case (ids, _) => FilesTablePrimaryKey(FilesTablePartitionKey(ids), FilesTableSortKey("TDD-2023-ABC")) }
-      )
-
-      val entitiesByIdentifierIdentifierToGetCaptor = getIdentifierToGetCaptor
-
-      verify(mockEntityClient, times(numOfEntitiesByIdentifierInvocations)).entitiesByIdentifier(
-        entitiesByIdentifierIdentifierToGetCaptor.capture()
-      )
-
-      if (numOfEntitiesByIdentifierInvocations > 0) {
-        val folderRows: Iterator[ArchiveFolderDynamoItem] = folderIdsAndRows.values.iterator
-
-        entitiesByIdentifierIdentifierToGetCaptor.getAllValues.asScala.toList.sortBy(_.value) should be(
-          List.fill(numOfEntitiesByIdentifierInvocations)(Identifier("SourceID", folderRows.next().name)).sortBy(_.value)
-        )
-      }
-
-      val numOfAddEntityInvocations = addEntityRequests.length
-      val addEntityAddFolderRequestCaptor = getAddFolderRequestCaptor
-
-      verify(mockEntityClient, times(numOfAddEntityInvocations)).addEntity(
-        addEntityAddFolderRequestCaptor.capture()
-      )
-
-      if (numOfAddEntityInvocations > 0) {
-        addEntityAddFolderRequestCaptor.getAllValues.toArray.toList should be(addEntityRequests)
-      }
-
-      val addIdentifiersRefCaptor = getRefCaptor
-      val addIdentifiersStructuralObjectCaptor = structuralObjectCaptor
-      val addIdentifiersIdentifiersToAddCaptor = identifiersToAddCaptor
-
-      verify(mockEntityClient, times(numOfAddIdentifierRequests)).addIdentifierForEntity(
-        addIdentifiersRefCaptor.capture(),
-        addIdentifiersStructuralObjectCaptor.capture(),
-        addIdentifiersIdentifiersToAddCaptor.capture()
-      )
-
-      if (numOfAddIdentifierRequests > 0) {
-        val numOfAddIdentifierRequestsPerEntity = 2
-        addIdentifiersRefCaptor.getAllValues.toArray.toList should be(
-          addEntityReturnValues.flatMap { addEntityReturnValue =>
-            List.fill(numOfAddIdentifierRequestsPerEntity)(addEntityReturnValue.unsafeRunSync())
-          }
-        )
-
-        addIdentifiersStructuralObjectCaptor.getAllValues.toArray.toList should be(
-          List.fill(numOfAddIdentifierRequests)(StructuralObject)
-        )
-
-        addIdentifiersIdentifiersToAddCaptor.getAllValues.toArray.toList should be(
-          addEntityRequests.flatMap { addEntityRequest =>
-            val folderName = addEntityRequest.title
-            List(Identifier("SourceID", folderName), Identifier("Code", "code"))
-          }
-        )
-      }
-
-      val numOfUpdateEntityInvocations = updateEntityRequests.length
-      val updateEntityUpdateFolderRequestCaptor = getUpdateFolderRequestCaptor
-
-      verify(mockEntityClient, times(numOfUpdateEntityInvocations)).updateEntity(
-        updateEntityUpdateFolderRequestCaptor.capture()
-      )
-
-      val sentMessages = eventBridgeMessageCaptors.getAllValues.asScala.map(_.slackMessage)
-
-      if (numOfUpdateEntityInvocations > 0) {
-        updateEntityUpdateFolderRequestCaptor.getAllValues.toArray.toList should be(
-          updateEntityRequests.map(_.updateEntityRequest)
-        )
-      } else {
-        sentMessages.length should equal(0)
-      }
-
-      if (updateEntityReturnValues.attempt.unsafeRunSync().isRight) {
-        sentMessages.length should equal(updateEntityRequests.size)
-        updateEntityRequests.foreach { entityAndUpdateRequest =>
-          val updateRequest = entityAndUpdateRequest.updateEntityRequest
-          val entity = entityAndUpdateRequest.entity
-          val oldTitle = entity.title.getOrElse("")
-          val newTitle = updateRequest.title
-
-          val oldDescription = entity.description.getOrElse("")
-          val newDescription = updateRequest.descriptionToChange.getOrElse("")
-          val entityTypeShort = entity.entityType.get.entityTypeShort
-          val url = "http://localhost:9014/explorer/explorer.html#properties"
-          val messageFirstLine =
-            s":preservica: Entity <$url:$entityTypeShort&${entity.ref}|${entity.ref}> has been updated: "
-          val expectedMessage = if (oldTitle != newTitle && updateRequest.descriptionToChange.isEmpty) {
-            messageFirstLine + "*Title has changed*"
-          } else if (oldTitle == newTitle && updateRequest.descriptionToChange.isDefined) {
-            messageFirstLine + "*Description has changed*"
-          } else {
-            messageFirstLine + "*Title has changed and Description has changed*"
-          }
-          sentMessages.count(_ == expectedMessage) should equal(1)
-        }
-      } else {
-        sentMessages.length should equal(0)
-      }
-      ()
-    }
-  }
 }
