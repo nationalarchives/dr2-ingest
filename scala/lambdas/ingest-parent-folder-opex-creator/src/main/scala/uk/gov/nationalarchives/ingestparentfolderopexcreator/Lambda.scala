@@ -18,7 +18,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       path :: acc
     }.filter(_.nonEmpty)
 
-  def generateOpexWithManifest(paths: List[String]): String = {
+  private def generateOpexWithManifest(paths: List[String]): String = {
     val folderElems = paths.map { path => <opex:Folder>{path.split('/').last}</opex:Folder> }
     <opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
       <opex:Transfer>
@@ -31,26 +31,22 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     </opex:OPEXMetadata>.toString
   }
 
-  private def uploadToS3(
-      dAS3Client: DAS3Client[IO],
-      opexXmlContent: String,
-      fileName: String,
-      bucketName: String
-  ): Stream[IO, CompletedUpload] = Stream.eval {
-    Stream
-      .emits[IO, Byte](opexXmlContent.getBytes)
-      .chunks
-      .map(_.toByteBuffer)
-      .toPublisherResource
-      .use { publisher =>
-        dAS3Client.upload(bucketName, fileName, FlowAdapters.toPublisher(publisher))
-      }
-  }
   override def handler: (
       Input,
       Config,
       Dependencies
   ) => IO[Unit] = (input, config, dependencies) => {
+
+    def uploadToS3(opexXmlContent: String, fileName: String): Stream[IO, CompletedUpload] = Stream.eval {
+      Stream
+        .emits[IO, Byte](opexXmlContent.getBytes)
+        .chunks
+        .map(_.toByteBuffer)
+        .toPublisherResource
+        .use { publisher =>
+          dependencies.s3Client.upload(config.stagingCacheBucket, fileName, FlowAdapters.toPublisher(publisher))
+        }
+    }
 
     val keyPrefix = s"opex/${input.executionId}/"
     val opexFileName = s"$keyPrefix${input.executionId}.opex"
@@ -62,7 +58,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       completedUpload <- publisher.publisherToStream
         .through(accumulatePrefixes)
         .map(generateOpexWithManifest)
-        .flatMap { opexXmlString => uploadToS3(dependencies.s3Client, opexXmlString, opexFileName, config.stagingCacheBucket) }
+        .flatMap { opexXmlString => uploadToS3(opexXmlString, opexFileName) }
         .compile
         .toList
       _ <- log(s"Uploaded opex file $opexFileName")
@@ -72,7 +68,6 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DAS3Client[IO]()))
 }
-
 object Lambda extends App {
 
   extension (publisher: Publisher[String])

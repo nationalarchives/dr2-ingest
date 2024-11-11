@@ -10,10 +10,11 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
-import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
+import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.{Dependencies, Output}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{assetId, groupId, message}
 import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.*
+import uk.gov.nationalarchives.utils.ExternalUtils.StepFunctionInput
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 
@@ -102,7 +103,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
         )
         _ <- logWithFileRef("Written asset to lock table")
 
-        _ <- dependencies.sfn.startExecution(config.sfnArn, Output(batchRef, metadataPackage), Option(batchRef))
+        _ <- dependencies.sfn.startExecution(config.sfnArn, new Output(s"${groupId}_0", s"COURTDOC_$batchRef", metadataPackage, 0, config.sfnArn), Option(groupId))
         _ <- logWithFileRef("Started step function execution")
       } yield ()
     }.void
@@ -122,4 +123,6 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 
 object Lambda {
   case class Dependencies(s3: DAS3Client[IO], sfn: DASFNClient[IO], dynamo: DADynamoDBClient[IO], randomUuidGenerator: () => UUID, seriesMapper: SeriesMapper)
+
+  type Output = StepFunctionInput
 }

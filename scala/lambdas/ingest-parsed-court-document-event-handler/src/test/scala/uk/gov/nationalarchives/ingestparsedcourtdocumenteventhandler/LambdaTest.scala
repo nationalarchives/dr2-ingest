@@ -142,11 +142,10 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val fileName = "test.tar.gz"
     val initialS3State = List(S3Object("inputBucket", fileName, fileBytes(inputMetadata())))
     val (res, _, _, sfnState) = runLambda(initialS3State, event())
-
     val sfnExecution = sfnState.head
 
     sfnExecution.sfnArn should equal("sfnArn")
-    sfnExecution.input.batchId should equal("TEST-REFERENCE")
+    sfnExecution.input.batchId should equal("groupId_0")
     sfnExecution.input.metadataPackage.toString should equal("s3://bucket/TEST-REFERENCE/metadata.json")
   }
 

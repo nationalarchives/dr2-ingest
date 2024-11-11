@@ -21,8 +21,8 @@ import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
-import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
-import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.{Court, Output}
+import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.*
+import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.Court
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 
 import java.io.ByteArrayOutputStream
