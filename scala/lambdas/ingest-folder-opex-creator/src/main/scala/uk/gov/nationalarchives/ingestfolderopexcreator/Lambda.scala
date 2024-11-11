@@ -25,34 +25,32 @@ import scala.jdk.CollectionConverters.MapHasAsScala
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def toFolderOrAssetItem[T <: DynamoItem](dynamoValue: DynamoValue)(using dynamoFormat: DynamoFormat[T]): Either[DynamoReadError, FolderOrAssetItem] =
-    dynamoFormat.read(dynamoValue).map { item =>
-      item match {
-        case asset: AssetDynamoItem =>
-          AssetItem(item.batchId, item.id, item.potentialParentPath, item.`type`, item.potentialTitle, item.potentialDescription, item.identifiers, asset.skipIngest)
-        case contentFolder: ContentFolderDynamoItem =>
-          FolderItem(
-            item.batchId,
-            item.id,
-            item.potentialParentPath,
-            contentFolder.name,
-            item.`type`,
-            item.potentialTitle,
-            item.potentialDescription,
-            item.identifiers
-          )
-        case archiveFolder: ArchiveFolderDynamoItem =>
-          FolderItem(
-            item.batchId,
-            item.id,
-            item.potentialParentPath,
-            archiveFolder.name,
-            item.`type`,
-            item.potentialTitle,
-            item.potentialDescription,
-            item.identifiers
-          )
-        case _ => throw new RuntimeException("Row is not an 'Asset' or a 'Folder'")
-      }
+    dynamoFormat.read(dynamoValue).map {
+      case item @ (asset: AssetDynamoItem) =>
+        AssetItem(item.batchId, item.id, item.potentialParentPath, item.`type`, item.potentialTitle, item.potentialDescription, item.identifiers, asset.skipIngest)
+      case item @ (contentFolder: ContentFolderDynamoItem) =>
+        FolderItem(
+          item.batchId,
+          item.id,
+          item.potentialParentPath,
+          contentFolder.name,
+          item.`type`,
+          item.potentialTitle,
+          item.potentialDescription,
+          item.identifiers
+        )
+      case item @ (archiveFolder: ArchiveFolderDynamoItem) =>
+        FolderItem(
+          item.batchId,
+          item.id,
+          item.potentialParentPath,
+          archiveFolder.name,
+          item.`type`,
+          item.potentialTitle,
+          item.potentialDescription,
+          item.identifiers
+        )
+      case _ => throw new RuntimeException("Row is not an 'Asset' or a 'Folder'")
     }
 
   given DynamoFormat[FolderOrAssetItem] = new DynamoFormat[FolderOrAssetItem] {
@@ -78,32 +76,32 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def formatParentPath(potentialParentPath: Option[String]): String = potentialParentPath.map(parentPath => s"$parentPath/").getOrElse("")
 
-  private def uploadXMLToS3(s3Client: DAS3Client[IO], xmlString: String, destinationBucket: String, key: String): IO[CompletedUpload] =
-    Stream.emits[IO, Byte](xmlString.getBytes).chunks.map(_.toByteBuffer).toPublisherResource.use { publisher =>
-      s3Client.upload(destinationBucket, key, FlowAdapters.toPublisher(publisher))
-    }
-
-  private def getAssetRowsWithFileSize(s3Client: DAS3Client[IO], children: List[FolderOrAssetItem], bucketName: String, executionName: String): IO[List[AssetWithFileSize]] = {
-    children.collect {
-      case child @ asset if child.`type` == Asset =>
-        val key = s"opex/$executionName/${formatParentPath(asset.parentPath)}${asset.id}.pax.opex"
-        s3Client
-          .headObject(bucketName, key)
-          .map(headResponse => AssetWithFileSize(asset, headResponse.contentLength()))
-    }.sequence
-  }
-
-  private def childrenOfFolder(dynamoClient: DADynamoDBClient[IO], asset: ArchiveFolderDynamoItem, tableName: String, gsiName: String): IO[List[FolderOrAssetItem]] = {
-    val childrenParentPath = s"${asset.potentialParentPath.getOrElse("")}/${asset.id}".stripPrefix("/")
-    dynamoClient
-      .queryItems[FolderOrAssetItem](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
-  }
-
   override def handler: (
       Input,
       Config,
       Dependencies
   ) => IO[Unit] = (input, config, dependencies) =>
+
+    def childrenOfFolder(asset: ArchiveFolderDynamoItem, tableName: String, gsiName: String): IO[List[FolderOrAssetItem]] = {
+      val childrenParentPath = s"${asset.potentialParentPath.getOrElse("")}/${asset.id}".stripPrefix("/")
+      dependencies.dynamoClient
+        .queryItems[FolderOrAssetItem](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
+    }
+
+    def uploadXMLToS3(xmlString: String, destinationBucket: String, key: String): IO[CompletedUpload] =
+      Stream.emits[IO, Byte](xmlString.getBytes).chunks.map(_.toByteBuffer).toPublisherResource.use { publisher =>
+        dependencies.s3Client.upload(destinationBucket, key, FlowAdapters.toPublisher(publisher))
+      }
+
+    def getAssetRowsWithFileSize(children: List[FolderOrAssetItem], bucketName: String, executionName: String): IO[List[AssetWithFileSize]] =
+      children.collect {
+        case child @ asset if child.`type` == Asset =>
+          val key = s"opex/$executionName/${formatParentPath(asset.parentPath)}${asset.id}.pax.opex"
+          dependencies.s3Client
+            .headObject(bucketName, key)
+            .map(headResponse => AssetWithFileSize(asset, headResponse.contentLength()))
+      }.sequence
+
     for {
       folderItems <- dependencies.dynamoClient
         .getItems[ArchiveFolderDynamoItem, FilesTablePrimaryKey](
@@ -119,7 +117,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- IO.whenA(!isFolder(folder.`type`))(IO.raiseError(new Exception(s"Object ${folder.id} is of type ${folder.`type`} and not 'ContentFolder' or 'ArchiveFolder'")))
       _ <- log(s"Fetched ${folderItems.length} folder items from Dynamo")
 
-      children <- childrenOfFolder(dependencies.dynamoClient, folder, config.dynamoTableName, config.dynamoGsiName)
+      children <- childrenOfFolder(folder, config.dynamoTableName, config.dynamoGsiName)
       _ <- IO.raiseWhen(folder.childCount != children.length)(
         new Exception(s"Folder id ${folder.id}: has ${folder.childCount} children in the files table but found ${children.length} children in the Preservation system")
       )
@@ -127,14 +125,14 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
       _ <- log(s"Fetched ${children.length} children from Dynamo")
 
-      assetRows <- getAssetRowsWithFileSize(dependencies.s3Client, childrenWithoutSkip, config.bucketName, input.executionName)
+      assetRows <- getAssetRowsWithFileSize(childrenWithoutSkip, config.bucketName, input.executionName)
       _ <- log("File sizes for assets fetched from S3")
 
       folderRows <- IO.pure(childrenWithoutSkip.filter(child => isFolder(child.`type`)))
       folderOpex <- dependencies.xmlCreator.createFolderOpex(folder, assetRows, folderRows, folder.identifiers)
       _ <- xmlValidator(PreservicaSchema.OpexMetadataSchema).xmlStringIsValid("""<?xml version="1.0" encoding="UTF-8"?>""" + folderOpex)
       key = generateKey(input.executionName, folder)
-      _ <- uploadXMLToS3(dependencies.s3Client, folderOpex, config.bucketName, key)
+      _ <- uploadXMLToS3(folderOpex, config.bucketName, key)
       _ <- log(s"Uploaded OPEX $key to S3 ${config.bucketName}")
     } yield ()
 
