@@ -12,7 +12,7 @@ import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DASQSClient
 import uk.gov.nationalarchives.DASQSClient.FifoQueueConfiguration
 import uk.gov.nationalarchives.dp.client.Entities.Entity
-import uk.gov.nationalarchives.dp.client.EntityClient.StandardEntityMetadata
+import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier, StandardEntityMetadata}
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
 import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.*
 
@@ -94,7 +94,7 @@ object Utils:
 
     override def entityEventActions(entity: Entities.Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] = IO.pure(Nil)
 
-    override def entitiesByIdentifier(identifier: EntityClient.Identifier): IO[Seq[Entities.Entity]] = IO.pure(Nil)
+    override def entitiesPerIdentifier(identifiers: Seq[EntityClient.Identifier]): IO[Map[Identifier, Seq[Entities.Entity]]] = IO.pure(Map.empty)
 
     override def addIdentifierForEntity(entityRef: UUID, entityType: EntityClient.EntityType, identifier: EntityClient.Identifier): IO[String] = IO.pure("")
 
