@@ -20,12 +20,13 @@ import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.MetadataJsonSchemaValidator.EntryTypeSchema.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.ValidatedUtils.ValidatedEntry
+import uk.gov.nationalarchives.utils.ExternalUtils.StepFunctionInput
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.net.URI
 import java.nio.ByteBuffer
 
-class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
+class Lambda extends LambdaRunner[StepFunctionInput, Unit, Config, Dependencies] {
   lazy private val bufferSize = 1024 * 5
 
   given Encoder[Value] = value => Json.fromString(value.toString)
@@ -65,10 +66,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     IO(Dependencies(DAS3Client[IO]()))
 
   override def handler: (
-      Input,
+      StepFunctionInput,
       Config,
       Dependencies
-  ) => IO[StateOutput] = (input, config, dependencies) =>
+  ) => IO[Unit] = (input, config, dependencies) =>
     for {
       log <- IO(log(Map("batchRef" -> input.batchId)))
       _ <- log(s"Processing batchRef ${input.batchId}")
@@ -150,7 +151,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
           uploadResults(s3Client, bucket, keyOfResultsFile, allJsonErrors) >>
           IO.raiseError(JsonValidationException(jsonStructureErrorMessage + entriesErrorMessage))
       }
-    } yield StateOutput(input.batchId, input.metadataPackage)
+    } yield ()
 
   private def validateAgainstSchema(metadataJson: String) =
     for {
@@ -253,10 +254,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 object Lambda {
   sealed trait ValidationResult:
     val result: String | List[ValidationError | MissingPropertyError | ValueError]
-
-  case class StateOutput(batchId: String, metadataPackage: URI)
-
-  case class Input(batchId: String, metadataPackage: URI)
 
   case class Config() derives ConfigReader
 

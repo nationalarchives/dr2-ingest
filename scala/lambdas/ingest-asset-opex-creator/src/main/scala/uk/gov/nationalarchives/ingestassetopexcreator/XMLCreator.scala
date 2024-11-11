@@ -96,7 +96,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
               <TransferDateTime>{transferCompleteDatetime}</TransferDateTime>
               <TransferringBody>{asset.transferringBody}</TransferringBody>
               <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
-              <UpstreamSystemRef>{identifiers.find(_.identifierName == "UpstreamSystemReference").get.value}</UpstreamSystemRef>
+              <UpstreamSystemRef>{identifiers.find(_.identifierName == "UpstreamSystemReference").map(_.value).getOrElse("")}</UpstreamSystemRef>
             </Source>
           </opex:DescriptiveMetadata>
         </opex:OPEXMetadata>

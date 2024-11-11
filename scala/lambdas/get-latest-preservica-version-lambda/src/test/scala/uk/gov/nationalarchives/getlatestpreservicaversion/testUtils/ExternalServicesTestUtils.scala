@@ -10,8 +10,10 @@ import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
+import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
+import uk.gov.nationalarchives.dp.client.EntityClient.Identifier
 import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda
 import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.{Config, Dependencies, GetDr2PreservicaVersionResponse, LatestPreservicaVersionMessage}
 
@@ -67,7 +69,7 @@ object ExternalServicesTestUtils:
 
     override def entityEventActions(entity: Entities.Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] = notImplemented
 
-    override def entitiesByIdentifier(identifier: EntityClient.Identifier): IO[Seq[Entities.Entity]] = notImplemented
+    def entitiesPerIdentifier(identifiers: Seq[Identifier]): IO[Map[Identifier, Seq[Entity]]] = notImplemented
 
     override def addIdentifierForEntity(entityRef: UUID, entityType: EntityClient.EntityType, identifier: EntityClient.Identifier): IO[String] = notImplemented
 

@@ -19,6 +19,7 @@ import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{Input, SFNArgu
 import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.*
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
+import uk.gov.nationalarchives.utils.ExternalUtils.NotificationMessage
 import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 
@@ -45,7 +46,7 @@ object Aggregator:
       )
     )
 
-  case class Input(id: UUID, location: URI)
+  type Input = NotificationMessage
 
   case class SFNArguments(groupId: GroupId, batchId: BatchId, waitFor: Seconds, retryCount: Int = 0)
 

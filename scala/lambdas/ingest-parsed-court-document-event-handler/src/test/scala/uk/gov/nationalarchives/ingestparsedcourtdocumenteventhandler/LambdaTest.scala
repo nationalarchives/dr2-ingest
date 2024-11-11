@@ -16,14 +16,14 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.services.sfn.SfnAsyncClient
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
-import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.{Court, Output}
+import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.Court
 import io.circe.parser.decode
 import io.circe.generic.auto.*
 import io.circe.syntax.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2, TableFor4}
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
-import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
+import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 
 import java.net.URI
@@ -67,6 +67,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   val testOutputBucket = "outputBucket"
   val inputBucket = "inputBucket"
   private def packageAvailable(s3Key: String): TREInput = TREInput(
+    TREInputProperties(Option("023b66e5-9e21-49f5-a5c1-041a306f4cee")),
     TREInputParameters("status", "TEST-REFERENCE", skipSeriesLookup = false, inputBucket, s3Key)
   )
   private def event(s3Key: String = "test.tar.gz"): SQSEvent = createEvent(
@@ -314,6 +315,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       val folderId = UUID.fromString("c2e7866e-5e94-4b4e-a49f-043ad937c18a")
       val fileId = UUID.fromString("61ac0166-ccdf-48c4-800f-29e5fba2efda")
       val metadataFileId = UUID.fromString("4e6bac50-d80a-4c68-bd92-772ac9701f14")
+      val potentialCorrelationId: Option[String] = Option("023b66e5-9e21-49f5-a5c1-041a306f4cee")
       val expectedAssetMetadata = AssetMetadataObject(
         tdrUuid,
         Option(folderId),
@@ -327,6 +329,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
         "TRE: FCL Parser workflow",
         "Born Digital",
         Option("FCL"),
+        potentialCorrelationId,
         List(
           Option(IdField("UpstreamSystemReference", reference)),
           Option(IdField("URI", "https://example.com/id/court/2023/")),
@@ -402,11 +405,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val sfnRequest = runLambdaAndReturnStepFunctionRequest()
     val input = read[Output](sfnRequest.input)
 
+    sfnRequest.name should equal("COURTDOC_TEST-REFERENCE")
     sfnRequest.stateMachineArn should equal("arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName")
-    sfnRequest.name should equal("TEST-REFERENCE")
 
-    input.batchId should equal("TEST-REFERENCE")
+    input.batchId should equal("COURTDOC_TEST-REFERENCE_0")
+    input.groupId should equal("COURTDOC_TEST-REFERENCE")
     input.metadataPackage.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
+    input.retryCount should equal(0)
+    input.retrySfnArn should equal("arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName")
   }
 
   val citeAndUri: TableFor4[Option[String], Option[String], Option[String], Option[String]] = Table(
@@ -429,11 +435,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       val sfnRequest = runLambdaAndReturnStepFunctionRequest(Option(inputJson))
       val input = read[Output](sfnRequest.input)
 
+      sfnRequest.name should equal("COURTDOC_TEST-REFERENCE")
       sfnRequest.stateMachineArn should equal("arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName")
-      sfnRequest.name should equal("TEST-REFERENCE")
 
-      input.batchId should equal("TEST-REFERENCE")
+      input.batchId should equal("COURTDOC_TEST-REFERENCE_0")
+      input.groupId should equal("COURTDOC_TEST-REFERENCE")
       input.metadataPackage.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
+      input.retryCount should equal(0)
+      input.retrySfnArn should equal("arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName")
     }
   }
 
@@ -466,7 +475,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val ex = intercept[Exception] {
       new Lambda().handler(eventWithInvalidJson, config, dependencies).unsafeRunSync()
     }
-    ex.getMessage should equal("DecodingFailure at .parameters: Missing required field")
+    ex.getMessage should equal("DecodingFailure at .properties: Missing required field")
   }
 
   "the lambda" should "error if the json in the metadata file is invalid" in {
