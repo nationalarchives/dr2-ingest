@@ -16,14 +16,14 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.services.sfn.SfnAsyncClient
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
-import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.{Court, Output}
+import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.Court
 import io.circe.parser.decode
 import io.circe.generic.auto.*
 import io.circe.syntax.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2, TableFor4}
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
-import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.Dependencies
+import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 
 import java.net.URI
@@ -405,11 +405,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val sfnRequest = runLambdaAndReturnStepFunctionRequest()
     val input = read[Output](sfnRequest.input)
 
+    sfnRequest.name should equal("COURTDOC_TEST-REFERENCE")
     sfnRequest.stateMachineArn should equal("arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName")
-    sfnRequest.name should equal("TEST-REFERENCE")
 
-    input.batchId should equal("TEST-REFERENCE")
+    input.batchId should equal("COURTDOC_TEST-REFERENCE_0")
+    input.groupId should equal("COURTDOC_TEST-REFERENCE")
     input.metadataPackage.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
+    input.retryCount should equal(0)
+    input.retrySfnArn should equal("arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName")
   }
 
   val citeAndUri: TableFor4[Option[String], Option[String], Option[String], Option[String]] = Table(
@@ -432,11 +435,14 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       val sfnRequest = runLambdaAndReturnStepFunctionRequest(Option(inputJson))
       val input = read[Output](sfnRequest.input)
 
+      sfnRequest.name should equal("COURTDOC_TEST-REFERENCE")
       sfnRequest.stateMachineArn should equal("arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName")
-      sfnRequest.name should equal("TEST-REFERENCE")
 
-      input.batchId should equal("TEST-REFERENCE")
+      input.batchId should equal("COURTDOC_TEST-REFERENCE_0")
+      input.groupId should equal("COURTDOC_TEST-REFERENCE")
       input.metadataPackage.toString should equal("s3://outputBucket/TEST-REFERENCE/metadata.json")
+      input.retryCount should equal(0)
+      input.retrySfnArn should equal("arn:aws:states:eu-west-2:123456789:stateMachine:StateMachineName")
     }
   }
 
