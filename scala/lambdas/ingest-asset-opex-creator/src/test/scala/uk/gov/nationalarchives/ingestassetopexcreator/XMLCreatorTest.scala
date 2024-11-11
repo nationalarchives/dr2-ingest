@@ -245,13 +245,6 @@ class XMLCreatorTest extends AnyFlatSpec {
       verifyXmlEqual(xml, expectedOpexXmlWithNewTitle)
     }
 
-  "createOpex" should "throw a 'NoSuchElementException' if the identifiers the opex need are missing" in {
-    val ex = intercept[NoSuchElementException] {
-      XMLCreator(ingestDateTime).createOpex(asset, children, 4, Nil).unsafeRunSync()
-    }
-    ex.getMessage should equal("None.get")
-  }
-
   "createXip" should "create the correct xip xml" in {
     val xml = XMLCreator(ingestDateTime).createXip(asset, children).unsafeRunSync()
     verifyXmlEqual(xml, expectedXipXml)

@@ -118,6 +118,7 @@ object TestUtils:
       upstreamSystem <- c.downField("upstreamSystem").as[String]
       digitalAssetSource <- c.downField("digitalAssetSource").as[String]
       digitalAssetSubtype <- c.downField("digitalAssetSubtype").as[Option[String]]
+      correlationId <- c.downField("correlationId").as[Option[String]]
       idFields = c.keys
         .map(_.toList)
         .getOrElse(Nil)
@@ -140,6 +141,7 @@ object TestUtils:
       upstreamSystem,
       digitalAssetSource,
       digitalAssetSubtype,
+      correlationId,
       idFields
     )
 
