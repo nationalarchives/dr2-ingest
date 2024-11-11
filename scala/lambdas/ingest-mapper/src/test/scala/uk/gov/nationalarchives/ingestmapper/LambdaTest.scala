@@ -5,7 +5,6 @@ import cats.effect.{IO, Ref}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
-import org.scalatestplus.mockito.MockitoSugar
 import ujson.Obj
 import uk.gov.nationalarchives.ingestmapper.Lambda.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
@@ -15,7 +14,7 @@ import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.DynamoFilesTable
 import java.net.URI
 import java.util.UUID
 
-class LambdaTest extends AnyFlatSpec with MockitoSugar with BeforeAndAfterEach {
+class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach {
 
   "handler" should "return the correct values from the lambda and upload the correct number of files and content to S3" in {
     val testUtils = new LambdaTestTestUtils()
