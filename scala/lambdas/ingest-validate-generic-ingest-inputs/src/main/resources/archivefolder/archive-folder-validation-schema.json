@@ -17,12 +17,29 @@
       "type": "string",
       "minLength": 1
     },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parentId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
     "title": {
       "type": [
         "string",
         "null"
       ],
       "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "ArchiveFolder"
+      ]
     },
     "name": {
       "type": "string",

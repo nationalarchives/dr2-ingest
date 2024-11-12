@@ -1,27 +1,21 @@
 package uk.gov.nationalarchives.ingestvalidategenericingestinputs
 
 import cats.*
-import cats.data.Validated
 import cats.effect.IO
 import cats.syntax.all.*
 import fs2.interop.reactivestreams.*
 import fs2.{Chunk, Stream}
 import io.circe.*
-import io.circe.Decoder.{AccumulatingResult, Result}
 import io.circe.derivation.Configuration
 import io.circe.generic.semiauto.*
 import org.reactivestreams.Publisher
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
 import uk.gov.nationalarchives.DAS3Client
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.MandatoryFields.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
-import uk.gov.nationalarchives.utils.ExternalUtils.Type.*
 
 import java.net.URI
 import java.nio.ByteBuffer
-import java.time.OffsetDateTime
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
@@ -61,127 +55,23 @@ object Utils:
     case class MissingParent(missingParentId: UUID) extends ErrorMessage
 
     given Encoder[ErrorMessage] = Encoder.encodeString.contramap[ErrorMessage](_.show)
-    given Encoder[SingleValidationResult] = deriveEncoder[SingleValidationResult]
+    given Encoder[ObjectValidationResult] = deriveEncoder[ObjectValidationResult]
     given Encoder[WholeFileValidationResult] = deriveEncoder[WholeFileValidationResult]
 
-    case class SingleValidationError(results: List[SingleValidationResult]) extends Throwable
-    case class SingleValidationResult(json: Json, errors: List[String])
-    case class WholeFileValidationResult(errors: List[String], singleResults: List[SingleValidationResult]) {
+    case class ObjectValidationError(results: List[ObjectValidationResult]) extends Throwable
+    case class ObjectValidationResult(json: Json, errors: List[String])
+    case class WholeFileValidationResult(errors: List[String], singleResults: List[ObjectValidationResult]) {
       def anyErrors: Boolean = errors.nonEmpty || singleResults.flatMap(_.errors).nonEmpty
     }
   end ErrorMessage
 
-  sealed trait MandatoryFields:
-    def id: UUID
-
-    def parentId: Option[UUID]
-
-    def getType: Type = this match
-      case _: MandatoryArchiveFolderFields => ArchiveFolder
-      case _: MandatoryContentFolderFields => ContentFolder
-      case _: MandatoryAssetFields         => Asset
-      case _: MandatoryFileFields          => File
-  end MandatoryFields
-
-  object MandatoryFields:
-
-    given Configuration = Configuration.default.withDefaults
+  object Counts:
 
     case class ObjectCounts(assetCount: Int, fileCount: Int, topLevelCount: Int)
 
-    given Decoder[RepresentationType] = (c: HCursor) => c.as[String].map(RepresentationType.valueOf)
-
-    given Decoder[IdField] = deriveDecoder[IdField]
-
-    case class MandatoryArchiveFolderFields(id: UUID, name: String, parentId: Option[UUID], series: Option[String]) extends MandatoryFields
-
-    case class MandatoryContentFolderFields(id: UUID, name: String, parentId: Option[UUID], series: Option[String]) extends MandatoryFields
-
-    case class MandatoryAssetFields(
-        id: UUID,
-        parentId: Option[UUID],
-        series: Option[String],
-        digitalAssetSource: String,
-        originalFiles: List[UUID],
-        originalMetadataFiles: List[UUID],
-        transferCompleteDatetime: OffsetDateTime,
-        transferringBody: String,
-        upstreamSystem: String
-    ) extends MandatoryFields
-
-    case class MandatoryFileFields(
-        id: UUID,
-        name: String,
-        parentId: Option[UUID],
-        representationSuffix: Int,
-        representationType: RepresentationType,
-        sortOrder: Int,
-        checksums: List[Checksum],
-        location: URI
-    ) extends MandatoryFields
-
-    given Decoder[MandatoryArchiveFolderFields] = Decoder.derivedConfigured[MandatoryArchiveFolderFields]
-
-    given Decoder[MandatoryContentFolderFields] = Decoder.derivedConfigured[MandatoryContentFolderFields]
-
     case class ParentWithType(parentId: Option[UUID], objectType: Type)
 
-    private def convertToFailFast[T](result: AccumulatingResult[T]): Either[DecodingFailure, T] = result match
-      case Validated.Valid(value)    => Right(value)
-      case Validated.Invalid(errors) => Left(errors.head)
-
-    given Decoder[MandatoryAssetFields] = new Decoder[MandatoryAssetFields]:
-      override def apply(c: HCursor): Result[MandatoryAssetFields] = convertToFailFast(decodeAccumulating(c))
-
-      override def decodeAccumulating(c: HCursor): AccumulatingResult[MandatoryAssetFields] =
-        (
-          c.downField("id").as[UUID].toValidatedNel,
-          c.downField("parentId").as[Option[UUID]].toValidatedNel,
-          c.downField("series").as[Option[String]].toValidatedNel,
-          c.downField("digitalAssetSource").as[String].toValidatedNel,
-          c.downField("originalFiles").as[List[UUID]].toValidatedNel,
-          c.downField("originalMetadataFiles").as[List[UUID]].toValidatedNel,
-          c.downField("transferCompleteDatetime").as[OffsetDateTime].toValidatedNel,
-          c.downField("transferringBody").as[String].toValidatedNel,
-          c.downField("upstreamSystem").as[String].toValidatedNel
-        ).mapN(MandatoryAssetFields.apply)
-
-    given Decoder[MandatoryFileFields] = new Decoder[MandatoryFileFields]:
-      override def apply(c: HCursor): Result[MandatoryFileFields] = convertToFailFast(decodeAccumulating(c))
-
-      override def decodeAccumulating(c: HCursor): AccumulatingResult[MandatoryFileFields] =
-        (
-          c.downField("id").as[UUID].toValidatedNel,
-          c.downField("name").as[String].toValidatedNel,
-          c.downField("parentId").as[Option[UUID]].toValidatedNel,
-          c.downField("representationSuffix").as[Int].toValidatedNel,
-          c.downField("representationType").as[RepresentationType].toValidatedNel,
-          c.downField("sortOrder").as[Int].toValidatedNel,
-          Right {
-            c.keys
-              .map(_.toList)
-              .getOrElse(Nil)
-              .filter(_.startsWith("checksum_"))
-              .flatMap { key =>
-                c.downField(key).as[String].toOption.map { value =>
-                  Checksum(key.drop(9), value)
-                }
-              }
-          }.toValidatedNel,
-          c.downField("location").as[URI].toValidatedNel
-        ).mapN(MandatoryFileFields.apply)
-
-    given Decoder[MandatoryFields] =
-      for {
-        objectType <- Decoder[String].prepare(_.downField("type"))
-        mandatoryFields <- objectType match
-          case "ArchiveFolder" => Decoder[MandatoryArchiveFolderFields]
-          case "ContentFolder" => Decoder[MandatoryContentFolderFields]
-          case "Asset"         => Decoder[MandatoryAssetFields]
-          case "File"          => Decoder[MandatoryFileFields]
-      } yield mandatoryFields
-
-  end MandatoryFields
+  end Counts
 
   object LambdaConfiguration:
     case class StateOutput(batchId: String, metadataPackage: URI)

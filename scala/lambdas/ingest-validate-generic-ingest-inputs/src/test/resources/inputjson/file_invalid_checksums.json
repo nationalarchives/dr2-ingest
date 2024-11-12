@@ -11,6 +11,7 @@
       "location": "s3://bucket/key",
       "checksum_sha256": "abcd",
       "checksum_md5": "abcd",
+      "fileSize": 1,
       "title": "title"
     }
   ],

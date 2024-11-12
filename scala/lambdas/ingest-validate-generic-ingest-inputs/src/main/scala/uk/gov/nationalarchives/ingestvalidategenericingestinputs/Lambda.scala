@@ -21,7 +21,7 @@ import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.ErrorMessage.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.LambdaConfiguration.*
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.*
-import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.MandatoryFields.*
+import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.Counts.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.Type.*
 import uk.gov.nationalarchives.utils.LambdaRunner
@@ -33,29 +33,29 @@ import scala.jdk.CollectionConverters.*
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   given Facade[Json] = io.circe.jawn.CirceSupportParser.facade
 
-  private def updateCounts(mandatoryFields: MandatoryFields, countsCell: AtomicCell[IO, ObjectCounts]): IO[Unit] =
-    val parentId = mandatoryFields.parentId
+  private def updateCounts(metadataObject: MetadataObject, countsCell: AtomicCell[IO, ObjectCounts]): IO[Unit] =
+    val parentId = metadataObject.parentId
 
     def updateTopLevelCount(series: Option[String]) =
       val topLevelIncrement = if series.nonEmpty && parentId.isEmpty then 1 else 0
       countsCell.update(counts => counts.copy(topLevelCount = counts.topLevelCount + topLevelIncrement))
 
-    mandatoryFields match
-      case maf: MandatoryArchiveFolderFields => updateTopLevelCount(maf.series)
-      case mcf: MandatoryContentFolderFields => updateTopLevelCount(mcf.series)
-      case maf: MandatoryAssetFields         => updateTopLevelCount(maf.series) >> countsCell.update(counts => counts.copy(assetCount = counts.assetCount + 1))
-      case mff: MandatoryFileFields          => countsCell.update(counts => counts.copy(fileCount = counts.fileCount + 1))
+    metadataObject match
+      case maf: ArchiveFolderMetadataObject => updateTopLevelCount(maf.series)
+      case mcf: ContentFolderMetadataObject => updateTopLevelCount(mcf.series)
+      case maf: AssetMetadataObject         => countsCell.update(counts => counts.copy(assetCount = counts.assetCount + 1))
+      case mff: FileMetadataObject          => countsCell.update(counts => counts.copy(fileCount = counts.fileCount + 1))
 
-  private def updateParentCount(mandatoryFields: MandatoryFields, parentIdCountCell: AtomicCell[IO, Map[Option[UUID], Int]]): IO[Unit] =
-    parentIdCountCell.update { parentIdCount =>
-      val parentId = mandatoryFields.parentId
+  private def updateChildCount(metadataObject: MetadataObject, childCountCell: AtomicCell[IO, Map[Option[UUID], Int]]): IO[Unit] =
+    childCountCell.update { parentIdCount =>
+      val parentId = metadataObject.parentId
       val childCount = parentIdCount.getOrElse(parentId, 0)
       parentIdCount + (parentId -> (childCount + 1))
     }
 
-  private def updateIdToParentType(mandatoryFields: MandatoryFields, idToParentIdTypeCell: AtomicCell[IO, Map[UUID, ParentWithType]]): IO[Unit] =
+  private def updateIdToParentType(metadataObject: MetadataObject, idToParentIdTypeCell: AtomicCell[IO, Map[UUID, ParentWithType]]): IO[Unit] =
     idToParentIdTypeCell.update { idToParentIdType =>
-      val newField = mandatoryFields.id -> ParentWithType(mandatoryFields.parentId, mandatoryFields.getType)
+      val newField = metadataObject.id -> ParentWithType(metadataObject.parentId, metadataObject.getType)
       idToParentIdType + newField
     }
 
@@ -125,35 +125,35 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         idToParentCell: AtomicCell[IO, Map[UUID, ParentWithType]],
         parentCountCell: AtomicCell[IO, Map[Option[UUID], Int]],
         objectCountsCell: AtomicCell[IO, ObjectCounts]
-    ): IO[List[SingleValidationResult]] = {
+    ): IO[List[ObjectValidationResult]] = {
 
-      def checkObjectInS3(mandatoryFields: MandatoryFields): IO[List[String]] =
-        mandatoryFields match
-          case f: MandatoryFileFields =>
+      def checkObjectInS3(metadataObject: MetadataObject): IO[List[String]] =
+        metadataObject match
+          case f: FileMetadataObject =>
             dependencies.s3
               .headObject(f.location.getHost, f.location.getPath.drop(1))
               .map(_ => Nil)
-              .handleError(_ => List(s"File ${f.id} can not be found in S3"))
-          case _ => IO(Nil)
+              .handleError(_ => List(s"File ${f.id} can not be found in S3 at location ${f.location}"))
+          case _ => IO.pure(Nil)
 
-      def validateAgainstSchemas(mandatoryFields: MandatoryFields, json: Json): IO[List[String]] = {
+      def validateAgainstSchemas(metadataObject: MetadataObject, json: Json): IO[List[String]] = {
         schemaMap
-          .get(mandatoryFields.getType)
+          .get(metadataObject.getType)
           .toList
           .flatten
           .parTraverse { schema =>
-            IO.blocking(schema.validate(json.noSpaces, JSON).asScala.map(result => s"${mandatoryFields.id} ${result.getMessage}"))
+            IO.blocking(schema.validate(json.noSpaces, JSON).asScala.map(result => s"${metadataObject.id} ${result.getMessage}"))
           }
           .map(_.flatten)
       }
 
-      def validateSingleObject(json: Json) = decodeAccumulating[MandatoryFields](json.noSpaces)
+      def validateSingleObject(json: Json) = decodeAccumulating[MetadataObject](json.noSpaces)
         .fold(
           errors => IO.pure(errors.toList.map(_.getMessage)),
           mandatoryFields =>
             for {
               updateIdParentFiber <- updateIdToParentType(mandatoryFields, idToParentCell).start
-              updateParentCountFiber <- updateParentCount(mandatoryFields, parentCountCell).start
+              updateParentCountFiber <- updateChildCount(mandatoryFields, parentCountCell).start
               updateCountsFiber <- updateCounts(mandatoryFields, objectCountsCell).start
               s3ErrorsFiber <- checkObjectInS3(mandatoryFields).start
               schemaValidationErrorsFiber <- validateAgainstSchemas(mandatoryFields, json).start
@@ -164,7 +164,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
               schemaValidationErrors <- schemaValidationOutcome.embedError
             } yield s3Errors ++ schemaValidationErrors
         )
-        .map(errors => if errors.nonEmpty then SingleValidationResult(json, errors).some else None)
+        .map(errors => if errors.nonEmpty then ObjectValidationResult(json, errors).some else None)
 
       stream.chunks
         .unwrapJsonArray[Json]

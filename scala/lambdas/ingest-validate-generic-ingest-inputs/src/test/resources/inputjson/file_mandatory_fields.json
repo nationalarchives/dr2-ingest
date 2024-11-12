@@ -11,6 +11,8 @@
     }
   ],
   "expectedErrors": [
-    "0f9cab98-114d-4e72-b378-695559155c45 $: required property 'title' not found"
+    "DecodingFailure at .checksum_sha256: Missing required field",
+    "DecodingFailure at .fileSize: Missing required field",
+    "DecodingFailure at .title: Missing required field"
   ]
 }

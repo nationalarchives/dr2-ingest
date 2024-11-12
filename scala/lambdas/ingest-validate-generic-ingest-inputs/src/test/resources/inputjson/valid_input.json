@@ -41,7 +41,8 @@
       "sortOrder": 1,
       "representationSuffix": 1,
       "representationType": "Preservation",
-      "location": "s3://bucket/key"
+      "location": "s3://bucket/key",
+      "checksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
   "expectedErrors": []

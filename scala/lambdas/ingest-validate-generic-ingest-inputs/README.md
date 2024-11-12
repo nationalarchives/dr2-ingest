@@ -3,7 +3,8 @@
 Validates the input to the `dr2-ingest` Step Function to prevent unrecoverable errors downstream. See
 the [ingest docs](/docs/ingest.md) for more information.
 
-## Input 
+## Input
+
 ```json
 {
   "batchId": "batch",
@@ -23,10 +24,9 @@ The Lambda:
         2. Update a map of `parentId` to `count` where count is the number of files with that parent.
         3. Update a counts object which counts assets, files and top level folders.
         4. If the object is a File object, check it is in S3 by calling HeadObject on its location.
-        5. Get any schema files under `resources/<lower_case_type>` and validate the object against all of them.
+        5. Get the relevant JSON schema files for the type of object (from `resources/<lower_case_type>`) and validate the object against all of them.
         6. If there are errors, return the original json with a `List[String]` of errors.
-4. Once all objects are processed, if there were any errors, the rest of the process is skipped, the errors are uploaded
-   to S3 and an exception is thrown with the error file location.
+4. Once all objects are processed, if there were any errors, the rest of the process is skipped, the errors are uploaded to a file in S3 and an exception is thrown with file location.
 5. If there were no errors, check that the keyset of the `id` to `(parentId, type)` map contains all entries in the
    keyset of the `parentId` to `count` map. This checks that every `parentId` is also a valid id.
 6. For each entry in the map of `id` to `(parentId, type)`
@@ -36,10 +36,13 @@ The Lambda:
     4. Validate that there's at least one top level folder
     5. Validate that there's at least one asset.
     6. Validate that there's at least one file.
-7. Accumulate the errors into one object. If there are any, write them to S3 and raise an error with the location. If not, return the input as output.
+7. Accumulate the errors into one object. If there are any, write them to S3 and raise an error with the location. If
+   not, return the Lambda input as its output.
 
 ## Output
-If the validation succeeds the lambda returns:
+
+If the validation succeeds, the lambda returns:
+
 ```json
 {
   "batchId": "batch",
@@ -47,10 +50,10 @@ If the validation succeeds the lambda returns:
 }
 ```
 
-If the validation fails, it will upload the errors to S3. 
+If the validation fails, it will upload the errors to S3.
 
 Errors which can be found when processing each individual object are included with the original json.
-Top level errors which require the whole file to be scanned are included in the top level errors array. 
+Top-level errors which require the whole file to be scanned are included in the top-level errors array.
 This means we don't have to hold the whole json object in memory at any point, only the errors and the id maps.
 
 ```json
@@ -144,12 +147,12 @@ This means we don't have to hold the whole json object in memory at any point, o
 
 ## Valid parents
 
-| objectType    | validParentTypes                  |
-|---------------|-----------------------------------|
-| ArchiveFolder | ArchiveFolder                     |
-| ContentFolder | ArchiveFolder, ContentFolder      |
-| Asset         | ContentFolder,ArchiveFolder,Asset |
-| File          | Asset                             | 
+| objectType    | validParentTypes                    |
+|---------------|-------------------------------------|
+| ArchiveFolder | ArchiveFolder                       |
+| ContentFolder | ArchiveFolder, ContentFolder        |
+| Asset         | ContentFolder, ArchiveFolder, Asset |
+| File          | Asset                               | 
 
 ## Environment Variables
 

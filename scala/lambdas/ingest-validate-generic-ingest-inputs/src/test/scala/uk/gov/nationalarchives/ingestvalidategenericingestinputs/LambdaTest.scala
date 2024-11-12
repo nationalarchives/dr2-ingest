@@ -19,6 +19,8 @@ class LambdaTest extends AnyFunSpec with TableDrivenPropertyChecks:
     forAll(inputFiles) { inputFileName =>
       it(s"should validate the input file $inputFileName") {
         val (expectedErrors, errors) = runLambda(inputFileName)
+        import io.circe.syntax.*
+        println(errors.asJson.noSpaces)
         expectedErrors should equal(errors)
       }
     }
