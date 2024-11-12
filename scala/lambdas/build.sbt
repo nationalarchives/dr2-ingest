@@ -24,7 +24,6 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestWorkflowMonitor,
     preingestTdrAggregator,
     preIngestTdrPackageBuilder,
-    preservicaConfig,
     rotatePreservationSystemPassword,
     startWorkflow
   )
@@ -53,7 +52,7 @@ lazy val commonSettings = Seq(
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
     case _                                                   => MergeStrategy.first
   },
-  scalacOptions ++= Seq("-Yretain-trees", "-Xmax-inlines", "33", "-Wunused:imports", "-Werror", "-deprecation", "-feature", "-language:implicitConversions"),
+  scalacOptions ++= Seq("-Yretain-trees", "-Xmax-inlines", "35", "-Wunused:imports", "-Werror", "-deprecation", "-feature", "-language:implicitConversions"),
   (Test / fork) := true,
   (Test / envVars) := Map(
     "AWS_ACCESS_KEY_ID" -> "accesskey",
@@ -118,19 +117,6 @@ lazy val ingestWorkflowMonitor = (project in file("ingest-workflow-monitor"))
   .dependsOn(utils)
   .settings(
     libraryDependencies += preservicaClient
-  )
-
-lazy val preservicaConfig = (project in file("preservica-config"))
-  .settings(commonSettings)
-  .dependsOn(utils)
-  .settings(
-    libraryDependencies ++= Seq(
-      preservicaClient,
-      s3Client,
-      scalaXml,
-      scalaParserCombinators,
-      jaxb
-    )
   )
 
 lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"))

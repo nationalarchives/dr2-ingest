@@ -1,97 +1,63 @@
 package uk.gov.nationalarchives.ingestparentfolderopexcreator.testUtils
 
-import cats.effect.IO
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{times, verify, when}
-import org.scalatestplus.mockito.MockitoSugar
+import cats.effect.unsafe.implicits.global
+import cats.effect.{IO, Ref}
 import org.reactivestreams.Publisher
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers.*
-import org.scalatestplus.mockito.MockitoSugar.mock
+import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
-import software.amazon.awssdk.services.s3.S3AsyncClient
-import software.amazon.awssdk.services.s3.model.{CommonPrefix, ListObjectsV2Request, ListObjectsV2Response}
-import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher
-import software.amazon.awssdk.transfer.s3.model.CompletedUpload
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
+import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.DAS3Client
-import uk.gov.nationalarchives.ingestparentfolderopexcreator.Lambda.Dependencies
+import uk.gov.nationalarchives.ingestparentfolderopexcreator.Lambda
+import uk.gov.nationalarchives.ingestparentfolderopexcreator.Lambda.*
 
 import java.nio.ByteBuffer
-import java.util.concurrent.CompletableFuture
-import scala.jdk.CollectionConverters.SeqHasAsJava
+import scala.jdk.CollectionConverters.*
 
-class ExternalServicesTestUtils extends AnyFlatSpec {
-  def generateMockSdkPublisherWithPrefixes(commonPrefixStrings: List[String]): IO[SdkPublisher[String]] = {
-    val commonPrefixes = commonPrefixStrings.map(prefix => CommonPrefix.builder.prefix(prefix).build).asJava
-    val asyncClientMock = mock[S3AsyncClient]
+object ExternalServicesTestUtils {
+  case class S3Object(bucket: String, key: String, content: String)
 
-    val listObjectsV2Request = ListObjectsV2Request.builder
-      .bucket("testBucket")
-      .delimiter("/")
-      .prefix("testPrefix/")
-      .build
+  case class Errors(listPrefix: Boolean = false, upload: Boolean = false)
 
-    val listObjectsV2Response =
-      ListObjectsV2Response.builder.commonPrefixes(commonPrefixes).build()
-    val listObjectsV2Publisher = new ListObjectsV2Publisher(asyncClientMock, listObjectsV2Request)
-    when(asyncClientMock.listObjectsV2(any[ListObjectsV2Request]))
-      .thenReturn(CompletableFuture.completedFuture(listObjectsV2Response))
+  def notImplemented[T]: IO[T] = IO.raiseError(new Exception("Not implemented"))
 
-    IO(listObjectsV2Publisher.commonPrefixes().map(_.prefix()))
-  }
+  def s3Client(ref: Ref[IO, List[S3Object]], errors: Option[Errors]): DAS3Client[IO] = new DAS3Client[IO]:
+    def generateError(errorFn: Errors => Boolean, message: String): IO[Unit] = if errors.exists(errorFn) then IO.raiseError(new Exception(message))
+    else IO.unit
 
-  case class ArgumentVerifier(sdkPublisher: IO[SdkPublisher[String]], s3UploadResult: IO[CompletedUpload]) {
-    private val mockS3Client: DAS3Client[IO] = mock[DAS3Client[IO]]
-    val dAS3Client: DAS3Client[IO] = {
-      when(
-        mockS3Client.listCommonPrefixes(
-          any[String],
-          any[String]
-        )
-      ).thenReturn(sdkPublisher)
-      when(
-        mockS3Client.upload(
-          any[String],
-          any[String],
-          any[Publisher[ByteBuffer]]
-        )
-      ).thenReturn(s3UploadResult)
-      mockS3Client
-    }
+    override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = notImplemented
 
-    val dependencies: Dependencies = Dependencies(mockS3Client)
+    override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = notImplemented
 
-    def verifyInvocationsAndArgumentsPassed(
-        numberOfUploads: Int
-    ): Unit = {
-      val stagingCacheBucketCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-      val keysPrefixedWithCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
+    override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] = generateError(e => e.upload, "Upload has failed") >>
+      ref
+        .update { existing =>
+          val content = Flux
+            .from(publisher)
+            .toIterable
+            .asScala
+            .toList
+            .flatMap(_.array())
+            .map(_.toChar)
+            .mkString
+          S3Object(bucket, key, content) :: existing
+        }
+        .map(_ => CompletedUpload.builder.response(PutObjectResponse.builder.build).build)
 
-      val uploadBucketCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
-      val keyToUploadCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
+    override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = notImplemented
 
-      verify(mockS3Client, times(1)).listCommonPrefixes(
-        stagingCacheBucketCaptor.capture(),
-        keysPrefixedWithCaptor.capture()
-      )
+    override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = notImplemented
 
-      stagingCacheBucketCaptor.getValue should be("stagingCacheBucketName")
-      keysPrefixedWithCaptor.getValue should be("opex/9e32383f-52a7-4591-83dc-e3e598a6f1a7/")
-
-      verify(mockS3Client, times(numberOfUploads)).upload(
-        uploadBucketCaptor.capture(),
-        keyToUploadCaptor.capture(),
-        any[Publisher[ByteBuffer]]
-      )
-
-      if (numberOfUploads > 0) {
-        val keysToUpload: String = keyToUploadCaptor.getValue
-
-        uploadBucketCaptor.getValue should be("stagingCacheBucketName")
-        keysToUpload should equal("opex/9e32383f-52a7-4591-83dc-e3e598a6f1a7/9e32383f-52a7-4591-83dc-e3e598a6f1a7.opex")
-
+    override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = generateError(e => e.listPrefix, "List prefixes failed") >>
+      ref.get.map { existing =>
+        val filteredObjects = existing.filter(_.key.startsWith(keysPrefixedWith))
+        SdkPublisher.fromIterable(filteredObjects.map(_.key).asJava)
       }
-    }
-  }
+
+  def runLambda(initialS3State: List[S3Object], errors: Option[Errors] = None): (Either[Throwable, Unit], List[S3Object]) =
+    (for {
+      ref <- Ref.of[IO, List[S3Object]](initialS3State)
+      res <- new Lambda().handler(Input("executionId"), Config("bucketName"), Dependencies(s3Client(ref, errors))).attempt
+      finalS3State <- ref.get
+    } yield res -> finalS3State).unsafeRunSync()
 }

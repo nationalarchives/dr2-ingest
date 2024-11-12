@@ -13,7 +13,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.DADynamoDBClient
 import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.*
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier as PreservicaIdentifier, *}
+import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier as AssetIdentifier, *}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.utils.LambdaRunner
@@ -21,13 +21,6 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 import java.util.UUID
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
-
-  private def output(assetDynamoItem: AssetDynamoItem, exists: Boolean): OutputAsset = OutputAsset(assetDynamoItem.id, assetDynamoItem.batchId, exists)
-
-  private def notExistsOutput(assetDynamoItem: AssetDynamoItem) = output(assetDynamoItem, false)
-
-  private def existsOutput(assetDynamoItem: AssetDynamoItem) = output(assetDynamoItem, true)
-
   private val sourceId = "SourceID"
   override def handler: (
       Input,
@@ -63,19 +56,14 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         } yield asset
       }
       .flatMap { assets =>
-        val identifiers = assets.map(asset => PreservicaIdentifier(sourceId, asset.id.toString))
-
+        val identifiers = assets.map(asset => AssetIdentifier(sourceId, asset.id.toString))
+        def output(assetDynamoItem: AssetDynamoItem, exists: Boolean) = OutputItems(assetDynamoItem.id, assetDynamoItem.batchId, exists)
+        def notExistsOutput(assetDynamoItem: AssetDynamoItem) = output(assetDynamoItem, false)
+        def existsOutput(assetDynamoItem: AssetDynamoItem) = output(assetDynamoItem, true)
         for {
-          (existingAssets, missingAssets) <- identifiers
-            .traverse { identifier =>
-              dependencies.entityClient.entitiesByIdentifier(identifier).map { entities =>
-                identifier -> entities
-              }
-            }
-            .map(_.toMap)
-            .map { entityMap =>
-              assets.partition(asset => entityMap.get(PreservicaIdentifier(sourceId, asset.id.toString)).flatMap(_.headOption).flatMap(_.entityType).contains(InformationObject))
-            }
+          (existingAssets, missingAssets) <- dependencies.entityClient.entitiesPerIdentifier(identifiers).map { entityMap =>
+            assets.partition(asset => entityMap.get(AssetIdentifier(sourceId, asset.id.toString)).flatMap(_.headOption).flatMap(_.entityType).contains(InformationObject))
+          }
           _ <- existingAssets.parTraverse(updateSkipIngest)
         } yield StateOutput(existingAssets.map(existsOutput) ++ missingAssets.map(notExistsOutput))
       }
@@ -89,12 +77,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 object Lambda {
   case class Config(apiUrl: String, secretName: String, dynamoTableName: String) derives ConfigReader
 
-  case class InputAsset(id: UUID, batchId: String)
-  case class OutputAsset(id: UUID, batchId: String, assetExists: Boolean)
+  case class InputItems(id: UUID, batchId: String)
+  case class OutputItems(id: UUID, batchId: String, assetExists: Boolean)
 
-  case class Input(Items: List[InputAsset])
+  case class Input(Items: List[InputItems])
 
-  case class StateOutput(items: List[OutputAsset])
+  case class StateOutput(items: List[OutputItems])
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO])
 }

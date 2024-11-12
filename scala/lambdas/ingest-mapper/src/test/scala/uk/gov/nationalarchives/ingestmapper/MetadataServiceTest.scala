@@ -1,29 +1,24 @@
 package uk.gov.nationalarchives.ingestmapper
 
-import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import cats.effect.{IO, Ref}
 import cats.implicits.*
-import org.mockito.ArgumentMatchers
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.when
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
-import org.scalatestplus.mockito.MockitoSugar
-import reactor.core.publisher.Flux
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
+import uk.gov.nationalarchives.ingestmapper.testUtils.LambdaTestTestUtils.*
 import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.*
 
 import java.net.URI
-import java.nio.ByteBuffer
 import java.util.UUID
 
-class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
+class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
   case class Test(name: String, value: String)
 
   val testCsvWithHeaders = "name,value\ntestName1,testValue1\ntestName2,testValue2"
@@ -33,10 +28,8 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
   val invalidTestCsvWithoutHeaders = "invalidValue"
 
   def mockS3(responseText: String): DAS3Client[IO] = {
-    val s3 = mock[DAS3Client[IO]]
-    when(s3.download(ArgumentMatchers.eq("bucket"), ArgumentMatchers.eq("prefix/metadata.json")))
-      .thenReturn(IO(Flux.just(ByteBuffer.wrap(responseText.getBytes))))
-    s3
+    val ref = Ref.unsafe[IO, List[S3Object]](List(S3Object("bucket", "prefix/metadata.json", responseText)))
+    mocks3Client(ref)
   }
 
   private def checkTableItems(result: List[Obj], ids: List[UUID], expectedTableItem: DynamoFilesTableItem) = {
@@ -120,13 +113,17 @@ class MetadataServiceTest extends AnyFlatSpec with MockitoSugar with TableDriven
            |""".stripMargin.replaceAll("\n", "")
           val s3 = mockS3(metadata)
           val input = Input(batchId, URI.create("s3://bucket/prefix/metadata.json"), "executionName")
-          val discoveryService = mock[DiscoveryService]
+
           def createCollectionAsset(obj: Obj) =
             Option(DiscoveryCollectionAsset(obj("name").str, DiscoveryScopeContent(obj("description").str), obj("title").str))
-          when(discoveryService.getDepartmentAndSeriesItems(any[String], any[DepartmentAndSeriesCollectionAssets]))
-            .thenReturn(departmentAndSeries)
-          when(discoveryService.getDiscoveryCollectionAssets(any[Option[String]]))
-            .thenReturn(IO(DepartmentAndSeriesCollectionAssets(createCollectionAsset(departmentTableItem), seriesTableItem.flatMap(createCollectionAsset))))
+
+          val discoveryService: DiscoveryService[IO] = new DiscoveryService[IO]:
+            override def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems =
+              departmentAndSeries
+
+            override def getDiscoveryCollectionAssets(potentialSeries: Option[String]): IO[DepartmentAndSeriesCollectionAssets] =
+              IO(DepartmentAndSeriesCollectionAssets(createCollectionAsset(departmentTableItem), seriesTableItem.flatMap(createCollectionAsset)))
+
           val result =
             new MetadataService(s3, discoveryService).parseMetadataJson(input).unsafeRunSync()
 

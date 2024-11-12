@@ -18,7 +18,9 @@ import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, Entit
 import uk.gov.nationalarchives.entityeventgenerator.Lambda
 import uk.gov.nationalarchives.entityeventgenerator.Lambda.{CompactEntity, Config, Dependencies, GetItemsResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
+import uk.gov.nationalarchives.dp.client.EntityClient.Identifier
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
+
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -67,7 +69,7 @@ object ExternalServicesTestUtils {
       override def entityEventActions(entity: Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] =
         IO.raiseWhen(errors.exists(_.getEventActionsError))(new Exception("Error getting event actions")) >> IO.pure(eventActions)
 
-      override def entitiesByIdentifier(identifier: EntityClient.Identifier): IO[Seq[Entity]] = notImplemented
+      def entitiesPerIdentifier(identifiers: Seq[Identifier]): IO[Map[Identifier, Seq[Entity]]] = notImplemented
 
       override def addIdentifierForEntity(entityRef: UUID, entityType: EntityClient.EntityType, identifier: EntityClient.Identifier): IO[String] = notImplemented
 
