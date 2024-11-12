@@ -1,8 +1,8 @@
 package uk.gov.nationalarchives.ingestmapper.testUtils
 
+import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
 import fs2.interop.reactivestreams.*
-import org.mockito.Mockito.*
 import org.reactivestreams.Publisher
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -14,11 +14,10 @@ import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
-import sttp.capabilities.fs2.Fs2Streams
-import sttp.client3.SttpBackend
 import ujson.Obj
 import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
 import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, Dependencies, Input}
+import uk.gov.nationalarchives.ingestmapper.MetadataService.DepartmentAndSeriesTableItems
 import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.*
 import uk.gov.nationalarchives.ingestmapper.{DiscoveryService, MetadataService}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
@@ -29,7 +28,7 @@ import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.UUID
 
-class LambdaTestTestUtils(s3Prefix: String = "TEST/") extends TableDrivenPropertyChecks {
+object LambdaTestTestUtils extends TableDrivenPropertyChecks {
   val inputBucket = "input"
   val uuids: List[String] = List(
     "c7e6b27f-5778-4da8-9b83-1b64bbccbd03",
@@ -38,7 +37,9 @@ class LambdaTestTestUtils(s3Prefix: String = "TEST/") extends TableDrivenPropert
     "0dcc4151-b1d0-44ac-a4a1-5415d7d50d65"
   )
   val config: Config = Config("test", "http://localhost:9015", "testInputStateBucket")
-  val input: Input = Input("TEST", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"), "executionName")
+  def input(s3Prefix: String = "TEST/"): Input = Input("TEST", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"), "executionName")
+
+  def notImplemented[T]: IO[T] = IO.raiseError(new Exception("Not implemented"))
 
   case class Identifiers(
       folderIdentifier: UUID,
@@ -131,20 +132,23 @@ class LambdaTestTestUtils(s3Prefix: String = "TEST/") extends TableDrivenPropert
     val creds: StaticCredentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
     val uuidsIterator: Iterator[String] = uuids.iterator
     val randomUuidGenerator: () => UUID = () => UUID.fromString(uuidsIterator.next())
-    val mockBackend = mock[SttpBackend[IO, Fs2Streams[IO]]]()
-    val discoveryService = MockDiscoveryService(config.discoveryApiUrl, mockBackend, randomUuidGenerator, discoveryServiceException)
     val dynamo = mockDynamoClient(dynamoRef)
+    val discoveryService = createDiscoveryService(discoveryServiceException, randomUuidGenerator)
     val s3Client = mocks3Client(s3Ref)
     val metadataService: MetadataService = new MetadataService(s3Client, discoveryService)
     val fixedTime = () => Instant.parse("2024-01-01T00:00:00.00Z")
     Dependencies(metadataService, dynamo, mocks3Client(s3Ref), fixedTime)
   }
 
-  case class MockDiscoveryService(discoveryApiUrl: String, backend: SttpBackend[IO, Fs2Streams[IO]], randomUuidGenerator: () => UUID, discoveryServiceException: Boolean)
-      extends DiscoveryService(discoveryApiUrl, backend, randomUuidGenerator) {
+  def createDiscoveryService(discoveryServiceException: Boolean, randomUuidGenerator: () => UUID): DiscoveryService[IO] = new DiscoveryService[IO]:
 
     def generateDiscoveryCollectionAsset(col: String): DiscoveryCollectionAsset =
       DiscoveryCollectionAsset(col, DiscoveryScopeContent(s"TestDescription$col with 0"), s"Test Title $col")
+
+    def generateJson: Obj = Obj("id" -> randomUuidGenerator().toString, "type" -> "ArchiveFolder", "name" -> "Test name")
+
+    override def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems =
+      DiscoveryService[IO]("baseUrl", randomUuidGenerator).unsafeRunSync().getDepartmentAndSeriesItems(batchId, departmentAndSeriesAssets)
 
     override def getDiscoveryCollectionAssets(series: Option[String]): IO[DepartmentAndSeriesCollectionAssets] =
       if discoveryServiceException then IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
@@ -152,14 +156,13 @@ class LambdaTestTestUtils(s3Prefix: String = "TEST/") extends TableDrivenPropert
       else
         val department = series.get.split(" ").head
         IO.pure(DepartmentAndSeriesCollectionAssets(Option(generateDiscoveryCollectionAsset(department)), Option(generateDiscoveryCollectionAsset(series.get))))
-  }
 
   case class S3Object(bucket: String, key: String, fileContent: String)
 
   def mockDynamoClient(ref: Ref[IO, List[Obj]]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
-    override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = ???
+    override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
 
-    override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = ???
+    override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = notImplemented
 
     override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] =
       IO.raiseWhen(tableName == "invalid")(new Exception("Table invalid does not exist")) >>
@@ -169,11 +172,12 @@ class LambdaTestTestUtils(s3Prefix: String = "TEST/") extends TableDrivenPropert
           }
           .map(_ => List(BatchWriteItemResponse.builder.build))
 
-    override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] = ???
+    override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
+      notImplemented
 
-    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] = ???
+    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] = notImplemented
 
-    override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = ???
+    override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = notImplemented
 
   def mocks3Client(ref: Ref[IO, List[S3Object]]): DAS3Client[IO] =
     new DAS3Client[IO]():
@@ -185,7 +189,7 @@ class LambdaTestTestUtils(s3Prefix: String = "TEST/") extends TableDrivenPropert
         }(new Exception(s"Key $key not found in bucket $bucket"))
       }
 
-      override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = ???
+      override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = notImplemented
 
       override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] = for {
         _ <- IO(assert(bucket == "testInputStateBucket"))
@@ -198,9 +202,9 @@ class LambdaTestTestUtils(s3Prefix: String = "TEST/") extends TableDrivenPropert
 
       } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build
 
-      override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = ???
+      override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = notImplemented
 
-      override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = ???
+      override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = notImplemented
 
-      override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = ???
+      override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = notImplemented
 }
