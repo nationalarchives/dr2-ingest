@@ -5,6 +5,7 @@ import io.circe.Decoder.{AccumulatingResult, Result}
 import io.circe.Json.Null
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
+import io.circe.derivation.Configuration
 import io.circe.syntax.*
 import uk.gov.nationalarchives.utils.ExternalUtils.Type.*
 import cats.implicits.*
@@ -32,12 +33,7 @@ object ExternalUtils {
       case _: FileMetadataObject => File
   }
 
-  given Encoder[Type] = {
-    case ArchiveFolder => Json.fromString("ArchiveFolder")
-    case ContentFolder      => Json.fromString("ContentFolder")
-    case Asset         => Json.fromString("Asset")
-    case File          => Json.fromString("File")
-  }
+  given Encoder[Type] = (t: Type) => Json.fromString(t.toString)
 
   enum Type:
     case ArchiveFolder, ContentFolder, Asset, File
@@ -54,12 +50,12 @@ object ExternalUtils {
     }
 
   private def jsonFromMetadataObject(
-      id: UUID,
-      parentId: Option[UUID],
-      title: Option[String],
-      objectType: Type,
-      name: String
-  ) = {
+                                      id: UUID,
+                                      parentId: Option[UUID],
+                                      title: Option[String],
+                                      objectType: Type,
+                                      name: String
+                                    ) = {
     Json.obj(
       ("id", Json.fromString(id.toString)),
       ("parentId", parentId.map(_.toString).map(Json.fromString).getOrElse(Null)),
@@ -95,24 +91,8 @@ object ExternalUtils {
       createFolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields, ArchiveFolder)
     case ContentFolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields) =>
       createFolderMetadataObject(id, parentId, title, name, series, folderMetadataIdFields, ContentFolder)
-    case AssetMetadataObject(
-          id,
-          parentId,
-          title,
-          name,
-          originalFilesUuids,
-          originalMetadataFilesUuids,
-          description,
-          transferringBody,
-          transferCompleteDatetime,
-          upstreamSystem,
-          digitalAssetSource,
-          digitalAssetSubtype,
-          correlationId,
-          assetMetadataIdFields
-        ) =>
+    case AssetMetadataObject(id, parentId, title, name, originalFilesUuids, originalMetadataFilesUuids, description, transferringBody, transferCompleteDatetime, upstreamSystem, digitalAssetSource, digitalAssetSubtype, correlationId, assetMetadataIdFields) =>
       val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) => fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
-
       jsonFromMetadataObject(id, parentId, Option(title), Type.Asset, name)
         .deepMerge {
           Json.fromFields(convertIdFieldsToJson(assetMetadataIdFields))
@@ -132,7 +112,6 @@ object ExternalUtils {
             )
             .deepDropNullValues
         }
-
     case FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksumSha256) =>
       Json
         .obj(
@@ -283,10 +262,9 @@ object ExternalUtils {
                                  checksumSha256: String
                                ) extends MetadataObject
 
-
   enum MessageType:
     override def toString: String = this match
-      case IngestUpdate   => "preserve.digital.asset.ingest.update"
+      case IngestUpdate => "preserve.digital.asset.ingest.update"
       case IngestComplete => "preserve.digital.asset.ingest.complete"
 
     case IngestUpdate, IngestComplete

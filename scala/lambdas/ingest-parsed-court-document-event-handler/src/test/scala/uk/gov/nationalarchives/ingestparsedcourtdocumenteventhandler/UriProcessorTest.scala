@@ -1,13 +1,12 @@
 package uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler
 
 import cats.effect.unsafe.implicits.global
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
 
-class UriProcessorTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
+class UriProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
   private val uriTable: TableFor2[Option[String], Option[ParsedUri]] = Table(
     ("uri", "expectedCourtAndUri"),
     (Option("http://example.com/id/abcd/2023/1"), Option(ParsedUri(Option("abcd"), "http://example.com/id/abcd/2023/1"))),
