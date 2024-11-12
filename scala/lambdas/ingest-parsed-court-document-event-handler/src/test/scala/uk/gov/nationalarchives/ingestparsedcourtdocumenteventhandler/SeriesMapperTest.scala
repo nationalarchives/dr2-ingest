@@ -1,7 +1,6 @@
 package uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler
 
 import cats.effect.unsafe.implicits.global
-import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
@@ -9,7 +8,7 @@ import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMappe
 
 import java.net.URI
 
-class SeriesMapperTest extends AnyFlatSpec with MockitoSugar with TableDrivenPropertyChecks {
+class SeriesMapperTest extends AnyFlatSpec with TableDrivenPropertyChecks {
 
   "seriesMap" should "have 15 entries" in {
     seriesMap.size should equal(15)
