@@ -14,7 +14,7 @@ import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.{Asset, File}
 import java.util.UUID
 import scala.util.Try
 
-class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService) {
+class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService[IO]) {
   lazy private val bufferSize = 1024 * 5
 
   private def getParentPaths(json: Value.Value, departmentSeriesMap: Map[UUID, DepartmentAndSeriesTableItems]): Map[UUID, String] = {
@@ -178,7 +178,7 @@ object MetadataService {
     def show = s"Department: ${departmentItem.value.get("title").orNull} Series ${potentialSeriesItem.flatMap(_.value.get("title")).orNull}"
   }
 
-  def apply(discoveryService: DiscoveryService): MetadataService = {
+  def apply(discoveryService: DiscoveryService[IO]): MetadataService = {
     val s3 = DAS3Client[IO]()
     new MetadataService(s3, discoveryService)
   }
