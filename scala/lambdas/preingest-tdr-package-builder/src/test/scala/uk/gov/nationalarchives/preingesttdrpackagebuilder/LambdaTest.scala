@@ -114,7 +114,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       contentFolderMetadataObject.name should equal(testData.tdrRef)
       contentFolderMetadataObject.title should equal(None)
       contentFolderMetadataObject.parentId should equal(None)
-      contentFolderMetadataObject.series should equal(testData.series)
+      contentFolderMetadataObject.series should equal(Option(testData.series))
 
       assetMetadataObject.id should equal(tdrFileId)
       assetMetadataObject.parentId should equal(Option(archiveFolderId))

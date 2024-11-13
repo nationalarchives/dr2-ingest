@@ -104,7 +104,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
           None,
           Option("test"),
           "https://example.com/id/court/2023/",
-          "TEST SERIES",
+          Option("TEST SERIES"),
           if potentialCite.isDefined then idFields :+ IdField("URI", "https://example.com/id/court/2023/") else idFields
         )
       val metadataList: List[MetadataObject] =
