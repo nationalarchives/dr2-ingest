@@ -41,10 +41,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       countsCell.update(counts => counts.copy(topLevelCount = counts.topLevelCount + topLevelIncrement))
 
     metadataObject match
-      case maf: ArchiveFolderMetadataObject => updateTopLevelCount(maf.series)
-      case mcf: ContentFolderMetadataObject => updateTopLevelCount(mcf.series)
-      case maf: AssetMetadataObject         => countsCell.update(counts => counts.copy(assetCount = counts.assetCount + 1))
-      case mff: FileMetadataObject          => countsCell.update(counts => counts.copy(fileCount = counts.fileCount + 1))
+      case afmo: ArchiveFolderMetadataObject => updateTopLevelCount(afmo.series)
+      case cfmo: ContentFolderMetadataObject => updateTopLevelCount(cfmo.series)
+      case amo: AssetMetadataObject          => countsCell.update(counts => counts.copy(assetCount = counts.assetCount + 1))
+      case fmo: FileMetadataObject           => countsCell.update(counts => counts.copy(fileCount = counts.fileCount + 1))
 
   private def updateChildCount(metadataObject: MetadataObject, childCountCell: AtomicCell[IO, Map[Option[UUID], Int]]): IO[Unit] =
     childCountCell.update { parentIdCount =>
