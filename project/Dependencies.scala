@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.24.1"
   lazy val pureConfigVersion = "0.17.7"
-  lazy val daAwsClientsVersion = "0.1.99"
+  lazy val daAwsClientsVersion = "0.1.100"
   private val fs2Version = "3.11.0"
   private val sttpVersion = "3.10.1"
   private val circeVersion = "0.14.10"
@@ -24,8 +24,9 @@ object Dependencies {
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
   lazy val fs2IO = "co.fs2" %% "fs2-io" % fs2Version
   lazy val fs2Reactive = "co.fs2" %% "fs2-reactive-streams" % fs2Version
+  lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.4.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
-  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "1.5.3"
+  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "1.5.2"
   lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.2.3"
   lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.14.0"
   lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion;
@@ -34,7 +35,7 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % s"$scalaTestVersion.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.106"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.110"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.11"

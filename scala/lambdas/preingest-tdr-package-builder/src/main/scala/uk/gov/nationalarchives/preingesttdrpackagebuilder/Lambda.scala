@@ -73,7 +73,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             for {
               headObjectResponse <- dependencies.s3Client
                 .headObject(fileLocation.getHost, fileLocation.getPath.drop(1))
-              childObjects <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
+              res <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
                 val fileMetadata = FileMetadataObject(
                   fileId,
                   Option(assetId),
@@ -86,17 +86,16 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                   fileLocation,
                   tdrMetadata.SHA256ServerSideChecksum
                 )
-
-                val potentialContentFolder = contentFolderMap.get(tdrMetadata.ConsignmentReference)
-                if potentialContentFolder.isDefined then (contentFolderMap, List(assetMetadata.copy(parentId = potentialContentFolder.map(_.id)), fileMetadata))
+                val contentFolder = contentFolderMap.get(tdrMetadata.ConsignmentReference)
+                if contentFolder.isDefined then (contentFolderMap, List(assetMetadata.copy(parentId = contentFolder.map(_.id)), fileMetadata))
                 else
                   val contentFolderId = dependencies.uuidGenerator()
-                  val contentFolder = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, tdrMetadata.Series, Nil)
-                  val updatedMap = contentFolderMap + (tdrMetadata.ConsignmentReference -> contentFolder)
-                  val allMetadata = List(contentFolder, assetMetadata.copy(parentId = Option(contentFolder.id)), fileMetadata)
-                  updatedMap -> allMetadata
+                  val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, Option(tdrMetadata.Series), Nil)
+                  val updatedMap = contentFolderMap + (tdrMetadata.ConsignmentReference -> contentFolderMetadata)
+                  val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id)), fileMetadata)
+                  (updatedMap, allMetadata)
               }
-            } yield childObjects
+            } yield res
           }
         }
     }
@@ -190,7 +189,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     dependencies.dynamoDbClient
       .queryItems(config.lockTableName, "groupId" === input.groupId, Option(config.lockTableGsiName))
       .flatMap(processLockTableItems)
-      .map(_ => Output(input.groupId, input.batchId, input.retryCount, URI.create(s"s3://${config.rawCacheBucket}/${input.batchId}/metadata.json")))
+      .map(_ => new Output(input.batchId, input.groupId, URI.create(s"s3://${config.rawCacheBucket}/${input.batchId}/metadata.json"), input.retryCount, ""))
   }
 
   private def getMetadataUri(fileLocation: URI): URI = {
@@ -225,4 +224,4 @@ object Lambda:
 
   case class Input(groupId: String, batchId: String, waitFor: Int, retryCount: Int = 0)
 
-  case class Output(groupId: String, batchId: String, retryCount: Int, packageMetadata: URI)
+  type Output = StepFunctionInput

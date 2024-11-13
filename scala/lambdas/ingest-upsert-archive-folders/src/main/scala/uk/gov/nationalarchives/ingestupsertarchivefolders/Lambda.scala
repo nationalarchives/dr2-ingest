@@ -2,6 +2,7 @@ package uk.gov.nationalarchives.ingestupsertarchivefolders
 
 import cats.effect.IO
 import cats.implicits.*
+import cats.syntax.all.*
 import io.circe.generic.auto.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
@@ -107,24 +108,18 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
     def getEntitiesByIdentifier(
         folderRows: List[FolderDynamoItem]
     ): IO[Map[String, Entity]] = {
-      folderRows
+      val identifiers = folderRows
         .map(_.name)
-        .toSet
         .map(name => Identifier(sourceId, name))
-        .toList
-        .traverse(identifier =>
-          dependencies.entityClient.entitiesByIdentifier(identifier).flatMap {
-            case head :: next =>
-              if next.nonEmpty then IO.raiseError(new Exception(s"There is more than 1 entity with the same SourceID ${identifier.value}"))
-              else IO.pure(identifier.value -> Option(head))
-            case Nil => IO.pure(identifier.value -> None)
-          }
-        )
-        .map {
-          _.collect { case (value, Some(entity)) =>
-            (value, entity)
-          }.toMap
-        }
+        .distinct
+      for {
+        entityMap <- dependencies.entityClient.entitiesPerIdentifier(identifiers)
+        multipleEntries = entityMap.filter { case (value, entities) => entities.length > 1 }
+        _ <- IO.raiseWhen(multipleEntries.nonEmpty)(new Exception(s"There is more than 1 entity with these SourceIDs: ${multipleEntries.keys.map(_.value).mkString(" ")}"))
+
+      } yield entityMap.collect { case (identifier, entity :: Nil) =>
+        identifier.value -> entity
+      }
     }
 
     val logWithBatchRef = log(Map("batchRef" -> stepFnInput.batchId))(_)

@@ -1,0 +1,22 @@
+{
+  "input": [
+    {
+      "type": "File",
+      "id": "0f9cab98-114d-4e72-b378-695559155c45",
+      "name": "test-metadata.json",
+      "parentId": "122980ac-2664-4965-9879-f27c524f3668",
+      "representationSuffix": 1,
+      "representationType": "Preservation",
+      "sortOrder": 1,
+      "location": "s3://bucket/key",
+      "title": "",
+      "fileSize": 1,
+      "checksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "expectedErrors": [
+    "Parent id 122980ac-2664-4965-9879-f27c524f3668 does not exist in the json file",
+    "There is no top level folder in this metadata file",
+    "There is not at least one asset in this metadata file"
+  ]
+}

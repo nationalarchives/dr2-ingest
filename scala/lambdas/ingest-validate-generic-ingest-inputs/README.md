@@ -1,84 +1,86 @@
 # DR2 Ingest - Validate Generic Ingest Inputs
 
-Validates the input to the `dr2-ingest` Step Function to prevent unrecoverable errors downstream. See the [ingest docs](/docs/ingest.md) for more information.
+Validates the input to the `dr2-ingest` Step Function to prevent unrecoverable errors downstream. See
+the [ingest docs](/docs/ingest.md) for more information.
 
-The Lambda:
-
-1. Is invoked by the `dr2-ingest` Step Function step with this format:
+## Input
 
 ```json
 {
-	"batchId": "batch",
-	"metadataPackage": "s3://metadata-bucket/name/metadata.json"
+  "batchId": "batch",
+  "metadataPackage": "s3://metadata-bucket/name/metadata.json"
 }
 ```
 
-2.  Downloads the [`metadataPackage` JSON file](#example-of-a-metadatajson-file) from the location given in the event.
-3.  Checks that the JSON (via JSON Schema) contains at least one `Asset` and one `File` entry and returns a list of errors (if it doesn't).
-4.  Checks that the JSON (via JSON Schema) contains at least one entry that has both a `series` and a `null` parent (as this denotes a top-level entry) and returns a list of errors (if it doesn't).
-5.  Splits the entries up by type (if the `type` is unknown, either because it's missing or is invalid, then it will be designated an `UnknownType` group).
-6.  Checks that these entries match the schema for their type:
-    1.  A `File` can be either a regular file or a metadata file (the `name` will end in "-metadata.json").
-        1. If it's a metadata file, the title can be empty.
-        2. If it's a regular file, the title can't be empty.
-    2.  For an `UnknownType`:
-        1. There is a small list of properties that are common in all types that it **must** have: `id`, `parentId`,
-           `title` and `type`
-        2. Since it could be any type, if a field of a specific type is present, e.g. `originalFiles`, it will still be validated.
-    3.  Archive Folders, Content Folders and Assets could contain a `series` and therefore, it must match a regex string.
-    4.  The JSON entries are returned as a `Map`, with a `String` field name and a `Validated` (similar to an `Either`) object:
-        1. The `Validated` object could be either a `Valid` ujson `Value` or an `Invalid` `NonEmptyList` of errors.
-        2. These `Map`s will be passed on to other methods and updated with the errors encountered.
-7.  Filters for just `File` entries and checks the S3 URI in its `location` field exists.
-    1.  If an error occurred with the location field prior to this check (e.g. `location` is empty), it will skip this check.
-    2.  If value can not be parsed into a URI, then it will return an error.
-    3.  If the value is a valid URI, it will call S3,
-        1. If an exception is thrown, it will return an error.
-        2. If any status code other than a 200 occurs, then an error is returned.
-8.  Checks that the metadata entry's file `name` has an extension and then returns an error if it does
-9.  Checks that the `id` of each entry is unique and returns an error (with number of occurrences) if not
-10. Checks that the `id` of each entry is a valid `UUID`, and returns and error if not
-11. Checks if the `parentId` for entry is correct:
-    1. First, checks if the `id` has an error, if it does, it will return because it will be difficult to do the checks
-    2. Check if the `parentId` is `null` (it has been converted to `None`), that could be a problem
-       1. If the entry is an `ArchiveFolder`, this might be fine, so just return
-       2. If the entry is a `ContentFolder`, so long as an `ArchiveFolder` (which is the parent type) doesn't exist, it's fine, so just return
-       3. If the entry is an `Asset`, so long as a `ContentFolder` or `ArchiveFolder` (which are the parent types) don't exist, it's fine, so just return
-       4. If the entry is a `File`, return an error, as files must have a parent (`Asset`)
-       5. It's entirely possible that more than one entry of the same type has a `null` `parentId`, so long as a parent type doesn't exist, this is fine
-    3. If the `parentId` is not `null`, it could either have an error on it (e.g. maybe it's empty) or have a value; if the `parentId` has an error already, then return
-    4. If the `parentId` is valid, then:
-       1. Check if it is the same as the `id`, if so, return an error
-       2. Look for an entry that has an id that corresponds with the `parentId`, if it doesn't exist, the return an error
-       3. If a parent entry can be found, check its type:
-          1. A `File` entry can not be a parent of anything
-          2. An `Asset` can not be the parent of an `ArchiveFolder`, `ContentFolder` or `Asset`
-          3. A `ContentFolder` can not be the parent of an `ArchiveFolder` or `File`
-          4. An `ArchiveFolder` can not be the parent of an `Asset` or `File`
-12. Checks if an `Asset` is referencing the correct files
-    1. If there are file `id`s in the JSON that have the `parentId` that matches an `Asset`'s `id` but do not appear in their expected array (either `originalFiles` or `originalMetadataFiles`) of the `Asset`, then return an error
-    2. If there are files that appear in the `Asset`'s array (either `originalFiles` or `originalMetadataFiles`) but do not appear in the JSON, then return an error
-13. Checks for circular dependencies in Folders.
-    1. A `ContentFolder` can be the parent of another `ContentFolder` or `ArchiveFolder` and an `ArchiveFolder` can be the parent of an `ArchiveFolder`
-       1. It's entirely possible that the `parentId`s (even though they make reference to `id`s that exist):
-          1. Could be referencing `id`s that reference them or
-          2. Referencing `id`s that reference an `id` that references them, and so on.
-          3. If this is the case, then return an error
-14. Filters for entries with at least one error
-15. If there are either entries with one or more errors or other general errors are present (e.g. json doesn't have at least one `File` and `Asset`)
-    1. Logs a message that mentions that there are general errors (if there are any) and points to the bucket where the full results can be found
-    2. Logs a message that mentions that there entry errors (if there are any) and points to the bucket where the full results can be found
-    3. Logs the: `id`, fields with errors, and S3 location of the file where the full results can be found for each entry
-    4. Merges all the errors into a `List[Map]`
-    5. Converts the `List` to a JSON `String`
-    6. Uploads the JSON `String` to a file in the same location as the `metadata.json` in S3
-    7. Raises an Exception (with the same error messages that were logged) to halt the running of the step function
-16. If there are no errors, and an Exception hasn't been thrown, then write the state data (which is the same as the Input) for the next step function step with this format:
+The Lambda:
+
+1. Is invoked by the `dr2-ingest` Step Function step:
+2. Streams the [`metadataPackage` JSON file](#example-of-a-metadatajson-file) from the location given in the event. The
+   stream processes individual objects concurrently, up to 1000 at a time.
+3. For each object processed in the stream:
+    1. Decode the object into a `MandatoryFields` object. This contains the fields we need in order for the ingest to
+       succeed. If this fails, the errors are returned. If this is successful, the following steps are run in parallel:
+        1. Update a map of `id` to `(parentId, type)` with the id, parentId and type of that object.
+        2. Update a map of `parentId` to `count` where count is the number of files with that parent.
+        3. Update a counts object which counts assets, files and top level folders.
+        4. If the object is a File object, check it is in S3 by calling HeadObject on its location.
+        5. Get the relevant JSON schema files for the type of object (from `resources/<lower_case_type>`) and validate the object against all of them.
+        6. If there are errors, return the original json with a `List[String]` of errors.
+4. Once all objects are processed, if there were any errors, the rest of the process is skipped, the errors are uploaded to a file in S3 and an exception is thrown with file location.
+5. If there were no errors, check that the keyset of the `id` to `(parentId, type)` map contains all entries in the
+   keyset of the `parentId` to `count` map. This checks that every `parentId` is also a valid id.
+6. For each entry in the map of `id` to `(parentId, type)`
+    1. Validate that the parent type of the object [is valid](#valid-parents)
+    2. Validate that the existing parent is not found twice in the same chain. This indicates a circular dependency.
+    3. Validate that for an asset, there is at least one child.
+    4. Validate that there's at least one top level folder
+    5. Validate that there's at least one asset.
+    6. Validate that there's at least one file.
+7. Accumulate the errors into one object. If there are any, write them to S3 and raise an error with the location. If
+   not, return the Lambda input as its output.
+
+## Output
+
+If the validation succeeds, the lambda returns:
 
 ```json
 {
-	"batchId": "batch",
-	"metadataPackage": "s3://metadata-bucket/name/metadata.json"
+  "batchId": "batch",
+  "metadataPackage": "s3://metadata-bucket/name/metadata.json"
+}
+```
+
+If the validation fails, it will upload the errors to S3.
+
+Errors which can be found when processing each individual object are included with the original json.
+Top-level errors which require the whole file to be scanned are included in the top-level errors array.
+This means we don't have to hold the whole json object in memory at any point, only the errors and the id maps.
+
+```json
+{
+  "errors": [
+    "Asset 0f9cab98-114d-4e72-b378-695559155c45 has no children"
+  ],
+  "singleResults": [
+    {
+      "json": {
+        "type": "File",
+        "id": "0f9cab98-114d-4e72-b378-695559155c45",
+        "name": "TestName",
+        "parentId": "122980ac-2664-4965-9879-f27c524f3668",
+        "representationSuffix": 1,
+        "representationType": "Preservation",
+        "sortOrder": 1,
+        "location": "s3://bucket/key",
+        "checksum_sha256": "abcd",
+        "checksum_md5": "abcd",
+        "title": "title"
+      },
+      "errors": [
+        "0f9cab98-114d-4e72-b378-695559155c45 $.checksum_sha256: must be at least 64 characters long"
+      ]
+    }
+  ]
 }
 ```
 
@@ -86,58 +88,71 @@ The Lambda:
 
 ```json
 [
-	{
-		"series": "ABC 123",
-		"id_Code": "cite",
-		"id_Cite": "cite",
-		"id_URI": "https://example.com/id/court/2023/",
-		"id": "4e6bac50-d80a-4c68-bd92-772ac9701f14",
-		"parentId": null,
-		"title": "test",
-		"type": "ArchiveFolder",
-		"name": "https://example.com/id/court/2023/"
-	},
-	{
-		"originalFiles": ["c7e6b27f-5778-4da8-9b83-1b64bbccbd03"],
-		"originalMetadataFiles": ["61ac0166-ccdf-48c4-800f-29e5fba2efda"],
-		"description": "test",
-		"id_ConsignmentReference": "test-identifier",
-		"id_UpstreamSystemReference": "TEST-REFERENCE",
-		"transferringBody": "test-organisation",
-		"transferCompleteDatetime": "2023-10-31T13:40:54Z",
-		"upstreamSystem": "TRE: FCL Parser workflow",
-		"digitalAssetSource": "Born Digital",
-		"digitalAssetSubtype": "FCL",
-		"id_URI": "https://example.com/id/court/2023/",
-		"id_NeutralCitation": "cite",
-		"id": "c2e7866e-5e94-4b4e-a49f-043ad937c18a",
-		"parentId": "4e6bac50-d80a-4c68-bd92-772ac9701f14",
-		"title": "Test.docx",
-		"type": "Asset",
-		"name": "Test.docx"
-	},
-	{
-		"id": "c7e6b27f-5778-4da8-9b83-1b64bbccbd03",
-		"parentId": "c2e7866e-5e94-4b4e-a49f-043ad937c18a",
-		"title": "Test",
-		"type": "File",
-		"name": "Test.docx",
-		"sortOrder": 1,
-		"location": "s3://raw-cache-bucket/53e7e334-a0bb-4dd2-ac26-0e428db56982",
-		"fileSize": 15684
-	},
-	{
-		"id": "61ac0166-ccdf-48c4-800f-29e5fba2efda",
-		"parentId": "c2e7866e-5e94-4b4e-a49f-043ad937c18a",
-		"title": "",
-		"type": "File",
-		"name": "TRE-TEST-REFERENCE-metadata.json",
-		"location": "s3://raw-cache-bucket/96a07aa3-c4c5-40b2-b546-c51d2f24dce3",
-		"sortOrder": 2,
-		"fileSize": 215
-	}
+  {
+    "series": "ABC 123",
+    "id_Code": "cite",
+    "id_Cite": "cite",
+    "id_URI": "https://example.com/id/court/2023/",
+    "id": "4e6bac50-d80a-4c68-bd92-772ac9701f14",
+    "parentId": null,
+    "title": "test",
+    "type": "ArchiveFolder",
+    "name": "https://example.com/id/court/2023/"
+  },
+  {
+    "originalFiles": [
+      "c7e6b27f-5778-4da8-9b83-1b64bbccbd03"
+    ],
+    "originalMetadataFiles": [
+      "61ac0166-ccdf-48c4-800f-29e5fba2efda"
+    ],
+    "description": "test",
+    "id_ConsignmentReference": "test-identifier",
+    "id_UpstreamSystemReference": "TEST-REFERENCE",
+    "transferringBody": "test-organisation",
+    "transferCompleteDatetime": "2023-10-31T13:40:54Z",
+    "upstreamSystem": "TRE: FCL Parser workflow",
+    "digitalAssetSource": "Born Digital",
+    "digitalAssetSubtype": "FCL",
+    "id_URI": "https://example.com/id/court/2023/",
+    "id_NeutralCitation": "cite",
+    "id": "c2e7866e-5e94-4b4e-a49f-043ad937c18a",
+    "parentId": "4e6bac50-d80a-4c68-bd92-772ac9701f14",
+    "title": "Test.docx",
+    "type": "Asset",
+    "name": "Test.docx"
+  },
+  {
+    "id": "c7e6b27f-5778-4da8-9b83-1b64bbccbd03",
+    "parentId": "c2e7866e-5e94-4b4e-a49f-043ad937c18a",
+    "title": "Test",
+    "type": "File",
+    "name": "Test.docx",
+    "sortOrder": 1,
+    "location": "s3://raw-cache-bucket/53e7e334-a0bb-4dd2-ac26-0e428db56982",
+    "fileSize": 15684
+  },
+  {
+    "id": "61ac0166-ccdf-48c4-800f-29e5fba2efda",
+    "parentId": "c2e7866e-5e94-4b4e-a49f-043ad937c18a",
+    "title": "",
+    "type": "File",
+    "name": "TRE-TEST-REFERENCE-metadata.json",
+    "location": "s3://raw-cache-bucket/96a07aa3-c4c5-40b2-b546-c51d2f24dce3",
+    "sortOrder": 2,
+    "fileSize": 215
+  }
 ]
 ```
+
+## Valid parents
+
+| objectType    | validParentTypes                    |
+|---------------|-------------------------------------|
+| ArchiveFolder | ArchiveFolder                       |
+| ContentFolder | ArchiveFolder, ContentFolder        |
+| Asset         | ContentFolder, ArchiveFolder, Asset |
+| File          | Asset                               | 
 
 ## Environment Variables
 
