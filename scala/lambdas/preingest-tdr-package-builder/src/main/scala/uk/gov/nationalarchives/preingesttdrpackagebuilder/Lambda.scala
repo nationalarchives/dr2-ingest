@@ -90,7 +90,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                 if contentFolder.isDefined then (contentFolderMap, List(assetMetadata.copy(parentId = contentFolder.map(_.id)), fileMetadata))
                 else
                   val contentFolderId = dependencies.uuidGenerator()
-                  val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, tdrMetadata.Series, Nil)
+                  val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, Option(tdrMetadata.Series), Nil)
                   val updatedMap = contentFolderMap + (tdrMetadata.ConsignmentReference -> contentFolderMetadata)
                   val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id)), fileMetadata)
                   (updatedMap, allMetadata)

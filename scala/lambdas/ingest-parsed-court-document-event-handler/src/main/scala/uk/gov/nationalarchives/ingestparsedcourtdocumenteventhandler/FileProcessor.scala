@@ -111,7 +111,7 @@ class FileProcessor(
     val fileTitle = fileInfo.fileName.split('.').dropRight(1).mkString(".")
     val folderId = uuidGenerator()
     val assetId = UUID.fromString(tdrUuid)
-    val archiveFolderMetadataObject = ArchiveFolderMetadataObject(folderId, None, potentialFolderTitle, folderName, potentialSeries.getOrElse("Unknown"), folderMetadataIdFields)
+    val archiveFolderMetadataObject = ArchiveFolderMetadataObject(folderId, None, potentialFolderTitle, folderName, potentialSeries, folderMetadataIdFields)
     val assetMetadataObject =
       AssetMetadataObject(
         assetId,
