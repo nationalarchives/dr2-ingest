@@ -52,7 +52,7 @@ for asset in assets:
         source_fragment = metadata_response_text[source_element_start_index: source_element_end_index + len("</Source>")]
 
         # ==== Modify the extracted fragment and invoke a PUT request
-        if DIGITAL_ASSET_SUBTYPE_TDR in  source_fragment:
+        if DIGITAL_ASSET_SUBTYPE_TDR in source_fragment:
             modified_source_fragment = source_fragment.replace(DIGITAL_ASSET_SUBTYPE_TDR, DIGITAL_ASSET_SUBTYPE_EMPTY)
             put_response = requests.put(metadata_url, modified_source_fragment, headers={"Content-Type":"application/xml", "Preservica-Access-Token": f"{entity_client.token}"})
             if put_response.status_code == 200:
