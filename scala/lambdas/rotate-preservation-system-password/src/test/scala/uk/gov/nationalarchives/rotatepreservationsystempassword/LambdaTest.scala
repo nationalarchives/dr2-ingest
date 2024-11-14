@@ -56,14 +56,16 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
 
   "handler createSecret" should "not call putSecretValue if a Pending value already exists" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val secret = Secret(Map("token" -> List(SecretStage(Map.empty, Pending))))
+    val secret = Secret(Map("token" -> List(SecretStage(Map("username" -> "password"), Pending))))
 
     val (secretResult, _, _) = runLambda(rotationEvent, secret, Credentials("", ""))
 
     secretResult.versionToStage.size should equal(1)
+    secretResult.versionToStage("token").head.value should equal(Map("username" -> "password"))
+
   }
 
-  "handler createSecret" should "putSecretValue if a Pending value does not already exist" in {
+  "handler createSecret" should "create the secret value if a Pending value does not already exist" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
     val versionToStage = Map(
       "token" -> List(SecretStage(Map.empty, Pending)),
@@ -100,7 +102,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     res.left.value.getMessage should equal("Password test failed")
   }
 
-  "handler finishSecret" should "return an error if the pending secret has no version" in {
+  "handler finishSecret" should "update the secret version" in {
     val rotationEvent = RotationEvent(FinishSecret, "id", "token")
     val pendingStages = List(SecretStage(Map("user" -> "pendingSecret"), Pending))
     val currentStages = List(SecretStage(Map("user" -> "currentSecret"), Current))
