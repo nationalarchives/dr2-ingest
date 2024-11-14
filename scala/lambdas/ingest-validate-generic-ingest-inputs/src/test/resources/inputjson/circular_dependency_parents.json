@@ -1,0 +1,56 @@
+{
+  "input": [
+    {
+      "type": "ArchiveFolder",
+      "name": "TestParent",
+      "series": "TEST 123",
+      "id": "b67b1301-e3a1-4f90-a2db-8729486c1f95",
+      "title": "Test title",
+      "parentId": null
+    },
+    {
+      "type": "ContentFolder",
+      "id": "4636d60f-c9f1-4cb5-afd4-764e318e2e16",
+      "name": "TestName",
+      "parentId": "ef5ecd0a-8562-497e-9d27-b01a0b63ea1f",
+      "title": "Test title"
+    },
+    {
+      "type": "Asset",
+      "id": "ef5ecd0a-8562-497e-9d27-b01a0b63ea1f",
+      "name": "TestName",
+      "parentId": "122980ac-2664-4965-9879-f27c524f3668",
+      "title": "Test title",
+      "digitalAssetSource": "digitalAssetSource",
+      "originalFiles": ["9e3d0cab-3900-4f5d-948f-fa8f35f38758"],
+      "originalMetadataFiles": ["8664d643-fe3b-4fa4-be89-9806143b5dda"],
+      "transferCompleteDatetime": "2023-10-31T13:40:54Z",
+      "transferringBody": "body",
+      "upstreamSystem": "upstreamSystem",
+      "id_RecordID": "record",
+      "id_BornDigitalRef": "bornDigitalRef",
+      "id_ConsignmentReference": "consignmentReference"
+    },
+    {
+      "type": "File",
+      "id": "122980ac-2664-4965-9879-f27c524f3668",
+      "name": "TestName",
+      "parentId": "4636d60f-c9f1-4cb5-afd4-764e318e2e16",
+      "title": "Test title",
+      "fileSize": 2,
+      "sortOrder": 1,
+      "representationSuffix": 1,
+      "representationType": "Preservation",
+      "location": "s3://bucket/key",
+      "checksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "expectedErrors": [
+    "Circular dependency with id 122980ac-2664-4965-9879-f27c524f3668 -> 4636d60f-c9f1-4cb5-afd4-764e318e2e16 -> ef5ecd0a-8562-497e-9d27-b01a0b63ea1f -> 122980ac-2664-4965-9879-f27c524f3668",
+    "Circular dependency with id 4636d60f-c9f1-4cb5-afd4-764e318e2e16 -> ef5ecd0a-8562-497e-9d27-b01a0b63ea1f -> 122980ac-2664-4965-9879-f27c524f3668 -> 4636d60f-c9f1-4cb5-afd4-764e318e2e16",
+    "Circular dependency with id ef5ecd0a-8562-497e-9d27-b01a0b63ea1f -> 122980ac-2664-4965-9879-f27c524f3668 -> 4636d60f-c9f1-4cb5-afd4-764e318e2e16 -> ef5ecd0a-8562-497e-9d27-b01a0b63ea1f",
+    "Parent type Asset is not valid for file type ContentFolder for id 4636d60f-c9f1-4cb5-afd4-764e318e2e16",
+    "Parent type ContentFolder is not valid for file type File for id 122980ac-2664-4965-9879-f27c524f3668",
+    "Parent type File is not valid for file type Asset for id ef5ecd0a-8562-497e-9d27-b01a0b63ea1f"
+  ]
+}

@@ -52,10 +52,10 @@ The Lambda:
 
 ## Environment Variables
 
-| Name                   | Description                                                                         |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| DYNAMO_GSI_NAME        | The name of the global secondary index. This is used for querying fields in the GSI |
-| DYNAMO_LOCK_TABLE_NAME | The name of the lock table to retrieve the message from                             |
-| DYNAMO_TABLE_NAME      | The name of the table to read assets and their children from                        |
-| PRESERVICA_API_URL     | The Preservica API url                                                              |
-| PRESERVICA_SECRET_NAME | The secret used to call the Preservica API                                          |
+| Name                                 | Description                                                                         |
+| ------------------------------------ | ----------------------------------------------------------------------------------- |
+| FILES_DDB_TABLE                      | The name of the table to read assets and their children from                        |
+| FILES_DDB_TABLE_BATCHPARENT_GSI_NAME | The name of the global secondary index. This is used for querying fields in the GSI |
+| LOCK_DDB_TABLE                       | The name of the lock table to retrieve the message from                             |
+| PRESERVICA_API_URL                   | The Preservica API url                                                              |
+| PRESERVICA_SECRET_NAME               | The secret used to call the Preservica API                                          |

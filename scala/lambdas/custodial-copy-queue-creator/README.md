@@ -32,6 +32,6 @@ The lambda has no output. It sends a message to the custodial copy queue.
 |------------------------|--------------------------------------------|
 | PRESERVICA_API_URL     | The Preservica API  url                    |
 | PRESERVICA_SECRET_NAME | The secret used to call the Preservica API |
-| OUTPUT_QUEUE           | The url of the Custodial Copy FIFO queue   |
+| OUTPUT_QUEUE_URL       | The url of the Custodial Copy FIFO queue   |
 
 

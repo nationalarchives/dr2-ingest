@@ -33,6 +33,6 @@ The Lambda outputs a JSON object
 
 | Name                   | Description                                                  |
 | ---------------------- | ------------------------------------------------------------ |
-| DYNAMO_TABLE_NAME      | The name of the table to read assets and their children from |
+| FILES_DDB_TABLE        | The name of the table to read assets and their children from |
 | PRESERVICA_API_URL     | The Preservica API url                                       |
 | PRESERVICA_SECRET_NAME | The secret used to call the Preservica API                   |

@@ -121,7 +121,8 @@ If `skipSeriesLookup` is sent and the series can't be found, the value of `serie
 
 ## Environment Variables
 
-| Name          | Description                                                                    |
-| ------------- | ------------------------------------------------------------------------------ |
-| OUTPUT_BUCKET | The raw cache bucket for storing the files and metadata created by this lambda |
-| SFN_ARN       | The arn of the step function this lambda will trigger.                         |
+| Name               | Description                                                                    |
+| ------------------ | ------------------------------------------------------------------------------ |
+| INGEST_SFN_ARN     | The arn of the step function this lambda will trigger.                         |
+| LOCK_DDB_TABLE     |                                                                                |
+| OUTPUT_BUCKET_NAME | The raw cache bucket for storing the files and metadata created by this lambda |

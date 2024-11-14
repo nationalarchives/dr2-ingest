@@ -1,0 +1,18 @@
+{
+  "input": [
+    {
+      "type": "File",
+      "id": "0f9cab98-114d-4e72-b378-695559155c45",
+      "name": "TestName",
+      "representationSuffix": 1,
+      "representationType": "Preservation",
+      "sortOrder": 1,
+      "location": "s3://bucket/key"
+    }
+  ],
+  "expectedErrors": [
+    "DecodingFailure at .checksum_sha256: Missing required field",
+    "DecodingFailure at .fileSize: Missing required field",
+    "DecodingFailure at .title: Missing required field"
+  ]
+}

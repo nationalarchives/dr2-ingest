@@ -1,0 +1,28 @@
+{
+  "input": [
+    {
+      "type": "Asset",
+      "id": "0f9cab98-114d-4e72-b378-695559155c45",
+      "name": "TestName",
+      "parentId": null,
+      "title": "Test title",
+      "digitalAssetSource": "digitalAssetSource",
+      "originalFiles": [
+        "9e3d0cab-3900-4f5d-948f-fa8f35f38758"
+      ],
+      "originalMetadataFiles": [
+        "8664d643-fe3b-4fa4-be89-9806143b5dda"
+      ],
+      "transferCompleteDatetime": "2023-10-31T13:40:54Z",
+      "transferringBody": "body",
+      "upstreamSystem": "upstreamSystem",
+      "id_BornDigitalRef": "bornDigitalRef",
+      "id_ConsignmentReference": "consignmentReference",
+      "id_RecordID": "recordId"
+    }
+  ],
+  "expectedErrors": [
+    "There is no top level folder in this metadata file",
+    "There is not at least one file in this metadata file"
+  ]
+}

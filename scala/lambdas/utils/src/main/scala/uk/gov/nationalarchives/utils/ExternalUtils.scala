@@ -1,11 +1,14 @@
 package uk.gov.nationalarchives.utils
 
+import cats.data.Validated
+import io.circe.Decoder.{AccumulatingResult, Result}
 import io.circe.Json.Null
-import io.circe.derivation.Configuration
 import io.circe.generic.semiauto.deriveDecoder
-import io.circe.{Decoder, Encoder, HCursor, Json}
+import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
+import io.circe.derivation.Configuration
 import io.circe.syntax.*
-import uk.gov.nationalarchives.utils.ExternalUtils.Type.{ArchiveFolder, ContentFolder}
+import uk.gov.nationalarchives.utils.ExternalUtils.Type.*
+import cats.implicits.*
 
 import java.net.URI
 import java.time.{Instant, OffsetDateTime}
@@ -22,17 +25,24 @@ object ExternalUtils {
     def id: UUID
 
     def parentId: Option[UUID]
+
+    def getType: Type = this match
+      case _: ArchiveFolderMetadataObject => ArchiveFolder
+      case _: ContentFolderMetadataObject => ContentFolder
+      case _: AssetMetadataObject => Asset
+      case _: FileMetadataObject => File
   }
 
-  given Encoder[Type] = {
-    case Type.ArchiveFolder => Json.fromString("ArchiveFolder")
-    case ContentFolder => Json.fromString("ContentFolder")
-    case Type.Asset => Json.fromString("Asset")
-    case Type.File => Json.fromString("File")
-  }
+  given Encoder[Type] = (t: Type) => Json.fromString(t.toString)
 
   enum Type:
     case ArchiveFolder, ContentFolder, Asset, File
+
+    def validParent(parentType: Option[Type]): Boolean = this match
+      case ArchiveFolder => List(ArchiveFolder).containsSlice(parentType.toList)
+      case ContentFolder => List(ContentFolder, ArchiveFolder).containsSlice(parentType.toList)
+      case Asset => List(ContentFolder, ArchiveFolder, Asset).containsSlice(parentType.toList)
+      case File => List(Asset).containsSlice(parentType.toList)
 
   private val convertIdFieldsToJson = (idFields: List[IdField]) =>
     idFields.map { idField =>
@@ -56,14 +66,14 @@ object ExternalUtils {
   }
 
   private def createFolderMetadataObject(
-                                          id: UUID,
-                                          parentId: Option[UUID],
-                                          title: Option[String],
-                                          name: String,
-                                          series: String,
-                                          folderMetadataIdFields: List[IdField],
-                                          folderType: Type
-                                        ) = {
+      id: UUID,
+      parentId: Option[UUID],
+      title: Option[String],
+      name: String,
+      series: Option[String],
+      folderMetadataIdFields: List[IdField],
+      folderType: Type
+  ) = {
     jsonFromMetadataObject(id, parentId, title, folderType, name)
       .deepMerge {
         Json.fromFields(convertIdFieldsToJson(folderMetadataIdFields))
@@ -71,7 +81,7 @@ object ExternalUtils {
       .deepMerge {
         Json
           .obj(
-            ("series", Json.fromString(series))
+            ("series", series.map(Json.fromString).getOrElse(Json.Null))
           )
       }
   }
@@ -115,61 +125,57 @@ object ExternalUtils {
         .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), Type.File, name))
   }
 
-  private def decodeFolder(c: HCursor) = for {
-    id <- c.downField("id").as[UUID]
-    parentId <- c.downField("parentId").as[Option[UUID]]
-    title <- c.downField("title").as[Option[String]]
-    name <- c.downField("name").as[String]
-    series <- c.downField("series").as[String]
-  } yield (id, parentId, title, name, series)
+  case class IdField(name: String, value: String)
+
+  private def decodeFolder(c: HCursor) = (
+    c.downField("id").as[UUID].toValidatedNel,
+    c.downField("parentId").as[Option[UUID]].toValidatedNel,
+    c.downField("title").as[Option[String]].toValidatedNel,
+    c.downField("name").as[String].toValidatedNel,
+    c.downField("series").as[Option[String]].toValidatedNel,
+    getIdFields(c).toValidatedNel
+  )
 
   given Decoder[RepresentationType] = (c: HCursor) => c.as[String].map(RepresentationType.valueOf)
 
   given Decoder[IdField] = deriveDecoder[IdField]
 
-  given Decoder[ArchiveFolderMetadataObject] = (c: HCursor) =>
-    decodeFolder(c).map {
-      case (id, parentId, title, name, series) => ArchiveFolderMetadataObject(id, parentId, title, name, series, getIdFields(c))
+  given Decoder[ArchiveFolderMetadataObject] = new Decoder[ArchiveFolderMetadataObject]:
+    override def apply(c: HCursor): Result[ArchiveFolderMetadataObject] = convertToFailFast(decodeAccumulating(c))
+
+    override def decodeAccumulating(c: HCursor): AccumulatingResult[ArchiveFolderMetadataObject] = decodeFolder(c).mapN(ArchiveFolderMetadataObject.apply)
+
+  given Decoder[ContentFolderMetadataObject] = new Decoder[ContentFolderMetadataObject]:
+    override def apply(c: HCursor): Result[ContentFolderMetadataObject] = convertToFailFast(decodeAccumulating(c))
+
+    override def decodeAccumulating(c: HCursor): AccumulatingResult[ContentFolderMetadataObject] = decodeFolder(c).mapN(ContentFolderMetadataObject.apply)
+
+  private def convertToFailFast[T](result: AccumulatingResult[T]): Either[DecodingFailure, T] = result match
+    case Validated.Valid(value) => Right(value)
+    case Validated.Invalid(errors) => Left(errors.head)
+
+  given Decoder[AssetMetadataObject] = new Decoder[AssetMetadataObject]:
+    override def apply(c: HCursor): Result[AssetMetadataObject] = convertToFailFast(decodeAccumulating(c))
+
+    override def decodeAccumulating(c: HCursor): AccumulatingResult[AssetMetadataObject] = {
+      (c.downField("id").as[UUID].toValidatedNel,
+        c.downField("parentId").as[Option[UUID]].toValidatedNel,
+        c.downField("title").as[String].toValidatedNel,
+        c.downField("name").as[String].toValidatedNel,
+        c.downField("originalFiles").as[List[UUID]].toValidatedNel,
+        c.downField("originalMetadataFiles").as[List[UUID]].toValidatedNel,
+        c.downField("description").as[Option[String]].toValidatedNel,
+        c.downField("transferringBody").as[String].toValidatedNel,
+        c.downField("transferCompleteDatetime").as[String].toValidatedNel.map(OffsetDateTime.parse),
+        c.downField("upstreamSystem").as[String].toValidatedNel,
+        c.downField("digitalAssetSource").as[String].toValidatedNel,
+        c.downField("digitalAssetSubtype").as[Option[String]].toValidatedNel,
+        c.downField("correlationId").as[Option[String]].toValidatedNel,
+        getIdFields(c).toValidatedNel
+      ).mapN(AssetMetadataObject.apply)
     }
 
-  given Decoder[ContentFolderMetadataObject] = (c: HCursor) =>
-    decodeFolder(c).map {
-      case (id, parentId, title, name, series) => ContentFolderMetadataObject(id, parentId, title, name, series, getIdFields(c))
-    }
-
-  given Decoder[AssetMetadataObject] = (c: HCursor) =>
-    for {
-      id <- c.downField("id").as[UUID]
-      parentId <- c.downField("parentId").as[Option[UUID]]
-      title <- c.downField("title").as[String]
-      name <- c.downField("name").as[String]
-      originalFiles <- c.downField("originalFiles").as[List[UUID]]
-      originalMetadataFiles <- c.downField("originalMetadataFiles").as[List[UUID]]
-      description <- c.downField("description").as[Option[String]]
-      transferringBody <- c.downField("transferringBody").as[String]
-      transferCompleteDatetime <- c.downField("transferCompleteDatetime").as[String]
-      upstreamSystem <- c.downField("upstreamSystem").as[String]
-      digitalAssetSource <- c.downField("digitalAssetSource").as[String]
-      digitalAssetSubtype <- c.downField("digitalAssetSubtype").as[Option[String]]
-      correlationId <- c.downField("correlationId").as[Option[String]]
-    } yield AssetMetadataObject(
-      id,
-      parentId,
-      title,
-      name,
-      originalFiles,
-      originalMetadataFiles,
-      description,
-      transferringBody,
-      OffsetDateTime.parse(transferCompleteDatetime),
-      upstreamSystem,
-      digitalAssetSource,
-      digitalAssetSubtype,
-      correlationId,
-      getIdFields(c)
-    )
-
-  private def getIdFields(c: HCursor) = {
+  private def getIdFields(c: HCursor) = Right {
     c.keys
       .map(_.toList)
       .getOrElse(Nil)
@@ -181,39 +187,39 @@ object ExternalUtils {
       }
   }
 
-  given Decoder[FileMetadataObject] = (c: HCursor) =>
+  given Decoder[FileMetadataObject] = new Decoder[FileMetadataObject]:
+    override def apply(c: HCursor): Result[FileMetadataObject] = convertToFailFast(decodeAccumulating(c))
+
+    override def decodeAccumulating(c: HCursor): AccumulatingResult[FileMetadataObject] = (
+      c.downField("id").as[UUID].toValidatedNel,
+      c.downField("parentId").as[Option[UUID]].toValidatedNel,
+      c.downField("title").as[String].toValidatedNel,
+      c.downField("sortOrder").as[Int].toValidatedNel,
+      c.downField("name").as[String].toValidatedNel,
+      c.downField("fileSize").as[Long].toValidatedNel,
+      c.downField("representationType").as[RepresentationType].toValidatedNel,
+      c.downField("representationSuffix").as[Int].toValidatedNel,
+      c.downField("location").as[URI].toValidatedNel,
+      c.downField("checksum_sha256").as[String].toValidatedNel
+    ).mapN(FileMetadataObject.apply)
+
+  given Decoder[MetadataObject] =
     for {
-      id <- c.downField("id").as[UUID]
-      parentId <- c.downField("parentId").as[Option[UUID]]
-      title <- c.downField("title").as[String]
-      sortOrder <- c.downField("sortOrder").as[Int]
-      name <- c.downField("name").as[String]
-      fileSize <- c.downField("fileSize").as[Long]
-      representationType <- c.downField("representationType").as[RepresentationType]
-      representationSuffix <- c.downField("representationSuffix").as[Int]
-      location <- c.downField("location").as[URI]
-      checksum <- c.downField("checksum_sha256").as[String]
-    } yield FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksum)
+      objectType <- Decoder[String].prepare(_.downField("type"))
+      mandatoryFields <- objectType match
+        case "ArchiveFolder" => Decoder[ArchiveFolderMetadataObject]
+        case "ContentFolder" => Decoder[ContentFolderMetadataObject]
+        case "Asset"         => Decoder[AssetMetadataObject]
+        case "File"          => Decoder[FileMetadataObject]
+    } yield mandatoryFields
 
-  given Decoder[MetadataObject] = (c: HCursor) =>
-    for {
-      objectType <- c.downField("type").as[String]
-      metadataObject <- objectType match
-        case "ArchiveFolder" => c.as[ArchiveFolderMetadataObject]
-        case "ContentFolder" => c.as[ContentFolderMetadataObject]
-        case "Asset" => c.as[AssetMetadataObject]
-        case "File" => c.as[FileMetadataObject]
-    } yield metadataObject
-
-
-  case class IdField(name: String, value: String)
 
   case class ArchiveFolderMetadataObject(
                                           id: UUID,
                                           parentId: Option[UUID],
                                           title: Option[String],
                                           name: String,
-                                          series: String,
+                                          series: Option[String],
                                           idFields: List[IdField] = Nil
                                         ) extends MetadataObject
 
@@ -222,26 +228,26 @@ object ExternalUtils {
                                           parentId: Option[UUID],
                                           title: Option[String],
                                           name: String,
-                                          series: String,
+                                          series: Option[String],
                                           idFields: List[IdField] = Nil
                                         ) extends MetadataObject
 
   case class AssetMetadataObject(
-      id: UUID,
-      parentId: Option[UUID],
-      title: String,
-      name: String,
-      originalFiles: List[UUID],
-      originalMetadataFiles: List[UUID],
-      description: Option[String],
-      transferringBody: String,
-      transferCompleteDatetime: OffsetDateTime,
-      upstreamSystem: String,
-      digitalAssetSource: String,
-      digitalAssetSubtype: Option[String],
-      correlationId: Option[String],
-      idFields: List[IdField] = Nil
-  ) extends MetadataObject
+                                  id: UUID,
+                                  parentId: Option[UUID],
+                                  title: String,
+                                  name: String,
+                                  originalFiles: List[UUID],
+                                  originalMetadataFiles: List[UUID],
+                                  description: Option[String],
+                                  transferringBody: String,
+                                  transferCompleteDatetime: OffsetDateTime,
+                                  upstreamSystem: String,
+                                  digitalAssetSource: String,
+                                  digitalAssetSubtype: Option[String],
+                                  correlationId: Option[String],
+                                  idFields: List[IdField] = Nil
+                                ) extends MetadataObject
 
   case class FileMetadataObject(
                                  id: UUID,

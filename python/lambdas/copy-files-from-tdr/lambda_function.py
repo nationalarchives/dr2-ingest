@@ -14,8 +14,8 @@ sqs_client = boto3.client("sqs")
 
 
 def lambda_handler(event, context):
-    destination_bucket = os.environ["DESTINATION_BUCKET"]
-    destination_queue = os.environ["DESTINATION_QUEUE"]
+    destination_bucket = os.environ["OUTPUT_BUCKET_NAME"]
+    destination_queue = os.environ["OUTPUT_QUEUE_URL"]
     for record in event["Records"]:
         body: dict[str, str] = json.loads(record["body"])
         file_id = body["fileId"]

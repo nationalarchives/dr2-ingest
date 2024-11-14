@@ -1,0 +1,16 @@
+{
+  "input": [
+    {
+      "type": "ArchiveFolder",
+      "id": "f991ee71-de22-4bb9-ada8-720362486d49",
+      "name": "TestName",
+      "parentId": null,
+      "title": "Test title",
+      "series": "TEST 1"
+    }
+  ],
+  "expectedErrors": [
+    "There is not at least one asset in this metadata file",
+    "There is not at least one file in this metadata file"
+  ]
+}
