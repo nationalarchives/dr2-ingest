@@ -151,7 +151,7 @@ class TestCcNotificationHandler(unittest.TestCase):
             self.assertEqual(attribute_value, {"S": "true"})
 
     def test_lambda_handler_should_write_true_to_ingest_cc_attr(self):
-        os.environ["DYNAMO_TABLE_NAME"] = self.table_name
+        os.environ["FILES_DDB_TABLE"] = self.table_name
         self.create_table()
         self.put_item_in_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
 
@@ -162,7 +162,7 @@ class TestCcNotificationHandler(unittest.TestCase):
         self.assertEqual(new_ingested_cc_value, {"S": "true"})
 
     def test_lambda_handler_should_raise_error_if_table_identifier_empty(self):
-        os.environ["DYNAMO_TABLE_NAME"] = self.table_name
+        os.environ["FILES_DDB_TABLE"] = self.table_name
         self.create_table()
         self.put_item_in_table({"id": {"S": "identifier"}, "batchId": {"S": "batchIdValue"}})
 

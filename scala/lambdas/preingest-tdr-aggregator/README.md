@@ -60,8 +60,8 @@ this input
 
 | Name                          | Description                                                                             |
 |-------------------------------|-----------------------------------------------------------------------------------------|
-| DDB_LOCK_TABLE                | The lock table name in Dynamo                                                           |
-| MAX_SECONDARY_BATCHING_WINDOW | The maximum time before the lambda will trigger with items from the input queue         |
+| LOCK_DDB_TABLE                | The lock table name in Dynamo                                                           |
 | MAX_BATCH_SIZE                | If the number of items in the input queue is greater than this, the lambda will trigger |
-| SOURCE_SYSTEM                 | Used to generate the group ID and batch ID                                              |
+| MAX_SECONDARY_BATCHING_WINDOW | The maximum time before the lambda will trigger with items from the input queue         |
 | PREINGEST_SFN_ARN             | The step function arn to run when a new group is created.                               |
+| SOURCE_SYSTEM                 | Used to generate the group ID and batch ID                                              |
