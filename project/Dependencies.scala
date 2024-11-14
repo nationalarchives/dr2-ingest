@@ -24,7 +24,9 @@ object Dependencies {
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
   lazy val fs2IO = "co.fs2" %% "fs2-io" % fs2Version
   lazy val fs2Reactive = "co.fs2" %% "fs2-reactive-streams" % fs2Version
-  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "1.5.3"
+  lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.4.0"
+  lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
+  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "1.5.2"
   lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.2.3"
   lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.14.0"
   lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion;
@@ -42,6 +44,7 @@ object Dependencies {
   lazy val scanamo = "org.scanamo" %% "scanamo" % "3.0.0"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
   lazy val sqsClient = "uk.gov.nationalarchives" %% "da-sqs-client" % daAwsClientsVersion
+  lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
   lazy val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "2.3.0"
   lazy val sfnClient = "uk.gov.nationalarchives" %% "da-sfn-client" % daAwsClientsVersion
