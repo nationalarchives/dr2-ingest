@@ -97,7 +97,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   override def dependencies(config: Config): IO[Dependencies] = {
     val randomUuidGenerator: () => UUID = () => Generators().generateRandomUuid
-    DiscoveryService(config.discoveryApiUrl, randomUuidGenerator).map { discoveryService =>
+    DiscoveryService[IO](config.discoveryApiUrl, randomUuidGenerator).map { discoveryService =>
       val metadataService: MetadataService = MetadataService(discoveryService)
       val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
       val s3: DAS3Client[IO] = DAS3Client[IO]()

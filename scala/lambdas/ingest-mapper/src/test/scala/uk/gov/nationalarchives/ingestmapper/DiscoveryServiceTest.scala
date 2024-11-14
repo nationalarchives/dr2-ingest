@@ -91,7 +91,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
       .thenRespond(bodyMap("T TEST"))
 
-    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+    val result = DiscoveryService(baseUrl, backend, uuidIterator)
       .getDiscoveryCollectionAssets(Option("T TEST"))
       .unsafeRunSync()
 
@@ -111,7 +111,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespondServerError()
 
     val ex = intercept[Exception] {
-      new DiscoveryService(baseUrl, backend, uuidIterator)
+      DiscoveryService(baseUrl, backend, uuidIterator)
         .getDiscoveryCollectionAssets(Option("A TEST"))
         .unsafeRunSync()
     }
@@ -125,7 +125,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/A TEST"))
       .thenRespond(bodyMap("T TEST"))
 
-    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+    val result = DiscoveryService(baseUrl, backend, uuidIterator)
       .getDiscoveryCollectionAssets(Option("A TEST"))
       .unsafeRunSync()
 
@@ -148,7 +148,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
       .thenRespond(bodyMap("T TEST"))
 
-    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+    val result = DiscoveryService(baseUrl, backend, uuidIterator)
       .getDiscoveryCollectionAssets(Option("T TEST"))
       .unsafeRunSync()
 
@@ -173,7 +173,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
       .thenRespond(emptyResponse)
 
-    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+    val result = DiscoveryService(baseUrl, backend, uuidIterator)
       .getDiscoveryCollectionAssets(Option("T TEST"))
       .unsafeRunSync()
 
@@ -192,7 +192,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   "getDepartmentAndSeriesItems" should "return the correct values for series and department" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
-    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+    val result = DiscoveryService(baseUrl, backend, uuidIterator)
       .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(assetMap("T"), assetMap("T TEST")))
 
     val departmentItem = result.departmentItem
@@ -205,7 +205,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   "getDepartmentAndSeriesItems" should "return unknown for the department if the department is missing" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
-    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+    val result = DiscoveryService(baseUrl, backend, uuidIterator)
       .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(None, assetMap("T TEST")))
 
     val departmentItem = result.departmentItem
@@ -218,7 +218,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   "getDepartmentAndSeriesItems" should "return an empty series if the series is missing" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
-    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+    val result = DiscoveryService(baseUrl, backend, uuidIterator)
       .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(assetMap("T"), None))
 
     val departmentItem = result.departmentItem
@@ -232,7 +232,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   "getDepartmentAndSeriesItems" should "return an unknown department if the series and department are missing" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
-    val result = new DiscoveryService(baseUrl, backend, uuidIterator)
+    val result = DiscoveryService(baseUrl, backend, uuidIterator)
       .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(None, None))
 
     result.potentialSeriesItem.isDefined should equal(false)

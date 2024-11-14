@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "File validation",
+  "description": "All Files that are checked by this schema must have these properties",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parentId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": true,
+    "type": {
+      "type": "string",
+      "const": "File"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sortOrder": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fileSize": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "representationType": {
+      "type": "string",
+      "minLength": 1
+    },
+    "representationSuffix": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "location": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checksum_sha256": {
+      "type": "string",
+      "$comment": "(Optional) But if File entry contains one, we can ensure it's the correct type and length",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "series": false
+  },
+  "patternProperties": {
+    "^checksum_": {
+      "type": "string",
+      "$comment": "We're going to potentially receive multiple types of checksums, if we do, they must be >=32 chars (an MD5's length)",
+      "minLength": 32
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "additionalProperties": {
+    "minLength": 1,
+    "minItems": 1
+  },
+  "propertyNames": {
+    "pattern": "[A-Za-z0-9]"
+  },
+  "if": {
+    "properties": {
+      "name": {
+        "type": "string",
+        "pattern": "\\-metadata.json$",
+        "minLength": 14
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 0
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

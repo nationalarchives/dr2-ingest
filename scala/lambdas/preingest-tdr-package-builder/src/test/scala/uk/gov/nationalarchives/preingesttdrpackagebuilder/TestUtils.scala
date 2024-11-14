@@ -3,7 +3,7 @@ package uk.gov.nationalarchives.preingesttdrpackagebuilder
 import cats.effect.{IO, Ref}
 import fs2.interop.reactivestreams.*
 import io.circe.derivation.Configuration
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.generic.semiauto.deriveEncoder
 import io.circe.parser.decode
 import io.circe.syntax.*
 import io.circe.*
@@ -22,8 +22,6 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
 import java.net.URI
 import java.nio.ByteBuffer
-import java.time.OffsetDateTime
-import java.util.UUID
 
 object TestUtils:
 
@@ -93,76 +91,3 @@ object TestUtils:
       override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = IO.pure(CompletedCopy.builder.build)
     }
   }
-
-  given Configuration = Configuration.default.withDefaults
-
-  given Decoder[RepresentationType] = (c: HCursor) => c.as[String].map(RepresentationType.valueOf)
-
-  given Decoder[IdField] = deriveDecoder[IdField]
-
-  given Decoder[ArchiveFolderMetadataObject] = Decoder.derivedConfigured[ArchiveFolderMetadataObject]
-
-  given Decoder[ContentFolderMetadataObject] = Decoder.derivedConfigured[ContentFolderMetadataObject]
-
-  given Decoder[AssetMetadataObject] = (c: HCursor) =>
-    for {
-      id <- c.downField("id").as[UUID]
-      parentId <- c.downField("parentId").as[Option[UUID]]
-      title <- c.downField("title").as[String]
-      name <- c.downField("name").as[String]
-      originalFiles <- c.downField("originalFiles").as[List[UUID]]
-      originalMetadataFiles <- c.downField("originalMetadataFiles").as[List[UUID]]
-      description <- c.downField("description").as[Option[String]]
-      transferringBody <- c.downField("transferringBody").as[String]
-      transferCompleteDatetime <- c.downField("transferCompleteDatetime").as[String]
-      upstreamSystem <- c.downField("upstreamSystem").as[String]
-      digitalAssetSource <- c.downField("digitalAssetSource").as[String]
-      digitalAssetSubtype <- c.downField("digitalAssetSubtype").as[Option[String]]
-      idFields = c.keys
-        .map(_.toList)
-        .getOrElse(Nil)
-        .filter(_.startsWith("id_"))
-        .flatMap { key =>
-          c.downField(key).as[String].toOption.map { value =>
-            IdField(key.drop(3), value)
-          }
-        }
-    } yield AssetMetadataObject(
-      id,
-      parentId,
-      title,
-      name,
-      originalFiles,
-      originalMetadataFiles,
-      description,
-      transferringBody,
-      OffsetDateTime.parse(transferCompleteDatetime),
-      upstreamSystem,
-      digitalAssetSource,
-      digitalAssetSubtype,
-      idFields
-    )
-
-  given Decoder[FileMetadataObject] = (c: HCursor) =>
-    for {
-      id <- c.downField("id").as[UUID]
-      parentId <- c.downField("parentId").as[Option[UUID]]
-      title <- c.downField("title").as[String]
-      sortOrder <- c.downField("sortOrder").as[Int]
-      name <- c.downField("name").as[String]
-      fileSize <- c.downField("fileSize").as[Long]
-      representationType <- c.downField("representationType").as[RepresentationType]
-      representationSuffix <- c.downField("representationSuffix").as[Int]
-      location <- c.downField("location").as[URI]
-      checksum <- c.downField("checksum_sha256").as[String]
-    } yield FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksum)
-
-  given Decoder[MetadataObject] = (c: HCursor) =>
-    for {
-      objectType <- c.downField("type").as[String]
-      metadataObject <- objectType match
-        case "ArchiveFolder" => c.as[ArchiveFolderMetadataObject]
-        case "ContentFolder" => c.as[ContentFolderMetadataObject]
-        case "Asset"         => c.as[AssetMetadataObject]
-        case "File"          => c.as[FileMetadataObject]
-    } yield metadataObject
