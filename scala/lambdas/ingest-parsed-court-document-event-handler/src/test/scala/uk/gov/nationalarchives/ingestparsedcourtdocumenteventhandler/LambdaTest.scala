@@ -145,7 +145,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val sfnExecution = sfnState.head
 
     sfnExecution.sfnArn should equal("sfnArn")
-    sfnExecution.input.batchId should equal("groupId_0")
+    sfnExecution.input.batchId should equal("COURTDOC_TEST-REFERENCE_0")
     sfnExecution.input.metadataPackage.toString should equal("s3://bucket/TEST-REFERENCE/metadata.json")
   }
 
