@@ -162,7 +162,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
 
     val (res, _, _, _) = runLambda(initialS3State, eventWithInvalidJson)
 
-    res.left.value.getMessage should equal("DecodingFailure at .properties: Missing required field")
+    res.left.value.getMessage should equal("DecodingFailure at .parameters: Missing required field")
   }
 
   "the lambda" should "error if the json in the metadata file is invalid" in {

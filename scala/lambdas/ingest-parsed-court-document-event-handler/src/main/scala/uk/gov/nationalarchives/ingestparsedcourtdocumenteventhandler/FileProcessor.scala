@@ -245,7 +245,7 @@ object FileProcessor {
 
   case class TREInputParameters(status: String, reference: String, skipSeriesLookup: Boolean, s3Bucket: String, s3Key: String)
 
-  case class TREInput(properties: TREInputProperties, parameters: TREInputParameters)
+  case class TREInput(parameters: TREInputParameters, properties: Option[TREInputProperties] = None)
 
   case class TREMetadata(parameters: TREMetadataParameters)
 
