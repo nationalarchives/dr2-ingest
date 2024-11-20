@@ -299,8 +299,9 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
               val assetId = treMetadata.parameters.TDR.`UUID`
               val fileName = treFileName.split('.').dropRight(1).mkString(".")
               val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
+              val expectedSeries = series <+> Option("Unknown")
               val folder =
-                ArchiveFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, series, updatedIdFields)
+                ArchiveFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, expectedSeries, updatedIdFields)
               val asset =
                 AssetMetadataObject(
                   assetId,
