@@ -101,10 +101,10 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
             Some(s"attribute_not_exists($assetId)")
           )
         )
-        groupId = s"COURTDOC_$batchRef"
-        batchId = s"${groupId}_0"
         _ <- logWithFileRef("Written asset to lock table")
 
+        groupId = s"COURTDOC_$batchRef"
+        batchId = s"${groupId}_0"
         _ <- dependencies.sfn.startExecution(config.sfnArn, new Output(batchId, groupId, metadataPackage, 0, config.sfnArn), Option(batchId))
         _ <- logWithFileRef("Started step function execution")
       } yield ()

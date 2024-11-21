@@ -145,8 +145,12 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val sfnExecution = sfnState.head
 
     sfnExecution.sfnArn should equal("sfnArn")
-    sfnExecution.input.batchId should equal("COURTDOC_TEST-REFERENCE_0")
-    sfnExecution.input.metadataPackage.toString should equal("s3://bucket/TEST-REFERENCE/metadata.json")
+    val input = sfnExecution.input
+    input.batchId should equal("COURTDOC_TEST-REFERENCE_0")
+    input.metadataPackage.toString should equal("s3://bucket/TEST-REFERENCE/metadata.json")
+    input.groupId should equal("COURTDOC_TEST-REFERENCE")
+    input.retryCount should equal(0)
+    input.retrySfnArn should equal("sfnArn")
   }
 
   "the lambda" should "error if the uri contains '/press-summary' but file name does not contain 'Press Summary of'" in {

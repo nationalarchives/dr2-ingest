@@ -284,7 +284,7 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
   forAll(fileReferenceTable) { potentialFileReference =>
     forAll(citeTable) { (potentialCite, idFields) =>
       forAll(treNameTable) { (treName, treFileName, expectedFolderTitle, expectedAssetTitle) =>
-        forAll(urlDepartmentAndSeriesTable) { (department, series, _, parsedUri, expectedFolderName, titleExpected) =>
+        forAll(urlDepartmentAndSeriesTable) { (department, potentialSeries, _, parsedUri, expectedFolderName, titleExpected) =>
           val updatedIdFields =
             if (department.isEmpty) Nil
             else if (potentialCite.isDefined && expectedFolderName == trimmedUri) idFields :+ IdField("URI", trimmedUri)
@@ -292,14 +292,14 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
             else idFields
 
           "createMetadata" should s"generate the correct Metadata with $potentialCite, $potentialFileReference, " +
-            s"$expectedFolderTitle, $expectedAssetTitle and $updatedIdFields for $department, $series, $parsedUri and TRE name $treName" in {
+            s"$expectedFolderTitle, $expectedAssetTitle and $updatedIdFields for $department, $potentialSeries, $parsedUri and TRE name $treName" in {
               val fileId = UUID.randomUUID()
               val metadataId = UUID.randomUUID()
               val folderId = uuids.head
               val assetId = treMetadata.parameters.TDR.`UUID`
               val fileName = treFileName.split('.').dropRight(1).mkString(".")
               val folderTitle = if titleExpected then Option(expectedFolderTitle) else None
-              val expectedSeries = series <+> Option("Unknown")
+              val expectedSeries = potentialSeries.orElse(Option("Unknown"))
               val folder =
                 ArchiveFolderMetadataObject(folderId, None, folderTitle, expectedFolderName, expectedSeries, updatedIdFields)
               val asset =
@@ -361,7 +361,7 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
                     treMetadata,
                     potentialFileReference,
                     department,
-                    series,
+                    potentialSeries,
                     tdrUuid,
                     potentialCorrelationId
                   )
