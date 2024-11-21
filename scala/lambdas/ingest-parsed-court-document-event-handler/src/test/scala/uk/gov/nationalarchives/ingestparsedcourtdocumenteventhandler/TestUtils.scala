@@ -139,8 +139,8 @@ object TestUtils:
     } yield (res, s3FinalState, dynamoFinalState, sfnFinalState)).unsafeRunSync()
 
   def packageAvailable(s3Key: String): TREInput = TREInput(
-    TREInputProperties(None),
-    TREInputParameters("status", "TEST-REFERENCE", skipSeriesLookup = false, inputBucket, s3Key)
+    TREInputParameters("status", "TEST-REFERENCE", skipSeriesLookup = false, inputBucket, s3Key),
+    None
   )
 
   def event(s3Key: String = "test.tar.gz", body: Option[String] = None): SQSEvent = {

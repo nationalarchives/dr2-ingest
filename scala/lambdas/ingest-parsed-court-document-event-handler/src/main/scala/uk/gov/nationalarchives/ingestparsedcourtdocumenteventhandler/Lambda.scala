@@ -79,7 +79,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           departmentAndSeries.potentialDepartment,
           departmentAndSeries.potentialSeries,
           tdrUuid,
-          treInput.properties.messageId
+          treInput.properties.flatMap(_.messageId)
         )
         _ <- fileProcessor.createMetadataJson(metadata, metadataPackage)
         _ <- logWithFileRef(s"Copied metadata.json to bucket $outputBucket")
@@ -103,7 +103,9 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
         )
         _ <- logWithFileRef("Written asset to lock table")
 
-        _ <- dependencies.sfn.startExecution(config.sfnArn, new Output(s"${groupId}_0", s"COURTDOC_$batchRef", metadataPackage, 0, config.sfnArn), Option(groupId))
+        groupId = s"COURTDOC_$batchRef"
+        batchId = s"${groupId}_0"
+        _ <- dependencies.sfn.startExecution(config.sfnArn, new Output(batchId, groupId, metadataPackage, 0, config.sfnArn), Option(batchId))
         _ <- logWithFileRef("Started step function execution")
       } yield ()
     }.void
