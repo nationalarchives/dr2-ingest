@@ -118,7 +118,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
       assetMetadataObject.id should equal(tdrFileId)
       assetMetadataObject.parentId should equal(Option(archiveFolderId))
-      assetMetadataObject.title should equal(stripFileExtension(testData.fileName.fileString))
+      assetMetadataObject.title should equal(testData.fileName.fileString)
       assetMetadataObject.name should equal(tdrFileId.toString)
       assetMetadataObject.originalFiles should equal(List(fileId))
       assetMetadataObject.originalMetadataFiles should equal(List(metadataFileId))
@@ -138,7 +138,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       checkIdField("RecordID", tdrFileId.toString)
 
       fileMetadataObject.parentId should equal(Option(tdrFileId))
-      fileMetadataObject.title should equal(stripFileExtension(testData.fileName.fileString))
+      fileMetadataObject.title should equal(testData.fileName.fileString)
       fileMetadataObject.sortOrder should equal(1)
       fileMetadataObject.name should equal(testData.fileName.fileString)
       fileMetadataObject.fileSize should equal(testData.fileSize)
