@@ -3,7 +3,6 @@ package uk.gov.nationalarchives.rotatepreservationsystempassword
 import cats.effect.IO
 import io.circe.{Decoder, HCursor}
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.services.secretsmanager.model.DescribeSecretResponse
 import uk.gov.nationalarchives.DASecretsManagerClient
 import uk.gov.nationalarchives.DASecretsManagerClient.Stage

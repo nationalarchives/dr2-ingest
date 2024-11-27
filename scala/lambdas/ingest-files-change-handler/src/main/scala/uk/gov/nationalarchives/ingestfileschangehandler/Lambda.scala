@@ -8,7 +8,6 @@ import io.circe.generic.semiauto.deriveDecoder
 import org.scanamo.syntax.*
 import org.scanamo.{DynamoArray, DynamoObject, DynamoReadError, DynamoValue}
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.given

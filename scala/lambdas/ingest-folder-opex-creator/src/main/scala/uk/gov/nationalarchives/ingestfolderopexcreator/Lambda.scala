@@ -8,7 +8,6 @@ import org.reactivestreams.FlowAdapters
 import org.scanamo.*
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd.PreservicaSchema

@@ -15,7 +15,6 @@ import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.reactivestreams.{FlowAdapters, Publisher}
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri

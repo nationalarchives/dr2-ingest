@@ -4,7 +4,6 @@ import cats.effect.IO
 import cats.implicits.*
 import cats.syntax.all.*
 import io.circe.generic.auto.*
-import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Identifier => DynamoIdentifier, *}

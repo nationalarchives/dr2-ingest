@@ -8,7 +8,6 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import com.amazonaws.services.lambda.runtime.{Context, RequestHandler}
 import io.circe.generic.auto.*
 import pureconfig.ConfigReader.Result
-import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId

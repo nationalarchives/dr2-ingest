@@ -4,7 +4,6 @@ import cats.effect.*
 import cats.syntax.all.*
 import io.circe.generic.auto.*
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest

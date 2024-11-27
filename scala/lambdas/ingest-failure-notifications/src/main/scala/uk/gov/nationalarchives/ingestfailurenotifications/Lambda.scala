@@ -6,7 +6,6 @@ import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, DecodingFailure, HCursor}
 import io.circe.parser.decode
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.ingestfailurenotifications.Lambda.{*, given}

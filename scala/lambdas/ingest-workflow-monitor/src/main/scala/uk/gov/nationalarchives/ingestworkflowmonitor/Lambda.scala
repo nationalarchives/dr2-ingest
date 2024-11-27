@@ -2,7 +2,6 @@ package uk.gov.nationalarchives.ingestworkflowmonitor
 
 import cats.effect.*
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import io.circe.generic.auto.*
 import uk.gov.nationalarchives.dp.client.ProcessMonitorClient
 import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.*

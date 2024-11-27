@@ -7,7 +7,6 @@ import io.circe.generic.auto.*
 import org.reactivestreams.FlowAdapters
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd.PreservicaSchema.{OpexMetadataSchema, XipXsdSchemaV7}
