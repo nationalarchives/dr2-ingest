@@ -13,7 +13,6 @@ import org.reactivestreams.FlowAdapters
 import org.typelevel.log4cats.{Logger, SelfAwareStructuredLogger}
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import pureconfig.*
-import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest

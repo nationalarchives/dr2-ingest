@@ -10,7 +10,6 @@ import io.circe.derivation.Configuration
 import io.circe.generic.semiauto.*
 import org.reactivestreams.Publisher
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 

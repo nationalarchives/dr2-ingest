@@ -3,7 +3,6 @@ package uk.gov.nationalarchives.ingestparentfolderopexcreator
 import cats.effect.IO
 import fs2.*
 import org.reactivestreams.{FlowAdapters, Publisher}
-import pureconfig.generic.derivation.default.*
 import io.circe.generic.auto.*
 import pureconfig.ConfigReader
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload

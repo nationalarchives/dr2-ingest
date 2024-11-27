@@ -2,7 +2,6 @@ package uk.gov.nationalarchives.ingeststartworkflow
 
 import cats.effect.*
 import io.circe.generic.auto.*
-import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
 import uk.gov.nationalarchives.ingeststartworkflow.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner

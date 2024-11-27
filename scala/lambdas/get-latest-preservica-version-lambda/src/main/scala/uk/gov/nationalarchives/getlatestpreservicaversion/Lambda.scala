@@ -5,7 +5,6 @@ import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import io.circe.generic.auto.*
 import org.scanamo.generic.auto.*
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.dp.client.EntityClient

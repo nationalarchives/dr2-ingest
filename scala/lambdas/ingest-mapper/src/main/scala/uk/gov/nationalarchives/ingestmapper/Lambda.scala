@@ -7,7 +7,6 @@ import fs2.Stream
 import io.circe.generic.auto.*
 import org.scanamo.*
 import org.scanamo.generic.semiauto.*
-import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
 import ujson.*
 import upickle.core.*

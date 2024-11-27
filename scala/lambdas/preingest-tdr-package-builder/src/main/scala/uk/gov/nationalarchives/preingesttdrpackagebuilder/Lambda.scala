@@ -14,7 +14,6 @@ import io.circe.syntax.*
 import org.reactivestreams.FlowAdapters
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*

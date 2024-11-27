@@ -5,7 +5,6 @@ import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import io.circe.{Decoder, Encoder, HCursor, Json, JsonObject}
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.DASQSClient

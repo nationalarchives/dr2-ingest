@@ -5,7 +5,6 @@ import io.circe.parser.decode
 import io.circe.generic.auto.*
 import io.circe.syntax.EncoderOps
 import org.scalatest.EitherValues
-import pureconfig.generic.derivation.default.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import pureconfig.ConfigReader
