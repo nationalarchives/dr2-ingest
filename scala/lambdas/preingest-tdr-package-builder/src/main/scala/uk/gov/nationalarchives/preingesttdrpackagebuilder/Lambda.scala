@@ -31,8 +31,6 @@ import java.util.UUID
 class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   lazy private val bufferSize = 1024 * 5
 
-  private def stripFileExtension(title: String) = if title.contains(".") then title.substring(0, title.lastIndexOf('.')) else title
-
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
     def processNonMetadataObjects(
@@ -50,11 +48,11 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           val assetMetadata = AssetMetadataObject(
             assetId,
             None,
-            stripFileExtension(tdrMetadata.Filename),
+            tdrMetadata.Filename,
             assetId.toString,
             List(fileId),
             List(metadataId),
-            None,
+            tdrMetadata.description,
             tdrMetadata.TransferringBody,
             LocalDateTime.parse(tdrMetadata.TransferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
             "TDR",
@@ -77,7 +75,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                 val fileMetadata = FileMetadataObject(
                   fileId,
                   Option(assetId),
-                  stripFileExtension(tdrMetadata.Filename),
+                  tdrMetadata.Filename,
                   1,
                   tdrMetadata.Filename,
                   headObjectResponse.contentLength(),
