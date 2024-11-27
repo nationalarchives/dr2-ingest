@@ -38,7 +38,7 @@ object LambdaTestUtils:
         else
           dynamoItemsRef.get.map { rows =>
             (for {
-              values <- requestCondition.dynamoValues
+              values <- Option(requestCondition.attributes.values)
               map <- values.toMap[String].toOption
             } yield rows
               .filter(row => map.get("conditionAttributeValue0").contains(row.groupId))

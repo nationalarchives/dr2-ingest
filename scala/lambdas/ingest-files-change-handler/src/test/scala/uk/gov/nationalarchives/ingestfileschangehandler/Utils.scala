@@ -134,7 +134,7 @@ object Utils {
           returnTypeFormat: DynamoFormat[U]
       ): IO[List[U]] = ref.get.map { rows =>
         (for {
-          values <- requestCondition.dynamoValues
+          values <- Option(requestCondition.attributes.values)
           map <- values.toMap[String].toOption
         } yield
           if potentialGsiName.isEmpty then

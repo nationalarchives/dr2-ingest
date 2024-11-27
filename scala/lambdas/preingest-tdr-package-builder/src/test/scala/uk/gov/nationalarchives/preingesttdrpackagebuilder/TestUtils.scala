@@ -44,7 +44,7 @@ object TestUtils:
       if failedQuery then IO.raiseError(new Exception("Dynamo has returned an error"))
       else
         val groupId = for {
-          dynamoValues <- requestCondition.dynamoValues
+          dynamoValues <- Option(requestCondition.attributes.values)
           conditionValue <- dynamoValues.values.headOption
           value <- conditionValue.asString
         } yield value

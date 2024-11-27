@@ -51,7 +51,7 @@ object ExternalServicesTestUtils:
     override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
       itemsNotFound(errors.exists(_.dynamoQueryError)) >> IO {
         (for {
-          dynamoValues <- requestCondition.dynamoValues
+          dynamoValues <- Option(requestCondition.attributes.values)
           value <- dynamoValues.toExpressionAttributeValues
           parentPath <- value.asScala.get(":parentPath")
           batchId <- value.asScala.get(":batchId")
