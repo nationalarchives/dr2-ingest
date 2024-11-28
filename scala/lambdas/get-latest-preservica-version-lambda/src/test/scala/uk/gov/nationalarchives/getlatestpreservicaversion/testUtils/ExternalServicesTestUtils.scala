@@ -7,15 +7,15 @@ import io.circe.Encoder
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.sns.model.PublishBatchResponse
+import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.dp.client.Entities.Entity
-import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
+import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
 import uk.gov.nationalarchives.dp.client.EntityClient.Identifier
 import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda
-import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.{Config, Dependencies, GetDr2PreservicaVersionResponse, LatestPreservicaVersionMessage}
+import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.{Config, Dependencies, Detail, GetDr2PreservicaVersionResponse}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -76,18 +76,19 @@ object ExternalServicesTestUtils:
     override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = errors.raise(_.preservicaError, "Error getting Preservica version") >> IO.pure(version)
   }
 
-  def snsClient(ref: Ref[IO, List[LatestPreservicaVersionMessage]], errors: Option[Errors]): DASNSClient[IO] = new DASNSClient[IO]:
-    override def publish[T <: Product](topicArn: String)(messages: List[T])(using enc: Encoder[T]): IO[List[PublishBatchResponse]] =
-      errors.raise(_.snsError, "Error sending to SNS") >>
+  def eventBridgeClient(ref: Ref[IO, List[String]], errors: Option[Errors]): DAEventBridgeClient[IO] = new DAEventBridgeClient[IO] {
+    override def publishEventToEventBridge[T, U](sourceId: String, detailType: U, detail: T)(using enc: Encoder[T]): IO[PutEventsResponse] =
+      errors.raise(_.eventBridgeError, "Error sending message to EventBridge") >>
         ref
           .update { existing =>
-            messages.map(_.asInstanceOf[LatestPreservicaVersionMessage]) ++ existing
+            detail.asInstanceOf[Detail].slackMessage :: existing
           }
-          .map(_ => Nil)
+          .map(_ => PutEventsResponse.builder.build)
+  }
 
   val config: Config = Config("", "", "", "")
 
-  case class Errors(dynamoError: Boolean = false, preservicaError: Boolean = false, snsError: Boolean = false)
+  case class Errors(dynamoError: Boolean = false, preservicaError: Boolean = false, eventBridgeError: Boolean = false)
 
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
@@ -95,9 +96,9 @@ object ExternalServicesTestUtils:
       dynamoResponses: List[GetDr2PreservicaVersionResponse],
       preservicaVersion: Float,
       errors: Option[Errors] = None
-  ): (Either[Throwable, Unit], List[LatestPreservicaVersionMessage]) = (for {
-    messagesRef <- Ref.of[IO, List[LatestPreservicaVersionMessage]](Nil)
-    dependencies = Dependencies(preservicaClient(preservicaVersion, errors), snsClient(messagesRef, errors), dynamoClient(dynamoResponses, errors))
+  ): (Either[Throwable, Unit], List[String]) = (for {
+    messagesRef <- Ref.of[IO, List[String]](Nil)
+    dependencies = Dependencies(preservicaClient(preservicaVersion, errors), eventBridgeClient(messagesRef, errors), dynamoClient(dynamoResponses, errors))
     res <- new Lambda().handler(new ScheduledEvent(), config, dependencies).attempt
     messages <- messagesRef.get
   } yield (res, messages)).unsafeRunSync()
