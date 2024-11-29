@@ -7,13 +7,13 @@ object Dependencies {
   private val sttpVersion = "3.10.1"
   private val circeVersion = "0.14.10"
   private val log4CatsVersion = "2.7.0"
-  private val awsLibraryVersion = "1.12.778"
+  private val awsLibraryVersion = "1.12.779"
   private lazy val scalaTestVersion = "3.2.18"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.33.2"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.33.3"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val awsSecretsManager = "com.amazonaws" % "aws-java-sdk-secretsmanager" % awsLibraryVersion
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.6"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.7"
   lazy val circeCore = "io.circe" %% "circe-core" % circeVersion
   lazy val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
@@ -38,7 +38,7 @@ object Dependencies {
   lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.114"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
-  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.6.12"
+  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.7.0"
   lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.18.1"
   lazy val scalaCheckPlus = "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0"
   lazy val scanamo = "org.scanamo" %% "scanamo" % "3.0.0"
