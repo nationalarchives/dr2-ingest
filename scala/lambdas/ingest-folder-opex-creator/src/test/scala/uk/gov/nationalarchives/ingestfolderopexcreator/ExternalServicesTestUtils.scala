@@ -32,7 +32,7 @@ object ExternalServicesTestUtils:
 
   def generateInput(assetId: UUID): Input = Input(assetId, batchId, batchId)
 
-  val config: Config = Config("", "sourceBucket", "destinationBucket")
+  val config: Config = Config("", "sourceBucket", "destinationBucket", "roleArn")
 
   def resourceNotFound(dynamoError: Boolean): IO[Unit] = IO.raiseWhen(dynamoError)(ResourceNotFoundException.builder.message("Error getting items from Dynamo").build)
   def itemsNotFound(dynamoError: Boolean): IO[Unit] = IO.raiseWhen(dynamoError)(ResourceNotFoundException.builder.message("Error querying Dynamo").build)

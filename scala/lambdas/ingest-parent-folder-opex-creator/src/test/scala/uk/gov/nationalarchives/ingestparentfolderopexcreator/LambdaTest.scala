@@ -12,7 +12,7 @@ import scala.xml.XML.loadString
 
 class LambdaTest extends AnyFlatSpec with EitherValues {
   val input: Input = Input("9e32383f-52a7-4591-83dc-e3e598a6f1a7")
-  val config: Config = Config("stagingCacheBucketName")
+  val config: Config = Config("stagingCacheBucketName", "role-arn")
 
   "handler" should "upload opex files to S3" in {
     val initialS3State: List[S3Object] = List(1, 2, 3).map(suffix => S3Object("bucket", s"opex/executionId/key$suffix", "content"))
