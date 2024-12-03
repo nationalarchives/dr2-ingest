@@ -161,7 +161,7 @@ lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-ve
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
-      snsClient,
+      eventBridgeClient,
       preservicaClient
     )
   )
