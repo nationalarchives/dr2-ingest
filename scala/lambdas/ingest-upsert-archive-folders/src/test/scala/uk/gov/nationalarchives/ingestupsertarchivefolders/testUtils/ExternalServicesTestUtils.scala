@@ -3,14 +3,12 @@ package uk.gov.nationalarchives.ingestupsertarchivefolders.testUtils
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
 import cats.syntax.all.*
-import io.circe.Encoder
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor5}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, EitherValues}
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.{BatchWriteItemResponse, ResourceNotFoundException}
-import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
@@ -22,7 +20,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoItem, Identifier as DynamoIdentifier}
 import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda
 import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda.*
-import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
+import uk.gov.nationalarchives.DADynamoDBClient
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -147,26 +145,17 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       .map(id => IdentifierResponse(entity.ref.toString, id.identifierName, id.value))
   }
 
-  def eventbridgeClient(ref: Ref[IO, List[Detail]]): DAEventBridgeClient[IO] = new DAEventBridgeClient[IO]:
-    override def publishEventToEventBridge[T, U](sourceId: String, detailType: U, detail: T)(using enc: Encoder[T]): IO[PutEventsResponse] = ref
-      .update { existing =>
-        detail.asInstanceOf[Detail] :: existing
-      }
-      .map(_ => PutEventsResponse.builder.build)
-
   def runLambda(
       items: List[ArchiveFolderDynamoItem],
       entities: List[EntityWithIdentifiers],
       dynamoError: Boolean = false,
       preservicaErrors: Option[PreservicaErrors] = None
-  ): (List[EntityWithIdentifiers], List[Detail], Throwable) = (for {
+  ): (List[EntityWithIdentifiers], Throwable) = (for {
     itemsRef <- Ref.of[IO, List[ArchiveFolderDynamoItem]](items)
     entitiesRef <- Ref.of[IO, List[EntityWithIdentifiers]](entities)
-    detailRef <- Ref.of[IO, List[Detail]](Nil)
-    res <- Lambda().handler(input, config, Dependencies(preservicaClient(entitiesRef, preservicaErrors), dynamoClient(itemsRef, dynamoError), eventbridgeClient(detailRef))).attempt
+    res <- Lambda().handler(input, config, Dependencies(preservicaClient(entitiesRef, preservicaErrors), dynamoClient(itemsRef, dynamoError))).attempt
     entities <- entitiesRef.get
-    details <- detailRef.get
-  } yield (entities, details, if res.isRight then new Exception("Error not found") else res.left.value)).unsafeRunSync()
+  } yield (entities, if res.isRight then new Exception("Error not found") else res.left.value)).unsafeRunSync()
 
   def validateParentHierarchy(entities: List[Entity]): Boolean = {
     val ids = entities.map(_.ref).toSet
