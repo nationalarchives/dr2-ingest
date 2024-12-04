@@ -97,6 +97,34 @@ class LambdaTest extends AnyFlatSpec:
     }.getMessage should be("requirement failed: Missing 'default' system in the configuration")
   }
 
+  "FlowControlConfig" should "give availability of spare channels when at least one non-dedicated channel is available" in {
+    val configWithSpareChannels = Lambda.FlowControlConfig(4,
+      List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 0, 35), Lambda.SourceSystem("SystemThree", 0, 10), Lambda.SourceSystem("default", 2, 30))
+    )
+    configWithSpareChannels.hasSpareChannels should be(true)
+  }
+
+  "FlowControlConfig" should "return false when dedicated channels equal the maximum concurrency" in {
+    val configWithAllChannelsDedicated = Lambda.FlowControlConfig(4,
+      List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 1, 35), Lambda.SourceSystem("default", 2, 40))
+    )
+    configWithAllChannelsDedicated.hasSpareChannels should be(false)
+  }
+
+  "FlowControlConfig" should "give availability of dedicated channels when at least one dedicated channel is available" in {
+    val configWithSpareChannels = Lambda.FlowControlConfig(4,
+      List(Lambda.SourceSystem("SystemOne", 0, 25), Lambda.SourceSystem("SystemTwo", 0, 35), Lambda.SourceSystem("SystemThree", 0, 10), Lambda.SourceSystem("default", 1, 30))
+    )
+    configWithSpareChannels.hasDedicatedChannels should be(true)
+  }
+
+  "FlowControlConfig" should "return false when there are no dedicated channels for any system" in {
+    val configWithAllChannelsDedicated = Lambda.FlowControlConfig(4,
+      List(Lambda.SourceSystem("SystemOne", 0, 25), Lambda.SourceSystem("SystemTwo", 0, 35), Lambda.SourceSystem("default", 0, 40))
+    )
+    configWithAllChannelsDedicated.hasDedicatedChannels should be(false)
+  }
+
   "buildProbabilityRangesMap" should "build a map of system name to ranges for all systems" in {
     val probabilitiesMap = new Lambda().buildProbabilityRangesMap(
       List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 0, 65), Lambda.SourceSystem("default", 1, 10)),
@@ -128,6 +156,8 @@ class LambdaTest extends AnyFlatSpec:
     probabilitiesMap("default")._1 should be(26)
     probabilitiesMap("default")._2 should be(26)
   }
+
+
 
 // *** various specs **
 // do nothing if there are no channels available

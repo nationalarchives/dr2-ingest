@@ -21,6 +21,18 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   override def handler: (Input, Config, Dependencies) => IO[Unit] = { (input, config, dependencies) =>
     {
+      def startTaskForIndividualSystem(systemName: String): IO[Unit] = {
+        dependencies.dynamoClient
+          .getItems[IngestQueueTableItem, IngestQueuePartitionKey](List(IngestQueuePartitionKey(systemName)), config.flowControlQueueTableName)
+          .flatMap { queueTableItem =>
+            val taskToken = queueTableItem.headOption.map(_.taskToken)
+            if (taskToken.nonEmpty) {
+              dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get)
+            } else {
+              IO.unit
+            }
+          }
+      }
 
       def startTaskBasedOnProbability(sourceSystems: List[SourceSystem], skippedSystems: List[String]): IO[Unit] = {
         if (sourceSystems.size == skippedSystems.size) {
@@ -65,9 +77,13 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
           executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
           _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
             if flowControlConfig.hasDedicatedChannels then {
-              flowControlConfig.sourceSystems.traverse(eachSystem => startTaskForIndividualSystem(eachSystem.systemName, dependencies.stepFunctionClient)).void
+              flowControlConfig.sourceSystems.traverse(eachSystem => startTaskForIndividualSystem(eachSystem.systemName)).void
             } else {
-              startTaskBasedOnProbability(flowControlConfig.sourceSystems, List.empty)
+              if (flowControlConfig.hasSpareChannels) {
+                startTaskBasedOnProbability(flowControlConfig.sourceSystems, List.empty)
+              } else {
+                IO.unit
+              }
             }
           }
         } yield ()
@@ -79,13 +95,6 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   def getSourceSystemName(executionName: String): AttributeValue = {
     AttributeValue.builder.s(executionName.split("_").head).build
-  }
-
-  private def startTaskForIndividualSystem(systemName: String, stepFunctionClient: DASFNClient[IO]): IO[Unit] = {
-    // find oldest task token for this system and start execution
-    // FIXME: sendTaskSuccess on the oldest task for this system
-    // stepFunctionClient.sendTaskSuccess()
-    IO.unit
   }
 
   /** Builds a map of system name to a range. Range is a tuple of starting point (inclusive) and ending point (exclusive) of the range. e.g. a config where "System1" has 30%
@@ -144,7 +153,7 @@ object Lambda {
     require(sourceSystems.map(_.systemName).contains("default"), "Missing 'default' system in the configuration")
 
     def hasDedicatedChannels: Boolean = sourceSystems.map(_.dedicatedChannels).sum > 0
-    def hasSpareChannels: Boolean = sourceSystems.map(_.probability).sum > 0
+    def hasSpareChannels: Boolean = sourceSystems.map(_.dedicatedChannels).sum < maxConcurrency
   }
 
 }
