@@ -106,7 +106,6 @@ lazy val ingestUpsertArchiveFolders = (project in file("ingest-upsert-archive-fo
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
-      eventBridgeClient,
       preservicaClient,
       pureConfig
     )
