@@ -61,6 +61,12 @@ object DynamoFormatters {
     override def write(ingestLockTableItem: IngestLockTableItem): DynamoValue = writeLockTableItem(ingestLockTableItem)
   }
 
+  given ingestQueueTableItemFormat: DynamoFormat[IngestQueueTableItem] = new DynamoFormat[IngestQueueTableItem]:
+    override def read(av: DynamoValue): Either[DynamoReadError, IngestQueueTableItem] =
+      createReadDynamoUtils(av).readIngestQueueTableItem
+
+    override def write(t: IngestQueueTableItem): DynamoValue = writeIngestQueueTableItem(t)
+
   // Attribute names as defined in the dynamo table
   val batchId = "batchId"
   val groupId = "groupId"
@@ -90,6 +96,8 @@ object DynamoFormatters {
   val skipIngest = "skipIngest"
   val location = "location"
   val correlationId = "correlationId"
+  val sourceSystem = "sourceSystem"
+  val taskToken = "taskToken"
 
   given filesTablePkFormat: Typeclass[FilesTablePrimaryKey] = new DynamoFormat[FilesTablePrimaryKey]:
     override def read(av: DynamoValue): Either[DynamoReadError, FilesTablePrimaryKey] = {
@@ -112,6 +120,8 @@ object DynamoFormatters {
     }
 
   given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
+
+  given ingestQueueTablePkFormat: Typeclass[IngestQueuePartitionKey] = deriveDynamoFormat[IngestQueuePartitionKey]
 
   given typeFormatter: DynamoFormat[Type] = new DynamoFormat[Type]:
     override def read(dynamoValue: DynamoValue): Either[DynamoReadError, Type] = dynamoValue.as[String].map(Type.valueOf)
@@ -256,6 +266,9 @@ object DynamoFormatters {
   case class LockTablePartitionKey(assetId: UUID)
 
   case class IngestLockTableItem(assetId: UUID, groupId: String, message: String)
+
+  case class IngestQueueTableItem(sourceSystem: String, taskToken: String)
+  case class IngestQueuePartitionKey(sourceSystem: String)
 
   enum FileRepresentationType:
     override def toString: String = this match

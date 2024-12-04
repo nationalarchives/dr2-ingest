@@ -76,4 +76,12 @@ object DynamoWriteUtils {
         message -> DynamoValue.fromString(lockTableItem.message)
       )
     }.toDynamoValue
+
+  def writeIngestQueueTableItem(ingestQueueTableItem: IngestQueueTableItem): DynamoValue =
+    DynamoObject {
+      Map(
+        sourceSystem -> DynamoValue.fromString(ingestQueueTableItem.sourceSystem),
+        taskToken -> DynamoValue.fromString(ingestQueueTableItem.taskToken)
+      )
+    }.toDynamoValue
 }
