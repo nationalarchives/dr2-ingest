@@ -15,13 +15,13 @@ class LambdaTest extends AnyFlatSpec:
   // some case class validations
   "SourceSystem" should "error when the name is empty" in {
     intercept[IllegalArgumentException] {
-      Lambda.SourceSystem("", 0, 0)
+      Lambda.SourceSystem("")
     }.getMessage should be("requirement failed: System name should not be empty")
   }
 
   "SourceSystem" should "error when the dedicated channels count is negative" in {
     intercept[IllegalArgumentException] {
-      Lambda.SourceSystem("something", -1, 0)
+      Lambda.SourceSystem("something", -1)
     }.getMessage should be("requirement failed: Dedicated channels should not be fewer than zero")
   }
 
