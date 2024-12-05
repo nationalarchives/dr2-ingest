@@ -1,16 +1,16 @@
 package uk.gov.nationalarchives.ingestassetopexcreator
 
 import cats.syntax.all.*
+import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
-import org.scalatest.{BeforeAndAfterEach, EitherValues}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.ArchiveFolder
 import uk.gov.nationalarchives.ingestassetopexcreator.testUtils.ExternalServicesTestUtils.*
 
 import java.util.UUID
 import scala.xml.{Utility, XML}
 
-class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with EitherValues {
+class LambdaTest extends AnyFlatSpec with EitherValues {
 
   "handler" should "return an error if the asset is not found in dynamo" in {
     val assetId = UUID.randomUUID
