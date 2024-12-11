@@ -10,6 +10,7 @@ import java.net.URI
 import java.time.OffsetDateTime
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
+import java.time.Instant
 
 object DynamoFormatters {
 
@@ -96,6 +97,7 @@ object DynamoFormatters {
   val skipIngest = "skipIngest"
   val location = "location"
   val correlationId = "correlationId"
+  val queuedAt = "queuedAt"
   val sourceSystem = "sourceSystem"
   val taskToken = "taskToken"
 
@@ -121,7 +123,9 @@ object DynamoFormatters {
 
   given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
 
-  given ingestQueueTablePkFormat: Typeclass[IngestQueuePartitionKey] = deriveDynamoFormat[IngestQueuePartitionKey]
+  given Typeclass[IngestQueuePartitionKey] = deriveDynamoFormat[IngestQueuePartitionKey]
+  given Typeclass[IngestQueuePrimaryKey] = deriveDynamoFormat[IngestQueuePrimaryKey]
+  given Typeclass[IngestQueueSortKey] = deriveDynamoFormat[IngestQueueSortKey]
 
   given typeFormatter: DynamoFormat[Type] = new DynamoFormat[Type]:
     override def read(dynamoValue: DynamoValue): Either[DynamoReadError, Type] = dynamoValue.as[String].map(Type.valueOf)
@@ -267,8 +271,10 @@ object DynamoFormatters {
 
   case class IngestLockTableItem(assetId: UUID, groupId: String, message: String)
 
-  case class IngestQueueTableItem(sourceSystem: String, taskToken: String)
+  case class IngestQueueTableItem(sourceSystem: String, queuedAt: Instant, taskToken: String)
   case class IngestQueuePartitionKey(sourceSystem: String)
+  case class IngestQueueSortKey(queuedAt: Instant)
+  case class IngestQueuePrimaryKey(partitionKey: IngestQueuePartitionKey,  sortKey: IngestQueueSortKey )
 
   enum FileRepresentationType:
     override def toString: String = this match

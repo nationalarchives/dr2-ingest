@@ -17,6 +17,7 @@ import DynamoFormatters.*
 
 import java.lang
 import java.net.URI
+import java.time.Instant
 
 class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
 
@@ -211,6 +212,7 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
   def readIngestQueueTableItem: Either[InvalidPropertiesError, IngestQueueTableItem] =
     (
       getValidatedMandatoryAttributeAsString(sourceSystem),
+      stringToScalaType[Instant](queuedAt, getPotentialStringValue(queuedAt), Instant.parse),
       getValidatedMandatoryAttributeAsString(taskToken)
     ).mapN(IngestQueueTableItem.apply).toEither.left.map(InvalidPropertiesError.apply)
 

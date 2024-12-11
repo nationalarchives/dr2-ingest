@@ -21,17 +21,27 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   override def handler: (Input, Config, Dependencies) => IO[Unit] = { (input, config, dependencies) =>
     {
-      def startTaskForIndividualSystem(systemName: String): IO[Unit] = {
-        dependencies.dynamoClient
-          .getItems[IngestQueueTableItem, IngestQueuePartitionKey](List(IngestQueuePartitionKey(systemName)), config.flowControlQueueTableName)
-          .flatMap { queueTableItem =>
-            val taskToken = queueTableItem.headOption.map(_.taskToken)
-            if (taskToken.nonEmpty) {
-              dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get)
-            } else {
-              IO.unit
+      def startTaskForIndividualSystem(currentSystemName: String, executionsMap: Map[String, Int], flowControlConfig: FlowControlConfig): IO[Unit] = {
+        val dedicatedChannels = flowControlConfig.sourceSystems.find(_.systemName == currentSystemName).get.dedicatedChannels
+        val currentExecutionCount = executionsMap.getOrElse(currentSystemName, 0)
+        val partKeys = List(IngestQueuePartitionKey(currentSystemName))
+        if (currentExecutionCount < dedicatedChannels) {
+          dependencies.dynamoClient
+            .getItems[IngestQueueTableItem, IngestQueuePartitionKey](partKeys, config.flowControlQueueTableName)
+            .map { queueTableItem =>
+              val taskToken = queueTableItem.headOption.map(_.taskToken)
+              val queuedAt = queueTableItem.headOption.map(_.queuedAt)
+              if (taskToken.nonEmpty) {
+                dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
+                  dependencies.dynamoClient.deleteItems(config.flowControlQueueTableName,
+                    List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystemName), IngestQueueSortKey(queuedAt.get)))).void
+              } else {
+                IO.unit
+              }
             }
-          }
+        } else {
+          IO.unit
+        }
       }
 
       def startTaskBasedOnProbability(sourceSystems: List[SourceSystem], skippedSystems: List[String]): IO[Unit] = {
@@ -59,25 +69,45 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         }
       }
 
+      // if there is taskToken, load it to the dynamo table
+//      if (input.taskToken.nonEmpty) {
+//        val sourceSystemName = getSourceSystemName(input.executionName)
+//        dependencies.dynamoClient.writeItem(
+//          DADynamoDbWriteItemRequest(
+//            config.flowControlQueueTableName,
+//            Map(
+//              sourceSystem -> sourceSystemName,
+//              queuedAt -> AttributeValue.builder.s(Instant.now.toString).build(),
+//              taskToken -> AttributeValue.builder.s(input.taskToken).build()
+//            )
+//          )
+//        )
+//      }
+
+
+      //FIXME - Only the code to add entry into dynamo table needs to be in the "IF" condition. In case the lambda 
+      // is invoked without any inputs, we should still process any entries that may have been already added in the 
+      // dynamo table - however, moving it out of the for comprehension messed up the entries ??? 
       if (input.taskToken.nonEmpty) {
         for {
-          sourceSystem <- IO.pure(getSourceSystemName(input.executionName))
+          sourceSystemName <- IO.pure(getSourceSystemName(input.executionName))
           _ <- dependencies.dynamoClient.writeItem(
             DADynamoDbWriteItemRequest(
               config.flowControlQueueTableName,
               Map(
-                "sourceSystem" -> sourceSystem,
-                "queuedAt" -> AttributeValue.builder.s(Instant.now.toString).build(),
-                "taskToken" -> AttributeValue.builder.s(input.taskToken).build()
+                sourceSystem -> sourceSystemName,
+                queuedAt -> AttributeValue.builder.s(Instant.now.toString).build(),
+                taskToken -> AttributeValue.builder.s(input.taskToken).build()
               )
             )
           )
+
           flowControlConfig <- dependencies.ssmClient.getParameter[FlowControlConfig](config.configParamName)
           runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
           executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
           _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
             if flowControlConfig.hasDedicatedChannels then {
-              flowControlConfig.sourceSystems.traverse(eachSystem => startTaskForIndividualSystem(eachSystem.systemName)).void
+              flowControlConfig.sourceSystems.traverse(eachSystem => startTaskForIndividualSystem(eachSystem.systemName, executionsMap, flowControlConfig)).void
             } else {
               if (flowControlConfig.hasSpareChannels) {
                 startTaskBasedOnProbability(flowControlConfig.sourceSystems, List.empty)
@@ -155,5 +185,4 @@ object Lambda {
     def hasDedicatedChannels: Boolean = sourceSystems.map(_.dedicatedChannels).sum > 0
     def hasSpareChannels: Boolean = sourceSystems.map(_.dedicatedChannels).sum < maxConcurrency
   }
-
 }

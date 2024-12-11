@@ -81,6 +81,7 @@ object DynamoWriteUtils {
     DynamoObject {
       Map(
         sourceSystem -> DynamoValue.fromString(ingestQueueTableItem.sourceSystem),
+        queuedAt -> DynamoValue.fromString(ingestQueueTableItem.queuedAt.toString),
         taskToken -> DynamoValue.fromString(ingestQueueTableItem.taskToken)
       )
     }.toDynamoValue
