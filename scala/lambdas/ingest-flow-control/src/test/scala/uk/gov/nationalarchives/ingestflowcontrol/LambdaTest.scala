@@ -71,8 +71,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
     override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] = notImplemented
 
-    //FIXME: This is the implementation I changed recently to only returns items for head sourceSystem. This is okay because we are getting items for only one 
-    // system at a time - however, has this changed introduced a problem in one of the other ones???
     override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] =
       val firstPK = primaryKeys.head.asInstanceOf[IngestQueuePartitionKey]
       ref.get.map { existing =>
@@ -89,8 +87,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       existing.map(_.name)
     }
 
-    //FIXME: This gets called but the line where we are updating the taskTokenSuccess, does not get called
-    // its almost like "existing" is empty?? This was working before. 
     override def sendTaskSuccess(token: String): IO[Unit] = {
       ref
         .update {
@@ -101,7 +97,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     }
 
 
-  //  "lambda" should "do stuff" in {
+//  "lambda" should "do stuff" in {
 //    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "taskToken"))
 //    val ssmParam = FlowControlConfig(1, List(SourceSystem("default", 1, 100)))
 //    val sfnThing = List(StepFunctionExecution("", "taskToken"))
@@ -179,9 +175,9 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 //  }
 
 //  "lambda" should "send success on a task which is already in dynamo table when the input is empty" in {
-//       NEEDS TO CHANGE THE IMPLEMENTATION FOR THIS. In fact the test marked as  
+//       NEEDS TO CHANGE THE IMPLEMENTATION FOR THIS. In fact the test marked as
 //       "lambda" should "not affect the states when no task token is provided in the input"
-//       is probably wrong behaviour, and should go away ??  
+//       is probably wrong behaviour, and should go away ??
 //  }
 
 

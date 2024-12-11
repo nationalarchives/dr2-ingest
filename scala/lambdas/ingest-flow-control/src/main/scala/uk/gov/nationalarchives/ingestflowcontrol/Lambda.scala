@@ -28,7 +28,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         if (currentExecutionCount < dedicatedChannels) {
           dependencies.dynamoClient
             .getItems[IngestQueueTableItem, IngestQueuePartitionKey](partKeys, config.flowControlQueueTableName)
-            .map { queueTableItem =>
+            .flatMap { queueTableItem =>
               val taskToken = queueTableItem.headOption.map(_.taskToken)
               val queuedAt = queueTableItem.headOption.map(_.queuedAt)
               if (taskToken.nonEmpty) {
@@ -69,57 +69,37 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         }
       }
 
-      // if there is taskToken, load it to the dynamo table
-//      if (input.taskToken.nonEmpty) {
-//        val sourceSystemName = getSourceSystemName(input.executionName)
-//        dependencies.dynamoClient.writeItem(
-//          DADynamoDbWriteItemRequest(
-//            config.flowControlQueueTableName,
-//            Map(
-//              sourceSystem -> sourceSystemName,
-//              queuedAt -> AttributeValue.builder.s(Instant.now.toString).build(),
-//              taskToken -> AttributeValue.builder.s(input.taskToken).build()
-//            )
-//          )
-//        )
-//      }
-
-
-      //FIXME - Only the code to add entry into dynamo table needs to be in the "IF" condition. In case the lambda 
-      // is invoked without any inputs, we should still process any entries that may have been already added in the 
-      // dynamo table - however, moving it out of the for comprehension messed up the entries ??? 
-      if (input.taskToken.nonEmpty) {
-        for {
-          sourceSystemName <- IO.pure(getSourceSystemName(input.executionName))
-          _ <- dependencies.dynamoClient.writeItem(
-            DADynamoDbWriteItemRequest(
-              config.flowControlQueueTableName,
-              Map(
-                sourceSystem -> sourceSystemName,
-                queuedAt -> AttributeValue.builder.s(Instant.now.toString).build(),
-                taskToken -> AttributeValue.builder.s(input.taskToken).build()
-              )
+      def writeItemToQueueTable(): IO[Unit] = IO.whenA(input.taskToken.nonEmpty) {
+        val sourceSystemName = getSourceSystemName(input.executionName)
+        dependencies.dynamoClient.writeItem(
+          DADynamoDbWriteItemRequest(
+            config.flowControlQueueTableName,
+            Map(
+              sourceSystem -> sourceSystemName,
+              queuedAt -> AttributeValue.builder.s(Instant.now.toString).build(),
+              taskToken -> AttributeValue.builder.s(input.taskToken).build()
             )
           )
+        ).void
+      }
 
-          flowControlConfig <- dependencies.ssmClient.getParameter[FlowControlConfig](config.configParamName)
-          runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
-          executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
-          _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
-            if flowControlConfig.hasDedicatedChannels then {
-              flowControlConfig.sourceSystems.traverse(eachSystem => startTaskForIndividualSystem(eachSystem.systemName, executionsMap, flowControlConfig)).void
+      for {
+        _ <- writeItemToQueueTable()
+        flowControlConfig <- dependencies.ssmClient.getParameter[FlowControlConfig](config.configParamName)
+        runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
+        executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
+        _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
+          if flowControlConfig.hasDedicatedChannels then {
+            flowControlConfig.sourceSystems.traverse(eachSystem => startTaskForIndividualSystem(eachSystem.systemName, executionsMap, flowControlConfig)).void
+          } else {
+            if (flowControlConfig.hasSpareChannels) {
+              startTaskBasedOnProbability(flowControlConfig.sourceSystems, List.empty)
             } else {
-              if (flowControlConfig.hasSpareChannels) {
-                startTaskBasedOnProbability(flowControlConfig.sourceSystems, List.empty)
-              } else {
-                IO.unit
-              }
+              IO.unit
             }
           }
-        } yield ()
-      } else {
-        IO.unit
-      }
+        }
+      } yield ()
     }
   }
 
