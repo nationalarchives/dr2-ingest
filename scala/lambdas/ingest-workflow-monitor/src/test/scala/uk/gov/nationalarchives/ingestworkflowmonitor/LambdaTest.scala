@@ -4,7 +4,6 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
-import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.*
 import uk.gov.nationalarchives.ingestworkflowmonitor.Lambda.{Config, StateOutput}
 import uk.gov.nationalarchives.ingestworkflowmonitor.testUtils.ExternalServicesTestUtils
 
