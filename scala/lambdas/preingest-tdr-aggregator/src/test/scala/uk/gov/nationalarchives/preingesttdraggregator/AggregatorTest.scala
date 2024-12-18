@@ -36,6 +36,9 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
   given DADynamoDBClient[IO] = DADynamoDBClient[IO]()
   val instant: Instant = Instant.ofEpochSecond(1723559947)
 
+  def notImplemented[T]: IO[Nothing] = IO.raiseError(new Exception("Not implemented"))
+
+
   case class StartExecutionArgs(stateMachineArn: String, sfnArguments: SFNArguments, name: Option[String])
 
   def dynamoClient(ref: Ref[IO, List[DADynamoDbWriteItemRequest]], failWrite: Boolean): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
@@ -82,10 +85,17 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
     override def generateInstant: Instant = instant
 
+    override def generateRandomInt(min: Int, max: Int): Int = throw new Exception("Not implemented")
+
+
   def sfnClient(ref: Ref[IO, List[StartExecutionArgs]], sfnError: Boolean): DASFNClient[IO] = new DASFNClient[IO]:
     override def startExecution[T <: Product](stateMachineArn: String, input: T, name: Option[String])(using enc: Encoder[T]): IO[StartExecutionResponse] =
       if sfnError then IO.raiseError(new Exception("Error starting step function"))
       else ref.update(args => StartExecutionArgs(stateMachineArn, input.asInstanceOf[SFNArguments], name) :: args).map(_ => StartExecutionResponse.builder.build)
+
+    override def listStepFunctions(stepFunctionArn: String, status: DASFNClient.Status): IO[List[String]] = notImplemented
+
+    override def sendTaskSuccess(taskToken: String): IO[Unit] = notImplemented
 
   private def getAggregatorOutput(
       assetId: UUID,

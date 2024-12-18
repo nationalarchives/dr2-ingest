@@ -1,7 +1,7 @@
 package uk.gov.nationalarchives.ingestflowcontrol
 
 import cats.effect.*
-import cats.syntax.all.*
+//import cats.syntax.all.*
 import io.circe.generic.auto.*
 import pureconfig.ConfigReader
 import pureconfig.generic.derivation.default.*
@@ -9,40 +9,77 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.DASFNClient.Status.Running
 import uk.gov.nationalarchives.ingestflowcontrol.Lambda.*
-import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASSMClient}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{given, *}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 
 import java.time.Instant
 import scala.annotation.tailrec
-import scala.util.Random
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   override def handler: (Input, Config, Dependencies) => IO[Unit] = { (input, config, dependencies) =>
     {
-      def startTaskForIndividualSystem(currentSystemName: String, executionsMap: Map[String, Int], flowControlConfig: FlowControlConfig): IO[Unit] = {
-        val dedicatedChannels = flowControlConfig.sourceSystems.find(_.systemName == currentSystemName).get.dedicatedChannels
-        val currentExecutionCount = executionsMap.getOrElse(currentSystemName, 0)
-        val partKeys = List(IngestQueuePartitionKey(currentSystemName))
-        if (currentExecutionCount < dedicatedChannels) {
-          dependencies.dynamoClient
-            .getItems[IngestQueueTableItem, IngestQueuePartitionKey](partKeys, config.flowControlQueueTableName)
-            .flatMap { queueTableItem =>
-              val taskToken = queueTableItem.headOption.map(_.taskToken)
-              val queuedAt = queueTableItem.headOption.map(_.queuedAt)
+      def startTaskOnDedicatedChannel(sourceSystems: List[SourceSystem], executionsMap: Map[String, Int], flowControlConfig: FlowControlConfig, taskStarted: Boolean): IO[Boolean] = {
+        if sourceSystems.isEmpty then
+          IO(taskStarted)
+        else if taskStarted then
+          IO(true)
+        else
+          val currentSystem = sourceSystems.head
+          val dedicatedChannels: Int = flowControlConfig.sourceSystems.find(_.systemName == currentSystem.systemName).get.dedicatedChannels
+          val currentExecutionCount = executionsMap.getOrElse(currentSystem.systemName, 0)
+          if currentExecutionCount >= dedicatedChannels then
+            IO(false)
+          else
+            val partKeys = List(IngestQueuePartitionKey(currentSystem.systemName))
+            dependencies.dynamoClient
+              .getItems[IngestQueueTableItem, IngestQueuePartitionKey](partKeys, config.flowControlQueueTableName)
+              .flatMap { queueTableItems =>
+              val taskToken = queueTableItems.headOption.map(_.taskToken)
+              val queuedAt = queueTableItems.headOption.map(_.queuedAt)
               if (taskToken.nonEmpty) {
                 dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
                   dependencies.dynamoClient.deleteItems(config.flowControlQueueTableName,
-                    List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystemName), IngestQueueSortKey(queuedAt.get)))).void
+                    List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystem.systemName), IngestQueueSortKey(queuedAt.get))))
+                IO(true)
               } else {
-                IO.unit
+                startTaskOnDedicatedChannel(sourceSystems.tail, executionsMap, flowControlConfig, taskStarted)
               }
             }
-        } else {
-          IO.unit
-        }
       }
+
+//      def startTaskForIndividualSystem(currentSystemName: String, executionsMap: Map[String, Int], flowControlConfig: FlowControlConfig): IO[Unit] = {
+//        val dedicatedChannels = flowControlConfig.sourceSystems.find(_.systemName == currentSystemName).get.dedicatedChannels
+//        val currentExecutionCount = executionsMap.getOrElse(currentSystemName, 0)
+//        if (currentExecutionCount < dedicatedChannels) {
+//          val partKeys = List(IngestQueuePartitionKey(currentSystemName))
+//          //FIXME: if a dedicated channel is available in config for "default", just pick an oldest task from the table
+//          // for any system and schedule it. However, this either means using "scan" operation or having a GSI created
+//          // on the table with each item populated with a specific string. (e.g. ALL_ITEMS) then getItems based on this
+//          // Global secondary Index. for now following two strands are identical.
+//          val items = if (currentSystemName == "default") {
+//            dependencies.dynamoClient
+//              .getItems[IngestQueueTableItem, IngestQueuePartitionKey](partKeys, config.flowControlQueueTableName)
+//          } else {
+//            dependencies.dynamoClient
+//              .getItems[IngestQueueTableItem, IngestQueuePartitionKey](partKeys, config.flowControlQueueTableName)
+//          }
+//          items.flatMap { queueTableItem =>
+//            val taskToken = queueTableItem.headOption.map(_.taskToken)
+//            val queuedAt = queueTableItem.headOption.map(_.queuedAt)
+//            if (taskToken.nonEmpty) {
+//              dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
+//                dependencies.dynamoClient.deleteItems(config.flowControlQueueTableName,
+//                  List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystemName), IngestQueueSortKey(queuedAt.get)))).void
+//            } else {
+//              IO.unit
+//            }
+//          }
+//        } else {
+//          IO.unit
+//        }
+//      }
 
       def startTaskBasedOnProbability(sourceSystems: List[SourceSystem], skippedSystems: List[String]): IO[Unit] = {
         if (sourceSystems.size == skippedSystems.size) {
@@ -50,7 +87,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         } else {
           val sourceSystemProbabilityMap = buildProbabilityRangesMap(sourceSystems, skippedSystems, 1, Map.empty[String, (Int, Int)])
           val maxRandomValue: Int = sourceSystemProbabilityMap.values.maxBy(_._2)._2
-          val luckyDip = new Random().between(1, maxRandomValue)
+          val luckyDip = dependencies.randomInt(1, maxRandomValue)
           val sourceSystemEntry = sourceSystemProbabilityMap.find(eachEntry => eachEntry._2._1 <= luckyDip && eachEntry._2._2 >= luckyDip).get
 
           val systemToStartTaskOn = sourceSystemEntry._1
@@ -59,8 +96,11 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
             .getItems[IngestQueueTableItem, IngestQueuePartitionKey](List(IngestQueuePartitionKey(systemToStartTaskOn)), config.flowControlQueueTableName)
             .flatMap { queueTableItem =>
               val taskToken = queueTableItem.headOption.map(_.taskToken)
+              val queuedAt = queueTableItem.headOption.map(_.queuedAt)
               if (taskToken.nonEmpty) {
-                dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get)
+                dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
+                dependencies.dynamoClient.deleteItems(config.flowControlQueueTableName,
+                  List(IngestQueuePrimaryKey(IngestQueuePartitionKey(systemToStartTaskOn), IngestQueueSortKey(queuedAt.get)))).void
               } else {
                 val newSkippedSystems = skippedSystems :+ systemToStartTaskOn
                 startTaskBasedOnProbability(sourceSystems, newSkippedSystems)
@@ -69,13 +109,14 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         }
       }
 
-      def writeItemToQueueTable(): IO[Unit] = IO.whenA(input.taskToken.nonEmpty) {
+      def writeItemToQueueTable(flowControlConfig: FlowControlConfig): IO[Unit] = IO.whenA(input.taskToken.nonEmpty) {
         val sourceSystemName = getSourceSystemName(input.executionName)
+        val systemName = flowControlConfig.sourceSystems.find(_.systemName == sourceSystemName).map(_.systemName).getOrElse("DEFAULT")
         dependencies.dynamoClient.writeItem(
           DADynamoDbWriteItemRequest(
             config.flowControlQueueTableName,
             Map(
-              sourceSystem -> sourceSystemName,
+              sourceSystem -> AttributeValue.builder.s(systemName).build(),
               queuedAt -> AttributeValue.builder.s(Instant.now.toString).build(),
               taskToken -> AttributeValue.builder.s(input.taskToken).build()
             )
@@ -84,13 +125,24 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       }
 
       for {
-        _ <- writeItemToQueueTable()
+//        _ <- writeItemToQueueTable()
         flowControlConfig <- dependencies.ssmClient.getParameter[FlowControlConfig](config.configParamName)
+        _ <- writeItemToQueueTable(flowControlConfig)
         runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
         executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
         _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
-          if flowControlConfig.hasDedicatedChannels then {
-            flowControlConfig.sourceSystems.traverse(eachSystem => startTaskForIndividualSystem(eachSystem.systemName, executionsMap, flowControlConfig)).void
+          if (flowControlConfig.hasDedicatedChannels) {
+            startTaskOnDedicatedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, false).flatMap { answer =>
+                if (answer == true) {
+                  IO.unit
+                } else {
+                  if (flowControlConfig.hasSpareChannels) {
+                    startTaskBasedOnProbability(flowControlConfig.sourceSystems, List.empty)
+                  } else {
+                    IO.unit
+                  }
+                }
+              }
           } else {
             if (flowControlConfig.hasSpareChannels) {
               startTaskBasedOnProbability(flowControlConfig.sourceSystems, List.empty)
@@ -103,8 +155,9 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     }
   }
 
-  def getSourceSystemName(executionName: String): AttributeValue = {
-    AttributeValue.builder.s(executionName.split("_").head).build
+
+  def getSourceSystemName(executionName: String): String = {
+    executionName.split("_").head
   }
 
   /** Builds a map of system name to a range. Range is a tuple of starting point (inclusive) and ending point (exclusive) of the range. e.g. a config where "System1" has 30%
@@ -141,11 +194,11 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         }
   }
 
-  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DADynamoDBClient[IO](), DASFNClient[IO](), DASSMClient[IO]()))
+  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DADynamoDBClient[IO](), DASFNClient[IO](), DASSMClient[IO](), (min: Int, max: Int) => Generators().generateRandomInt(min, max)))
 }
 
 object Lambda {
-  case class Dependencies(dynamoClient: DADynamoDBClient[IO], stepFunctionClient: DASFNClient[IO], ssmClient: DASSMClient[IO])
+  case class Dependencies(dynamoClient: DADynamoDBClient[IO], stepFunctionClient: DASFNClient[IO], ssmClient: DASSMClient[IO], randomInt: (Int, Int) => Int)
   case class Config(flowControlQueueTableName: String, configParamName: String, stepFunctionArn: String) derives ConfigReader
   case class Input(executionName: String, taskToken: String)
 

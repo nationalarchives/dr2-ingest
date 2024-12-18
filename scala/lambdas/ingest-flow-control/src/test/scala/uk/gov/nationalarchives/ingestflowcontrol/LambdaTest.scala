@@ -15,7 +15,7 @@ import uk.gov.nationalarchives.ingestflowcontrol.Lambda.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.ingestflowcontrol.helpers.StepFunctionExecution
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 class LambdaTest extends AnyFlatSpec with EitherValues:
 
@@ -23,12 +23,14 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   
   def notImplemented[T]: IO[Nothing] = IO.raiseError(new Exception("Not implemented"))
 
-  private def runLambda(input: Input, rowsInTable: List[IngestQueueTableItem], initialConfig: FlowControlConfig, initialExecutions: List[StepFunctionExecution], errors: Option[Errors] = None): (Either[Throwable, Unit], List[IngestQueueTableItem], FlowControlConfig, List[StepFunctionExecution]) = {
+  def predictableRandomNumberSelector(selected: Int = 10): (Int, Int) => Int = {(ignoredMin, ignoredMax) => selected}
+
+  private def runLambda(input: Input, rowsInTable: List[IngestQueueTableItem], initialConfig: FlowControlConfig, initialExecutions: List[StepFunctionExecution], randomSelection: (Int, Int) => Int, errors: Option[Errors] = None): (Either[Throwable, Unit], List[IngestQueueTableItem], FlowControlConfig, List[StepFunctionExecution]) = {
     for {
       dynamoRef <- Ref.of[IO, List[IngestQueueTableItem]](rowsInTable)
       ssmRef <- Ref.of[IO, FlowControlConfig](initialConfig)
       sfnRef <- Ref.of[IO, List[StepFunctionExecution]](initialExecutions)
-      dependencies = Dependencies(dynamoClient(dynamoRef), sfnClient(sfnRef), ssmClient(ssmRef, errors))
+      dependencies = Dependencies(dynamoClient(dynamoRef), sfnClient(sfnRef), ssmClient(ssmRef, errors), randomSelection)
       result <- new Lambda().handler(input, config, dependencies).attempt
       dynamoResult <- dynamoRef.get
       ssmResult <- ssmRef.get
@@ -96,48 +98,47 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       }
     }
 
+  "lambda" should "do stuff" in {
+    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "taskToken"))
+    val ssmParam = FlowControlConfig(1, List(SourceSystem("default", 1, 100)))
+    val sfnThing = List(StepFunctionExecution("", "taskToken"))
+    val input = Input("SomeExecutionName", "differentTaskToken")
 
-//  "lambda" should "do stuff" in {
-//    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "taskToken"))
-//    val ssmParam = FlowControlConfig(1, List(SourceSystem("default", 1, 100)))
-//    val sfnThing = List(StepFunctionExecution("", "taskToken"))
-//    val input = Input("SomeExecutionName", "differentTaskToken")
-//
-//    val lambdaResult  = LambdaRunResults(runLambda(input, initialDynamo, ssmParam, sfnThing, Option(Errors(true))))
-//    lambdaResult.result.isLeft should be(true)
-//  }
-//
-//  "lambda" should "not affect the states when no task token is provided in the input" in {
-//    val initialItem = IngestQueueTableItem("TDR", Instant.now, "taskToken")
-//    val initialDynamo = List(initialItem)
-//    val validSourceSystems = List(SourceSystem("SystemOne", 2, 25), SourceSystem("SystemTwo", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("default", 0, 10))
-//    val ssmParam = FlowControlConfig(6, validSourceSystems)
-//    val sfnThing = List(StepFunctionExecution("someName", "taskToken"))
-//    val input = Input("SomeExecutionName", "")
-//
-//    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, ssmParam, sfnThing))
-//    lambdaRunResult.result.isRight should be(true)
-//    lambdaRunResult.result.getOrElse(NotImplementedError()) should be(())
-//    lambdaRunResult.tableItems.size should be(1)
-//    lambdaRunResult.tableItems.head should be(initialItem)
-//    lambdaRunResult.stepFnExecutions.size should be(1)
-//  }
-//
-  "lambda" should "add a new task to dynamo table and turn the task success to true when it is processed" in {
-    val initialDynamo = List.empty
-    val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("default", 0, 10))
-    val initialconfig = FlowControlConfig(6, validSourceSystems)
-    val existingExecutions = List(StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task", false), StepFunctionExecution("TDR_execution_name", "a-task-token-for-tdr-task", false))
-    val input = Input("TDR_execution_name", "a-task-token-for-tdr-task")
-
-    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialconfig, existingExecutions))
-    lambdaRunResult.result.isRight should be(true)
-    lambdaRunResult.stepFnExecutions.size should be(2)
-    lambdaRunResult.stepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").get.taskTokenSuccess should be(false)
-    lambdaRunResult.stepFnExecutions.find(_.taskToken == "a-task-token-for-tdr-task").get.taskTokenSuccess should be(true)
-
-    lambdaRunResult.tableItems.size should be(0)
+    val lambdaResult  = LambdaRunResults(runLambda(input, initialDynamo, ssmParam, sfnThing, predictableRandomNumberSelector(), Option(Errors(true))))
+    lambdaResult.result.isLeft should be(true)
   }
+
+  "lambda" should "process tasks from existing entries in the dynamo table when no task token is passed in the input" in {
+    val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "task-token-for-tdr")
+    val initialDynamo = List(initialItem)
+    val validSourceSystems = List(SourceSystem("TDR", 2, 0), SourceSystem("SystemTwo", 3, 0), SourceSystem("SystemThree", 1, 100), SourceSystem("default", 0))
+    val ssmParam = FlowControlConfig(6, validSourceSystems)
+    val sfnThing = List(StepFunctionExecution("TDR", "task-token-for-tdr", false))
+    val input = Input("SOM_ExecutionName", "")
+
+    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, ssmParam, sfnThing, predictableRandomNumberSelector()))
+    lambdaRunResult.result.isRight should be(true)
+    lambdaRunResult.result.getOrElse(NotImplementedError()) should be(())
+    lambdaRunResult.tableItems.size should be(0)
+    lambdaRunResult.stepFnExecutions.size should be(1)
+    lambdaRunResult.stepFnExecutions.find(_.name == "someName").head.taskTokenSuccess  should be(false)
+  }
+
+//  "lambda" should "add a new task to dynamo table and turn the task success to true when it is processed" in {
+//    val initialDynamo = List.empty
+//    val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("default", 0, 10))
+//    val initialconfig = FlowControlConfig(6, validSourceSystems)
+//    val existingExecutions = List(StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task", false), StepFunctionExecution("TDR_execution_name", "a-task-token-for-tdr-task", false))
+//    val input = Input("TDR_execution_name", "a-task-token-for-tdr-task")
+//
+//    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialconfig, existingExecutions, predictableRandomNumberSelector()))
+//    lambdaRunResult.result.isRight should be(true)
+//    lambdaRunResult.stepFnExecutions.size should be(2)
+//    lambdaRunResult.stepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").get.taskTokenSuccess should be(false)
+//    lambdaRunResult.stepFnExecutions.find(_.taskToken == "a-task-token-for-tdr-task").get.taskTokenSuccess should be(true)
+//
+//    lambdaRunResult.tableItems.size should be(0)
+//  }
 //
 //  "lambda" should "add new task to dynamo but not send success when dedicated channel is not available for the system" in {
 //    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "a-task-already-running"))
@@ -146,7 +147,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 //    val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "a-task-already-running", false))
 //    val input = Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task")
 //
-//    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialconfig, existingExecutions))
+//    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialconfig, existingExecutions, predictableRandomNumberSelector()))
 //    lambdaRunResult.result.isRight should be(true)
 //    lambdaRunResult.stepFnExecutions.size should be(1)
 //    lambdaRunResult.stepFnExecutions.head.taskTokenSuccess should be(false)
@@ -154,27 +155,76 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 //    lambdaRunResult.tableItems.size should be(2)
 //    lambdaRunResult.tableItems.map(_.taskToken).contains("a-task-token-for-new-tdr-task") should be(true)
 //  }
-
-//  "lambda" should "send success on dedicated channels of all systems that are available" in {
+//
+//  "lambda" should "send success for each system that has a dedicated channel available" in {
 //    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "tdr-task-1"), IngestQueueTableItem("FCL", Instant.now, "fcl-task-1"), IngestQueueTableItem("ABC", Instant.now, "abc-task-1"))
 //    val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 2, 65), SourceSystem("ABC", 2), SourceSystem("default", 0, 10))
 //    val initialconfig = FlowControlConfig(7, validSourceSystems)
 //    val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "tdr-task-1", false), StepFunctionExecution("FCL_execution_name_1", "fcl-task-1", false), StepFunctionExecution("ABC_execution_name_1", "abc-task-1", false))
 //    val input = Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task")
 //
-//    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialconfig, existingExecutions))
+//    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialconfig, existingExecutions, predictableRandomNumberSelector()))
 //    lambdaRunResult.result.isRight should be(true)
 //    lambdaRunResult.stepFnExecutions.size should be(3)
-//    lambdaRunResult.stepFnExecutions.head.taskTokenSuccess should be(false)
+//    lambdaRunResult.stepFnExecutions.map(_.taskTokenSuccess).forall(identity) should be(true)
 //
-//    lambdaRunResult.tableItems.size should be(2)
+//    lambdaRunResult.tableItems.size should be(1)
 //    lambdaRunResult.tableItems.map(_.taskToken).contains("a-task-token-for-new-tdr-task") should be(true)
 //  }
 
-//  "lambda" should "send task to default channel when the task is for a system not explicitly configured in the configuration" in {
+    //FIXME: Following test should success once the "default" dedicated channel is used to send success to oldest task
+//  "lambda" should "send oldest task of any system when a dedicated channel is available in default configuration" in {
+//    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)), "tdr-task-1"),
+//      IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)), "fcl-task-1"), IngestQueueTableItem("ABC", Instant.now, "abc-task-1"))
+//    val validSourceSystems = List(SourceSystem("TDR", 0, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC"), SourceSystem("default", 1, 10))
+//    val initialconfig = FlowControlConfig(5, validSourceSystems)
+//    val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "tdr-task-1", false), StepFunctionExecution("FCL_execution_name_1", "fcl-task-1", false), StepFunctionExecution("ABC_execution_name_1", "abc-task-1", false))
+//    val input = Input("SOM_execution_name_2", "")
+//
+//    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialconfig, existingExecutions, predictableRandomNumberSelector()))
+//    lambdaRunResult.result.isRight should be(true)
+//    lambdaRunResult.stepFnExecutions.size should be(3)
+//    lambdaRunResult.stepFnExecutions.find(_.taskToken == "tdr-task-1").get.taskTokenSuccess should be(true)
 //  }
 
-//  "lambda" should "send success on a task which is already in dynamo table when the input is empty" in {
+//  "lambda" should "send success on a task based on the probability assigned in the configuration" in {
+//    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)), "tdr-task-1"), IngestQueueTableItem("FCL", Instant.now, "fcl-task-1"), IngestQueueTableItem("ABC", Instant.now, "abc-task-1"))
+//    val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("default", 0, 10))
+//    val initialconfig = FlowControlConfig(4, validSourceSystems)
+//    val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "tdr-task-1", false), StepFunctionExecution("FCL_execution_name_1", "fcl-task-1", true), StepFunctionExecution("ABC_execution_name_1", "abc-task-1", true))
+//    val input = Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task")
+//
+//    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialconfig, existingExecutions, predictableRandomNumberSelector()))
+//    lambdaRunResult.result.isRight should be(true)
+//    lambdaRunResult.stepFnExecutions.size should be(3)
+//    lambdaRunResult.stepFnExecutions.map(_.taskTokenSuccess).forall(identity) should be(true)
+//
+//    lambdaRunResult.tableItems.size should be(3)
+//    lambdaRunResult.tableItems.map(_.taskToken).contains("a-task-token-for-new-tdr-task") should be(true)
+//  }
+//
+//  "lambda" should "send success on a task based on the probability when the first pick system does not have a waiting task" in {
+//    val initialDynamo = List(IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)), "fcl-task-1"), IngestQueueTableItem("ABC", Instant.now, "abc-task-1"))
+//    val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("default", 0, 10))
+//    val initialconfig = FlowControlConfig(4, validSourceSystems)
+//    val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "tdr-task-1", false), StepFunctionExecution("FCL_execution_name_1", "fcl-task-1", false), StepFunctionExecution("ABC_execution_name_1", "abc-task-1", true))
+//    val input = Input("XYZ_execution_name_2", "a-task-token-for-new-xyz-task")
+//
+//    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialconfig, existingExecutions, predictableRandomNumberSelector()))
+//    lambdaRunResult.result.isRight should be(true)
+//    lambdaRunResult.stepFnExecutions.size should be(3)
+//    lambdaRunResult.stepFnExecutions.find(_.name == "FCL_execution_name_1").get.taskTokenSuccess should be(true)
+//
+//    lambdaRunResult.tableItems.size should be(2)
+//    lambdaRunResult.tableItems.map(_.taskToken).contains("a-task-token-for-new-xyz-task") should be(true)
+//    lambdaRunResult.tableItems.map(_.taskToken).contains("abc-task-1") should be(true)
+//  }
+
+//  "lambda" should "send success for a task when the system is not explicitly configured and default has a dedicated channel" in {
+//    NEED TO BE IMPLEMENTED
+//  }
+
+  //  "lambda" should "send success on a task which is already in dynamo table when the input is empty" in {
 //       NEEDS TO CHANGE THE IMPLEMENTATION FOR THIS. In fact the test marked as
 //       "lambda" should "not affect the states when no task token is provided in the input"
 //       is probably wrong behaviour, and should go away ??
