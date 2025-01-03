@@ -15,11 +15,21 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 
 import java.time.Instant
 import scala.annotation.tailrec
+import cats.effect.unsafe.implicits.global
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   override def handler: (Input, Config, Dependencies) => IO[Unit] = { (input, config, dependencies) =>
     {
+      /**
+       * A recursive method to send task success to one and only one task per invocation. It takes a list of source systems,
+       * iterates over the list (recursively) to start a task on first system which has a dedicated channel available
+       * @param sourceSystems List of source systems to iterate over
+       * @param executionsMap Map of SystemName -> current running executions
+       * @param flowControlConfig Flow control configuration
+       * @param taskStarted Boolean indicating if a task was started in the recursive call
+       * @return IO[Boolean]: true if it called "sendTaskSuccess" on one of the tasks, otherwise false
+       */
       def startTaskOnDedicatedChannel(sourceSystems: List[SourceSystem], executionsMap: Map[String, Int], flowControlConfig: FlowControlConfig, taskStarted: Boolean): IO[Boolean] = {
         if sourceSystems.isEmpty then
           IO(taskStarted)
@@ -39,9 +49,10 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
               val taskToken = queueTableItems.headOption.map(_.taskToken)
               val queuedAt = queueTableItems.headOption.map(_.queuedAt)
               if (taskToken.nonEmpty) {
-                dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
+                //FIXME: use of unsafeRunSync, need to do it elegantly
+                (dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
                   dependencies.dynamoClient.deleteItems(config.flowControlQueueTableName,
-                    List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystem.systemName), IngestQueueSortKey(queuedAt.get))))
+                    List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystem.systemName), IngestQueueSortKey(queuedAt.get))))).unsafeRunSync()
                 IO(true)
               } else {
                 startTaskOnDedicatedChannel(sourceSystems.tail, executionsMap, flowControlConfig, taskStarted)
@@ -49,38 +60,16 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
             }
       }
 
-//      def startTaskForIndividualSystem(currentSystemName: String, executionsMap: Map[String, Int], flowControlConfig: FlowControlConfig): IO[Unit] = {
-//        val dedicatedChannels = flowControlConfig.sourceSystems.find(_.systemName == currentSystemName).get.dedicatedChannels
-//        val currentExecutionCount = executionsMap.getOrElse(currentSystemName, 0)
-//        if (currentExecutionCount < dedicatedChannels) {
-//          val partKeys = List(IngestQueuePartitionKey(currentSystemName))
-//          //FIXME: if a dedicated channel is available in config for "default", just pick an oldest task from the table
-//          // for any system and schedule it. However, this either means using "scan" operation or having a GSI created
-//          // on the table with each item populated with a specific string. (e.g. ALL_ITEMS) then getItems based on this
-//          // Global secondary Index. for now following two strands are identical.
-//          val items = if (currentSystemName == "default") {
-//            dependencies.dynamoClient
-//              .getItems[IngestQueueTableItem, IngestQueuePartitionKey](partKeys, config.flowControlQueueTableName)
-//          } else {
-//            dependencies.dynamoClient
-//              .getItems[IngestQueueTableItem, IngestQueuePartitionKey](partKeys, config.flowControlQueueTableName)
-//          }
-//          items.flatMap { queueTableItem =>
-//            val taskToken = queueTableItem.headOption.map(_.taskToken)
-//            val queuedAt = queueTableItem.headOption.map(_.queuedAt)
-//            if (taskToken.nonEmpty) {
-//              dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
-//                dependencies.dynamoClient.deleteItems(config.flowControlQueueTableName,
-//                  List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystemName), IngestQueueSortKey(queuedAt.get)))).void
-//            } else {
-//              IO.unit
-//            }
-//          }
-//        } else {
-//          IO.unit
-//        }
-//      }
-
+      /**
+       * A recursive method to send success to one of the systems based on probability as configured in the Flow control configuration.
+       * It builds a probability ranges map based on the config (e.g. TDR -> (1, 25), FCL -> (25, 40) ... ). It then generates a random
+       * number between the minimum and maximum value over all probabilities and tries to schedule a task for that system, If there is
+       * no task waiting for the system, it recreates the probability map excluding that system from the config and generates a random
+       * number for the remaining systems only, thus making sure that the probabilities are honoured over all iterations.
+       * @param sourceSystems List of source systems to be used
+       * @param skippedSystems List of systems that do not have a waiting task at that point in time
+       * @return IO[Unit]
+       */
       def startTaskBasedOnProbability(sourceSystems: List[SourceSystem], skippedSystems: List[String]): IO[Unit] = {
         if (sourceSystems.size == skippedSystems.size) {
           IO.unit // nothing more to do, no one is waiting
@@ -89,7 +78,6 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
           val maxRandomValue: Int = sourceSystemProbabilityMap.values.maxBy(_._2)._2
           val luckyDip = dependencies.randomInt(1, maxRandomValue)
           val sourceSystemEntry = sourceSystemProbabilityMap.find(eachEntry => eachEntry._2._1 <= luckyDip && eachEntry._2._2 >= luckyDip).get
-
           val systemToStartTaskOn = sourceSystemEntry._1
 
           dependencies.dynamoClient
@@ -125,7 +113,6 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       }
 
       for {
-//        _ <- writeItemToQueueTable()
         flowControlConfig <- dependencies.ssmClient.getParameter[FlowControlConfig](config.configParamName)
         _ <- writeItemToQueueTable(flowControlConfig)
         runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
