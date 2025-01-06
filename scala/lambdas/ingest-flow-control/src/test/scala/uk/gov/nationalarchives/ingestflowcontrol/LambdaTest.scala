@@ -412,7 +412,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   "buildProbabilityRangesMap" should "build a map of system name to probability ranges for all systems" in {
     val probabilitiesMap = new Lambda().buildProbabilityRangesMap(
       List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 0, 65), Lambda.SourceSystem("DEFAULT", 1, 10)),
-      List.empty,
       1,
       Map.empty[String, (Int, Int)]
     )
@@ -423,20 +422,4 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     probabilitiesMap("SystemTwo")._2 should be(91)
     probabilitiesMap("DEFAULT")._1 should be(91)
     probabilitiesMap("DEFAULT")._2 should be(101)
-  }
-
-  "buildProbabilityRangesMap" should "skip over any system mentioned in the 'skip list' when generating the map" in {
-    val sourceSystems = List(
-      Lambda.SourceSystem("SystemOne", 1, 25),
-      Lambda.SourceSystem("SystemTwo", 0, 65),
-      Lambda.SourceSystem("SystemThree", 1, 10),
-      Lambda.SourceSystem("DEFAULT", 2)
-    )
-
-    val probabilitiesMap = new Lambda().buildProbabilityRangesMap(sourceSystems, List("SystemTwo", "SystemThree"), 1, Map.empty[String, (Int, Int)])
-    probabilitiesMap.size should be(2)
-    probabilitiesMap("SystemOne")._1 should be(1)
-    probabilitiesMap("SystemOne")._2 should be(26)
-    probabilitiesMap("DEFAULT")._1 should be(26)
-    probabilitiesMap("DEFAULT")._2 should be(26)
   }

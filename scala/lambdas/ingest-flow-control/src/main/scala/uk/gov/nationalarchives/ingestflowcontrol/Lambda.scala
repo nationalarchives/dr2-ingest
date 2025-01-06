@@ -77,17 +77,15 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         *  Iteration 2 - a new ranges map is constructed by excluding system "two" (1-26, 26-47) and a new number is generated between 1 and 47
         *                this ensures that the probability in relation to each other is kept intact for the remaining systems
         * @param sourceSystems
-        *   List of source systems to be used
-        * @param skippedSystems
-        *   List of systems that do not have a waiting task at that point in time
+        *   List of source systems to iterate for starting a task
         * @return
         *   IO[Unit]
         */
-      def startTaskBasedOnProbability(sourceSystems: List[SourceSystem], skippedSystems: List[String]): IO[Unit] = {
-        if (sourceSystems.size == skippedSystems.size) {
-          IO.unit // nothing more to do, no one is waiting
-        } else {
-          val sourceSystemProbabilityMap = buildProbabilityRangesMap(sourceSystems, skippedSystems, 1, Map.empty[String, (Int, Int)])
+      def startTaskBasedOnProbability(sourceSystems: List[SourceSystem]): IO[Unit] = {
+        sourceSystems match
+          case Nil => IO.unit // nothing more to do, no one is waiting
+          case _ =>
+          val sourceSystemProbabilityMap = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, (Int, Int)])
           val maxRandomValue: Int = sourceSystemProbabilityMap.values.maxBy(_._2)._2
           val luckyDip = dependencies.randomInt(1, maxRandomValue)
           val sourceSystemEntry = sourceSystemProbabilityMap.find(eachEntry => eachEntry._2._1 <= luckyDip && eachEntry._2._2 >= luckyDip).get
@@ -104,11 +102,10 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
                     .deleteItems(config.flowControlQueueTableName, List(IngestQueuePrimaryKey(IngestQueuePartitionKey(systemToStartTaskOn), IngestQueueSortKey(queuedAt.get))))
                     .void
               } else {
-                val newSkippedSystems = skippedSystems :+ systemToStartTaskOn
-                startTaskBasedOnProbability(sourceSystems, newSkippedSystems)
+                val newSystemList = sourceSystems.filter(_.systemName != systemToStartTaskOn)
+                startTaskBasedOnProbability(newSystemList)
               }
             }
-        }
       }
 
       def writeItemToQueueTable(flowControlConfig: FlowControlConfig): IO[Unit] = IO.whenA(input.taskToken.nonEmpty) {
@@ -140,7 +137,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
                 IO.unit
               } else {
                 if (flowControlConfig.hasSpareChannels) {
-                  startTaskBasedOnProbability(flowControlConfig.sourceSystems, List.empty)
+                  startTaskBasedOnProbability(flowControlConfig.sourceSystems)
                 } else {
                   IO.unit
                 }
@@ -148,7 +145,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
             }
           } else {
             if (flowControlConfig.hasSpareChannels) {
-              startTaskBasedOnProbability(flowControlConfig.sourceSystems, List.empty)
+              startTaskBasedOnProbability(flowControlConfig.sourceSystems)
             } else {
               IO.unit
             }
@@ -164,8 +161,6 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     * A zero length range is represented by the starting and ending number to be same e.g. "default" -> (71, 71)
     * @param systems
     *   list of @SourceSystem
-    * @param skippedSystems
-    *   list of systems that do not have any waiting task
     * @param rangeStart
     *   starting point for the next range iteration
     * @param accumulatedMap
@@ -176,20 +171,15 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   @tailrec
   final def buildProbabilityRangesMap(
       systems: List[Lambda.SourceSystem],
-      skippedSystems: List[String],
       rangeStart: Int,
       accumulatedMap: Map[String, (Int, Int)]
   ): Map[String, (Int, Int)] = {
     systems match
       case Nil => accumulatedMap
       case _ =>
-        if (skippedSystems.contains(systems.head.systemName)) {
-          buildProbabilityRangesMap(systems.tail, skippedSystems, rangeStart, accumulatedMap)
-        } else {
-          val rangeEnd = systems.head.probability + rangeStart
-          val newMap = accumulatedMap ++ Map(systems.head.systemName -> (rangeStart, rangeEnd))
-          buildProbabilityRangesMap(systems.tail, skippedSystems, rangeEnd, newMap)
-        }
+        val rangeEnd = systems.head.probability + rangeStart
+        val newMap = accumulatedMap ++ Map(systems.head.systemName -> (rangeStart, rangeEnd))
+        buildProbabilityRangesMap(systems.tail, rangeEnd, newMap)
   }
 
   override def dependencies(config: Config): IO[Dependencies] = IO(
