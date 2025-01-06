@@ -135,8 +135,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
           if (flowControlConfig.hasDedicatedChannels) {
             val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
-            startTaskOnDedicatedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, false).flatMap { answer =>
-              if (answer == true) {
+            startTaskOnDedicatedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, false).flatMap { taskStarted =>
+              if (taskStarted) {
                 IO.unit
               } else {
                 if (flowControlConfig.hasSpareChannels) {

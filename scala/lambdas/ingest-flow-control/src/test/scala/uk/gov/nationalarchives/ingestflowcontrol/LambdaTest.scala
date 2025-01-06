@@ -23,7 +23,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   def notImplemented[T]: IO[Nothing] = IO.raiseError(new Exception("Not implemented"))
 
-  def predictableRandomNumberSelector(selected: Int = 10): (Int, Int) => Int = { (ignoredMin, ignoredMax) => if (selected > ignoredMax) then ignoredMax else selected }
+  def predictableRandomNumberSelector(selected: Int = 10): (Int, Int) => Int = { (ignoredMin, ignoredMax) => if selected > ignoredMax then ignoredMax else selected }
 
   private def runLambda(
       input: Input,
@@ -46,10 +46,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   }.unsafeRunSync()
 
   class LambdaRunResults(val tuple: (Either[Throwable, Unit], List[IngestQueueTableItem], FlowControlConfig, List[StepFunctionExecution])) {
-    def result = tuple._1
-    def tableItems = tuple._2
-    def flowConfig = tuple._3
-    def stepFnExecutions = tuple._4
+    def result: Either[Throwable, Unit] = tuple._1
+    def tableItems: List[IngestQueueTableItem] = tuple._2
+    def flowConfig: FlowControlConfig = tuple._3
+    def stepFnExecutions: List[StepFunctionExecution] = tuple._4
   }
 
   case class Errors(getParameter: Boolean = false, writeItem: Boolean = false, getItem: Boolean = false)
@@ -119,9 +119,9 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   "lambda" should "process tasks from existing entries in the dynamo table when no task token is passed in the input" in {
     val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "task-token-for-tdr")
     val initialDynamo = List(initialItem)
-    val validSourceSystems = List(SourceSystem("TDR", 2, 0), SourceSystem("SystemTwo", 3, 0), SourceSystem("SystemThree", 1, 100), SourceSystem("DEFAULT", 0))
+    val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 3), SourceSystem("SystemThree", 1, 100), SourceSystem("DEFAULT"))
     val ssmParam = FlowControlConfig(6, validSourceSystems)
-    val sfnThing = List(StepFunctionExecution("TDR", "task-token-for-tdr", false))
+    val sfnThing = List(StepFunctionExecution("TDR", "task-token-for-tdr"))
     val input = Input("SOM_ExecutionName", "")
 
     val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, ssmParam, sfnThing, predictableRandomNumberSelector()))
@@ -247,9 +247,9 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   "lambda" should "write a system name as DEFAULT if the system name is not available in the config" in {
     val deleteThisLine = Instant.now.minus(Duration.ofHours(1))
     val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "tdr-task-1"))
-    val validSourceSystems = List(SourceSystem("TDR", 0, 25), SourceSystem("FCL", 0, 65), SourceSystem("ABC", 1, 10), SourceSystem("DEFAULT", 0, 0))
+    val validSourceSystems = List(SourceSystem("TDR", 0, 25), SourceSystem("FCL", 0, 65), SourceSystem("ABC", 1, 10), SourceSystem("DEFAULT"))
     val initialConfig = FlowControlConfig(4, validSourceSystems)
-    val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "tdr-task-1", false))
+    val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "tdr-task-1"))
     val input = Input("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task")
 
     val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector()))
@@ -263,7 +263,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val initialDynamo = List.empty
     val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("DEFAULT", 1, 10))
     val initialConfig = FlowControlConfig(4, validSourceSystems)
-    val existingExecutions = List(StepFunctionExecution("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task", false))
+    val existingExecutions = List(StepFunctionExecution("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task"))
     val input = Input("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task")
     val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector()))
 
