@@ -137,8 +137,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(6, validSourceSystems)
     val existingExecutions = List(
-      StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task", false),
-      StepFunctionExecution("TDR_execution_name", "a-task-token-for-tdr-task", false)
+      StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task"),
+      StepFunctionExecution("TDR_execution_name", "a-task-token-for-tdr-task")
     )
     val input = Input("TDR_execution_name", "a-task-token-for-tdr-task")
 
@@ -156,11 +156,11 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running"),
       IngestQueueTableItem("SystemTwo", Instant.now.minus(Duration.ofHours(2)), "a-task-for-system-two")
     )
-    val validSourceSystems = List(SourceSystem("TDR", 1, 0), SourceSystem("SystemTwo", 3, 65), SourceSystem("SystemThree", 1, 25), SourceSystem("DEFAULT", 0, 10))
+    val validSourceSystems = List(SourceSystem("TDR", 1), SourceSystem("SystemTwo", 3, 65), SourceSystem("SystemThree", 1, 25), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(6, validSourceSystems)
     val existingExecutions = List(
-      StepFunctionExecution("TDR_execution_name_1", "a-task-already-running", false),
-      StepFunctionExecution("SystemTwo_execution_name_1", "a-task-for-system-two", false)
+      StepFunctionExecution("TDR_execution_name_1", "a-task-already-running"),
+      StepFunctionExecution("SystemTwo_execution_name_1", "a-task-for-system-two")
     )
     val input = Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task")
 
@@ -183,9 +183,9 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 2, 65), SourceSystem("ABC", 2), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(7, validSourceSystems)
     val existingExecutions = List(
-      StepFunctionExecution("TDR_execution_name_1", "tdr-task-1", false),
-      StepFunctionExecution("FCL_execution_name_1", "fcl-task-1", false),
-      StepFunctionExecution("ABC_execution_name_1", "abc-task-1", false)
+      StepFunctionExecution("TDR_execution_name_1", "tdr-task-1"),
+      StepFunctionExecution("FCL_execution_name_1", "fcl-task-1"),
+      StepFunctionExecution("ABC_execution_name_1", "abc-task-1")
     )
     val input = Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task")
 
@@ -229,7 +229,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val initialConfig = FlowControlConfig(4, validSourceSystems)
     val existingExecutions = List(
       StepFunctionExecution("TDR_execution_name_1", "tdr-task-1", true),
-      StepFunctionExecution("FCL_execution_name_1", "fcl-task-1", false),
+      StepFunctionExecution("FCL_execution_name_1", "fcl-task-1"),
       StepFunctionExecution("ABC_execution_name_1", "abc-task-1", true)
     )
     val input = Input("XYZ_execution_name_2", "a-task-token-for-new-xyz-task")
