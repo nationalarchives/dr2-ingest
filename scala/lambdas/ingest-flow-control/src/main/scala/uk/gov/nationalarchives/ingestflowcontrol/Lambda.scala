@@ -70,6 +70,12 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         * the config (e.g. TDR -> (1, 25), FCL -> (25, 40) ... ). It then generates a random number between the minimum and maximum value over all probabilities and tries to
         * schedule a task for that system, If there is no task waiting for the system, it recreates the probability map excluding that system from the config and generates a random
         * number for the remaining systems only, thus making sure that the probabilities are honoured over all iterations.
+        *
+        *  The probability of each system is kept intact in relation to each other, even if one of the systems does not have a waiting task.
+        *  e.g. if there are 3 systems, one, two, and three with probabilities of 25, 55, 20, the ranges being 1-26, 26-81, 81-101
+        *  Iteration 1 - random number generated is 30 (which corresponds to system 2), in case system "two" does not have a waiting task,
+        *  Iteration 2 - a new ranges map is constructed by excluding system "two" (1-26, 26-47) and a new number is generated between 1 and 47
+        *                this ensures that the probability in relation to each other is kept intact for the remaining systems
         * @param sourceSystems
         *   List of source systems to be used
         * @param skippedSystems

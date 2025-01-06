@@ -384,13 +384,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     configWithSpareChannels.hasSpareChannels should be(true)
   }
 
-  "FlowControlConfig" should "return false when dedicated channels equal the maximum concurrency" in {
+  "FlowControlConfig" should "indicate lack of spare channels when dedicated channels equal the maximum concurrency" in {
     val configWithAllChannelsDedicated =
       Lambda.FlowControlConfig(4, List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 1, 35), Lambda.SourceSystem("DEFAULT", 2, 40)))
     configWithAllChannelsDedicated.hasSpareChannels should be(false)
   }
 
-  "FlowControlConfig" should "give availability of dedicated channels when at least one dedicated channel is available" in {
+  "FlowControlConfig" should "indicate true when at least one of the systems in the config has a dedicated channel" in {
     val configWithSpareChannels = Lambda.FlowControlConfig(
       4,
       List(
@@ -403,13 +403,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     configWithSpareChannels.hasDedicatedChannels should be(true)
   }
 
-  "FlowControlConfig" should "return false when there are no dedicated channels for any system" in {
+  "FlowControlConfig" should "indicate false when none of the systems in the config have a dedicated channel" in {
     val configWithAllChannelsDedicated =
       Lambda.FlowControlConfig(4, List(Lambda.SourceSystem("SystemOne", 0, 25), Lambda.SourceSystem("SystemTwo", 0, 35), Lambda.SourceSystem("DEFAULT", 0, 40)))
     configWithAllChannelsDedicated.hasDedicatedChannels should be(false)
   }
 
-  "buildProbabilityRangesMap" should "build a map of system name to ranges for all systems" in {
+  "buildProbabilityRangesMap" should "build a map of system name to probability ranges for all systems" in {
     val probabilitiesMap = new Lambda().buildProbabilityRangesMap(
       List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 0, 65), Lambda.SourceSystem("DEFAULT", 1, 10)),
       List.empty,
