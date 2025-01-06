@@ -50,8 +50,8 @@ The Lambda validates the flow control configuration for:
 The lambda operates based on the flow control configuration. Each invocation of the lambda sends task success to at most one task. It carries out the operations as follows:
 
 - It makes use of a dynamoDB table to maintain queue of tasks. 
-- On invocation, if there is a taskToken passed in, it adds the details alongwith the current timestamp into a dynamoDB table.
-- It then reads the config, iterates over all the systems one at a time.
+- On invocation, if there is a taskToken passed in, it adds the taskToken as well as current timestamp into a dynamoDB table.
+- It then reads the config, iterates over all the systems mentioned in the config to find a matching task in dynamoDB table.
 - when it finds an entry for a system in the dynamoDB table, and a free dedicated channel for that system, it calls `sendTaskSuccess` for that task and returns.
 - If it goes through all systems, and it is unable to progress any task on dedicated channel, it goes over the same config for probability.
 - It generates a random number between 1 and 100 (both inclusive) and tries to schedule a task based on the probability ranges.

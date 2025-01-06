@@ -38,7 +38,6 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
   def notImplemented[T]: IO[Nothing] = IO.raiseError(new Exception("Not implemented"))
 
-
   case class StartExecutionArgs(stateMachineArn: String, sfnArguments: SFNArguments, name: Option[String])
 
   def dynamoClient(ref: Ref[IO, List[DADynamoDbWriteItemRequest]], failWrite: Boolean): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
@@ -86,7 +85,6 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     override def generateInstant: Instant = instant
 
     override def generateRandomInt(min: Int, max: Int): Int = throw new Exception("Not implemented")
-
 
   def sfnClient(ref: Ref[IO, List[StartExecutionArgs]], sfnError: Boolean): DASFNClient[IO] = new DASFNClient[IO]:
     override def startExecution[T <: Product](stateMachineArn: String, input: T, name: Option[String])(using enc: Encoder[T]): IO[StartExecutionResponse] =

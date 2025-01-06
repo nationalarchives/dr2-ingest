@@ -274,7 +274,7 @@ object DynamoFormatters {
   case class IngestQueueTableItem(sourceSystem: String, queuedAt: Instant, taskToken: String)
   case class IngestQueuePartitionKey(sourceSystem: String)
   case class IngestQueueSortKey(queuedAt: Instant)
-  case class IngestQueuePrimaryKey(partitionKey: IngestQueuePartitionKey,  sortKey: IngestQueueSortKey )
+  case class IngestQueuePrimaryKey(partitionKey: IngestQueuePartitionKey, sortKey: IngestQueueSortKey)
 
   enum FileRepresentationType:
     override def toString: String = this match
