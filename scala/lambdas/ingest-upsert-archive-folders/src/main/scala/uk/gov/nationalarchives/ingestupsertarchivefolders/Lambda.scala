@@ -4,11 +4,9 @@ import cats.effect.IO
 import cats.implicits.*
 import cats.syntax.all.*
 import io.circe.generic.auto.*
-import pureconfig.generic.derivation.default.*
 import pureconfig.ConfigReader
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Identifier => DynamoIdentifier, *}
-import uk.gov.nationalarchives.utils.ExternalUtils.DetailType.DR2Message
 import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda.*
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
@@ -17,7 +15,7 @@ import uk.gov.nationalarchives.dp.client.EntityClient.*
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.utils.LambdaRunner
-import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
+import uk.gov.nationalarchives.DADynamoDBClient
 
 import java.util.UUID
 
@@ -132,28 +130,14 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
         val entity = entitiesByIdentifier(folderRow.name)
         for {
           _ <- createUpdateRequest(folderRow, folderRows, entity, entitiesByIdentifier).toList.traverse { updateEntityRequest =>
-            val message = generateTitleDescriptionSlackMessage(config.apiUrl, updateEntityRequest, entity)
-            for {
-              _ <- logWithBatchRef(s"Updating entity ${updateEntityRequest.ref}")
-              _ <- dependencies.entityClient.updateEntity(updateEntityRequest)
-              _ <- logWithBatchRef(s"Sending\n$message\nto slack")
-              _ <- dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, DR2Message, Detail(message))
-            } yield ()
+            logWithBatchRef(s"Updating entity ${updateEntityRequest.ref}") >> dependencies.entityClient.updateEntity(updateEntityRequest)
           }
           identifiers <- dependencies.entityClient.getEntityIdentifiers(entity)
           identifiersToAdd <- findIdentifiersToAdd(folderRow.identifiers, identifiers)
           identifiersToUpdate <- findIdentifiersToUpdate(folderRow.identifiers, identifiers)
           _ <- identifiersToAdd.traverse(ita => dependencies.entityClient.addIdentifierForEntity(entity.ref, StructuralObject, ita))
           _ <- identifiersToUpdate.traverse(itu => dependencies.entityClient.updateEntityIdentifiers(entity, identifiersToUpdate.map(_.newIdentifier)))
-          updatedSlackMessage <- generateIdentifierSlackMessage(
-            config.apiUrl,
-            entity,
-            identifiersToUpdate,
-            identifiersToAdd
-          )
-          _ <- updatedSlackMessage.map(msg => dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, DR2Message, Detail(msg))).sequence
         } yield ()
-
       }
       _ <- logWithBatchRef(s"Created ${folderRows.count(row => !entitiesByIdentifier.contains(row.name))} entities which did not previously exist")
     } yield ()
@@ -218,74 +202,9 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       .map(id => Identifier(id.identifierName, id.value))
   }
 
-  private def generateIdentifierSlackMessage(
-      preservicaUrl: String,
-      entity: Entity,
-      updatedIdentifier: Seq[IdentifierToUpdate],
-      addedIdentifiers: Seq[Identifier]
-  ): IO[Option[String]] = IO {
-    if (updatedIdentifier.isEmpty && addedIdentifiers.isEmpty) {
-      None
-    } else
-      Option {
-        val firstLine = generateSlackMessageFirstLine(preservicaUrl, entity)
-        val potentialUpdatedHeader = updatedIdentifier.headOption
-          .map(_ => "The following identifiers have been updated\n")
-          .getOrElse("")
-        val updatedIdentifierMessage = updatedIdentifier
-          .map { ui =>
-            s"""
-               |*Old value* ${ui.oldIdentifier.identifierName}: ${ui.oldIdentifier.value}
-               |*New value* ${ui.newIdentifier.identifierName}: ${ui.newIdentifier.value}
-               |
-               |""".stripMargin
-          }
-          .mkString("")
-        val potentialAddIdentifiersHeader = addedIdentifiers.headOption.map(_ => "The following identifiers have been added\n").getOrElse("")
-        val addedIdentifiersMessage = addedIdentifiers
-          .map { ai =>
-            s"""
-               |${ai.identifierName}: ${ai.value}
-               |""".stripMargin
-          }
-          .mkString("")
-        firstLine + potentialUpdatedHeader + updatedIdentifierMessage + potentialAddIdentifiersHeader + addedIdentifiersMessage
-      }
-
-  }
-
-  private def generateTitleDescriptionSlackMessage(
-      preservicaUrl: String,
-      updateEntityRequest: UpdateEntityRequest,
-      entity: Entity
-  ): String = {
-    val firstLineOfMsg: String = generateSlackMessageFirstLine(preservicaUrl, entity, messageWithNewLine = false)
-
-    val titleUpdates = Option.when(entity.title.getOrElse("") != updateEntityRequest.title)(
-      "Title has changed"
-    )
-    val descriptionUpdates = Option.when(updateEntityRequest.descriptionToChange.isDefined)(
-      "Description has changed"
-    )
-
-    firstLineOfMsg ++ s"*${List(titleUpdates, descriptionUpdates).flatten.mkString(" and ")}*"
-  }
-
-  private def generateSlackMessageFirstLine(preservicaUrl: String, entity: Entity, messageWithNewLine: Boolean = true) = {
-    val entityTypeShort = entity.entityType
-      .map(_.entityTypeShort)
-      .getOrElse("IO") // We need a default and Preservica don't validate the entity type in the url
-    val entityUrl = s"$preservicaUrl/explorer/explorer.html#properties:$entityTypeShort&${entity.ref}"
-    val firstLineOfMsg = s":preservica: Entity <$entityUrl|${entity.ref}> has been updated: "
-    val firstLineOfMsgWithNewLine =
-      s"""$firstLineOfMsg
-         |""".stripMargin
-    if (messageWithNewLine) firstLineOfMsgWithNewLine else firstLineOfMsg
-  }
-
   override def dependencies(config: Config): IO[Dependencies] = {
     Fs2Client.entityClient(config.apiUrl, config.secretName).map { client =>
-      Dependencies(client, DADynamoDBClient[IO](), DAEventBridgeClient[IO]())
+      Dependencies(client, DADynamoDBClient[IO]())
     }
   }
 }
@@ -308,8 +227,6 @@ object Lambda extends App {
       newIdentifier: IdentifierResponse
   )
 
-  case class Detail(slackMessage: String)
-
-  case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dADynamoDBClient: DADynamoDBClient[IO], eventBridgeClient: DAEventBridgeClient[IO])
+  case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dADynamoDBClient: DADynamoDBClient[IO])
 
 }

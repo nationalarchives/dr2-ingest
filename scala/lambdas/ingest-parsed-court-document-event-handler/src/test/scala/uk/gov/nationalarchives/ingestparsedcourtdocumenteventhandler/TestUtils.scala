@@ -58,6 +58,10 @@ object TestUtils:
     override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = notImplemented
 
   def sfnClient(sfnRef: Ref[IO, List[SFNExecutions]]): DASFNClient[IO] = new DASFNClient[IO]:
+    override def listStepFunctions(stepFunctionArn: String, status: DASFNClient.Status): IO[List[String]] = notImplemented
+
+    override def sendTaskSuccess(taskToken: String): IO[Unit] = notImplemented
+
     override def startExecution[T <: Product](stateMachineArn: String, input: T, name: Option[String])(using enc: Encoder[T]): IO[StartExecutionResponse] =
       sfnRef
         .update { existingArgs =>
@@ -139,8 +143,8 @@ object TestUtils:
     } yield (res, s3FinalState, dynamoFinalState, sfnFinalState)).unsafeRunSync()
 
   def packageAvailable(s3Key: String): TREInput = TREInput(
-    TREInputProperties(None),
-    TREInputParameters("status", "TEST-REFERENCE", skipSeriesLookup = false, inputBucket, s3Key)
+    TREInputParameters("status", "TEST-REFERENCE", skipSeriesLookup = false, inputBucket, s3Key),
+    None
   )
 
   def event(s3Key: String = "test.tar.gz", body: Option[String] = None): SQSEvent = {

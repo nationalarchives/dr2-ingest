@@ -7,8 +7,8 @@ import io.circe.generic.auto.*
 import org.reactivestreams.FlowAdapters
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
+import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd.PreservicaSchema.{OpexMetadataSchema, XipXsdSchemaV7}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
@@ -16,13 +16,15 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
-import uk.gov.nationalarchives.DADynamoDBClient.given
+
 import java.time.OffsetDateTime
 import java.util.UUID
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
-  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DADynamoDBClient[IO](), DAS3Client[IO](), XMLCreator(OffsetDateTime.now())))
+  override def dependencies(config: Config): IO[Dependencies] = IO(
+    Dependencies(DADynamoDBClient[IO](), DAS3Client[IO](config.roleArn, lambdaName), XMLCreator(OffsetDateTime.now()))
+  )
 
   override def handler: (Input, Config, Dependencies) => IO[Unit] = { (input, config, dependencies) =>
     val xmlCreator = dependencies.xmlCreator
@@ -108,7 +110,7 @@ object Lambda {
 
   case class Input(items: List[InputAsset])
 
-  case class Config(dynamoTableName: String, dynamoGsiName: String, destinationBucket: String) derives ConfigReader
+  case class Config(dynamoTableName: String, dynamoGsiName: String, destinationBucket: String, roleArn: String) derives ConfigReader
 
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], s3Client: DAS3Client[IO], xmlCreator: XMLCreator)
 }

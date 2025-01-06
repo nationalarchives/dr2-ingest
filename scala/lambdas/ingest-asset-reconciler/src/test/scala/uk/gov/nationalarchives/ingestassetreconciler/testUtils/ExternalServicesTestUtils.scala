@@ -52,7 +52,7 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
     override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
       ref.get.map { existing =>
         val parentPath = (for {
-          dynamoValues <- requestCondition.dynamoValues
+          dynamoValues <- Option(requestCondition.attributes.values)
           value <- dynamoValues.toExpressionAttributeValues
           parentPath <- value.asScala.get(":parentPath")
         } yield parentPath.s()).getOrElse(UUID.randomUUID.toString)

@@ -5,7 +5,6 @@ import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import io.circe.Encoder
 import org.scanamo.generic.auto.*
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.services.dynamodb.model.*
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest

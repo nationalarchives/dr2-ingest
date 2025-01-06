@@ -4,7 +4,6 @@ import cats.syntax.all.*
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
-import uk.gov.nationalarchives.dp.client.DataProcessor.EventAction
 import uk.gov.nationalarchives.entityeventgenerator.testUtils.ExternalServicesTestUtils.*
 
 class LambdaSpec extends AnyFlatSpec with EitherValues {

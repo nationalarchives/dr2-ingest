@@ -8,7 +8,6 @@ import org.reactivestreams.FlowAdapters
 import org.scanamo.*
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd.PreservicaSchema
@@ -139,13 +138,13 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   override def dependencies(config: Config): IO[Dependencies] = {
     val xmlCreator: XMLCreator = XMLCreator()
     val dynamoClient: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
-    val s3Client: DAS3Client[IO] = DAS3Client[IO]()
+    val s3Client: DAS3Client[IO] = DAS3Client[IO](config.roleArn, lambdaName)
     IO(Dependencies(dynamoClient, s3Client, xmlCreator))
   }
 }
 
 object Lambda {
-  case class Config(dynamoTableName: String, bucketName: String, dynamoGsiName: String) derives ConfigReader
+  case class Config(dynamoTableName: String, bucketName: String, dynamoGsiName: String, roleArn: String) derives ConfigReader
 
   case class Input(id: UUID, batchId: String, executionName: String)
 

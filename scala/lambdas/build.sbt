@@ -117,7 +117,6 @@ lazy val ingestUpsertArchiveFolders = (project in file("ingest-upsert-archive-fo
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
-      eventBridgeClient,
       preservicaClient,
       pureConfig
     )
@@ -172,7 +171,7 @@ lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-ve
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
-      snsClient,
+      eventBridgeClient,
       preservicaClient
     )
   )
