@@ -3,7 +3,6 @@ package uk.gov.nationalarchives.ingestflowcontrol
 import cats.effect.*
 import io.circe.generic.auto.*
 import pureconfig.ConfigReader
-import pureconfig.generic.derivation.default.*
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.DASFNClient.Status.Running

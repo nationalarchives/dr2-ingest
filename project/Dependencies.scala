@@ -48,6 +48,7 @@ object Dependencies {
   lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
   lazy val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "2.3.0"
   lazy val sfnClient = "uk.gov.nationalarchives" %% "da-sfn-client" % daAwsClientsVersion
+  lazy val ssmClient = "uk.gov.nationalarchives" %% "da-ssm-client" % daAwsClientsVersion
   lazy val snsClient = "uk.gov.nationalarchives" %% "da-sns-client" % daAwsClientsVersion
   lazy val secretsManagerClient = "uk.gov.nationalarchives" %% "da-secretsmanager-client" % daAwsClientsVersion
   lazy val sttpClient = "com.softwaremill.sttp.client3" %% "core" % sttpVersion
