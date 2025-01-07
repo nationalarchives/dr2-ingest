@@ -10,6 +10,9 @@ permissions:
 jobs:
   test:
     uses: nationalarchives/dr2-github-actions/.github/workflows/dr2_test.yml@main
+    steps:
+      - name: check SSL version
+        run: openssl version
     with:
       repo-name: dr2-ingest
       test-command: |
