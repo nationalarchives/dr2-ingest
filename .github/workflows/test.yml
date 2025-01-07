@@ -9,6 +9,7 @@ permissions:
   contents: read
 jobs:
   test:
+    runs-on: ubuntu-latest
     steps:
       - name: check SSL version
         run: openssl version
