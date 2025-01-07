@@ -9,7 +9,12 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: check SSL version
-        run: openssl version
+    uses: nationalarchives/dr2-github-actions/.github/workflows/dr2_test.yml@main
+    with:
+      repo-name: dr2-ingest
+      test-command: |
+        find . -name requirements.txt | xargs -I {} pip install -r {}
+        AWS_DEFAULT_REGION=eu-west-2 pytest
+        sbt e2eTests/scalafmtCheckAll scalafmtCheckAll test
+    secrets:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
