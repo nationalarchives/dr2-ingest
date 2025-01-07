@@ -117,10 +117,6 @@ object E2ESpecUtils:
         }
         .map(_ => StartExecutionResponse.builder.build)
 
-    override def sendTaskSuccess(taskToken: String): IO[Unit] = notImplemented
-
-    override def listStepFunctions(stepFunctionArn: String, status: DASFNClient.Status): IO[List[String]] = notImplemented
-
   def idRef(ids: List[UUID] = Nil): Ref[IO, List[UUID]] = Ref.unsafe[IO, List[UUID]](ids)
 
   def runGiven(testString: String): List[String] = {
