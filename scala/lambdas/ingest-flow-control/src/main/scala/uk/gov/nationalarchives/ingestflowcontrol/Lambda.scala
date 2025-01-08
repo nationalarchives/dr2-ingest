@@ -82,10 +82,10 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         sourceSystems match
           case Nil => IO.unit // nothing more to do, no one is waiting
           case _ =>
-            val sourceSystemProbabilityMap = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, Range])
-            val maxRandomValue: Int = sourceSystemProbabilityMap.values.map(_.endExclusive).max
+            val sourceSystemProbabilities = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, Range])
+            val maxRandomValue: Int = sourceSystemProbabilities.values.map(_.endExclusive).max
             val luckyDip = dependencies.randomInt(1, maxRandomValue)
-            val sourceSystemEntry = sourceSystemProbabilityMap.find(sourceSystemProb => sourceSystemProb._2._1 <= luckyDip && sourceSystemProb._2._2 >= luckyDip).get
+            val sourceSystemEntry = sourceSystemProbabilities.find((_, probRange) => probRange.startInclusive <= luckyDip && probRange.endExclusive >= luckyDip).get
             val systemToStartTaskOn = sourceSystemEntry._1
 
             dependencies.dynamoClient
