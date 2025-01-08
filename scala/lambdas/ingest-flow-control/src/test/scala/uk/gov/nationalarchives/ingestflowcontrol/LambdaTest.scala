@@ -32,7 +32,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       initialExecutions: List[StepFunctionExecution],
       randomSelection: (Int, Int) => Int,
       errors: Option[Errors] = None
-  ): (Either[Throwable, Unit], List[IngestQueueTableItem], FlowControlConfig, List[StepFunctionExecution]) = {
+  ): LambdaRunResults = {
     for {
       dynamoRef <- Ref.of[IO, List[IngestQueueTableItem]](rowsInTable)
       ssmRef <- Ref.of[IO, FlowControlConfig](initialConfig)
@@ -42,15 +42,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       dynamoResult <- dynamoRef.get
       ssmResult <- ssmRef.get
       sfnResult <- sfnRef.get
-    } yield (result, dynamoResult, ssmResult, sfnResult)
+    } yield LambdaRunResults(result, dynamoResult, ssmResult, sfnResult)
   }.unsafeRunSync()
 
-  class LambdaRunResults(val tuple: (Either[Throwable, Unit], List[IngestQueueTableItem], FlowControlConfig, List[StepFunctionExecution])) {
-    def result: Either[Throwable, Unit] = tuple._1
-    def tableItems: List[IngestQueueTableItem] = tuple._2
-    def flowConfig: FlowControlConfig = tuple._3
-    def stepFnExecutions: List[StepFunctionExecution] = tuple._4
-  }
+  case class LambdaRunResults(result: Either[Throwable, Unit], tableItems: List[IngestQueueTableItem], flowConfig: FlowControlConfig, stepFnExecutions: List[StepFunctionExecution])
 
   case class Errors(getParameter: Boolean = false, writeItem: Boolean = false, getItem: Boolean = false)
 
@@ -112,7 +107,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val sfnThing = List(StepFunctionExecution("", "taskToken"))
     val input = Input("SomeExecutionName", "differentTaskToken")
 
-    val lambdaResult = LambdaRunResults(runLambda(input, initialDynamo, ssmParam, sfnThing, predictableRandomNumberSelector(), Option(Errors(true))))
+    val lambdaResult = runLambda(input, initialDynamo, ssmParam, sfnThing, predictableRandomNumberSelector(), Option(Errors(true)))
     lambdaResult.result.isLeft should be(true)
   }
 
@@ -124,7 +119,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val sfnThing = List(StepFunctionExecution("TDR", "task-token-for-tdr"))
     val input = Input("SOM_ExecutionName", "")
 
-    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, ssmParam, sfnThing, predictableRandomNumberSelector()))
+    val lambdaRunResult = runLambda(input, initialDynamo, ssmParam, sfnThing, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.result.getOrElse(NotImplementedError()) should be(())
     lambdaRunResult.tableItems.size should be(0)
@@ -142,7 +137,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     )
     val input = Input("TDR_execution_name", "a-task-token-for-tdr-task")
 
-    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector()))
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.stepFnExecutions.size should be(2)
     lambdaRunResult.stepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").get.taskTokenSuccess should be(false)
@@ -164,7 +159,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     )
     val input = Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task")
 
-    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector()))
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.stepFnExecutions.size should be(2)
     lambdaRunResult.stepFnExecutions.find(_.taskToken == "a-task-already-running").get.taskTokenSuccess should be(false)
@@ -189,7 +184,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     )
     val input = Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task")
 
-    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector()))
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.stepFnExecutions.size should be(3)
     lambdaRunResult.stepFnExecutions.find(_.name == "TDR_execution_name_1").get.taskTokenSuccess should be(true)
@@ -214,7 +209,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     )
     val input = Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task")
 
-    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(20)))
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(20))
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.stepFnExecutions.size should be(3)
     lambdaRunResult.stepFnExecutions.map(_.taskTokenSuccess).forall(identity) should be(true)
@@ -234,7 +229,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     )
     val input = Input("XYZ_execution_name_2", "a-task-token-for-new-xyz-task")
 
-    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector()))
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.stepFnExecutions.size should be(3)
     lambdaRunResult.stepFnExecutions.find(_.name == "FCL_execution_name_1").get.taskTokenSuccess should be(true)
@@ -252,7 +247,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "tdr-task-1"))
     val input = Input("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task")
 
-    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector()))
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.tableItems.size should be(1)
     lambdaRunResult.tableItems.head.sourceSystem should be("DEFAULT")
@@ -265,7 +260,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val initialConfig = FlowControlConfig(4, validSourceSystems)
     val existingExecutions = List(StepFunctionExecution("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task"))
     val input = Input("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task")
-    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector()))
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
 
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.tableItems.size should be(0)
@@ -286,7 +281,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     )
     val input = Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task")
 
-    val lambdaRunResult = LambdaRunResults(runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector()))
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.stepFnExecutions.size should be(2)
     lambdaRunResult.stepFnExecutions.map(_.taskTokenSuccess).forall(identity) should be(true)
