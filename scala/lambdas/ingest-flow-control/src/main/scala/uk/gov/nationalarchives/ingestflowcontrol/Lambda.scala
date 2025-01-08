@@ -23,8 +23,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         * on first system which has a dedicated channel available
         * @param sourceSystems
         *   List of source systems to iterate over
-        * @param executionsMap
-        *   Map of SystemName -> current running executions
+        * @param executionsBySystem
+        *   Map of SystemName -> count of running executions
         * @param flowControlConfig
         *   Flow control configuration
         * @param taskStarted
@@ -34,17 +34,17 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         */
       def startTaskOnDedicatedChannel(
           sourceSystems: List[SourceSystem],
-          executionsMap: Map[String, Int],
+          executionsBySystem: Map[String, Int],
           flowControlConfig: FlowControlConfig,
           taskStarted: Boolean
       ): IO[Boolean] = {
-        if sourceSystems.isEmpty then IO(taskStarted)
-        else if taskStarted then IO(true)
+        if sourceSystems.isEmpty then IO.pure(taskStarted)
+        else if taskStarted then IO.pure(true)
         else
           val currentSystem = sourceSystems.head
-          val dedicatedChannels: Int = flowControlConfig.sourceSystems.find(_.systemName == currentSystem.systemName).get.dedicatedChannels
-          val currentExecutionCount = executionsMap.getOrElse(currentSystem.systemName, 0)
-          if currentExecutionCount >= dedicatedChannels then startTaskOnDedicatedChannel(sourceSystems.tail, executionsMap, flowControlConfig, taskStarted)
+          val dedicatedChannels: Int = flowControlConfig.sourceSystems.find(_.systemName == currentSystem.systemName).map(_.dedicatedChannels).getOrElse(0)
+          val currentExecutionCount = executionsBySystem.getOrElse(currentSystem.systemName, 0)
+          if currentExecutionCount >= dedicatedChannels then startTaskOnDedicatedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
           else
             val partKeys = List(IngestQueuePartitionKey(currentSystem.systemName))
             dependencies.dynamoClient
@@ -52,29 +52,27 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
               .flatMap { queueTableItems =>
                 val taskToken = queueTableItems.headOption.map(_.taskToken)
                 val queuedAt = queueTableItems.headOption.map(_.queuedAt)
-                if (taskToken.nonEmpty) {
+                if (taskToken.nonEmpty) then
                   (dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
                     dependencies.dynamoClient.deleteItems(
                       config.flowControlQueueTableName,
                       List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystem.systemName), IngestQueueSortKey(queuedAt.get)))
                     )) >>
-                    IO(true)
-                } else {
-                  startTaskOnDedicatedChannel(sourceSystems.tail, executionsMap, flowControlConfig, taskStarted)
-                }
+                    IO.pure(true)
+                else startTaskOnDedicatedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
               }
       }
 
-      /** A recursive method to send success to one of the systems based on probability as configured in the Flow control configuration. It builds a probability ranges map based on
-        * the config (e.g. TDR -> (1, 25), FCL -> (25, 40) ... ). It then generates a random number between the minimum and maximum value over all probabilities and tries to
-        * schedule a task for that system, If there is no task waiting for the system, it recreates the probability map excluding that system from the config and generates a random
+      /** A recursive method to send success to one of the systems, based on probability as configured in the Flow control configuration. It builds a probability ranges map based
+        * on the config (e.g. TDR -> (1, 25), FCL -> (25, 40) ... ). It then generates a random number between the minimum and maximum value over all probabilities and tries to
+        * schedule a task for that system. If there is no task waiting for the system, it recreates the probability map excluding that system from the config and generates a random
         * number for the remaining systems only, thus making sure that the probabilities are honoured over all iterations.
         *
-        *  The probability of each system is kept intact in relation to each other, even if one of the systems does not have a waiting task.
-        *  e.g. if there are 3 systems, one, two, and three with probabilities of 25, 55, 20, the ranges being 1-26, 26-81, 81-101
-        *  Iteration 1 - random number generated is 30 (which corresponds to system 2), in case system "two" does not have a waiting task,
-        *  Iteration 2 - a new ranges map is constructed by excluding system "two" (1-26, 26-47) and a new number is generated between 1 and 47
-        *                this ensures that the probability in relation to each other is kept intact for the remaining systems
+        * The probability of each system is kept intact in relation to each other, even if one of the systems does not have a waiting task. e.g. if there are 3 systems, one, two,
+        * and three with probabilities of 25, 55, 20, the ranges being 1-26, 26-81, 81-101. For this example, let's assume that system "two" does not have a waiting task. Iteration
+        * 1 - random number generated is 30 (which corresponds to system "two"), since system "two" does not have a waiting task, Iteration 2 - a new ranges map is constructed by
+        * excluding system "two" (1-26, 26-47) and a new number is generated between 1 and 47 this ensures that the probability in relation to each other is kept intact for the
+        * remaining systems
         * @param sourceSystems
         *   List of source systems to iterate for starting a task
         * @return
@@ -84,32 +82,31 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         sourceSystems match
           case Nil => IO.unit // nothing more to do, no one is waiting
           case _ =>
-          val sourceSystemProbabilityMap = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, (Int, Int)])
-          val maxRandomValue: Int = sourceSystemProbabilityMap.values.maxBy(_._2)._2
-          val luckyDip = dependencies.randomInt(1, maxRandomValue)
-          val sourceSystemEntry = sourceSystemProbabilityMap.find(eachEntry => eachEntry._2._1 <= luckyDip && eachEntry._2._2 >= luckyDip).get
-          val systemToStartTaskOn = sourceSystemEntry._1
+            val sourceSystemProbabilityMap = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, Range])
+            val maxRandomValue: Int = sourceSystemProbabilityMap.values.map(_.endExclusive).max
+            val luckyDip = dependencies.randomInt(1, maxRandomValue)
+            val sourceSystemEntry = sourceSystemProbabilityMap.find(sourceSystemProb => sourceSystemProb._2._1 <= luckyDip && sourceSystemProb._2._2 >= luckyDip).get
+            val systemToStartTaskOn = sourceSystemEntry._1
 
-          dependencies.dynamoClient
-            .getItems[IngestQueueTableItem, IngestQueuePartitionKey](List(IngestQueuePartitionKey(systemToStartTaskOn)), config.flowControlQueueTableName)
-            .flatMap { queueTableItem =>
-              val taskToken = queueTableItem.headOption.map(_.taskToken)
-              val queuedAt = queueTableItem.headOption.map(_.queuedAt)
-              if (taskToken.nonEmpty) {
-                dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
-                  dependencies.dynamoClient
-                    .deleteItems(config.flowControlQueueTableName, List(IngestQueuePrimaryKey(IngestQueuePartitionKey(systemToStartTaskOn), IngestQueueSortKey(queuedAt.get))))
-                    .void
-              } else {
-                val newSystemList = sourceSystems.filter(_.systemName != systemToStartTaskOn)
-                startTaskBasedOnProbability(newSystemList)
+            dependencies.dynamoClient
+              .getItems[IngestQueueTableItem, IngestQueuePartitionKey](List(IngestQueuePartitionKey(systemToStartTaskOn)), config.flowControlQueueTableName)
+              .flatMap { queueTableItem =>
+                val taskToken = queueTableItem.headOption.map(_.taskToken)
+                if taskToken.nonEmpty then
+                  val queuedAt = queueTableItem.headOption.map(_.queuedAt)
+                  dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
+                    dependencies.dynamoClient
+                      .deleteItems(config.flowControlQueueTableName, List(IngestQueuePrimaryKey(IngestQueuePartitionKey(systemToStartTaskOn), IngestQueueSortKey(queuedAt.get))))
+                      .void
+                else
+                  val newSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
+                  startTaskBasedOnProbability(newSystems)
               }
-            }
       }
 
       def writeItemToQueueTable(flowControlConfig: FlowControlConfig): IO[Unit] = IO.whenA(input.taskToken.nonEmpty) {
         val sourceSystemName = input.executionName.split("_").head
-        val systemName = flowControlConfig.sourceSystems.find(_.systemName == sourceSystemName).map(_.systemName).getOrElse("DEFAULT")
+        val systemName = flowControlConfig.sourceSystems.find(_.systemName == sourceSystemName).map(_.systemName).getOrElse(default)
         dependencies.dynamoClient
           .writeItem(
             DADynamoDbWriteItemRequest(
@@ -129,26 +126,15 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         _ <- writeItemToQueueTable(flowControlConfig)
         runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
         _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
-          if (flowControlConfig.hasDedicatedChannels) {
+          if (flowControlConfig.hasDedicatedChannels) then
             val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
             startTaskOnDedicatedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, false).flatMap { taskStarted =>
-              if (taskStarted) {
-                IO.unit
-              } else {
-                if (flowControlConfig.hasSpareChannels) {
-                  startTaskBasedOnProbability(flowControlConfig.sourceSystems)
-                } else {
-                  IO.unit
-                }
-              }
+              if (taskStarted) then IO.unit
+              else if (flowControlConfig.hasSpareChannels) startTaskBasedOnProbability(flowControlConfig.sourceSystems)
+              else IO.unit
             }
-          } else {
-            if (flowControlConfig.hasSpareChannels) {
-              startTaskBasedOnProbability(flowControlConfig.sourceSystems)
-            } else {
-              IO.unit
-            }
-          }
+          else if (flowControlConfig.hasSpareChannels) startTaskBasedOnProbability(flowControlConfig.sourceSystems)
+          else IO.unit
         }
       } yield ()
     }
@@ -162,7 +148,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     *   list of @SourceSystem
     * @param rangeStart
     *   starting point for the next range iteration
-    * @param accumulatedMap
+    * @param sourceSystemProbabilityRanges
     *   accumulator to build the map of all ranges
     * @return
     *   accumulated map of system name to probability ranges
@@ -171,13 +157,13 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   final def buildProbabilityRangesMap(
       systems: List[Lambda.SourceSystem],
       rangeStart: Int,
-      accumulatedMap: Map[String, (Int, Int)]
-  ): Map[String, (Int, Int)] = {
+      sourceSystemProbabilityRanges: Map[String, Range]
+  ): Map[String, Range] = {
     systems match
-      case Nil => accumulatedMap
+      case Nil => sourceSystemProbabilityRanges
       case _ =>
         val rangeEnd = systems.head.probability + rangeStart
-        val newMap = accumulatedMap ++ Map(systems.head.systemName -> (rangeStart, rangeEnd))
+        val newMap = sourceSystemProbabilityRanges ++ Map(systems.head.systemName -> Range(rangeStart, rangeEnd))
         buildProbabilityRangesMap(systems.tail, rangeEnd, newMap)
   }
 
@@ -187,6 +173,9 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 }
 
 object Lambda {
+
+  private val default = "DEFAULT"
+
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], stepFunctionClient: DASFNClient[IO], ssmClient: DASSMClient[IO], randomInt: (Int, Int) => Int)
   case class Config(flowControlQueueTableName: String, configParamName: String, stepFunctionArn: String) derives ConfigReader
   case class Input(executionName: String, taskToken: String)
@@ -198,13 +187,17 @@ object Lambda {
   }
 
   case class FlowControlConfig(maxConcurrency: Int, sourceSystems: List[SourceSystem]) {
+    val dedicatedChannelsCount = sourceSystems.map(_.dedicatedChannels).sum
+    val probabilityTotal = sourceSystems.map(_.probability).sum
     require(sourceSystems.nonEmpty, "Source systems list cannot be empty")
-    require(sourceSystems.map(_.probability).sum == 100, "The probability of all systems together should equate to 100%")
-    require(sourceSystems.map(_.dedicatedChannels).sum <= maxConcurrency, "Total of dedicated channels exceed maximum concurrency")
+    require(probabilityTotal == 100, s"The probability of all systems together should equate to 100%; the probability currently equates to $probabilityTotal%")
+    require(dedicatedChannelsCount <= maxConcurrency, s"Total of dedicated channels of $dedicatedChannelsCount exceeds maximum concurrency of $maxConcurrency")
     require(sourceSystems.map(_.systemName).toSet.size == sourceSystems.map(_.systemName).size, "System name must be unique")
-    require(sourceSystems.map(_.systemName).contains("DEFAULT"), "Missing 'DEFAULT' system in the configuration")
+    require(sourceSystems.map(_.systemName).contains(default), "Missing 'DEFAULT' system in the configuration")
 
-    def hasDedicatedChannels: Boolean = sourceSystems.map(_.dedicatedChannels).sum > 0
-    def hasSpareChannels: Boolean = sourceSystems.map(_.dedicatedChannels).sum < maxConcurrency
+    def hasDedicatedChannels: Boolean = dedicatedChannelsCount > 0
+    def hasSpareChannels: Boolean = dedicatedChannelsCount < maxConcurrency
   }
+
+  case class Range(startInclusive: Int, endExclusive: Int)
 }

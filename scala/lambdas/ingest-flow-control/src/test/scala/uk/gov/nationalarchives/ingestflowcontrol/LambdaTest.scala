@@ -106,7 +106,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         }
     }
 
-  "lambda" should "do stuff" in {
+  "lambda" should "report error when SSM client fails to find parameter" in {
     val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "taskToken"))
     val ssmParam = FlowControlConfig(1, List(SourceSystem("DEFAULT", 1, 100)))
     val sfnThing = List(StepFunctionExecution("", "taskToken"))
@@ -273,7 +273,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResult.stepFnExecutions.head.taskTokenSuccess should be(true)
   }
 
-  "lambda" should "add the new task to dynamo table when the maximum concurrency has reached" in {
+  "lambda" should "add the new task to dynamo table when the maximum concurrency has been reached" in {
     val initialDynamo = List(
       IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running"),
       IngestQueueTableItem("SystemTwo", Instant.now.minus(Duration.ofHours(2)), "a-running-task-for-system-two")
@@ -326,7 +326,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   "FlowControlConfig" should "error when the sum of probabilities in the flow control is not 100" in {
     intercept[IllegalArgumentException] {
       FlowControlConfig(6, List(SourceSystem("SystemOne", 2, 25), SourceSystem("SystemTwo", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("default", 0, 5)))
-    }.getMessage should be("requirement failed: The probability of all systems together should equate to 100%")
+    }.getMessage should be("requirement failed: The probability of all systems together should equate to 100%; the probability currently equates to 95%")
   }
 
   "FlowControlConfig" should "error when the dedicated channels exceed maximum concurrency" in {
@@ -340,7 +340,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
           Lambda.SourceSystem("default", 2)
         )
       )
-    }.getMessage should be("requirement failed: Total of dedicated channels exceed maximum concurrency")
+    }.getMessage should be("requirement failed: Total of dedicated channels of 6 exceeds maximum concurrency of 4")
   }
 
   "FlowControlConfig" should "error when there is a duplicate system name in the config" in {
@@ -413,7 +413,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val probabilitiesMap = new Lambda().buildProbabilityRangesMap(
       List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 0, 65), Lambda.SourceSystem("DEFAULT", 1, 10)),
       1,
-      Map.empty[String, (Int, Int)]
+      Map.empty[String, Range]
     )
     probabilitiesMap.size should be(3)
     probabilitiesMap("SystemOne")._1 should be(1)
