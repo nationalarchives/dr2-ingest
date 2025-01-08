@@ -52,7 +52,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
               .flatMap { queueTableItems =>
                 val taskToken = queueTableItems.headOption.map(_.taskToken)
                 val queuedAt = queueTableItems.headOption.map(_.queuedAt)
-                if (taskToken.nonEmpty) then
+                if taskToken.nonEmpty then
                   (dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
                     dependencies.dynamoClient.deleteItems(
                       config.flowControlQueueTableName,
@@ -126,10 +126,10 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         _ <- writeItemToQueueTable(flowControlConfig)
         runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
         _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
-          if (flowControlConfig.hasDedicatedChannels) then
+          if flowControlConfig.hasDedicatedChannels then
             val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
             startTaskOnDedicatedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, false).flatMap { taskStarted =>
-              if (taskStarted) then IO.unit
+              if taskStarted then IO.unit
               else if (flowControlConfig.hasSpareChannels) startTaskBasedOnProbability(flowControlConfig.sourceSystems)
               else IO.unit
             }
@@ -187,8 +187,8 @@ object Lambda {
   }
 
   case class FlowControlConfig(maxConcurrency: Int, sourceSystems: List[SourceSystem]) {
-    val dedicatedChannelsCount = sourceSystems.map(_.dedicatedChannels).sum
-    val probabilityTotal = sourceSystems.map(_.probability).sum
+    private val dedicatedChannelsCount: Int = sourceSystems.map(_.dedicatedChannels).sum
+    private val probabilityTotal: Int = sourceSystems.map(_.probability).sum
     require(sourceSystems.nonEmpty, "Source systems list cannot be empty")
     require(probabilityTotal == 100, s"The probability of all systems together should equate to 100%; the probability currently equates to $probabilityTotal%")
     require(dedicatedChannelsCount <= maxConcurrency, s"Total of dedicated channels of $dedicatedChannelsCount exceeds maximum concurrency of $maxConcurrency")
