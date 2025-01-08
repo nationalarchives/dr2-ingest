@@ -416,10 +416,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       Map.empty[String, Range]
     )
     probabilitiesMap.size should be(3)
-    probabilitiesMap("SystemOne")._1 should be(1)
-    probabilitiesMap("SystemOne")._2 should be(26)
-    probabilitiesMap("SystemTwo")._1 should be(26)
-    probabilitiesMap("SystemTwo")._2 should be(91)
-    probabilitiesMap("DEFAULT")._1 should be(91)
-    probabilitiesMap("DEFAULT")._2 should be(101)
+    probabilitiesMap("SystemOne").startInclusive should be(1)
+    probabilitiesMap("SystemOne").endExclusive should be(26)
+    probabilitiesMap("SystemTwo").startInclusive should be(26)
+    probabilitiesMap("SystemTwo").endExclusive should be(91)
+    probabilitiesMap("DEFAULT").startInclusive should be(91)
+    probabilitiesMap("DEFAULT").endExclusive should be(101)
   }
