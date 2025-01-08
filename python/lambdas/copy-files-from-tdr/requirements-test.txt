@@ -1,3 +1,4 @@
 pytest
 boto3
 urllib3==1.26.5
+pyopenssl==24.3.0
