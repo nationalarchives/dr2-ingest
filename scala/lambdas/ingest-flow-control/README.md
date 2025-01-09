@@ -61,7 +61,7 @@ The lambda operates based on the flow control configuration. Each invocation of 
 1. It makes use of a dynamoDB table to maintain a queue of tasks. 
 1. On invocation, if there is a taskToken passed in, it adds the taskToken as well as current timestamp into a dynamoDB table.
 1. It then reads the config, iterates over all the systems mentioned in the config to find a matching task in dynamoDB table.
-   1. If it finds an entry for a system in the dynamoDB table, and a free dedicated channel for that system, it calls `sendTaskSuccess` for that task and returns true. 
+   1. If it finds an entry for a system in the dynamoDB table, and a free dedicated channel for that system, it calls `sendTaskSuccess` for that task and the lambda invocation terminates. 
    1. If it cannot progress a task on dedicated channel (e.g. no free channels), it attempts to progress a task based on probability in the configuration. If there is a free channel available, it generates a random number between 1 and 100 (both inclusive) and tries to schedule a task based on the configured probability ranges.
 1. Once it successfully schedules a task (either on dedicated channel or through probability), the lambda invocation terminates.
 1. If neither the dedicated channels, nor probability approach schedules a task (e.g. no waiting task), the lambda invocation terminates.
