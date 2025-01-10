@@ -17,6 +17,7 @@ import scala.annotation.tailrec
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   override def handler: (Input, Config, Dependencies) => IO[Unit] = (input, config, dependencies) => {
+
     /** A recursive method to send task success to one and only one task per invocation. It takes a list of source systems, iterates over the list (recursively) to start a task on
       * first system which has a dedicated channel available
       * @param sourceSystems
@@ -48,16 +49,15 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
           dependencies.dynamoClient
             .getItems[IngestQueueTableItem, IngestQueuePartitionKey](partKeys, config.flowControlQueueTableName)
             .flatMap { queueTableItems =>
-              val taskToken = queueTableItems.headOption.map(_.taskToken)
-              val queuedAt = queueTableItems.headOption.map(_.queuedAt)
-              if taskToken.nonEmpty then
-                (dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
-                  dependencies.dynamoClient.deleteItems(
-                    config.flowControlQueueTableName,
-                    List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystem.systemName), IngestQueueSortKey(queuedAt.get)))
-                  )) >>
-                  IO.pure(true)
-              else startTaskOnDedicatedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
+              queueTableItems.headOption match
+                case Some(firstItem) =>
+                  (dependencies.stepFunctionClient.sendTaskSuccess(firstItem.taskToken) >>
+                    dependencies.dynamoClient.deleteItems(
+                      config.flowControlQueueTableName,
+                      List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystem.systemName), IngestQueueSortKey(firstItem.queuedAt)))
+                    )) >>
+                    IO.pure(true)
+                case None => startTaskOnDedicatedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
             }
     }
 
@@ -83,22 +83,24 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
           val sourceSystemProbabilities = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, Range])
           val maxRandomValue: Int = sourceSystemProbabilities.values.map(_.endExclusive).max
           val luckyDip = dependencies.randomInt(1, maxRandomValue)
-          val sourceSystemEntry = sourceSystemProbabilities.find((_, probRange) => probRange.startInclusive <= luckyDip && probRange.endExclusive >= luckyDip).get
+          val sourceSystemEntry = sourceSystemProbabilities.find((_, probRange) => probRange.startInclusive <= luckyDip && probRange.endExclusive > luckyDip).get
           val systemToStartTaskOn = sourceSystemEntry._1
 
           dependencies.dynamoClient
             .getItems[IngestQueueTableItem, IngestQueuePartitionKey](List(IngestQueuePartitionKey(systemToStartTaskOn)), config.flowControlQueueTableName)
             .flatMap { queueTableItem =>
-              val taskToken = queueTableItem.headOption.map(_.taskToken)
-              if taskToken.nonEmpty then
-                val queuedAt = queueTableItem.headOption.map(_.queuedAt)
-                dependencies.stepFunctionClient.sendTaskSuccess(taskToken.get) >>
-                  dependencies.dynamoClient
-                    .deleteItems(config.flowControlQueueTableName, List(IngestQueuePrimaryKey(IngestQueuePartitionKey(systemToStartTaskOn), IngestQueueSortKey(queuedAt.get))))
-                    .void
-              else
-                val newSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
-                startTaskBasedOnProbability(newSystems)
+              queueTableItem.headOption match
+                case Some(firstItem) =>
+                  dependencies.stepFunctionClient.sendTaskSuccess(firstItem.taskToken) >>
+                    dependencies.dynamoClient
+                      .deleteItems(
+                        config.flowControlQueueTableName,
+                        List(IngestQueuePrimaryKey(IngestQueuePartitionKey(systemToStartTaskOn), IngestQueueSortKey(firstItem.queuedAt)))
+                      )
+                      .void
+                case None =>
+                  val newSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
+                  startTaskBasedOnProbability(newSystems)
             }
     }
 
@@ -137,10 +139,10 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     } yield ()
   }
 
-  /** Builds a map of system name to a range. Range is a tuple of starting point (inclusive) and ending point (exclusive) of the range. e.g. a config where "System1" has 30%
-    * probability and "System2" has 15% probability will look like: "System1" -> (1, 31) "System2" -> (31, 46)
+  /** Builds a map of system name to a range. Range is a case class representing a starting point (inclusive) and ending point (exclusive) of the range. e.g. A config where
+    * "System1" has 30% probability and "System2" has 15% probability will look like: "System1" -> Range(1, 31) "System2" -> Range(31, 46)
     *
-    * A zero length range is represented by the starting and ending number to be same e.g. "default" -> (71, 71)
+    * A zero-length range is represented by the starting and ending number to be same e.g. "default" -> Range(71, 71)
     * @param systems
     *   list of @SourceSystem
     * @param rangeStart

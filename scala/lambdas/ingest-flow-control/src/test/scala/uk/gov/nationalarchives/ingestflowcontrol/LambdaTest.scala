@@ -2,118 +2,83 @@ package uk.gov.nationalarchives.ingestflowcontrol
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
-import cats.effect.*
-import cats.effect.unsafe.implicits.global
-import io.circe.{Decoder, Encoder}
 import org.scalatest.EitherValues
-import org.scanamo.DynamoFormat
-import org.scanamo.request.RequestCondition
-import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
-import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASSMClient}
 import uk.gov.nationalarchives.ingestflowcontrol.Lambda.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
-import uk.gov.nationalarchives.ingestflowcontrol.helpers.StepFunctionExecution
+import uk.gov.nationalarchives.ingestflowcontrol.Helpers.*
 
 import java.time.{Duration, Instant}
 
 class LambdaTest extends AnyFlatSpec with EitherValues:
 
-  val config: Config = Config("", "", "")
-
-  def notImplemented[T]: IO[Nothing] = IO.raiseError(new Exception("Not implemented"))
-
-  def predictableRandomNumberSelector(selected: Int = 10): (Int, Int) => Int = (min, max) => if selected > max then max else selected
-
-  private def runLambda(
-      input: Input,
-      initialItemsInTable: List[IngestQueueTableItem],
-      flowControlConfig: FlowControlConfig,
-      initialExecutions: List[StepFunctionExecution],
-      randomSelection: (Int, Int) => Int,
-      errors: Option[Errors] = None
-  ): LambdaRunResults = {
-    for {
-      dynamoRef <- Ref.of[IO, List[IngestQueueTableItem]](initialItemsInTable)
-      ssmRef <- Ref.of[IO, FlowControlConfig](flowControlConfig)
-      sfnRef <- Ref.of[IO, List[StepFunctionExecution]](initialExecutions)
-      dependencies = Dependencies(dynamoClient(dynamoRef), sfnClient(sfnRef), ssmClient(ssmRef, errors), randomSelection)
-      result <- new Lambda().handler(input, config, dependencies).attempt
-      dynamoResult <- dynamoRef.get
-      ssmResult <- ssmRef.get
-      sfnResult <- sfnRef.get
-    } yield LambdaRunResults(result, dynamoResult, ssmResult, sfnResult)
-  }.unsafeRunSync()
-
-  case class LambdaRunResults(
-      result: Either[Throwable, Unit],
-      finalItemsInTable: List[IngestQueueTableItem],
-      flowConfig: FlowControlConfig,
-      finalStepFnExecutions: List[StepFunctionExecution]
-  )
-
-  case class Errors(getParameter: Boolean = false, writeItem: Boolean = false, getItem: Boolean = false)
-
-  def ssmClient(ref: Ref[IO, FlowControlConfig], errors: Option[Errors]): DASSMClient[IO] = new DASSMClient[IO]:
-    override def getParameter[T](parameterName: String, withDecryption: Boolean)(using Decoder[T]): IO[T] =
-      IO.whenA(errors.exists(_.getParameter))(IO.raiseError(new Exception("Error getting parameter"))) >> ref.get.map(_.asInstanceOf[T])
-
-  def dynamoClient(ref: Ref[IO, List[IngestQueueTableItem]]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
-    override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = {
-      ref
-        .update { r =>
-          r.filterNot { row =>
-            primaryKeyAttributes.contains(IngestQueuePrimaryKey(IngestQueuePartitionKey(row.sourceSystem), IngestQueueSortKey(row.queuedAt)))
-          }
-        }
-        .map(_ => Nil)
-    }
-
-    override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = ref
-      .update { existing =>
-        IngestQueueTableItem(
-          dynamoDbWriteRequest.attributeNamesAndValuesToWrite(sourceSystem).s(),
-          Instant.parse(dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedAt).s()),
-          dynamoDbWriteRequest.attributeNamesAndValuesToWrite(taskToken).s()
-        ) :: existing
-      }
-      .map(_ => 1)
-
-    override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
-    override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
-      notImplemented
-
-    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] =
-      val firstPK = primaryKeys.head.asInstanceOf[IngestQueuePartitionKey]
-      ref.get.map { existing =>
-        existing.filter(_.sourceSystem == firstPK.sourceSystem).sortBy(_.queuedAt).map(_.asInstanceOf[T])
-      }
-
-    override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = notImplemented
-
-  def sfnClient(ref: Ref[IO, List[StepFunctionExecution]]): DASFNClient[IO] = new DASFNClient[IO]:
-    override def startExecution[T <: Product](stateMachineArn: String, input: T, name: Option[String])(using enc: Encoder[T]): IO[StartExecutionResponse] = notImplemented
-
-    override def listStepFunctions(stepFunctionArn: String, status: DASFNClient.Status): IO[List[String]] = ref.get.map { existing =>
-      existing.map(_.name)
-    }
-
-    override def sendTaskSuccess(token: String): IO[Unit] = {
-      ref
-        .update { existing =>
-          val updatedExecution = existing.filter(_.taskToken == token).map(_.copy(taskTokenSuccess = true))
-          existing.filter(_.taskToken != token) ++ updatedExecution
-        }
-    }
-
-  "lambda" should "report error when SSM client fails to find parameter" in {
+  "lambda" should "report error when SSM client fails to get parameter" in {
     val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "taskToken"))
     val ssmParam = FlowControlConfig(1, List(SourceSystem("DEFAULT", 1, 100)))
-    val sfnThing = List(StepFunctionExecution("", "taskToken"))
+    val sfnExecutions = List(StepFunctionExecution("", "taskToken"))
     val input = Input("SomeExecutionName", "differentTaskToken")
 
-    val lambdaResult = runLambda(input, initialDynamo, ssmParam, sfnThing, predictableRandomNumberSelector(), Option(Errors(true)))
+    val lambdaResult = runLambda(input, initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector(), Option(Errors(getParameter = true)))
     lambdaResult.result.isLeft should be(true)
+    lambdaResult.result.left.value.getMessage should equal("Error getting parameter")
+  }
+
+  "lambda" should "report error when dynamo client is unable to delete an item" in {
+    val initialDynamo = List.empty
+    val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("DEFAULT", 0, 10))
+    val initialConfig = FlowControlConfig(6, validSourceSystems)
+    val existingExecutions = List(StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task"))
+    val input = Input("TDR_execution_name", "a-task-token-for-tdr-task")
+
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(deleteItems = true)))
+    lambdaRunResult.result.isLeft should be(true)
+    lambdaRunResult.result.left.value.getMessage should equal("Error deleting item from dynamo table")
+  }
+
+  "lambda" should "report error when dynamo client is unable to write an item" in {
+    val initialDynamo = List.empty
+    val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("DEFAULT", 0, 10))
+    val initialConfig = FlowControlConfig(6, validSourceSystems)
+    val existingExecutions = List(StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task"))
+    val input = Input("TDR_execution_name", "a-task-token-for-tdr-task")
+
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(writeItem = true)))
+    lambdaRunResult.result.isLeft should be(true)
+    lambdaRunResult.result.left.value.getMessage should equal("Error writing item to dynamo table")
+  }
+
+  "lambda" should "report error when dynamo client is unable to get an item" in {
+    val initialDynamo = List.empty
+    val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("DEFAULT", 0, 10))
+    val initialConfig = FlowControlConfig(6, validSourceSystems)
+    val existingExecutions = List(StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task"))
+    val input = Input("TDR_execution_name", "a-task-token-for-tdr-task")
+
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(getItem = true)))
+    lambdaRunResult.result.isLeft should be(true)
+    lambdaRunResult.result.left.value.getMessage should equal("Error getting item from dynamo table")
+  }
+
+  "lambda" should "report error when SFN client cannot list step functions " in {
+    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "taskToken"))
+    val ssmParam = FlowControlConfig(1, List(SourceSystem("DEFAULT", 1, 100)))
+    val sfnExecutions = List(StepFunctionExecution("", "taskToken"))
+    val input = Input("SomeExecutionName", "differentTaskToken")
+
+    val lambdaResult = runLambda(input, initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector(), Option(Errors(listStepFunctions = true)))
+    lambdaResult.result.isLeft should be(true)
+    lambdaResult.result.left.value.getMessage should equal("Error generating a list of step functions")
+  }
+
+  "lambda" should "report error when SFN client cannot send success on task" in {
+    val initialDynamo = List.empty
+    val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("DEFAULT", 0, 10))
+    val initialConfig = FlowControlConfig(6, validSourceSystems)
+    val existingExecutions = List(StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task"))
+    val input = Input("TDR_execution_name", "a-task-token-for-tdr-task")
+
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(sendTaskSuccess = true)))
+    lambdaRunResult.result.isLeft should be(true)
+    lambdaRunResult.result.left.value.getMessage should equal("Error sending task success to step function")
   }
 
   "lambda" should "process tasks from existing entries in the dynamo table when no task token is passed in the input" in {
@@ -121,10 +86,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val initialDynamo = List(initialItem)
     val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 3), SourceSystem("SystemThree", 1, 100), SourceSystem("DEFAULT"))
     val ssmParam = FlowControlConfig(6, validSourceSystems)
-    val sfnThing = List(StepFunctionExecution("TDR", "task-token-for-tdr"))
+    val sfnExecutions = List(StepFunctionExecution("TDR", "task-token-for-tdr"))
     val input = Input("SOM_ExecutionName", "")
 
-    val lambdaRunResult = runLambda(input, initialDynamo, ssmParam, sfnThing, predictableRandomNumberSelector())
+    val lambdaRunResult = runLambda(input, initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.result.getOrElse(NotImplementedError()) should be(())
     lambdaRunResult.finalItemsInTable.size should be(0)
@@ -145,8 +110,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.finalStepFnExecutions.size should be(2)
-    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").get.taskTokenSuccess should be(false)
-    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-tdr-task").get.taskTokenSuccess should be(true)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").exists(_.taskTokenSuccess) should be(false)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-tdr-task").exists(_.taskTokenSuccess) should be(true)
 
     lambdaRunResult.finalItemsInTable.size should be(0)
   }
@@ -167,8 +132,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.finalStepFnExecutions.size should be(2)
-    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-already-running").get.taskTokenSuccess should be(false)
-    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-for-system-two").get.taskTokenSuccess should be(true)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-already-running").exists(_.taskTokenSuccess) should be(false)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-for-system-two").exists(_.taskTokenSuccess) should be(true)
 
     lambdaRunResult.finalItemsInTable.size should be(2)
     lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("a-task-token-for-new-tdr-task") should be(true)
@@ -192,7 +157,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.finalStepFnExecutions.size should be(3)
-    lambdaRunResult.finalStepFnExecutions.find(_.name == "TDR_execution_name_1").get.taskTokenSuccess should be(true)
+    lambdaRunResult.finalStepFnExecutions.find(_.name == "TDR_execution_name_1").exists(_.taskTokenSuccess) should be(true)
     lambdaRunResult.finalStepFnExecutions.find(_.name != "TDR_execution_name_1").map(_.taskTokenSuccess).forall(identity) should be(false)
 
     lambdaRunResult.finalItemsInTable.size should be(3)
@@ -208,13 +173,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(4, validSourceSystems)
     val existingExecutions = List(
-      StepFunctionExecution("TDR_execution_name_1", "tdr-task-1"),
-      StepFunctionExecution("FCL_execution_name_1", "fcl-task-1", true),
+      StepFunctionExecution("TDR_execution_name_1", "tdr-task-1", true),
+      StepFunctionExecution("FCL_execution_name_1", "fcl-task-1", false),
       StepFunctionExecution("ABC_execution_name_1", "abc-task-1", true)
     )
     val input = Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task")
 
-    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(20))
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(26))
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.finalStepFnExecutions.size should be(3)
     lambdaRunResult.finalStepFnExecutions.map(_.taskTokenSuccess).forall(identity) should be(true)
@@ -237,7 +202,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.finalStepFnExecutions.size should be(3)
-    lambdaRunResult.finalStepFnExecutions.find(_.name == "FCL_execution_name_1").get.taskTokenSuccess should be(true)
+    lambdaRunResult.finalStepFnExecutions.find(_.name == "FCL_execution_name_1").exists(_.taskTokenSuccess) should be(true)
 
     lambdaRunResult.finalItemsInTable.size should be(2)
     lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("a-task-token-for-new-xyz-task") should be(true)
@@ -250,7 +215,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val validSourceSystems = List(SourceSystem("TDR", 0, 25), SourceSystem("FCL", 0, 65), SourceSystem("ABC", 1, 10), SourceSystem("DEFAULT"))
     val initialConfig = FlowControlConfig(4, validSourceSystems)
     val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "tdr-task-1"))
-    val input = Input("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task")
+    val input = Input("HDDexecutionname2", "a-task-token-for-new-hard-disk-task")
 
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
