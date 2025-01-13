@@ -17,9 +17,14 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val sfnExecutions = List(StepFunctionExecution("", "taskToken"))
     val input = Input("SomeExecutionName", "differentTaskToken")
 
-    val lambdaResult = runLambda(input, initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector(), Option(Errors(getParameter = true)))
-    lambdaResult.result.isLeft should be(true)
-    lambdaResult.result.left.value.getMessage should equal("Error getting parameter")
+    val lambdaRunResult = runLambda(input, initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector(), Option(Errors(getParameter = true)))
+    lambdaRunResult.result.isLeft should be(true)
+    lambdaRunResult.result.left.value.getMessage should equal("Error getting parameter")
+    lambdaRunResult.finalItemsInTable.size should be(1)
+    lambdaRunResult.finalItemsInTable.head.taskToken should be("taskToken")
+    lambdaRunResult.finalStepFnExecutions.size should be(1)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "taskToken") should be(defined)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "taskToken").exists(_.taskTokenSuccess) should be(false)
   }
 
   "lambda" should "report error when dynamo client is unable to delete an item" in {
@@ -32,6 +37,11 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(deleteItems = true)))
     lambdaRunResult.result.isLeft should be(true)
     lambdaRunResult.result.left.value.getMessage should equal("Error deleting item from dynamo table")
+    lambdaRunResult.finalItemsInTable.size should be(1)
+    lambdaRunResult.finalItemsInTable.head.taskToken should be("a-task-token-for-tdr-task")
+    lambdaRunResult.finalStepFnExecutions.size should be(1)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task") should be(defined)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").exists(_.taskTokenSuccess) should be(false)
   }
 
   "lambda" should "report error when dynamo client is unable to write an item" in {
@@ -44,6 +54,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(writeItem = true)))
     lambdaRunResult.result.isLeft should be(true)
     lambdaRunResult.result.left.value.getMessage should equal("Error writing item to dynamo table")
+    lambdaRunResult.finalItemsInTable.size should be(0)
+    lambdaRunResult.finalStepFnExecutions.size should be(1)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task") should be(defined)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").exists(_.taskTokenSuccess) should be(false)
   }
 
   "lambda" should "report error when dynamo client is unable to get an item" in {
@@ -56,6 +70,11 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(getItem = true)))
     lambdaRunResult.result.isLeft should be(true)
     lambdaRunResult.result.left.value.getMessage should equal("Error getting item from dynamo table")
+    lambdaRunResult.finalItemsInTable.size should be(1)
+    lambdaRunResult.finalItemsInTable.head.taskToken should be("a-task-token-for-tdr-task")
+    lambdaRunResult.finalStepFnExecutions.size should be(1)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task") should be(defined)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").exists(_.taskTokenSuccess) should be(false)
   }
 
   "lambda" should "report error when SFN client cannot list step functions " in {
@@ -64,9 +83,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val sfnExecutions = List(StepFunctionExecution("", "taskToken"))
     val input = Input("SomeExecutionName", "differentTaskToken")
 
-    val lambdaResult = runLambda(input, initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector(), Option(Errors(listStepFunctions = true)))
-    lambdaResult.result.isLeft should be(true)
-    lambdaResult.result.left.value.getMessage should equal("Error generating a list of step functions")
+    val lambdaRunResult = runLambda(input, initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector(), Option(Errors(listStepFunctions = true)))
+    lambdaRunResult.result.isLeft should be(true)
+    lambdaRunResult.result.left.value.getMessage should equal("Error generating a list of step functions")
+    lambdaRunResult.finalItemsInTable.size should be(2)
+    lambdaRunResult.finalItemsInTable.map(_.taskToken) should contain allElementsOf List("differentTaskToken", "taskToken")
+    lambdaRunResult.finalStepFnExecutions.size should be(1)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task") should be(None)
   }
 
   "lambda" should "report error when SFN client cannot send success on task" in {
@@ -79,6 +102,11 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(sendTaskSuccess = true)))
     lambdaRunResult.result.isLeft should be(true)
     lambdaRunResult.result.left.value.getMessage should equal("Error sending task success to step function")
+    lambdaRunResult.finalItemsInTable.size should be(1)
+    lambdaRunResult.finalItemsInTable.head.taskToken should be("a-task-token-for-tdr-task")
+    lambdaRunResult.finalStepFnExecutions.size should be(1)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task") should be(defined)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").exists(_.taskTokenSuccess) should be(false)
   }
 
   "lambda" should "process tasks from existing entries in the dynamo table when no task token is passed in the input" in {
@@ -91,7 +119,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
     val lambdaRunResult = runLambda(input, initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
-    lambdaRunResult.result.getOrElse(NotImplementedError()) should be(())
     lambdaRunResult.finalItemsInTable.size should be(0)
     lambdaRunResult.finalStepFnExecutions.size should be(1)
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "task-token-for-tdr").head.taskTokenSuccess should be(true)
@@ -110,6 +137,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.finalStepFnExecutions.size should be(2)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task") should be(defined)
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").exists(_.taskTokenSuccess) should be(false)
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-tdr-task").exists(_.taskTokenSuccess) should be(true)
 
@@ -132,6 +160,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.finalStepFnExecutions.size should be(2)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-already-running") should be(defined)
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-already-running").exists(_.taskTokenSuccess) should be(false)
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-for-system-two").exists(_.taskTokenSuccess) should be(true)
 
@@ -238,7 +267,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResult.finalStepFnExecutions.head.taskTokenSuccess should be(true)
   }
 
-  "lambda" should "add the new task to dynamo table when the maximum concurrency has been reached" in {
+  "lambda" should "only add the new task to dynamo table when the maximum concurrency has been reached" in {
     val initialDynamo = List(
       IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running"),
       IngestQueueTableItem("SystemTwo", Instant.now.minus(Duration.ofHours(2)), "a-running-task-for-system-two")
@@ -294,6 +323,12 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     }.getMessage should be("requirement failed: The probability of all systems together should equate to 100%; the probability currently equates to 95%")
   }
 
+  "FlowControlConfig" should "error when the max concurrency is less than 1" in {
+    intercept[IllegalArgumentException] {
+      FlowControlConfig(-5, List(SourceSystem("SystemOne", 2, 25), SourceSystem("SystemTwo", 3, 75)))
+    }.getMessage should be("requirement failed: The max concurrency must be greater than 0, currently it is -5")
+  }
+
   "FlowControlConfig" should "error when the dedicated channels exceed maximum concurrency" in {
     intercept[IllegalArgumentException] {
       Lambda.FlowControlConfig(
@@ -322,7 +357,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     }.getMessage should be("requirement failed: System name must be unique")
   }
 
-  "FlowControlConfig" should "error when there is no `default` system in the" in {
+  "FlowControlConfig" should "error when there is no `DEFAULT` system available in the configuration" in {
     intercept[IllegalArgumentException] {
       Lambda.FlowControlConfig(
         4,

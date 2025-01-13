@@ -99,8 +99,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
                       )
                       .void
                 case None =>
-                  val newSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
-                  startTaskBasedOnProbability(newSystems)
+                  val remainingSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
+                  startTaskBasedOnProbability(remainingSystems)
             }
     }
 
@@ -133,8 +133,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
             else if (flowControlConfig.hasSpareChannels) startTaskBasedOnProbability(flowControlConfig.sourceSystems)
             else IO.unit
           }
-        else if (flowControlConfig.hasSpareChannels) startTaskBasedOnProbability(flowControlConfig.sourceSystems)
-        else IO.unit
+        else startTaskBasedOnProbability(flowControlConfig.sourceSystems)
       }
     } yield ()
   }
@@ -188,6 +187,7 @@ object Lambda {
   case class FlowControlConfig(maxConcurrency: Int, sourceSystems: List[SourceSystem]) {
     private val dedicatedChannelsCount: Int = sourceSystems.map(_.dedicatedChannels).sum
     private val probabilityTotal: Int = sourceSystems.map(_.probability).sum
+    require(maxConcurrency > 0, s"The max concurrency must be greater than 0, currently it is $maxConcurrency")
     require(sourceSystems.nonEmpty, "Source systems list cannot be empty")
     require(probabilityTotal == 100, s"The probability of all systems together should equate to 100%; the probability currently equates to $probabilityTotal%")
     require(dedicatedChannelsCount <= maxConcurrency, s"Total of dedicated channels of $dedicatedChannelsCount exceeds maximum concurrency of $maxConcurrency")
