@@ -144,7 +144,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResult.finalItemsInTable.size should be(0)
   }
 
-  "lambda" should "add new task to dynamo but not send success when reserved channel is not available for the system" in {
+  "lambda" should "add new task to dynamo but not send success when a reserved channel is not available for the system" in {
     val initialDynamo = List(
       IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running"),
       IngestQueueTableItem("SystemTwo", Instant.now.minus(Duration.ofHours(2)), "a-task-for-system-two")
