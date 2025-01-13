@@ -1,2 +1,4 @@
 pytest
 boto3
+pyopenssl==24.3.0
+

@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.24.2"
   lazy val pureConfigVersion = "0.17.8"
-  lazy val daAwsClientsVersion = "0.1.105"
+  lazy val daAwsClientsVersion = "0.1.106"
   private val fs2Version = "3.11.0"
   private val sttpVersion = "3.10.1"
   private val circeVersion = "0.14.10"
@@ -35,7 +35,7 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % s"$scalaTestVersion.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.115"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.116"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.7.1"
