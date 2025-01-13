@@ -144,7 +144,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResult.finalItemsInTable.size should be(0)
   }
 
-  "lambda" should "add new task to dynamo but not send success when dedicated channel is not available for the system" in {
+  "lambda" should "add new task to dynamo but not send success when reserved channel is not available for the system" in {
     val initialDynamo = List(
       IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running"),
       IngestQueueTableItem("SystemTwo", Instant.now.minus(Duration.ofHours(2)), "a-task-for-system-two")
@@ -168,7 +168,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("a-task-token-for-new-tdr-task") should be(true)
   }
 
-  "lambda" should "send success for only one system with one invocation when a dedicated channel is available" in {
+  "lambda" should "send success for only one system with one invocation when a reserved channel is available" in {
     val initialDynamo = List(
       IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)), "tdr-task-1"),
       IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)), "fcl-task-1"),
@@ -252,7 +252,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResult.finalItemsInTable.head.sourceSystem should be("DEFAULT")
   }
 
-  "lambda" should "send success for a task when the system is not explicitly configured and DEFAULT has a dedicated channel" in {
+  "lambda" should "send success for a task when the system is not explicitly configured and DEFAULT has a reserved channel" in {
     val deleteThisLine = Instant.now.minus(Duration.ofHours(1))
     val initialDynamo = List.empty
     val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("DEFAULT", 1, 10))
@@ -295,10 +295,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     }.getMessage should be("requirement failed: System name should not be empty")
   }
 
-  "SourceSystem" should "error when the dedicated channels count is negative" in {
+  "SourceSystem" should "error when the reserved channels count is negative" in {
     intercept[IllegalArgumentException] {
       SourceSystem("something", -1)
-    }.getMessage should be("requirement failed: Dedicated channels should not be fewer than zero")
+    }.getMessage should be("requirement failed: Reserved channels should not be fewer than zero")
   }
 
   "SourceSystem" should "error when the probability is not between 0 and 100" in {
@@ -329,7 +329,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     }.getMessage should be("requirement failed: The max concurrency must be greater than 0, currently it is -5")
   }
 
-  "FlowControlConfig" should "error when the dedicated channels exceed maximum concurrency" in {
+  "FlowControlConfig" should "error when the reserved channels exceed maximum concurrency" in {
     intercept[IllegalArgumentException] {
       Lambda.FlowControlConfig(
         4,
@@ -340,7 +340,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
           Lambda.SourceSystem("default", 2)
         )
       )
-    }.getMessage should be("requirement failed: Total of dedicated channels of 6 exceeds maximum concurrency of 4")
+    }.getMessage should be("requirement failed: Total of reserved channels of 6 exceeds maximum concurrency of 4")
   }
 
   "FlowControlConfig" should "error when there is a duplicate system name in the config" in {
@@ -371,7 +371,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     }.getMessage should be("requirement failed: Missing 'DEFAULT' system in the configuration")
   }
 
-  "FlowControlConfig" should "give availability of spare channels when at least one non-dedicated channel is available" in {
+  "FlowControlConfig" should "give availability of spare channels when at least one non-reserved channel is available" in {
     val configWithSpareChannels = Lambda.FlowControlConfig(
       4,
       List(
@@ -384,13 +384,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     configWithSpareChannels.hasSpareChannels should be(true)
   }
 
-  "FlowControlConfig" should "indicate lack of spare channels when dedicated channels equal the maximum concurrency" in {
-    val configWithAllChannelsDedicated =
+  "FlowControlConfig" should "indicate lack of spare channels when reserved channels equal the maximum concurrency" in {
+    val configWithAllChannelsReserved =
       Lambda.FlowControlConfig(4, List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 1, 35), Lambda.SourceSystem("DEFAULT", 2, 40)))
-    configWithAllChannelsDedicated.hasSpareChannels should be(false)
+    configWithAllChannelsReserved.hasSpareChannels should be(false)
   }
 
-  "FlowControlConfig" should "indicate true when at least one of the systems in the config has a dedicated channel" in {
+  "FlowControlConfig" should "indicate true when at least one of the systems in the config has a reserved channel" in {
     val configWithSpareChannels = Lambda.FlowControlConfig(
       4,
       List(
@@ -400,13 +400,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Lambda.SourceSystem("DEFAULT", 1, 30)
       )
     )
-    configWithSpareChannels.hasDedicatedChannels should be(true)
+    configWithSpareChannels.hasReservedChannels should be(true)
   }
 
-  "FlowControlConfig" should "indicate false when none of the systems in the config have a dedicated channel" in {
-    val configWithAllChannelsDedicated =
+  "FlowControlConfig" should "indicate false when none of the systems in the config have a reserved channel" in {
+    val configWithAllChannelsReserved =
       Lambda.FlowControlConfig(4, List(Lambda.SourceSystem("SystemOne", 0, 25), Lambda.SourceSystem("SystemTwo", 0, 35), Lambda.SourceSystem("DEFAULT", 0, 40)))
-    configWithAllChannelsDedicated.hasDedicatedChannels should be(false)
+    configWithAllChannelsReserved.hasReservedChannels should be(false)
   }
 
   "buildProbabilityRangesMap" should "build a map of system name to probability ranges for all systems" in {

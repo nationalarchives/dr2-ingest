@@ -19,7 +19,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
   override def handler: (Input, Config, Dependencies) => IO[Unit] = (input, config, dependencies) => {
 
     /** A recursive method to send task success to one and only one task per invocation. It takes a list of source systems, iterates over the list (recursively) to start a task on
-      * first system which has a dedicated channel available
+      * first system which has a reserved channel available
       * @param sourceSystems
       *   List of source systems to iterate over
       * @param executionsBySystem
@@ -31,7 +31,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       * @return
       *   IO[Boolean]: true if it called "sendTaskSuccess" on one of the tasks, otherwise false
       */
-    def startTaskOnDedicatedChannel(
+    def startTaskOnReservedChannel(
         sourceSystems: List[SourceSystem],
         executionsBySystem: Map[String, Int],
         flowControlConfig: FlowControlConfig,
@@ -41,9 +41,9 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       else if taskStarted then IO.pure(true)
       else
         val currentSystem = sourceSystems.head
-        val dedicatedChannels: Int = flowControlConfig.sourceSystems.find(_.systemName == currentSystem.systemName).map(_.dedicatedChannels).getOrElse(0)
+        val reservedChannels: Int = flowControlConfig.sourceSystems.find(_.systemName == currentSystem.systemName).map(_.reservedChannels).getOrElse(0)
         val currentExecutionCount = executionsBySystem.getOrElse(currentSystem.systemName, 0)
-        if currentExecutionCount >= dedicatedChannels then startTaskOnDedicatedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
+        if currentExecutionCount >= reservedChannels then startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
         else
           val partKeys = List(IngestQueuePartitionKey(currentSystem.systemName))
           dependencies.dynamoClient
@@ -57,7 +57,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
                       List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystem.systemName), IngestQueueSortKey(firstItem.queuedAt)))
                     )) >>
                     IO.pure(true)
-                case None => startTaskOnDedicatedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
+                case None => startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
             }
     }
 
@@ -126,9 +126,9 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- writeItemToQueueTable(flowControlConfig)
       runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
       _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
-        if flowControlConfig.hasDedicatedChannels then
+        if flowControlConfig.hasReservedChannels then
           val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
-          startTaskOnDedicatedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, false).flatMap { taskStarted =>
+          startTaskOnReservedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, false).flatMap { taskStarted =>
             if taskStarted then IO.unit
             else if (flowControlConfig.hasSpareChannels) startTaskBasedOnProbability(flowControlConfig.sourceSystems)
             else IO.unit
@@ -178,24 +178,24 @@ object Lambda {
   case class Config(flowControlQueueTableName: String, configParamName: String, stepFunctionArn: String) derives ConfigReader
   case class Input(executionName: String, taskToken: String)
 
-  case class SourceSystem(systemName: String, dedicatedChannels: Int = 0, probability: Int = 0) {
+  case class SourceSystem(systemName: String, reservedChannels: Int = 0, probability: Int = 0) {
     require(systemName.nonEmpty, "System name should not be empty")
-    require(dedicatedChannels >= 0, "Dedicated channels should not be fewer than zero")
+    require(reservedChannels >= 0, "Reserved channels should not be fewer than zero")
     require(probability >= 0 && probability <= 100, "Probability must be between 0 and 100")
   }
 
   case class FlowControlConfig(maxConcurrency: Int, sourceSystems: List[SourceSystem]) {
-    private val dedicatedChannelsCount: Int = sourceSystems.map(_.dedicatedChannels).sum
+    private val reservedChannelsCount: Int = sourceSystems.map(_.reservedChannels).sum
     private val probabilityTotal: Int = sourceSystems.map(_.probability).sum
     require(maxConcurrency > 0, s"The max concurrency must be greater than 0, currently it is $maxConcurrency")
     require(sourceSystems.nonEmpty, "Source systems list cannot be empty")
     require(probabilityTotal == 100, s"The probability of all systems together should equate to 100%; the probability currently equates to $probabilityTotal%")
-    require(dedicatedChannelsCount <= maxConcurrency, s"Total of dedicated channels of $dedicatedChannelsCount exceeds maximum concurrency of $maxConcurrency")
+    require(reservedChannelsCount <= maxConcurrency, s"Total of reserved channels of $reservedChannelsCount exceeds maximum concurrency of $maxConcurrency")
     require(sourceSystems.map(_.systemName).toSet.size == sourceSystems.map(_.systemName).size, "System name must be unique")
     require(sourceSystems.map(_.systemName).contains(default), "Missing 'DEFAULT' system in the configuration")
 
-    def hasDedicatedChannels: Boolean = dedicatedChannelsCount > 0
-    def hasSpareChannels: Boolean = dedicatedChannelsCount < maxConcurrency
+    def hasReservedChannels: Boolean = reservedChannelsCount > 0
+    def hasSpareChannels: Boolean = reservedChannelsCount < maxConcurrency
   }
 
   case class Range(startInclusive: Int, endExclusive: Int)
