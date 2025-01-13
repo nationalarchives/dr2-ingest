@@ -57,7 +57,7 @@ object ExternalServicesTestUtils {
   def runLambda(initialS3State: List[S3Object], errors: Option[Errors] = None): (Either[Throwable, Unit], List[S3Object]) =
     (for {
       ref <- Ref.of[IO, List[S3Object]](initialS3State)
-      res <- new Lambda().handler(Input("executionId"), Config("bucketName"), Dependencies(s3Client(ref, errors))).attempt
+      res <- new Lambda().handler(Input("executionId"), Config("bucketName", "roleArn"), Dependencies(s3Client(ref, errors))).attempt
       finalS3State <- ref.get
     } yield res -> finalS3State).unsafeRunSync()
 }

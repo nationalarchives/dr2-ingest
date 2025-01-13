@@ -2,12 +2,12 @@ package uk.gov.nationalarchives.ingestparentfolderopexcreator
 
 import cats.effect.IO
 import fs2.*
-import org.reactivestreams.{FlowAdapters, Publisher}
 import io.circe.generic.auto.*
+import org.reactivestreams.{FlowAdapters, Publisher}
 import pureconfig.ConfigReader
 import software.amazon.awssdk.transfer.s3.model.CompletedUpload
-import uk.gov.nationalarchives.ingestparentfolderopexcreator.Lambda.*
 import uk.gov.nationalarchives.DAS3Client
+import uk.gov.nationalarchives.ingestparentfolderopexcreator.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
@@ -43,7 +43,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         .map(_.toByteBuffer)
         .toPublisherResource
         .use { publisher =>
-          dependencies.s3Client.upload(config.stagingCacheBucket, fileName, FlowAdapters.toPublisher(publisher))
+          dependencies.s3Client.upload(config.destinationBucket, fileName, FlowAdapters.toPublisher(publisher))
         }
     }
 
@@ -52,8 +52,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     val batchRef = input.executionId.split('-').take(3).mkString("-")
     val log = logger.info(Map("batchRef" -> batchRef))(_)
     for {
-      publisher <- dependencies.s3Client.listCommonPrefixes(config.stagingCacheBucket, keyPrefix)
-      _ <- log(s"Retrieved prefixes for key $keyPrefix from bucket ${config.stagingCacheBucket}")
+      publisher <- dependencies.s3Client.listCommonPrefixes(config.destinationBucket, keyPrefix)
+      _ <- log(s"Retrieved prefixes for key $keyPrefix from bucket ${config.destinationBucket}")
       completedUpload <- publisher.publisherToStream
         .through(accumulatePrefixes)
         .map(generateOpexWithManifest)
@@ -65,7 +65,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     } yield completedUpload.head
   }
 
-  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DAS3Client[IO]()))
+  override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DAS3Client[IO](config.roleArn, lambdaName)))
 }
 object Lambda extends App {
 
@@ -75,7 +75,7 @@ object Lambda extends App {
     }
 
   case class Input(executionId: String)
-  case class Config(stagingCacheBucket: String) derives ConfigReader
+  case class Config(destinationBucket: String, roleArn: String) derives ConfigReader
 
   case class Dependencies(s3Client: DAS3Client[IO])
 }
