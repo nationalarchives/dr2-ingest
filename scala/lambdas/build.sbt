@@ -78,6 +78,17 @@ lazy val ingestMapper = (project in file("ingest-mapper"))
     )
   )
 
+lazy val ingestFlowControl = (project in file("ingest-flow-control"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      sfnClient,
+      ssmClient
+    )
+  )
+
 lazy val ingestFilesChangeHandler = (project in file("ingest-files-change-handler"))
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)

@@ -83,6 +83,8 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
     override def generateInstant: Instant = instant
 
+    override def generateRandomInt(min: Int, max: Int): Int = throw new Exception("Not implemented")
+
   def sfnClient(ref: Ref[IO, List[StartExecutionArgs]], sfnError: Boolean): DASFNClient[IO] = new DASFNClient[IO]:
     override def listStepFunctions(stepFunctionArn: String, status: DASFNClient.Status): IO[List[String]] = notImplemented
 

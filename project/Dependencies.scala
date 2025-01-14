@@ -29,7 +29,7 @@ object Dependencies {
   lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "1.5.4"
   lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.2.3"
   lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.14.0"
-  lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion;
+  lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion
   lazy val log4CatsSlf4j = "org.typelevel" %% "log4cats-slf4j" % log4CatsVersion
   lazy val log4jCore = "org.apache.logging.log4j" % "log4j-core" % logbackVersion
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
@@ -48,6 +48,7 @@ object Dependencies {
   lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
   lazy val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "2.3.0"
   lazy val sfnClient = "uk.gov.nationalarchives" %% "da-sfn-client" % daAwsClientsVersion
+  lazy val ssmClient = "uk.gov.nationalarchives" %% "da-ssm-client" % daAwsClientsVersion
   lazy val snsClient = "uk.gov.nationalarchives" %% "da-sns-client" % daAwsClientsVersion
   lazy val secretsManagerClient = "uk.gov.nationalarchives" %% "da-secretsmanager-client" % daAwsClientsVersion
   lazy val sttpClient = "com.softwaremill.sttp.client3" %% "core" % sttpVersion
