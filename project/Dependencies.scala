@@ -1,10 +1,10 @@
 import sbt._
 object Dependencies {
-  lazy val logbackVersion = "2.24.2"
+  lazy val logbackVersion = "2.24.3"
   lazy val pureConfigVersion = "0.17.8"
   lazy val daAwsClientsVersion = "0.1.106"
   private val fs2Version = "3.11.0"
-  private val sttpVersion = "3.10.1"
+  private val sttpVersion = "3.10.2"
   private val circeVersion = "0.14.10"
   private val log4CatsVersion = "2.7.0"
   private val awsLibraryVersion = "1.12.780"
@@ -54,6 +54,6 @@ object Dependencies {
   lazy val sttpClientFs2 = "com.softwaremill.sttp.client3" %% "fs2" % sttpVersion
   lazy val sttpCirce = "com.softwaremill.sttp.client3" %% "circe" % sttpVersion
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
-  lazy val upickle = "com.lihaoyi" %% "upickle" % "4.0.2"
+  lazy val upickle = "com.lihaoyi" %% "upickle" % "4.1.0"
   lazy val wiremock = "com.github.tomakehurst" % "wiremock" % "3.0.1"
 }
