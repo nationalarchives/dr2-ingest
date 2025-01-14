@@ -34,7 +34,8 @@ class XMLCreator {
         <opex:Description>{folder.potentialDescription.getOrElse("")}</opex:Description>
         <opex:SecurityDescriptor>{securityDescriptor}</opex:SecurityDescriptor>
         {
-      if identifiers.nonEmpty then <opex:Identifiers>
+      if identifiers.nonEmpty then
+        <opex:Identifiers>
           {identifiers.map(identifier => <opex:Identifier type={identifier.identifierName}>{identifier.value}</opex:Identifier>)}
         </opex:Identifiers>
       else ()
