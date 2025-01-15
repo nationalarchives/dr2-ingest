@@ -57,3 +57,4 @@ This option provides a centralised and maintainable solution for sending SNS not
   - Increased initial setup complexity.
   - Dependence on DynamoDB Streams and Lambda.
 
+
