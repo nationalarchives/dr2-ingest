@@ -12,7 +12,7 @@ permissions:
   contents: write
 jobs:
   pre-deploy:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     outputs:
       next-version: ${{ steps.next-tag.outputs.next-version }}
     steps:
@@ -41,7 +41,7 @@ jobs:
           git push origin ${{ steps.next-tag.outputs.next-version }}
   deploy:
     needs: pre-deploy
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=${{ needs.pre-deploy.outputs.next-version }}

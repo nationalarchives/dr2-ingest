@@ -9,7 +9,7 @@ permissions:
   contents: write
 jobs:
   run_tests:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     environment: intg
     steps:
       - uses: actions/checkout@v4
