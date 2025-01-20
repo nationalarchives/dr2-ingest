@@ -1,4 +1,4 @@
-# Architectural Decision Record (ADR): Moving from BagIt Package Format to Single Metadata JSON File
+# 21. Architectural Decision Record (ADR): Moving from BagIt Package Format to Single Metadata JSON File
 
 Supersedes [15. BagIt-like package for Generic Ingest](https://github.com/nationalarchives/dr2-ingest/blob/main/docs/architecture-decision-records/0015-bagit-like-package-for-generic-ingest.md)
 

@@ -1,4 +1,4 @@
-# Architectural Decision Record: Using DynamoDB Streams for messaging
+# 23. Architectural Decision Record: Using DynamoDB Streams for messaging
 
 ## Context
 
