@@ -18,7 +18,7 @@ We will implement 2 mechanisms to consume from the queue: a dedicated "channel" 
 
 ### Implementation
 
-![Flow Control Diagram](/docs/images/adr/0021/flow-control-diagram.png)
+![Flow Control Diagram](/docs/images/adr/0024/flow-control-diagram.png)
 
 - We will create a new Flow Control Lambda function to implement the business logic required to pause and continue ingests.
 - We will create a new DynamoDB table to act as the queue for paused ingests; the table will have a Partition Key for the source system (extracted from the Step Function Execution name) and a Sort Key for the time an item was added to the queue. When querying DynamoDB, the response will be ordered using the Sort Key.
