@@ -6,7 +6,7 @@
 
 Our Generic Ingest process transforms our DR2 BagIt-like package into an OPEX package and ingests this to the Preservation System; once an ingest workflow has started within the Preservation System, we routinely poll for the status and wait for it to complete. The workflows within the Preservation System consist of multiple processes, orchestrated by the Workflow manager, and run on the JobQueue server; the JobQueue server has 16 threads available, meaning only 16 processes can run at any time (across all environments).
 
-During periods of high load, we can start more ingest workflow instances than there are threads are available; when this occurs, our ingest workflows block each other as they wait for resources. This increases the elapsed time for all batches to ingest, which in turn increases the number of state transitions in our Step Function and Lambda invocations required to check the workflow status, increasing cost.
+During periods of high load, we can start more ingest workflow instances than there are threads available; when this occurs, our ingest workflows block each other as they wait for resources. This increases the elapsed time for all batches to ingest, which in turn increases the number of state transitions in our Step Function and Lambda invocations required to check the workflow status, increasing cost.
 
 ## Decision
 
