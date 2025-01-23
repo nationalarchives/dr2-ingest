@@ -1,4 +1,4 @@
-# Architectural Decision Record (ADR): Switching from AWS DataSync to Direct Lambda-to-Preservica Transfers
+# 22. Architectural Decision Record (ADR): Switching from AWS DataSync to Direct Lambda-to-Preservica Transfers
 
 ## Context
 In our current architecture, the opex creator lambda creates the opex files in our staging AWS S3 bucket. These files are later transferred to Preservica, which uses an S3 bucket in their AWS account.
