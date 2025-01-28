@@ -1,6 +1,8 @@
 package uk.gov.nationalarchives.ingestflowcontrol
 
 import cats.effect.*
+import cats.syntax.all.*
+import io.circe.{Decoder, HCursor}
 import io.circe.generic.auto.*
 import pureconfig.ConfigReader
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
@@ -16,9 +18,9 @@ import scala.annotation.tailrec
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import org.scanamo.syntax.*
 
-class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
+class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
 
-  override def handler: (Input, Config, Dependencies) => IO[Unit] = (input, config, dependencies) => {
+  override def handler: (Option[Input], Config, Dependencies) => IO[Unit] = (potentialInput, config, dependencies) => {
 
     /** A recursive method to send task success to one and only one task per invocation. It takes a list of source systems, iterates over the list (recursively) to start a task on
       * first system which has a reserved channel available
@@ -105,7 +107,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
             }
     }
 
-    def writeItemToQueueTable(flowControlConfig: FlowControlConfig): IO[Unit] = IO.whenA(input.taskToken.nonEmpty) {
+    def writeItemToQueueTable(flowControlConfig: FlowControlConfig): IO[Unit] = IO.whenA(potentialInput.nonEmpty) {
+      val input = potentialInput.get
       val sourceSystemName = input.executionName.split("_").head
       val systemName = flowControlConfig.sourceSystems.find(_.systemName == sourceSystemName).map(_.systemName).getOrElse(default)
       dependencies.dynamoClient
@@ -123,6 +126,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
     }
 
     for {
+
       flowControlConfig <- dependencies.ssmClient.getParameter[FlowControlConfig](config.configParamName)
       _ <- writeItemToQueueTable(flowControlConfig)
       runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
@@ -172,6 +176,14 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 }
 
 object Lambda {
+
+  given Decoder[Option[Input]] = (c: HCursor) => for {
+    potentialExecutionName <- c.downField("executionName").as[Option[String]]
+    potentialTaskToken <- c.downField("taskToken").as[Option[String]]
+  } yield {
+    (potentialExecutionName, potentialTaskToken).mapN(Input.apply)
+
+  }
 
   private val default = "DEFAULT"
 
