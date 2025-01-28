@@ -13,7 +13,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.*
 
 import java.net.URI
-import java.time.OffsetDateTime
+import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
@@ -603,6 +603,13 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val attributeValueMap = filesTablePkFormat.write(FilesTablePrimaryKey(FilesTablePartitionKey(uuid), FilesTableSortKey(batchId))).toAttributeValue.m().asScala
     UUID.fromString(attributeValueMap(id).s()) should equal(uuid)
     attributeValueMap(batchId).s() should equal(batchId)
+  }
+
+  "queueTablePkFormat write" should "write the correct fields" in {
+    val uuid = UUID.randomUUID()
+    val attributeValueMap = queueTablePkFormat.write(IngestQueuePrimaryKey(IngestQueuePartitionKey("TEST"), IngestQueueSortKey(Instant.parse("2025-01-28T14:56:16.813553232Z")))).toAttributeValue.m().asScala
+    attributeValueMap(sourceSystem).s() should equal("TEST")
+    attributeValueMap(queuedAt).s() should equal("2025-01-28T14:56:16.813553232Z")
   }
 
   "ingestLockTableItemFormat read" should "read the correct fields" in {
