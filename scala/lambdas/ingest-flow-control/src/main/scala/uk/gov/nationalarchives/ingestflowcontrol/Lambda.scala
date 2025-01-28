@@ -13,6 +13,8 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 
 import java.time.Instant
 import scala.annotation.tailrec
+import uk.gov.nationalarchives.DADynamoDBClient.given
+import org.scanamo.syntax.*
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
@@ -45,9 +47,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         val currentExecutionCount = executionsBySystem.getOrElse(currentSystem.systemName, 0)
         if currentExecutionCount >= reservedChannels then startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
         else
-          val partKeys = List(IngestQueuePartitionKey(currentSystem.systemName))
           dependencies.dynamoClient
-            .getItems[IngestQueueTableItem, IngestQueuePartitionKey](partKeys, config.flowControlQueueTableName)
+            .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" ===  currentSystem.systemName)
             .flatMap { queueTableItems =>
               queueTableItems.headOption match
                 case Some(firstItem) =>
@@ -87,7 +88,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
           val systemToStartTaskOn = sourceSystemEntry._1
 
           dependencies.dynamoClient
-            .getItems[IngestQueueTableItem, IngestQueuePartitionKey](List(IngestQueuePartitionKey(systemToStartTaskOn)), config.flowControlQueueTableName)
+            .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" ===  systemToStartTaskOn)
             .flatMap { queueTableItem =>
               queueTableItem.headOption match
                 case Some(firstItem) =>
