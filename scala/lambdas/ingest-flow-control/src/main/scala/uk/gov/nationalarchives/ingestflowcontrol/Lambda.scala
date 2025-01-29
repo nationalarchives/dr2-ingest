@@ -50,7 +50,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
         if currentExecutionCount >= reservedChannels then startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
         else
           dependencies.dynamoClient
-            .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" ===  currentSystem.systemName)
+            .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === currentSystem.systemName)
             .flatMap { queueTableItems =>
               queueTableItems.headOption match
                 case Some(firstItem) =>
@@ -90,7 +90,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
           val systemToStartTaskOn = sourceSystemEntry._1
 
           dependencies.dynamoClient
-            .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" ===  systemToStartTaskOn)
+            .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === systemToStartTaskOn)
             .flatMap { queueTableItem =>
               queueTableItem.headOption match
                 case Some(firstItem) =>
@@ -177,13 +177,14 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
 
 object Lambda {
 
-  given Decoder[Option[Input]] = (c: HCursor) => for {
-    potentialExecutionName <- c.downField("executionName").as[Option[String]]
-    potentialTaskToken <- c.downField("taskToken").as[Option[String]]
-  } yield {
-    (potentialExecutionName, potentialTaskToken).mapN(Input.apply)
+  given Decoder[Option[Input]] = (c: HCursor) =>
+    for {
+      potentialExecutionName <- c.downField("executionName").as[Option[String]]
+      potentialTaskToken <- c.downField("taskToken").as[Option[String]]
+    } yield {
+      (potentialExecutionName, potentialTaskToken).mapN(Input.apply)
 
-  }
+    }
 
   private val default = "DEFAULT"
 

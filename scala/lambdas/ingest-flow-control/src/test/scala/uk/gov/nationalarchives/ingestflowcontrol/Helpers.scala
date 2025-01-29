@@ -23,7 +23,7 @@ object Helpers {
   def predictableRandomNumberSelector(selected: Int = 10): (Int, Int) => Int = (min, max) => if selected > max then max else selected
 
   def runLambda(
-      input: Input,
+      input: Option[Input],
       initialItemsInTable: List[IngestQueueTableItem],
       flowControlConfig: FlowControlConfig,
       initialExecutions: List[StepFunctionExecution],
@@ -52,7 +52,7 @@ object Helpers {
   case class Errors(
       getParameter: Boolean = false,
       writeItem: Boolean = false,
-      getItem: Boolean = false,
+      queryItem: Boolean = false,
       deleteItems: Boolean = false,
       listStepFunctions: Boolean = false,
       sendTaskSuccess: Boolean = false
@@ -89,11 +89,20 @@ object Helpers {
     override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
 
     override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
-      notImplemented
+      errors.raise(_.queryItem, "Error getting item from dynamo table") >>
+        ref.get.map { existing =>
+          (for {
+            values <- Option(requestCondition.attributes.values)
+            map <- values.toMap[String].toOption
+          } yield existing
+            .filter(row => map.get("conditionAttributeValue0").contains(row.sourceSystem))
+            .sortBy(_.queuedAt)
+            .map(_.asInstanceOf[U])).getOrElse(Nil)
+        }
 
     override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] =
       val firstPK = primaryKeys.head.asInstanceOf[IngestQueuePartitionKey]
-      errors.raise(_.getItem, "Error getting item from dynamo table") >>
+      errors.raise(_.queryItem, "Error getting item from dynamo table") >>
         ref.get.map { existing =>
           existing.filter(_.sourceSystem == firstPK.sourceSystem).sortBy(_.queuedAt).map(_.asInstanceOf[T])
         }
@@ -109,7 +118,7 @@ object Helpers {
           existing.map(_.name)
         }
 
-    override def sendTaskSuccess(token: String): IO[Unit] = {
+    override def sendTaskSuccess[T: Encoder](token: String, potentialOutput: Option[T]): IO[Unit] = {
       errors.raise(_.sendTaskSuccess, "Error sending task success to step function") >>
         ref
           .update { existing =>
@@ -117,6 +126,15 @@ object Helpers {
             existing.filter(_.taskToken != token) ++ updatedExecution
           }
     }
+
+//    override def sendTaskSuccess(token: String): IO[Unit] = {
+//      errors.raise(_.sendTaskSuccess, "Error sending task success to step function") >>
+//        ref
+//          .update { existing =>
+//            val updatedExecution = existing.filter(_.taskToken == token).map(_.copy(taskTokenSuccess = true))
+//            existing.filter(_.taskToken != token) ++ updatedExecution
+//          }
+//    }
 
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 

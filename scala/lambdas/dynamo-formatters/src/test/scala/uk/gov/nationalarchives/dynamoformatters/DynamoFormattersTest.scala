@@ -607,7 +607,11 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
   "queueTablePkFormat write" should "write the correct fields" in {
     val uuid = UUID.randomUUID()
-    val attributeValueMap = queueTablePkFormat.write(IngestQueuePrimaryKey(IngestQueuePartitionKey("TEST"), IngestQueueSortKey(Instant.parse("2025-01-28T14:56:16.813553232Z")))).toAttributeValue.m().asScala
+    val attributeValueMap = queueTablePkFormat
+      .write(IngestQueuePrimaryKey(IngestQueuePartitionKey("TEST"), IngestQueueSortKey(Instant.parse("2025-01-28T14:56:16.813553232Z"))))
+      .toAttributeValue
+      .m()
+      .asScala
     attributeValueMap(sourceSystem).s() should equal("TEST")
     attributeValueMap(queuedAt).s() should equal("2025-01-28T14:56:16.813553232Z")
   }
