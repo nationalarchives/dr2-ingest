@@ -3,11 +3,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - scala/lambdas/**
-      - python/lambdas/**
-      - build.sbt
-      - project/Dependencies.scala
 permissions:
   id-token: write
   contents: write
