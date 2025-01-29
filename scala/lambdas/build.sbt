@@ -25,7 +25,8 @@ lazy val ingestLambdasRoot = (project in file("."))
     preingestTdrAggregator,
     preIngestTdrPackageBuilder,
     rotatePreservationSystemPassword,
-    startWorkflow
+    startWorkflow,
+    updateIdentifiers
   )
 
 lazy val commonSettings = Seq(
@@ -50,7 +51,16 @@ lazy val commonSettings = Seq(
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
-    case _                                                   => MergeStrategy.first
+    case PathList("META-INF", xs @ _*) =>
+      xs map {
+        _.toLowerCase
+      } match {
+        case "services" :: xs =>
+          MergeStrategy.filterDistinctLines
+        case _ => MergeStrategy.discard
+      }
+    case manifest if manifest.contains("MANIFEST.MF") => MergeStrategy.discard
+    case x                                            => MergeStrategy.last
   },
   scalacOptions ++= Seq("-Yretain-trees", "-Xmax-inlines", "35", "-Wunused:imports", "-Werror", "-deprecation", "-feature", "-language:implicitConversions"),
   (Test / fork) := true,
@@ -305,6 +315,12 @@ lazy val utils = (project in file("utils"))
   .settings(commonSettings)
   .settings(
     libraryDependencies += scanamo
+  )
+
+lazy val updateIdentifiers = (project in file("update-identifiers"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies += preservicaClient
   )
 
 lazy val dynamoFormatters = (project in file("dynamo-formatters"))
