@@ -44,16 +44,19 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
       if sourceSystems.isEmpty then IO.pure(taskStarted)
       else if taskStarted then IO.pure(true)
       else
+        logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""", "sourceSystems" -> s"""${ sourceSystems.map(_.systemName).mkString(",") }""") (s"Flow control starting on reserved channel"))
         val currentSystem = sourceSystems.head
         val reservedChannels: Int = flowControlConfig.sourceSystems.find(_.systemName == currentSystem.systemName).map(_.reservedChannels).getOrElse(0)
         val currentExecutionCount = executionsBySystem.getOrElse(currentSystem.systemName, 0)
         if currentExecutionCount >= reservedChannels then startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
         else
+          logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""", "currentSystem" -> s"""$currentSystem""") (s"Flow control progress on reserved channel"))
           dependencies.dynamoClient
             .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === currentSystem.systemName)
             .flatMap { queueTableItems =>
               queueTableItems.headOption match
                 case Some(firstItem) =>
+                  logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""", "table item" -> s"""${firstItem.sourceSystem}""", "queuedAt" -> s"""${firstItem.queuedAt}""", "taskToken" -> s"""${firstItem.taskToken}""") (s"Flow control attempting to send success on reserved channel"))
                   (dependencies.stepFunctionClient.sendTaskSuccess(firstItem.taskToken) >>
                     dependencies.dynamoClient.deleteItems(
                       config.flowControlQueueTableName,
@@ -81,11 +84,15 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
       */
     def startTaskBasedOnProbability(sourceSystems: List[SourceSystem]): IO[Unit] = {
       sourceSystems match
-        case Nil => IO.unit // nothing more to do, no one is waiting
+        case Nil =>
+          logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""")("Iterated over all source systems for probability, none of them have a waiting task, terminating lambda"))
+          IO.unit // nothing more to do, no one is waiting
         case _ =>
           val sourceSystemProbabilities = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, Range])
           val maxRandomValue: Int = sourceSystemProbabilities.values.map(_.endExclusive).max
           val luckyDip = dependencies.randomInt(1, maxRandomValue)
+          val systemProbabilitiesStr = sourceSystemProbabilities.map { case (system, range) => s"""$system -> (${range.startInclusive}, ${range.endExclusive})""" }.mkString(", ")
+          logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""", "luckyDip" -> s"""$luckyDip""", "systemRanges" -> s"$systemProbabilitiesStr") (s"Selecting source system based on probability"))
           val sourceSystemEntry = sourceSystemProbabilities.find((_, probRange) => probRange.startInclusive <= luckyDip && probRange.endExclusive > luckyDip).get
           val systemToStartTaskOn = sourceSystemEntry._1
 
@@ -94,6 +101,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
             .flatMap { queueTableItem =>
               queueTableItem.headOption match
                 case Some(firstItem) =>
+                  logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""", "table item" -> s"""${firstItem.sourceSystem + ": " + firstItem.queuedAt}""") (s"Flow control attempting to send success based on probability"))
                   dependencies.stepFunctionClient.sendTaskSuccess(firstItem.taskToken) >>
                     dependencies.dynamoClient
                       .deleteItems(
@@ -103,6 +111,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
                       .void
                 case None =>
                   val remainingSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
+                  logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""", "remainingSystems" -> s"""${remainingSystems.map(_.systemName).mkString(", ")}""") (s"System $systemToStartTaskOn does not have a waiting task"))
                   startTaskBasedOnProbability(remainingSystems)
             }
     }
@@ -111,6 +120,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
       val input = potentialInput.get
       val sourceSystemName = input.executionName.split("_").head
       val systemName = flowControlConfig.sourceSystems.find(_.systemName == sourceSystemName).map(_.systemName).getOrElse(default)
+      logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""", "sourceSystem" -> s"""$systemName""")(s"Writing item to flow control queue table"))
       dependencies.dynamoClient
         .writeItem(
           DADynamoDbWriteItemRequest(
@@ -126,17 +136,24 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
     }
 
     for {
-
+      _ <- IO(logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""")(s"Starting flow control lambda with input: $potentialInput")))
       flowControlConfig <- dependencies.ssmClient.getParameter[FlowControlConfig](config.configParamName)
       _ <- writeItemToQueueTable(flowControlConfig)
       runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
+      _ <- IO(logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""", "running executions" -> s"""${runningExecutions.map(_.mkString(","))}""")(s"Found ${runningExecutions.size} running executions")))
       _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
         if flowControlConfig.hasReservedChannels then
           val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
           startTaskOnReservedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, false).flatMap { taskStarted =>
-            if taskStarted then IO.unit
-            else if (flowControlConfig.hasSpareChannels) startTaskBasedOnProbability(flowControlConfig.sourceSystems)
-            else IO.unit
+            if taskStarted then
+              logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""")("Task sent successfully on reserved channel. Terminating lambda"))
+              IO.unit
+            else if (flowControlConfig.hasSpareChannels)
+              logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""")("Attempting to start task based on probability"))
+              startTaskBasedOnProbability(flowControlConfig.sourceSystems)
+            else
+              logger.info(Map("executionName" -> s"""${potentialInput.map(_.executionName)}""")("No task sent, no spare channels available, terminating lambda"))
+              IO.unit
           }
         else startTaskBasedOnProbability(flowControlConfig.sourceSystems)
       }
