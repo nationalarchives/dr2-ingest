@@ -538,7 +538,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       List(parentPath, title, description, sortOrder, fileSize, "checksums", fileExtension, "identifiers", skipIngest, correlationId, digitalAssetSubtype).filter(
         resultMap.contains
       )
-    assert(optionalsInResult.size == 0, s"The following fields are not ignored: ${optionalsInResult.mkString(",")}")
+    assert(optionalsInResult.isEmpty, s"The following fields are not ignored: ${optionalsInResult.mkString(",")}")
   }
 
   "assetItemFormat write" should "write skipIngest if set to true and not write it otherwise" in {
