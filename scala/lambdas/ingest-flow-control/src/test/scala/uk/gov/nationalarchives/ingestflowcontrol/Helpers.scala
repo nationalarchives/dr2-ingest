@@ -100,12 +100,7 @@ object Helpers {
             .map(_.asInstanceOf[U])).getOrElse(Nil)
         }
 
-    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] =
-      val firstPK = primaryKeys.head.asInstanceOf[IngestQueuePartitionKey]
-      errors.raise(_.queryItem, "Error getting item from dynamo table") >>
-        ref.get.map { existing =>
-          existing.filter(_.sourceSystem == firstPK.sourceSystem).sortBy(_.queuedAt).map(_.asInstanceOf[T])
-        }
+    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] = notImplemented
 
     override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = notImplemented
 
