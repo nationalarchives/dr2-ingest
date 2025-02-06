@@ -121,10 +121,29 @@ object DynamoFormatters {
       DynamoValue.fromMap(Map(id -> DynamoValue.fromString(t.partitionKey.id.toString), batchId -> DynamoValue.fromString(t.sortKey.batchId)))
     }
 
+  given queueTablePkFormat: Typeclass[IngestQueuePrimaryKey] = new DynamoFormat[IngestQueuePrimaryKey]:
+    override def read(av: DynamoValue): Either[DynamoReadError, IngestQueuePrimaryKey] = {
+      val valueMap = av.toAttributeValue.m().asScala
+
+      def validateProperty(name: String) =
+        valueMap.get(name).map(_.s()).map(Validated.Valid.apply).getOrElse(Validated.Invalid(name -> MissingProperty)).toValidatedNel
+
+      (validateProperty(sourceSystem), validateProperty(queuedAt))
+        .mapN { (sourceSystem, queuedAt) =>
+          IngestQueuePrimaryKey(IngestQueuePartitionKey(sourceSystem), IngestQueueSortKey(Instant.parse(queuedAt)))
+        }
+        .toEither
+        .left
+        .map(InvalidPropertiesError.apply)
+    }
+
+    override def write(t: IngestQueuePrimaryKey): DynamoValue = {
+      DynamoValue.fromMap(Map(sourceSystem -> DynamoValue.fromString(t.partitionKey.sourceSystem), queuedAt -> DynamoValue.fromString(t.sortKey.queuedAt.toString)))
+    }
+
   given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
 
   given Typeclass[IngestQueuePartitionKey] = deriveDynamoFormat[IngestQueuePartitionKey]
-  given Typeclass[IngestQueuePrimaryKey] = deriveDynamoFormat[IngestQueuePrimaryKey]
   given Typeclass[IngestQueueSortKey] = deriveDynamoFormat[IngestQueueSortKey]
 
   given typeFormatter: DynamoFormat[Type] = new DynamoFormat[Type]:

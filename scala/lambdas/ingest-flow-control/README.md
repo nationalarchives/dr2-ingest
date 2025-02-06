@@ -17,27 +17,30 @@ The configuration which governs how the flow of various tasks is controlled. A t
 
 ```json
 {
-  "maxConcurrency": 7,
-  "sourceSystems": {
-    "TDR": {
-      "reservedChannels": 2,
-      "probability": 25
-    },
-    "FCL": {
-      "reservedChannels": 2,
-      "probability": 60
-    },
-    "DEFAULT": {
-      "reservedChannels": 1,
-      "probability": 15
-    }
-  }
+   "maxConcurrency": 8,
+   "sourceSystems": [
+      {
+         "systemName": "TDR",
+         "reservedChannels": 2,
+         "probability": 20
+      },
+      {
+         "systemName": "COURTDOC",
+         "reservedChannels": 2,
+         "probability": 20
+      },
+      {
+         "systemName": "DEFAULT",
+         "reservedChannels": 1,
+         "probability": 60
+      }
+   ]
 }
 ```
 
 In the configuration shown above,
 - `"maxConcurrency: 7"` indicates that there can be upto 7 ingest processes running at a time
-- Each source system is configured with its name (e.g. "TDR", "FCL" etc.)
+- Each source system is configured with its `systemName` (e.g. "TDR", "FCL" etc.)
 - Each source system has a configuration of `reservedChannels` and `probability`
 - `reservedChannels` means there is a reserved channel out of the `maxConcurrency` for that specific system.
 - `probability` comes into picture when there are free channels to schedule an ingest process. When such situation arises, the scheduling is done based on the probability allocated to each of the system. (e.g. a probability of 65 means, there is 65% chance given to that system to use next free channel)   
