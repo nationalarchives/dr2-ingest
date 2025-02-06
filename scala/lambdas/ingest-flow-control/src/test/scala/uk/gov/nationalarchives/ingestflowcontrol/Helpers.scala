@@ -127,15 +127,6 @@ object Helpers {
           }
     }
 
-//    override def sendTaskSuccess(token: String): IO[Unit] = {
-//      errors.raise(_.sendTaskSuccess, "Error sending task success to step function") >>
-//        ref
-//          .update { existing =>
-//            val updatedExecution = existing.filter(_.taskToken == token).map(_.copy(taskTokenSuccess = true))
-//            existing.filter(_.taskToken != token) ++ updatedExecution
-//          }
-//    }
-
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
 }
