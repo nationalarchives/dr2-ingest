@@ -616,6 +616,25 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     attributeValueMap(queuedAt).s() should equal("2025-01-28T14:56:16.813553232Z")
   }
 
+  "queueTablePkFormat read" should "read the ingest queue primary key " in {
+    val input = fromM(Map(sourceSystem -> fromS("SOME_SYSTEM"), queuedAt -> fromS("2025-02-11T11:51:16.Z")).asJava)
+    val readResult = queueTablePkFormat.read(input).value
+
+    readResult.partitionKey.sourceSystem should equal("SOME_SYSTEM")
+    readResult.sortKey.queuedAt.toString should equal("2025-02-11T11:51:16Z")
+  }
+
+  "queueTablePkFormat read" should "error when the property is missing" in {
+    val input = fromM(Map("randomName" -> fromS("SOME_SYSTEM"), "notQueued" -> fromS("2025-02-11T11:51:16.Z")).asJava)
+    val readResult = queueTablePkFormat.read(input)
+
+    readResult.isLeft should be(true)
+    val errors = readResult.left.value.asInstanceOf[InvalidPropertiesError].errors
+    errors.size should be(2)
+    errors.find(_._1 == sourceSystem).get._2 should be(MissingProperty)
+    errors.find(_._1 == queuedAt).get._2 should be(MissingProperty)
+  }
+
   "ingestLockTableItemFormat read" should "read the correct fields" in {
     val assetId = UUID.randomUUID()
     val groupId = "groupId"
