@@ -21,7 +21,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResult.result.isLeft should be(true)
     lambdaRunResult.result.left.value.getMessage should equal("Error getting parameter")
     lambdaRunResult.finalItemsInTable should have length 1
-    lambdaRunResult.finalItemsInTable.head.taskToken should be ("taskToken")
+    lambdaRunResult.finalItemsInTable.head.taskToken should be("taskToken")
     lambdaRunResult.finalStepFnExecutions should have length 1
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "taskToken") should be(defined)
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "taskToken").exists(_.taskTokenSuccess) should be(false)

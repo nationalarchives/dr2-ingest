@@ -141,7 +141,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
           val luckyDip = dependencies.randomInt(1, maxRandomValue)
           val sourceSystemEntry = sourceSystemProbabilities.find((_, probRange) => probRange.startInclusive <= luckyDip && probRange.endExclusive > luckyDip).get
           val systemToStartTaskOn = sourceSystemEntry._1
-          val systemProbabilitiesStr = sourceSystemProbabilities.map { case (system, range) => s"$system -> (${range.startInclusive}, ${range.endExclusive})"}.mkString(", ")
+          val systemProbabilitiesStr = sourceSystemProbabilities.map { case (system, range) => s"$system -> (${range.startInclusive}, ${range.endExclusive})" }.mkString(", ")
           logger.info(
             Map(
               "executionName" -> executionNameForLogging,
