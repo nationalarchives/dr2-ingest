@@ -42,9 +42,9 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
         taskStarted: Boolean
     ): IO[Boolean] = {
       if sourceSystems.isEmpty then
-        logger.info(Map("taskStarted" -> s"""$taskStarted"""))("list of remaining sourceSystems is empty, nothing more to do on reserved channel") >> IO.pure(taskStarted)
+        logger.info(Map("taskStarted" -> s"$taskStarted"))("list of remaining sourceSystems is empty, nothing more to do on reserved channel") >> IO.pure(taskStarted)
       else if taskStarted then
-        logger.info(Map("taskStarted" -> s"""$taskStarted"""))("Sent task success on a reserved channel, exiting reserved channel computation") >> IO.pure(true)
+        logger.info(Map("taskStarted" -> taskStarted.toString))("Sent task success on a reserved channel, exiting reserved channel computation") >> IO.pure(true)
       else
         val currentSystem = sourceSystems.head
         val reservedChannels: Int = flowControlConfig.sourceSystems.find(_.systemName == currentSystem.systemName).map(_.reservedChannels).getOrElse(0)
@@ -55,7 +55,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
             Map(
               "executionName" -> executionNameForLogging,
               "currentSystem" -> currentSystem.systemName,
-              "executionCountOnSystem" -> s"""$currentExecutionCount""",
+              "executionCountOnSystem" -> s"$currentExecutionCount",
               "remainingSourceSystems" -> sourceSystems.tail.map(_.systemName).mkString(",")
             )
           )(
@@ -79,7 +79,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
                         Map(
                           "executionName" -> executionNameForLogging,
                           "table item" -> firstItem.sourceSystem,
-                          "queuedAt" -> s"""${firstItem.queuedAt}""",
+                          "queuedAt" -> s"${firstItem.queuedAt}",
                           "taskToken" -> firstItem.taskToken
                         )
                       )(s"Flow control attempting to send success on reserved channel")
@@ -88,7 +88,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
                         Map(
                           "tableName" -> config.flowControlQueueTableName,
                           "sourceSystem" -> currentSystem.systemName,
-                          "queuedAt" -> s"""${firstItem.queuedAt}"""
+                          "queuedAt" -> s"${firstItem.queuedAt}"
                         )
                       )("Attempting to delete item from flow control queue table following reserved channel selection")
                       _ <- dependencies.dynamoClient
@@ -141,11 +141,11 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
           val luckyDip = dependencies.randomInt(1, maxRandomValue)
           val sourceSystemEntry = sourceSystemProbabilities.find((_, probRange) => probRange.startInclusive <= luckyDip && probRange.endExclusive > luckyDip).get
           val systemToStartTaskOn = sourceSystemEntry._1
-          val systemProbabilitiesStr = sourceSystemProbabilities.map { case (system, range) => s"""$system -> (${range.startInclusive}, ${range.endExclusive})""" }.mkString(", ")
+          val systemProbabilitiesStr = sourceSystemProbabilities.map { case (system, range) => s"$system -> (${range.startInclusive}, ${range.endExclusive})"}.mkString(", ")
           logger.info(
             Map(
               "executionName" -> executionNameForLogging,
-              "luckyDip" -> s"""$luckyDip""",
+              "luckyDip" -> s"$luckyDip",
               "systemRanges" -> systemProbabilitiesStr,
               "selection" -> systemToStartTaskOn
             )
@@ -158,7 +158,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
                 queueTableItem.headOption match
                   case Some(firstItem) =>
                     for {
-                      _ <- logger.info(Map("executionName" -> executionNameForLogging, "sourceSystem" -> firstItem.sourceSystem, "queuedAt" -> s"""${firstItem.queuedAt}"""))(
+                      _ <- logger.info(Map("executionName" -> executionNameForLogging, "sourceSystem" -> firstItem.sourceSystem, "queuedAt" -> s"${firstItem.queuedAt}"))(
                         s"Flow control attempting to send success based on probability"
                       )
                       _ <- dependencies.stepFunctionClient.sendTaskSuccess(firstItem.taskToken)
@@ -166,7 +166,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
                         Map(
                           "tableName" -> config.flowControlQueueTableName,
                           "sourceSystem" -> firstItem.sourceSystem,
-                          "queuedAt" -> s"""${firstItem.queuedAt}"""
+                          "queuedAt" -> s"${firstItem.queuedAt}"
                         )
                       )("Attempting to delete item from flow control queue table following probability based selection")
                       _ <- dependencies.dynamoClient
