@@ -89,13 +89,13 @@ object Helpers {
     override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
 
     override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
-      errors.raise(_.queryItem, "Error getting item from dynamo table") >>
-        ref.get.map { existing =>
+      errors.raise(_.queryItem, "Error querying item from dynamo table") >>
+        ref.get.map { existingItems =>
           (for {
             values <- Option(requestCondition.attributes.values)
             map <- values.toMap[String].toOption
-          } yield existing
-            .filter(row => map.get("conditionAttributeValue0").contains(row.sourceSystem))
+          } yield existingItems
+            .filter(item => map.get("conditionAttributeValue0").contains(item.sourceSystem))
             .sortBy(_.queuedAt)
             .map(_.asInstanceOf[U])).getOrElse(Nil)
         }

@@ -69,7 +69,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(queryItem = true)))
     lambdaRunResult.result.isLeft should be(true)
-    lambdaRunResult.result.left.value.getMessage should equal("Error getting item from dynamo table")
+    lambdaRunResult.result.left.value.getMessage should equal("Error querying item from dynamo table")
     lambdaRunResult.finalItemsInTable.size should be(1)
     lambdaRunResult.finalItemsInTable.head.taskToken should be("a-task-token-for-tdr-task")
     lambdaRunResult.finalStepFnExecutions.size should be(1)
@@ -110,6 +110,20 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   }
 
   "lambda" should "process tasks from existing entries in the dynamo table when no task token is passed in the input" in {
+    val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "task-token-for-tdr")
+    val initialDynamo = List(initialItem)
+    val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 3), SourceSystem("SystemThree", 1, 100), SourceSystem("DEFAULT"))
+    val ssmParam = FlowControlConfig(6, validSourceSystems)
+    val sfnExecutions = List(StepFunctionExecution("TDR", "task-token-for-tdr"))
+
+    val lambdaRunResult = runLambda(Some(Input("SYS_EXECUTION_NAME", "")), initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector())
+    lambdaRunResult.result.isRight should be(true)
+    lambdaRunResult.finalItemsInTable.size should be(0)
+    lambdaRunResult.finalStepFnExecutions.size should be(1)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "task-token-for-tdr").head.taskTokenSuccess should be(true)
+  }
+
+  "lambda" should "process tasks from existing entries in the dynamo table when there is no input" in {
     val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "task-token-for-tdr")
     val initialDynamo = List(initialItem)
     val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 3), SourceSystem("SystemThree", 1, 100), SourceSystem("DEFAULT"))

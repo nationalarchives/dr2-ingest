@@ -100,15 +100,15 @@ object DynamoFormatters {
   val queuedAt = "queuedAt"
   val sourceSystem = "sourceSystem"
   val taskToken = "taskToken"
+  val executionName = "executionName"
+
+  private def validateProperty(av: DynamoValue, name: String) =
+    av.toAttributeValue.m().asScala.get(name).map(_.s()).map(Validated.Valid.apply).getOrElse(Validated.Invalid(name -> MissingProperty)).toValidatedNel
 
   given filesTablePkFormat: Typeclass[FilesTablePrimaryKey] = new DynamoFormat[FilesTablePrimaryKey]:
     override def read(av: DynamoValue): Either[DynamoReadError, FilesTablePrimaryKey] = {
-      val valueMap = av.toAttributeValue.m().asScala
 
-      def validateProperty(name: String) =
-        valueMap.get(name).map(_.s()).map(Validated.Valid.apply).getOrElse(Validated.Invalid(name -> MissingProperty)).toValidatedNel
-
-      (validateProperty(id), validateProperty(batchId))
+      (validateProperty(av, id), validateProperty(av, batchId))
         .mapN { (id, batchId) =>
           FilesTablePrimaryKey(FilesTablePartitionKey(UUID.fromString(id)), FilesTableSortKey(batchId))
         }
@@ -123,12 +123,8 @@ object DynamoFormatters {
 
   given queueTablePkFormat: Typeclass[IngestQueuePrimaryKey] = new DynamoFormat[IngestQueuePrimaryKey]:
     override def read(av: DynamoValue): Either[DynamoReadError, IngestQueuePrimaryKey] = {
-      val valueMap = av.toAttributeValue.m().asScala
 
-      def validateProperty(name: String) =
-        valueMap.get(name).map(_.s()).map(Validated.Valid.apply).getOrElse(Validated.Invalid(name -> MissingProperty)).toValidatedNel
-
-      (validateProperty(sourceSystem), validateProperty(queuedAt))
+      (validateProperty(av, sourceSystem), validateProperty(av, queuedAt))
         .mapN { (sourceSystem, queuedAt) =>
           IngestQueuePrimaryKey(IngestQueuePartitionKey(sourceSystem), IngestQueueSortKey(Instant.parse(queuedAt)))
         }

@@ -39,7 +39,7 @@ The configuration which governs how the flow of various tasks is controlled. A t
 ```
 
 In the configuration shown above,
-- `"maxConcurrency: 7"` indicates that there can be upto 7 ingest processes running at a time
+- `"maxConcurrency: 8"` indicates that there can be upto 8 ingest processes running at a time
 - Each source system is configured with its `systemName` (e.g. "TDR", "FCL" etc.)
 - Each source system has a configuration of `reservedChannels` and `probability`
 - `reservedChannels` means there is a reserved channel out of the `maxConcurrency` for that specific system.
