@@ -17,6 +17,7 @@ import java.time.Instant
 import scala.annotation.tailrec
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import org.scanamo.syntax.*
+import software.amazon.awssdk.services.sfn.model.TaskTimedOutException
 
 class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
 
@@ -72,42 +73,23 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
             dependencies.dynamoClient
               .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === currentSystem.systemName)
               .flatMap { queueTableItems =>
-                queueTableItems.headOption match
-                  case Some(firstItem) =>
-                    for {
-                      _ <- logger.info(
-                        Map(
-                          "executionName" -> executionNameForLogging,
-                          "table item" -> firstItem.sourceSystem,
-                          "queuedAt" -> s"${firstItem.queuedAt}",
-                          "taskToken" -> firstItem.taskToken
-                        )
-                      )(s"Flow control attempting to send success on reserved channel")
-                      _ <- dependencies.stepFunctionClient.sendTaskSuccess(firstItem.taskToken)
-                      _ <- logger.info(
-                        Map(
-                          "tableName" -> config.flowControlQueueTableName,
-                          "sourceSystem" -> currentSystem.systemName,
-                          "queuedAt" -> s"${firstItem.queuedAt}"
-                        )
-                      )("Attempting to delete item from flow control queue table following reserved channel selection")
-                      _ <- dependencies.dynamoClient
-                        .deleteItems(
-                          config.flowControlQueueTableName,
-                          List(IngestQueuePrimaryKey(IngestQueuePartitionKey(currentSystem.systemName), IngestQueueSortKey(firstItem.queuedAt)))
-                        )
-                        .void
-                      result <- IO.pure(true)
-                    } yield result
-                  case None =>
-                    logger.info(
-                      Map(
-                        "executionName" -> executionNameForLogging,
-                        "currentSystem" -> currentSystem.systemName,
-                        "remainingSourceSystems" -> sourceSystems.tail.map(_.systemName).mkString(",")
-                      )
-                    )(s"current system does not have a waiting task, continuing with remaining systems") >>
-                      startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
+                if queueTableItems.nonEmpty then
+                  logger.info(
+                    Map(
+                      "executionName" -> executionNameForLogging,
+                      "taskTokens" -> queueTableItems.map(_.taskToken).mkString(", "),
+                      "currentSystem" -> s"${currentSystem.systemName}"
+                    )
+                  )(s"Initiate processing for current system") >>
+                    processItems(currentSystem.systemName, queueTableItems) map (_ => true)
+                else
+                  logger.info(
+                    Map(
+                      "executionName" -> executionNameForLogging,
+                      "remainingSystems" -> sourceSystems.tail.map(_.systemName).mkString(", ")
+                    )
+                  )("Continuing on reserved channel for remaining systems") >>
+                    startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskStarted)
               }
     }
 
@@ -154,38 +136,28 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
           ) >>
             dependencies.dynamoClient
               .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === systemToStartTaskOn)
-              .flatMap { queueTableItem =>
-                queueTableItem.headOption match
-                  case Some(firstItem) =>
-                    for {
-                      _ <- logger.info(Map("executionName" -> executionNameForLogging, "sourceSystem" -> firstItem.sourceSystem, "queuedAt" -> s"${firstItem.queuedAt}"))(
-                        s"Flow control attempting to send success based on probability"
-                      )
-                      _ <- dependencies.stepFunctionClient.sendTaskSuccess(firstItem.taskToken)
-                      _ <- logger.info(
-                        Map(
-                          "tableName" -> config.flowControlQueueTableName,
-                          "sourceSystem" -> firstItem.sourceSystem,
-                          "queuedAt" -> s"${firstItem.queuedAt}"
-                        )
-                      )("Attempting to delete item from flow control queue table following probability based selection")
-                      _ <- dependencies.dynamoClient
-                        .deleteItems(
-                          config.flowControlQueueTableName,
-                          List(IngestQueuePrimaryKey(IngestQueuePartitionKey(systemToStartTaskOn), IngestQueueSortKey(firstItem.queuedAt)))
-                        )
-                        .void
-                    } yield ()
-                  case None =>
-                    val remainingSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
-                    logger.info(
-                      Map(
-                        "executionName" -> executionNameForLogging,
-                        "remainingSystems" -> remainingSystems.map(_.systemName).mkString(", "),
-                        "attemptedSystem" -> systemToStartTaskOn
-                      )
-                    )(s"Attempted system does not have a waiting task, continuing to attempt on remaining systems") >>
-                      startTaskBasedOnProbability(remainingSystems)
+              .flatMap { queueTableItems =>
+                if queueTableItems.nonEmpty then
+                  logger.info(
+                    Map(
+                      "executionName" -> executionNameForLogging,
+                      "taskTokens" -> queueTableItems.map(_.taskToken).mkString(", "),
+                      "currentSystem" -> sourceSystems.head.systemName
+                    )
+                  )("Initiate processing using probability approach") >>
+                    processItems(systemToStartTaskOn, queueTableItems)
+                else
+                  val remainingSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
+                  logger.info(
+                    Map(
+                      "executionName" -> executionNameForLogging,
+                      "remainingSystems" -> remainingSystems.map(_.systemName).mkString(", "),
+                      "attemptedSystem" -> systemToStartTaskOn
+                    )
+                  )(
+                    s"Attempted system does not have a waiting task, continuing to attempt on remaining systems"
+                  ) >>
+                    startTaskBasedOnProbability(remainingSystems)
               }
     }
 
@@ -220,6 +192,54 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
               )
               .void
     }
+
+    def deleteItem(systemName: String, firstItem: IngestQueueTableItem) = {
+      logger.info(
+        Map(
+          "taskToken" -> firstItem.taskToken,
+          "system" -> systemName,
+          "queuedAt" -> s"${firstItem.queuedAt}"
+        )
+      )("Deleting item from flow control queue table") >>
+        dependencies.dynamoClient
+          .deleteItems(
+            config.flowControlQueueTableName,
+            List(IngestQueuePrimaryKey(IngestQueuePartitionKey(systemName), IngestQueueSortKey(firstItem.queuedAt)))
+          )
+    }
+
+    def processItems(systemName: String, items: List[IngestQueueTableItem]): IO[Unit] =
+      items match
+        case Nil =>
+          logger.info(
+            Map(
+              "system" -> systemName
+            )
+          )("No items to process") >>
+            IO.unit
+        case _ =>
+          val item = items.head
+          dependencies.stepFunctionClient
+            .sendTaskSuccess(item.taskToken)
+            .flatMap { _ =>
+              deleteItem(systemName, item).void
+            }
+            .handleErrorWith {
+              case timeoutException: TaskTimedOutException => {
+                logger.info(
+                  Map(
+                    "taskToken" -> item.taskToken,
+                    "system" -> systemName,
+                    "queuedAt" -> s"${item.queuedAt}"
+                  )
+                )("Encountered TaskTimedOutException, deleting item from table") >>
+                  deleteItem(systemName, item).void >>
+                  processItems(systemName, items.tail)
+              }
+              case exception: Throwable => {
+                IO.raiseError(exception)
+              }
+            }
 
     for {
       executionNameForLogging <- IO.pure(potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME"))
@@ -259,6 +279,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
     * "System1" has 30% probability and "System2" has 15% probability will look like: "System1" -> Range(1, 31) "System2" -> Range(31, 46)
     *
     * A zero-length range is represented by the starting and ending number to be same e.g. "default" -> Range(71, 71)
+    *
     * @param systems
     *   list of @SourceSystem
     * @param rangeStart

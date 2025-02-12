@@ -109,6 +109,20 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").exists(_.taskTokenSuccess) should be(false)
   }
 
+  "lambda" should "delete the task from dynamo table when SFN client sendTaskSucess errors as task time out" in {
+    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running"))
+    val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 3, 65), SourceSystem("SystemThree", 1, 25), SourceSystem("DEFAULT", 0, 10))
+    val initialConfig = FlowControlConfig(7, validSourceSystems)
+    val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "a-task-already-running"))
+    val input = Option(Input("TDR_execution_name_2", ""))
+
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(sendTaskSuccessTimeOut = true)))
+    lambdaRunResult.result.isRight should be(true)
+    lambdaRunResult.finalItemsInTable should have length 0
+    lambdaRunResult.finalStepFnExecutions should have length 1
+    lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-already-running").exists(_.taskTokenSuccess) should be(false)
+  }
+
   "lambda" should "process tasks from existing entries in the dynamo table when no task token is passed in the input" in {
     val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "task-token-for-tdr")
     val initialDynamo = List(initialItem)

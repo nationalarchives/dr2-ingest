@@ -6,7 +6,7 @@ import io.circe.{Decoder, Encoder}
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
+import software.amazon.awssdk.services.sfn.model.{StartExecutionResponse, TaskTimedOutException}
 import uk.gov.nationalarchives.ingestflowcontrol.Lambda.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASSMClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
@@ -55,7 +55,8 @@ object Helpers {
       queryItem: Boolean = false,
       deleteItems: Boolean = false,
       listStepFunctions: Boolean = false,
-      sendTaskSuccess: Boolean = false
+      sendTaskSuccess: Boolean = false,
+      sendTaskSuccessTimeOut: Boolean = false
   )
 
   def ssmClient(ref: Ref[IO, FlowControlConfig], errors: Option[Errors]): DASSMClient[IO] = new DASSMClient[IO]:
@@ -114,7 +115,8 @@ object Helpers {
         }
 
     override def sendTaskSuccess[T: Encoder](token: String, potentialOutput: Option[T]): IO[Unit] = {
-      errors.raise(_.sendTaskSuccess, "Error sending task success to step function") >>
+      errors.raiseSpecificException(_.sendTaskSuccessTimeOut, TaskTimedOutException.builder().message("Simulating timeout exception").build()) >>
+        errors.raise(_.sendTaskSuccess, "Error sending task success to step function") >>
         ref
           .update { existing =>
             val updatedExecution = existing.filter(_.taskToken == token).map(_.copy(taskTokenSuccess = true))
@@ -124,4 +126,5 @@ object Helpers {
 
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
+  extension (errors: Option[Errors]) def raiseSpecificException(fn: Errors => Boolean, exception: Exception): IO[Unit] = IO.raiseWhen(errors.exists(fn))(exception)
 }
