@@ -28,13 +28,13 @@ object Helpers {
       flowControlConfig: FlowControlConfig,
       initialExecutions: List[StepFunctionExecution],
       randomSelection: (Int, Int) => Int,
-      errors: Option[Errors] = None
+      error: Option[Errors] = None
   ): LambdaRunResults = {
     for {
       dynamoRef <- Ref.of[IO, List[IngestQueueTableItem]](initialItemsInTable)
       ssmRef <- Ref.of[IO, FlowControlConfig](flowControlConfig)
       sfnRef <- Ref.of[IO, List[StepFunctionExecution]](initialExecutions)
-      dependencies = Dependencies(dynamoClient(dynamoRef, errors), sfnClient(sfnRef, errors), ssmClient(ssmRef, errors), randomSelection)
+      dependencies = Dependencies(dynamoClient(dynamoRef, error), sfnClient(sfnRef, error), ssmClient(ssmRef, error), randomSelection)
       result <- new Lambda().handler(input, config, dependencies).attempt
       dynamoResult <- dynamoRef.get
       ssmResult <- ssmRef.get

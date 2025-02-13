@@ -194,11 +194,13 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
     }
 
     def deleteItem(systemName: String, firstItem: IngestQueueTableItem) = {
+      val executionNameForLogging = potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME")
       logger.info(
         Map(
           "taskToken" -> firstItem.taskToken,
           "system" -> systemName,
-          "queuedAt" -> s"${firstItem.queuedAt}"
+          "queuedAt" -> s"${firstItem.queuedAt}",
+          "executionName" -> executionNameForLogging
         )
       )("Deleting item from flow control queue table") >>
         dependencies.dynamoClient
@@ -209,6 +211,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
     }
 
     def processItems(systemName: String, items: List[IngestQueueTableItem]): IO[Unit] =
+      val executionNameForLogging = potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME")
       items match
         case Nil =>
           logger.info(
@@ -219,27 +222,37 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
             IO.unit
         case _ =>
           val item = items.head
-          dependencies.stepFunctionClient
-            .sendTaskSuccess(item.taskToken)
-            .flatMap { _ =>
-              deleteItem(systemName, item).void
-            }
-            .handleErrorWith {
-              case timeoutException: TaskTimedOutException => {
-                logger.info(
-                  Map(
-                    "taskToken" -> item.taskToken,
-                    "system" -> systemName,
-                    "queuedAt" -> s"${item.queuedAt}"
-                  )
-                )("Encountered TaskTimedOutException, deleting item from table") >>
-                  deleteItem(systemName, item).void >>
-                  processItems(systemName, items.tail)
+          logger.info(
+            Map(
+              "taskToken" -> item.taskToken,
+              "system" -> systemName,
+              "queuedAt" -> s"${item.queuedAt}",
+              "executionName" -> executionNameForLogging
+            )
+          )("sending success for the task") >>
+            dependencies.stepFunctionClient
+              .sendTaskSuccess(item.taskToken)
+              .flatMap { _ =>
+                deleteItem(systemName, item).void
               }
-              case exception: Throwable => {
-                IO.raiseError(exception)
+              .handleErrorWith {
+                case timeoutException: TaskTimedOutException => {
+                  logger.info(
+                    Map(
+                      "taskToken" -> item.taskToken,
+                      "system" -> systemName,
+                      "queuedAt" -> s"${item.queuedAt}",
+                      "executionName" -> executionNameForLogging,
+                      "exceptionMessage" -> timeoutException.getMessage
+                    )
+                  )("Encountered TaskTimedOutException, deleting item from table") >>
+                    deleteItem(systemName, item).void >>
+                    processItems(systemName, items.tail)
+                }
+                case exception: Throwable => {
+                  IO.raiseError(exception)
+                }
               }
-            }
 
     for {
       executionNameForLogging <- IO.pure(potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME"))
@@ -257,7 +270,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
           "running executions" -> runningExecutions.mkString(",")
         )
       )(
-        s"Found ${runningExecutions.size} running executions"
+        s"Found ${runningExecutions.size} running executions against max concurrency of ${flowControlConfig.maxConcurrency}"
       )
       _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
         if flowControlConfig.hasReservedChannels then
