@@ -33,7 +33,7 @@ trait StepDefs[F[_]: Async: Parallel] {
 
   def sendMessages(ref: Ref[F, List[UUID]]): F[Unit]
 
-  def createBatch(ref: Ref[F, List[UUID]]): F[Unit]
+  def createBatch(ref: Ref[F, List[UUID]], prefix: String = "E2E"): F[Unit]
 
   def waitForIngestCompleteMessages(ref: Ref[F, List[UUID]]): F[Unit]
 
@@ -73,8 +73,8 @@ object StepDefs {
 
       private val thisYear = LocalDate.now.getYear
 
-      def createBatch(ref: Ref[F, List[UUID]]): F[Unit] = ref.get.flatMap { ids =>
-        val groupId = s"E2E_${UUID.randomUUID}"
+      def createBatch(ref: Ref[F, List[UUID]], prefix: String = "E2E"): F[Unit] = ref.get.flatMap { ids =>
+        val groupId = s"${prefix}_${UUID.randomUUID.toString.split("-").head}"
         val batchId = s"${groupId}_0"
         Logger[F].info(s"Creating batch $groupId with ${ids.size} ids") >>
           ids.traverse { id =>
