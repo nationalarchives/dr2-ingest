@@ -12,7 +12,7 @@ import java.time.{Duration, Instant}
 class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda" should "report error when SSM client fails to get parameter" in {
-    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "taskToken"))
+    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "taskToken", "TST_6b6db6bf_0"))
     val ssmParam = FlowControlConfig(1, List(SourceSystem("DEFAULT", 1, 100)))
     val sfnExecutions = List(StepFunctionExecution("", "taskToken"))
     val input = Option(Input("SomeExecutionName", "differentTaskToken"))
@@ -78,7 +78,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   }
 
   "lambda" should "report error when SFN client cannot list step functions " in {
-    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "taskToken"))
+    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now, "taskToken", "TST_6b6db6bf_0"))
     val ssmParam = FlowControlConfig(1, List(SourceSystem("DEFAULT", 1, 100)))
     val sfnExecutions = List(StepFunctionExecution("", "taskToken"))
     val input = Option(Input("SomeExecutionName", "differentTaskToken"))
@@ -110,7 +110,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   }
 
   "lambda" should "delete the task from dynamo table when SFN client sendTaskSucess errors as task time out" in {
-    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running"))
+    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running", "TST_6b6db6bf_0"))
     val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 3, 65), SourceSystem("SystemThree", 1, 25), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(7, validSourceSystems)
     val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "a-task-already-running"))
@@ -124,7 +124,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   }
 
   "lambda" should "process tasks from existing entries in the dynamo table when no task token is passed in the input" in {
-    val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "task-token-for-tdr")
+    val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "task-token-for-tdr", "TST_6b6db6bf_0")
     val initialDynamo = List(initialItem)
     val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 3), SourceSystem("SystemThree", 1, 100), SourceSystem("DEFAULT"))
     val ssmParam = FlowControlConfig(6, validSourceSystems)
@@ -138,7 +138,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   }
 
   "lambda" should "process tasks from existing entries in the dynamo table when there is no input" in {
-    val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "task-token-for-tdr")
+    val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "task-token-for-tdr", "TST_6b6db6bf_0")
     val initialDynamo = List(initialItem)
     val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 3), SourceSystem("SystemThree", 1, 100), SourceSystem("DEFAULT"))
     val ssmParam = FlowControlConfig(6, validSourceSystems)
@@ -173,8 +173,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda" should "add new task to dynamo but not send success when a reserved channel is not available for the system" in {
     val initialDynamo = List(
-      IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running"),
-      IngestQueueTableItem("SystemTwo", Instant.now.minus(Duration.ofHours(2)), "a-task-for-system-two")
+      IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running", "TST_6b6db6bf_0"),
+      IngestQueueTableItem("SystemTwo", Instant.now.minus(Duration.ofHours(2)), "a-task-for-system-two", "TST_7b7db7bf_0")
     )
     val validSourceSystems = List(SourceSystem("TDR", 1), SourceSystem("SystemTwo", 3, 65), SourceSystem("SystemThree", 1, 25), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(6, validSourceSystems)
@@ -197,9 +197,9 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda" should "send success for only one system with one invocation when a reserved channel is available" in {
     val initialDynamo = List(
-      IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)), "tdr-task-1"),
-      IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)), "fcl-task-1"),
-      IngestQueueTableItem("ABC", Instant.now, "abc-task-1")
+      IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)), "tdr-task-1", "TST_6b6db6bf_0"),
+      IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)), "fcl-task-1", "TST_7b7db7bf_0"),
+      IngestQueueTableItem("ABC", Instant.now, "abc-task-1", "TST_8b8db8bf_0")
     )
     val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 2, 65), SourceSystem("ABC", 2), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(7, validSourceSystems)
@@ -222,9 +222,9 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda" should "send success on a task based on the probability assigned in the configuration" in {
     val initialDynamo = List(
-      IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)), "tdr-task-1"),
-      IngestQueueTableItem("FCL", Instant.now, "fcl-task-1"),
-      IngestQueueTableItem("ABC", Instant.now, "abc-task-1")
+      IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)), "tdr-task-1", "TST_6b6db6bf_0"),
+      IngestQueueTableItem("FCL", Instant.now, "fcl-task-1", "TST_7b7db7bf_0"),
+      IngestQueueTableItem("ABC", Instant.now, "abc-task-1", "TST_8b8db8bf_0")
     )
     val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(4, validSourceSystems)
@@ -245,7 +245,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   }
 
   "lambda" should "send success on a task based on the probability when the first pick system does not have a waiting task" in {
-    val initialDynamo = List(IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)), "fcl-task-1"), IngestQueueTableItem("ABC", Instant.now, "abc-task-1"))
+    val initialDynamo = List(
+      IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)), "fcl-task-1", "TST_6b6db6bf_0"),
+      IngestQueueTableItem("ABC", Instant.now, "abc-task-1", "TST_7b7db7bf_0")
+    )
     val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(4, validSourceSystems)
     val existingExecutions = List(
@@ -267,7 +270,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda" should "write a system name as DEFAULT if the system name is not available in the config" in {
     val deleteThisLine = Instant.now.minus(Duration.ofHours(1))
-    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "tdr-task-1"))
+    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "tdr-task-1", "TST_6b6db6bf_0"))
     val validSourceSystems = List(SourceSystem("TDR", 0, 25), SourceSystem("FCL", 0, 65), SourceSystem("ABC", 1, 10), SourceSystem("DEFAULT"))
     val initialConfig = FlowControlConfig(4, validSourceSystems)
     val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "tdr-task-1"))
@@ -296,8 +299,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda" should "only add the new task to dynamo table when the maximum concurrency has been reached" in {
     val initialDynamo = List(
-      IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running"),
-      IngestQueueTableItem("SystemTwo", Instant.now.minus(Duration.ofHours(2)), "a-running-task-for-system-two")
+      IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running", "TST_6b6db6bf_0"),
+      IngestQueueTableItem("SystemTwo", Instant.now.minus(Duration.ofHours(2)), "a-running-task-for-system-two", "TST_7b7db7bf_0")
     )
     val validSourceSystems = List(SourceSystem("TDR", 1), SourceSystem("SystemTwo", 1, 65), SourceSystem("SystemThree", 0, 25), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(2, validSourceSystems)

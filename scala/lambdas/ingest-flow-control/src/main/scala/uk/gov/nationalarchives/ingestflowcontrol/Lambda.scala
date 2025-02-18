@@ -227,13 +227,23 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
               "taskToken" -> item.taskToken,
               "system" -> systemName,
               "queuedAt" -> s"${item.queuedAt}",
+              "startedBy" -> s"${item.executionName}",
               "executionName" -> executionNameForLogging
             )
           )("sending success for the task") >>
             dependencies.stepFunctionClient
               .sendTaskSuccess(item.taskToken)
               .flatMap { _ =>
-                deleteItem(systemName, item).void
+                logger.info(
+                  Map(
+                    "taskToken" -> item.taskToken,
+                    "system" -> systemName,
+                    "queuedAt" -> s"${item.queuedAt}",
+                    "successSentBy" -> executionNameForLogging,
+                    "startedBy" -> s"${item.executionName}"
+                  )
+                )("Task sent successfully, deleting item from table") >>
+                  deleteItem(systemName, item).void
               }
               .handleErrorWith {
                 case timeoutException: TaskTimedOutException => {
@@ -276,7 +286,7 @@ class Lambda extends LambdaRunner[Option[Input], Unit, Config, Dependencies] {
         if flowControlConfig.hasReservedChannels then
           val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
           startTaskOnReservedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, false).flatMap { taskStarted =>
-            if taskStarted then logger.info(Map("executionName" -> executionNameForLogging))("Task sent successfully on reserved channel. Terminating lambda")
+            if taskStarted then logger.info(Map("executionName" -> executionNameForLogging))("Task started successfully on reserved channel. Terminating lambda")
             else if (flowControlConfig.hasSpareChannels)
               logger.info(Map("executionName" -> executionNameForLogging))("Attempting to start task based on probability") >>
                 startTaskBasedOnProbability(flowControlConfig.sourceSystems)

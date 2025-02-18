@@ -82,7 +82,8 @@ object Helpers {
             IngestQueueTableItem(
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(sourceSystem).s(),
               Instant.parse(dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedAt).s()),
-              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(taskToken).s()
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(taskToken).s(),
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(executionName).s()
             ) :: existing
           }
           .map(_ => 1)
