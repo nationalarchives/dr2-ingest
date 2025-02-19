@@ -116,7 +116,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
             Map(
               "executionName" -> executionNameForLogging
             )
-          )("Iterated over all source systems for probability, none of them have a waiting task, terminating lambda") >> IO.pure(executionNameForLogging)
+          )("Iterated over all source systems for probability, none of them have a waiting task, terminating lambda")
         case _ =>
           val sourceSystemProbabilities = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, Range])
           val maxRandomValue: Int = sourceSystemProbabilities.values.map(_.endExclusive).max
@@ -145,7 +145,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
                       "currentSystem" -> sourceSystems.head.systemName
                     )
                   )("Initiate processing using probability approach") >>
-                    processItems(systemToStartTaskOn, queueTableItems) >> IO.pure(executionNameForLogging)
+                    processItems(systemToStartTaskOn, queueTableItems)
                 else
                   val remainingSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
                   logger.info(
