@@ -108,7 +108,7 @@ object E2ESpecUtils:
   def sfnClient(sfnRef: Ref[IO, List[SFNArguments]]): DASFNClient[IO] = new DASFNClient[IO]:
     override def listStepFunctions(stepFunctionArn: String, status: DASFNClient.Status): IO[List[String]] = notImplemented
 
-    override def sendTaskSuccess(taskToken: String): IO[Unit] = notImplemented
+    override def sendTaskSuccess[T: Encoder](taskToken: String, potentialOutput: Option[T]): IO[Unit] = notImplemented
 
     override def startExecution[T <: Product](stateMachineArn: String, input: T, name: Option[String])(using enc: Encoder[T]): IO[StartExecutionResponse] =
       sfnRef

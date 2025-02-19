@@ -6,7 +6,7 @@ import io.circe.{Decoder, Encoder}
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
+import software.amazon.awssdk.services.sfn.model.{StartExecutionResponse, TaskTimedOutException}
 import uk.gov.nationalarchives.ingestflowcontrol.Lambda.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASSMClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
@@ -23,18 +23,18 @@ object Helpers {
   def predictableRandomNumberSelector(selected: Int = 10): (Int, Int) => Int = (min, max) => if selected > max then max else selected
 
   def runLambda(
-      input: Input,
+      input: Option[Input],
       initialItemsInTable: List[IngestQueueTableItem],
       flowControlConfig: FlowControlConfig,
       initialExecutions: List[StepFunctionExecution],
       randomSelection: (Int, Int) => Int,
-      errors: Option[Errors] = None
+      error: Option[Errors] = None
   ): LambdaRunResults = {
     for {
       dynamoRef <- Ref.of[IO, List[IngestQueueTableItem]](initialItemsInTable)
       ssmRef <- Ref.of[IO, FlowControlConfig](flowControlConfig)
       sfnRef <- Ref.of[IO, List[StepFunctionExecution]](initialExecutions)
-      dependencies = Dependencies(dynamoClient(dynamoRef, errors), sfnClient(sfnRef, errors), ssmClient(ssmRef, errors), randomSelection)
+      dependencies = Dependencies(dynamoClient(dynamoRef, error), sfnClient(sfnRef, error), ssmClient(ssmRef, error), randomSelection)
       result <- new Lambda().handler(input, config, dependencies).attempt
       dynamoResult <- dynamoRef.get
       ssmResult <- ssmRef.get
@@ -52,10 +52,11 @@ object Helpers {
   case class Errors(
       getParameter: Boolean = false,
       writeItem: Boolean = false,
-      getItem: Boolean = false,
+      queryItem: Boolean = false,
       deleteItems: Boolean = false,
       listStepFunctions: Boolean = false,
-      sendTaskSuccess: Boolean = false
+      sendTaskSuccess: Boolean = false,
+      sendTaskSuccessTimeOut: Boolean = false
   )
 
   def ssmClient(ref: Ref[IO, FlowControlConfig], errors: Option[Errors]): DASSMClient[IO] = new DASSMClient[IO]:
@@ -81,7 +82,8 @@ object Helpers {
             IngestQueueTableItem(
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(sourceSystem).s(),
               Instant.parse(dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedAt).s()),
-              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(taskToken).s()
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(taskToken).s(),
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(executionName).s()
             ) :: existing
           }
           .map(_ => 1)
@@ -89,14 +91,18 @@ object Helpers {
     override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
 
     override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
-      notImplemented
-
-    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] =
-      val firstPK = primaryKeys.head.asInstanceOf[IngestQueuePartitionKey]
-      errors.raise(_.getItem, "Error getting item from dynamo table") >>
-        ref.get.map { existing =>
-          existing.filter(_.sourceSystem == firstPK.sourceSystem).sortBy(_.queuedAt).map(_.asInstanceOf[T])
+      errors.raise(_.queryItem, "Error querying item from dynamo table") >>
+        ref.get.map { existingItems =>
+          (for {
+            values <- Option(requestCondition.attributes.values)
+            map <- values.toMap[String].toOption
+          } yield existingItems
+            .filter(item => map.get("conditionAttributeValue0").contains(item.sourceSystem))
+            .sortBy(_.queuedAt)
+            .map(_.asInstanceOf[U])).getOrElse(Nil)
         }
+
+    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] = notImplemented
 
     override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = notImplemented
 
@@ -109,8 +115,9 @@ object Helpers {
           existing.map(_.name)
         }
 
-    override def sendTaskSuccess(token: String): IO[Unit] = {
-      errors.raise(_.sendTaskSuccess, "Error sending task success to step function") >>
+    override def sendTaskSuccess[T: Encoder](token: String, potentialOutput: Option[T]): IO[Unit] = {
+      errors.raiseSpecificException(_.sendTaskSuccessTimeOut, TaskTimedOutException.builder().message("Simulating timeout exception").build()) >>
+        errors.raise(_.sendTaskSuccess, "Error sending task success to step function") >>
         ref
           .update { existing =>
             val updatedExecution = existing.filter(_.taskToken == token).map(_.copy(taskTokenSuccess = true))
@@ -120,4 +127,5 @@ object Helpers {
 
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
+  extension (errors: Option[Errors]) def raiseSpecificException(fn: Errors => Boolean, exception: Exception): IO[Unit] = IO.raiseWhen(errors.exists(fn))(exception)
 }
