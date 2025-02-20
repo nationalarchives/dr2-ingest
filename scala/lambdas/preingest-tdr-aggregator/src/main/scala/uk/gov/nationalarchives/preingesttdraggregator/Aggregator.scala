@@ -1,15 +1,17 @@
 package uk.gov.nationalarchives.preingesttdraggregator
 
 import cats.Parallel
+import cats.effect.kernel.Outcome
 import cats.effect.std.AtomicCell
 import cats.effect.syntax.all.*
-import cats.effect.{Async, Outcome}
+import cats.effect.Async
 import cats.syntax.all.*
+import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFailure
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
+import io.circe.*
 import io.circe.generic.auto.*
 import io.circe.parser.decode
 import io.circe.syntax.*
-import io.circe.*
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
@@ -32,7 +34,7 @@ trait Aggregator[F[_]]:
   def aggregate(config: Config, atomicCell: AtomicCell[F, Map[String, Group]], messages: List[SQSMessage], remainingTimeInMillis: Int)(using
       Encoder[SFNArguments],
       Decoder[Input]
-  ): F[List[Outcome[F, Throwable, Unit]]]
+  ): F[List[BatchItemFailure]]
 
 object Aggregator:
 
@@ -49,6 +51,8 @@ object Aggregator:
   type Input = NotificationMessage
 
   case class SFNArguments(groupId: GroupId, batchId: BatchId, waitFor: Seconds, retryCount: Int = 0)
+
+  case class AggregatorError(messageId: String) extends Throwable
 
   enum NewGroupReason:
     case NoExistingGroup, ExpiryBeforeLambdaTimeout, MaxGroupSizeExceeded
@@ -93,6 +97,7 @@ object Aggregator:
         Encoder[SFNArguments]
     ): F[GroupId] = {
       def log = logWithReason(sourceId)
+
       val groupExpiryTime: Milliseconds = lambdaTimeoutTime + config.maxSecondaryBatchingWindow.toMilliSeconds
       atomicCell
         .evalUpdateAndGet { groupCache =>
@@ -110,7 +115,7 @@ object Aggregator:
     override def aggregate(config: Config, atomicCell: AtomicCell[F, Map[String, Group]], messages: List[SQSMessage], remainingTimeInMillis: Int)(using
         Encoder[SFNArguments],
         Decoder[Input]
-    ): F[List[Outcome[F, Throwable, Unit]]] = {
+    ): F[List[BatchItemFailure]] = {
       val lambdaTimeoutTime = (Generators().generateInstant.toEpochMilli + remainingTimeInMillis).milliSeconds
       for {
         fibers <- messages.parTraverse { record =>
@@ -118,10 +123,26 @@ object Aggregator:
             groupId <- getNewOrExistingGroupId(atomicCell, config, record.getEventSourceArn, lambdaTimeoutTime)
             input <- Async[F].fromEither(decode[Input](record.getBody))
             _ <- writeToLockTable(input, config, groupId)
-          } yield ()
-          process.start
+          } yield record.getMessageId
+          process.handleErrorWith { err =>
+            logger.error(Map(), err)(err.getMessage) >>
+              Async[F].raiseError(AggregatorError(record.getMessageId))
+          }.start
         }
         results <- fibers.traverse(_.join)
         _ <- logger.info(Map("successes" -> results.count(_.isSuccess).toString, "failures" -> results.count(_.isError).toString))("Aggregation complete")
-      } yield results
+        response <- handleErrors(results)
+      } yield response
+    }
+
+    private def handleErrors(results: List[Outcome[F, Throwable, String]]): F[List[BatchItemFailure]] = {
+      results
+        .traverse {
+          case Outcome.Errored(e) =>
+            e match
+              case AggregatorError(messageId) => BatchItemFailure.builder().withItemIdentifier(messageId).build.some.pure[F]
+              case _ => Async[F].raiseError(new RuntimeException("Unexpected error", e)) // Should never get here but the compiler complains if I don't check.
+          case _ => none[BatchItemFailure].pure[F]
+        }
+        .map(_.flatten)
     }

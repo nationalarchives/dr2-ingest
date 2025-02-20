@@ -4,21 +4,22 @@ import cats.Monoid
 import cats.effect.IO
 import cats.effect.std.AtomicCell
 import cats.effect.unsafe.implicits.global
-import com.amazonaws.services.lambda.runtime.events.SQSEvent
+import com.amazonaws.services.lambda.runtime.events.{SQSBatchResponse, SQSEvent}
 import com.amazonaws.services.lambda.runtime.{Context, RequestHandler}
 import io.circe.generic.auto.*
 import pureconfig.ConfigReader.Result
 import pureconfig.module.catseffect.syntax.*
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
+import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
-import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
+
 import java.net.URI
 import java.time.Instant
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
-class Lambda extends RequestHandler[SQSEvent, Unit]:
+class Lambda extends RequestHandler[SQSEvent, SQSBatchResponse]:
 
   given Monoid[Map[String, Group]] = Monoid.instance(Map.empty, _ ++ _)
 
@@ -28,13 +29,12 @@ class Lambda extends RequestHandler[SQSEvent, Unit]:
   given DASFNClient[IO] = DASFNClient[IO]()
   given DADynamoDBClient[IO] = DADynamoDBClient[IO]()
 
-  override def handleRequest(input: SQSEvent, context: Context): Unit =
-    ConfigSource.default
-      .loadF[IO, Config]()
-      .flatMap { config =>
-        Aggregator[IO].aggregate(config, groupCacheAtomicCell, input.getRecords.asScala.toList, context.getRemainingTimeInMillis)
-      }
-      .unsafeRunSync()
+  override def handleRequest(input: SQSEvent, context: Context): SQSBatchResponse = {
+    for {
+      config <- ConfigSource.default.loadF[IO, Config]()
+      results <- Aggregator[IO].aggregate(config, groupCacheAtomicCell, input.getRecords.asScala.toList, context.getRemainingTimeInMillis)
+    } yield SQSBatchResponse.builder().withBatchItemFailures(results.asJava).build
+  }.unsafeRunSync()
 
 object Lambda:
 
