@@ -44,7 +44,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
     ): IO[String] = {
       if sourceSystems.isEmpty then
         logger.info(Map("taskExecutor" -> s"$taskExecutorName"))("list of remaining sourceSystems is empty, nothing more to do on reserved channel") >> IO.pure(taskExecutorName)
-      else if (!taskExecutorName.isBlank) then
+      else if !taskExecutorName.isBlank then
         logger.info(Map("successSentBy" -> taskExecutorName))("Sent task success on a reserved channel, exiting reserved channel computation") >> IO.pure(taskExecutorName)
       else
         val currentSystem = sourceSystems.head
@@ -245,7 +245,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
                   deleteItem(systemName, item) >> IO.pure(executionNameForLogging)
               }
               .handleErrorWith {
-                case timeoutException: TaskTimedOutException => {
+                case timeoutException: TaskTimedOutException =>
                   logger.info(
                     Map(
                       "taskToken" -> item.taskToken,
@@ -257,10 +257,8 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
                   )("Encountered TaskTimedOutException, deleting item from table") >>
                     deleteItem(systemName, item).void >>
                     processItems(systemName, items.tail)
-                }
-                case exception: Throwable => {
+                case exception: Throwable =>
                   IO.raiseError(exception)
-                }
               }
 
     for {
@@ -285,7 +283,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
         if flowControlConfig.hasReservedChannels then
           val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
           startTaskOnReservedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, "").flatMap { taskExecutorName =>
-            if !taskExecutorName.isEmpty then 
+            if taskExecutorName.nonEmpty then 
               logger.info(Map("executionName" -> executionNameForLogging))("Task started successfully on reserved channel. Terminating lambda") >> 
               IO.pure(taskExecutorName)
             else if (flowControlConfig.hasSpareChannels)
@@ -299,7 +297,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       } else {
         logger.info(Map("executionName" -> executionNameForLogging))("Max concurrency reached, terminating lambda") >> IO.pure(executionNameForLogging)
       }
-    } yield (StateOutput(taskSuccessExecutor))
+    } yield StateOutput(taskSuccessExecutor)
   }
 
   /** Builds a map of system name to a range. Range is a case class representing a starting point (inclusive) and ending point (exclusive) of the range. e.g. A config where
