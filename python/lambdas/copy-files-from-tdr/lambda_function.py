@@ -90,8 +90,23 @@ metadata_schema = {
     "type": "object",
     "properties": {
         "Series": {"type": "string"},
-        "UUID": {"type": "string"},
-        "TransferInitiatedDatetime": {"type": "string"}
+        "UUID": {"type": "string", "format": "uuid"},
+        "description": {"type": ["string", "null"]},
+        "TransferringBody": {"type": "string"},
+        "TransferInitiatedDatetime": {"type": "string"},
+        "ConsignmentReference": {"type": "string"},
+        "Filename": {"type": "string"},
+        "SHA256ServerSideChecksum": {"type": "string"},
+        "FileReference": {"type": "string"}
     },
-    "required": ["Series", "UUID", "TransferInitiatedDatetime"],
+    "required": [
+        "Series",
+        "UUID",
+        "TransferringBody",
+        "TransferInitiatedDatetime",
+        "ConsignmentReference",
+        "Filename",
+        "SHA256ServerSideChecksum",
+        "FileReference"
+    ]
 }

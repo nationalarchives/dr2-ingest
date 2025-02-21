@@ -26,10 +26,10 @@ class TestLambdaFunction(unittest.TestCase):
                   mock_create_multipart_upload,
                   mock_head_object):
         copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
-                         mock_send_message, mock_complete_multipart_upload, _,
-                         mock_create_multipart_upload,
-                         mock_head_object, {'body': '{"bucket": "source-bucket","fileId":"test-file"}'},
-                         '{"id": "test-file", "location": "s3://destination-bucket/test-file"}')
+                    mock_send_message, mock_complete_multipart_upload, _,
+                    mock_create_multipart_upload,
+                    mock_head_object, {'body': '{"bucket": "source-bucket","fileId":"test-file"}'},
+                    '{"id": "test-file", "location": "s3://destination-bucket/test-file"}')
 
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.create_multipart_upload')
@@ -48,9 +48,9 @@ class TestLambdaFunction(unittest.TestCase):
         expected_message_id = ('{"id": "test-file", "location": "s3://destination-bucket/test-file", "messageId": '
                                '"message-id"}')
         copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
-                         mock_send_message, mock_complete_multipart_upload, _,
-                         mock_create_multipart_upload,
-                         mock_head_object, body_with_message_id, expected_message_id)
+                    mock_send_message, mock_complete_multipart_upload, _,
+                    mock_create_multipart_upload,
+                    mock_head_object, body_with_message_id, expected_message_id)
 
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.copy_object')
@@ -142,29 +142,101 @@ class TestLambdaFunction(unittest.TestCase):
         self.assertEqual(str(cm.exception), "SQS Send message failed")
 
     def test_should_successfully_validate_when_the_fields_are_valid(self):
-        mock_response_body = """{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series": "MOCK1 123", "TransferInitiatedDatetime": "2024-09-19 07:21:57","UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"}"""
+        mock_response_body = json.dumps({
+            "Filename": "name",
+            "ConsignmentReference": "TDR-2024-PQXN",
+            "FileReference": "ZDSCFC",
+            "Series": "MOCK1 123",
+            "TransferInitiatedDatetime": "2024-09-19 07:21:57",
+            "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1",
+            "TransferringBody": "Body",
+            "SHA256ServerSideChecksum": "checksum"
+        })
         result = lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
         self.assertEqual(True, result)
 
     def test_should_raise_an_exception_when_series_does_not_exist(self):
         mock_get_object_response = {
             'Body':
-                '{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", '
-                '"TransferInitiatedDatetime": "2024-09-19 07:21:57","UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"}'
+                json.dumps({"ConsignmentReference": "TDR-2024-PQXN",
+                            "FileReference": "ZDSCFC",
+                            "TransferInitiatedDatetime": "2024-09-19 07:21:57",
+                            "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"
+                            })
         }
         with self.assertRaises(Exception) as ex:
             lambda_function.validate_mandatory_fields_exist(mock_get_object_response)
         self.assertEqual("'Series' is a required property", str(ex.exception))
 
+    def test_should_raise_an_exception_when_transferring_body_does_not_exist(self):
+        mock_response_body = json.dumps({
+            "ConsignmentReference": "TDR-2024-PQXN",
+            "FileReference": "ZDSCFC",
+            "Series": "MOCK1 123",
+            "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"
+        })
+        with self.assertRaises(Exception) as ex:
+            lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
+        self.assertEqual("'TransferringBody' is a required property", str(ex.exception))
+
     def test_should_raise_an_exception_when_transfer_initiated_datetime_does_not_exist(self):
-        mock_response_body = """{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series":"MOCK1 123", "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"}"""
+        mock_response_body = json.dumps({
+            "ConsignmentReference": "TDR-2024-PQXN",
+            "FileReference": "ZDSCFC",
+            "Series": "MOCK1 123",
+            "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1",
+            "TransferringBody": "Body"
+        })
         with self.assertRaises(Exception) as ex:
             lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
         self.assertEqual("'TransferInitiatedDatetime' is a required property", str(ex.exception))
 
+    def test_should_raise_an_exception_when_consignment_reference_does_not_exist(self):
+        mock_response_body = json.dumps({
+            "FileReference": "ZDSCFC",
+            "Series": "MOCK1 123",
+            "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1",
+            "TransferringBody": "Body",
+            "TransferInitiatedDatetime": "2024-09-19 07:21:57"
+        })
+        with self.assertRaises(Exception) as ex:
+            lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
+        self.assertEqual("'ConsignmentReference' is a required property", str(ex.exception))
+
+    def test_should_raise_an_exception_when_file_name_does_not_exist(self):
+        mock_response_body = json.dumps({
+            "ConsignmentReference": "TDR-2024-PQXN",
+            "FileReference": "ZDSCFC",
+            "Series": "MOCK1 123",
+            "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1",
+            "TransferringBody": "Body",
+            "TransferInitiatedDatetime": "2024-09-19 07:21:57"
+        })
+        with self.assertRaises(Exception) as ex:
+            lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
+        self.assertEqual("'Filename' is a required property", str(ex.exception))
+
+    def test_should_raise_an_exception_when_checksum_does_not_exist(self):
+        mock_response_body = json.dumps({
+            "ConsignmentReference": "TDR-2024-PQXN",
+            "FileReference": "ZDSCFC",
+            "Series": "MOCK1 123",
+            "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1",
+            "TransferringBody": "Body",
+            "TransferInitiatedDatetime": "2024-09-19 07:21:57",
+            "Filename": "name"
+        })
+        with self.assertRaises(Exception) as ex:
+            lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
+        self.assertEqual("'SHA256ServerSideChecksum' is a required property", str(ex.exception))
+
     def test_should_raise_an_exception_when_UUID_does_not_exist(self):
-        mock_response_body = """{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series":"MOCK1 123", 
-        "TransferInitiatedDatetime": "2024-09-19 07:21:57"}"""
+        mock_response_body = json.dumps({
+            "ConsignmentReference": "TDR-2024-PQXN",
+            "FileReference": "ZDSCFC",
+            "Series": "MOCK1 123",
+            "TransferInitiatedDatetime": "2024-09-19 07:21:57"
+        })
 
         with self.assertRaises(Exception) as ex:
             lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
