@@ -81,7 +81,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
                       "currentSystem" -> s"${currentSystem.systemName}"
                     )
                   )(s"Initiate processing for current system") >>
-                    processItems(currentSystem.systemName, queueTableItems) map (_ => executionNameForLogging)
+                    processItems(currentSystem.systemName, queueTableItems)
                 else
                   logger.info(
                     Map(
@@ -108,7 +108,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       * @return
       *   IO[Unit]
       */
-    def startTaskBasedOnProbability(sourceSystems: List[SourceSystem]): IO[Unit] = {
+    def startTaskBasedOnProbability(sourceSystems: List[SourceSystem]): IO[String] = {
       val executionNameForLogging = potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME")
       sourceSystems match
         case Nil =>
@@ -116,7 +116,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
             Map(
               "executionName" -> executionNameForLogging
             )
-          )("Iterated over all source systems for probability, none of them have a waiting task, terminating lambda")
+          )("Iterated over all source systems for probability, none of them have a waiting task, terminating lambda") >> IO.pure(executionNameForLogging)
         case _ =>
           val sourceSystemProbabilities = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, Range])
           val maxRandomValue: Int = sourceSystemProbabilities.values.map(_.endExclusive).max
@@ -210,7 +210,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
           )
     }
 
-    def processItems(systemName: String, items: List[IngestQueueTableItem]): IO[Unit] =
+    def processItems(systemName: String, items: List[IngestQueueTableItem]): IO[String] =
       val executionNameForLogging = potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME")
       items match
         case Nil =>
@@ -218,8 +218,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
             Map(
               "system" -> systemName
             )
-          )("No items to process") >>
-            IO.unit
+          )("No items to process") >> IO.pure(executionNameForLogging)
         case _ =>
           val item = items.head
           logger.info(
@@ -227,7 +226,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
               "taskToken" -> item.taskToken,
               "system" -> systemName,
               "queuedAt" -> s"${item.queuedAt}",
-              "startedBy" -> s"${item.executionName}",
+              "executionName" -> s"${item.executionName}",
               "resumedExecution" -> executionNameForLogging
             )
           )("sending success for the task") >>
@@ -243,7 +242,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
                     "executionName" -> s"${item.executionName}"
                   )
                 )("Task sent successfully, deleting item from table") >>
-                  deleteItem(systemName, item).void
+                  deleteItem(systemName, item) >> IO.pure(executionNameForLogging)
               }
               .handleErrorWith {
                 case timeoutException: TaskTimedOutException => {
@@ -282,20 +281,25 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       )(
         s"Found ${runningExecutions.size} running executions against max concurrency of ${flowControlConfig.maxConcurrency}"
       )
-      _ <- IO.whenA(runningExecutions.size < flowControlConfig.maxConcurrency) {
+      taskSuccessExecutor <- if (runningExecutions.size < flowControlConfig.maxConcurrency) {
         if flowControlConfig.hasReservedChannels then
           val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
           startTaskOnReservedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, "").flatMap { taskExecutorName =>
-            if !taskExecutorName.isEmpty then logger.info(Map("executionName" -> executionNameForLogging))("Task started successfully on reserved channel. Terminating lambda")
+            if !taskExecutorName.isEmpty then 
+              logger.info(Map("executionName" -> executionNameForLogging))("Task started successfully on reserved channel. Terminating lambda") >> 
+              IO.pure(taskExecutorName)
             else if (flowControlConfig.hasSpareChannels)
               logger.info(Map("executionName" -> executionNameForLogging))("Attempting to start task based on probability") >>
-                startTaskBasedOnProbability(flowControlConfig.sourceSystems)
+              startTaskBasedOnProbability(flowControlConfig.sourceSystems)
             else
-              logger.info(Map("executionName" -> executionNameForLogging))("No task sent, no spare channels available, terminating lambda")
+              logger.info(Map("executionName" -> executionNameForLogging))("No task sent, no spare channels available, terminating lambda") >> 
+              IO.pure(executionNameForLogging)
           }
         else startTaskBasedOnProbability(flowControlConfig.sourceSystems)
+      } else {
+        logger.info(Map("executionName" -> executionNameForLogging))("Max concurrency reached, terminating lambda") >> IO.pure(executionNameForLogging)
       }
-    } yield (StateOutput(executionNameForLogging))
+    } yield (StateOutput(taskSuccessExecutor))
   }
 
   /** Builds a map of system name to a range. Range is a case class representing a starting point (inclusive) and ending point (exclusive) of the range. e.g. A config where
@@ -346,7 +350,7 @@ object Lambda {
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], stepFunctionClient: DASFNClient[IO], ssmClient: DASSMClient[IO], randomInt: (Int, Int) => Int)
   case class Config(flowControlQueueTableName: String, configParamName: String, stepFunctionArn: String) derives ConfigReader
   case class Input(executionName: String, taskToken: String)
-  case class StateOutput(executionId: String)
+  case class StateOutput(executionName: String)
 
   case class SourceSystem(systemName: String, reservedChannels: Int = 0, probability: Int = 0) {
     require(systemName.nonEmpty, "System name should not be empty")
