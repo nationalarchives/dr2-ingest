@@ -42,7 +42,7 @@ The lambda takes an SQS event as the input. The body of the event is:
 
 ## Lambda output
 
-The lambda does not output anything directly. If a new group is created, it will start the ingest step function with
+If a new group is created, the lambda will start the ingest step function with
 this input
 
 ```json
@@ -53,6 +53,23 @@ this input
   "retryCount": 0
 }
 ```
+
+The lambda also returns a batch item response.
+If no incoming messages failed:
+```json
+{ 
+  "batchItemFailures": []
+}
+```
+
+If there are failures:
+```json
+{
+"batchItemFailures": [{ "itemIdentifier": "sqsMessageId" }]
+}
+```
+
+If we report the failures, it prevents AWS from deleting the message which failed so it can be redelivered at another time.
 
 [Link to the infrastructure code](https://github.com/nationalarchives/dr2-terraform-environments)
 

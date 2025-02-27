@@ -32,8 +32,8 @@ class Lambda extends RequestHandler[SQSEvent, SQSBatchResponse]:
   override def handleRequest(input: SQSEvent, context: Context): SQSBatchResponse = {
     for {
       config <- ConfigSource.default.loadF[IO, Config]()
-      results <- Aggregator[IO].aggregate(config, groupCacheAtomicCell, input.getRecords.asScala.toList, context.getRemainingTimeInMillis)
-    } yield SQSBatchResponse.builder().withBatchItemFailures(results.asJava).build
+      potentialFailures <- Aggregator[IO].aggregate(config, groupCacheAtomicCell, input.getRecords.asScala.toList, context.getRemainingTimeInMillis)
+    } yield SQSBatchResponse.builder().withBatchItemFailures(potentialFailures.asJava).build
   }.unsafeRunSync()
 
 object Lambda:
