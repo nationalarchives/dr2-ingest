@@ -74,21 +74,25 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
               .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === currentSystem.systemName)
               .flatMap { queueTableItems =>
                 if queueTableItems.nonEmpty then
-                  logger.info(
+                  val successExecutorName = logger.info(
                     Map(
                       "executionName" -> executionNameForLogging,
                       "taskTokens" -> queueTableItems.map(_.taskToken).mkString(", "),
                       "currentSystem" -> s"${currentSystem.systemName}"
                     )
                   )(s"Initiate processing for current system") >>
-                    processItems(currentSystem.systemName, queueTableItems)
+                  processItems(currentSystem.systemName, queueTableItems)
+                  if successExecutorName == IO.pure(continueProcessingNextSystem) then
+                    startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, "")
+                  else
+                    successExecutorName
                 else
                   logger.info(
                     Map(
                       "executionName" -> executionNameForLogging,
                       "remainingSystems" -> sourceSystems.tail.map(_.systemName).mkString(", ")
                     )
-                  )("Continuing on reserved channel for remaining systems") >>
+                  )(s"Nothing in queue table for system ${currentSystem.systemName}, Continuing on reserved channel for remaining systems") >>
                     startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, taskExecutorName)
               }
     }
@@ -138,7 +142,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
               .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === systemToStartTaskOn)
               .flatMap { queueTableItems =>
                 if queueTableItems.nonEmpty then
-                  logger.info(
+                  val successExecutorName = logger.info(
                     Map(
                       "executionName" -> executionNameForLogging,
                       "taskTokens" -> queueTableItems.map(_.taskToken).mkString(", "),
@@ -146,6 +150,10 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
                     )
                   )("Initiate processing using probability approach") >>
                     processItems(systemToStartTaskOn, queueTableItems)
+                    if successExecutorName == IO.pure(continueProcessingNextSystem) then
+                      startTaskBasedOnProbability(sourceSystems.filter(_.systemName != systemToStartTaskOn))
+                    else
+                      successExecutorName
                 else
                   val remainingSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
                   logger.info(
@@ -218,7 +226,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
             Map(
               "system" -> systemName
             )
-          )("No items to process") >> IO.pure(executionNameForLogging)
+          )(s"No items to process for system ${systemName}") >> IO.pure(continueProcessingNextSystem)
         case _ =>
           val item = items.head
           logger.info(
@@ -284,7 +292,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
           val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
           startTaskOnReservedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, "").flatMap { taskExecutorName =>
             if taskExecutorName.nonEmpty then 
-              logger.info(Map("executionName" -> executionNameForLogging))("Task started successfully on reserved channel. Terminating lambda") >> 
+              logger.info(Map("executionName" -> executionNameForLogging, "resumedExecution" -> taskExecutorName))("Task started successfully on reserved channel. Terminating lambda") >>
               IO.pure(taskExecutorName)
             else if (flowControlConfig.hasSpareChannels)
               logger.info(Map("executionName" -> executionNameForLogging))("Attempting to start task based on probability") >>
@@ -344,6 +352,7 @@ object Lambda {
     }
 
   private val default = "DEFAULT"
+  private val continueProcessingNextSystem = "CONTINUE_TO_NEXT_SYSTEM"
 
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], stepFunctionClient: DASFNClient[IO], ssmClient: DASSMClient[IO], randomInt: (Int, Int) => Int)
   case class Config(flowControlQueueTableName: String, configParamName: String, stepFunctionArn: String) derives ConfigReader
