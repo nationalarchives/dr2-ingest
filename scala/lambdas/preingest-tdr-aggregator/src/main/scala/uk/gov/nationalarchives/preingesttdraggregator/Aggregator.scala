@@ -57,9 +57,7 @@ object Aggregator:
   enum NewGroupReason:
     case NoExistingGroup, ExpiryBeforeLambdaTimeout, MaxGroupSizeExceeded
 
-  def apply[F[_]: Async](using ev: Aggregator[F]): Aggregator[F] = ev
-
-  given aggregator[F[_]: Async: DASFNClient: DADynamoDBClient: Parallel](using Generators): Aggregator[F] = new Aggregator[F]:
+  def apply[F[_]: Async: Parallel](sfnClient: DASFNClient[F], dynamoClient: DADynamoDBClient[F])(using Generators): Aggregator[F] = new Aggregator[F]:
     private val logger: SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger
 
     private def logWithReason(sourceId: String)(newGroupReason: NewGroupReason): F[Unit] =
@@ -67,7 +65,7 @@ object Aggregator:
 
     private def toDynamoString(value: String): AttributeValue = AttributeValue.builder.s(value).build
 
-    def writeToLockTable(input: Input, config: Config, groupId: GroupId)(using dynamoClient: DADynamoDBClient[F]): F[Int] = {
+    def writeToLockTable(input: Input, config: Config, groupId: GroupId): F[Int] = {
       dynamoClient.writeItem(
         DADynamoDbWriteItemRequest(
           config.lockTable,
@@ -81,10 +79,7 @@ object Aggregator:
       )
     }
 
-    private def startNewGroup(sourceId: String, config: Config, groupExpiryTime: Milliseconds)(using
-        sfnClient: DASFNClient[F],
-        enc: Encoder[SFNArguments]
-    ): F[Group] = {
+    private def startNewGroup(sourceId: String, config: Config, groupExpiryTime: Milliseconds)(using enc: Encoder[SFNArguments]): F[Group] = {
       val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
       val groupId: GroupId = GroupId(config.sourceSystem)
       val batchId = BatchId(groupId)

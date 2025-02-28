@@ -9,7 +9,7 @@ import io.circe.Encoder
 import org.scalatest.flatspec.AnyFlatSpec
 import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{*, given}
 import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
-import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
+import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, utils}
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
 import io.circe.generic.auto.*
 import org.scalatest.{Assertion, EitherValues}
@@ -109,8 +109,9 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
       startSfnArgsRef <- Ref.of[IO, List[StartExecutionArgs]](Nil)
       groupAtomicCell <- AtomicCell[IO].of[Map[String, Group]](groupMap)
       output <- {
-        given DASFNClient[IO] = sfnClient(startSfnArgsRef, sfnError)
-        given DADynamoDBClient[IO] = dynamoClient(writeItemArgsRef, dynamoErrors)
+        val daSfnClient: DASFNClient[IO] = sfnClient(startSfnArgsRef, sfnError)
+        val daDynamoClient: DADynamoDBClient[IO] = dynamoClient(writeItemArgsRef, dynamoErrors)
+
         given Generators = generators(instant)
 
         val sqsMessages = assetIds.map { assetId =>
@@ -121,7 +122,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
           sqsMessage
         }
 
-        Aggregator[IO].aggregate(config, groupAtomicCell, sqsMessages, 1000)
+        Aggregator[IO](daSfnClient, daDynamoClient).aggregate(config, groupAtomicCell, sqsMessages, 1000)
       }
       writeItemArgs <- writeItemArgsRef.get
       startSfnArgs <- startSfnArgsRef.get

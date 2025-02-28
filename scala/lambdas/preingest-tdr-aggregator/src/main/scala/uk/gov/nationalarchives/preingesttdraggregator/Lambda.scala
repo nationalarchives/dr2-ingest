@@ -13,6 +13,7 @@ import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.*
+import uk.gov.nationalarchives.utils.Generators.given
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 
 import java.net.URI
@@ -26,15 +27,18 @@ class Lambda extends RequestHandler[SQSEvent, SQSBatchResponse]:
   private val groupCacheAtomicCell: AtomicCell[IO, Map[String, Group]] =
     AtomicCell[IO].empty[Map[String, Group]].unsafeRunSync() // Not ideal but it needs initialising outside the handler function
 
-  given DASFNClient[IO] = DASFNClient[IO]()
-  given DADynamoDBClient[IO] = DADynamoDBClient[IO]()
-
   override def handleRequest(input: SQSEvent, context: Context): SQSBatchResponse = {
     for {
       config <- ConfigSource.default.loadF[IO, Config]()
-      potentialFailures <- Aggregator[IO].aggregate(config, groupCacheAtomicCell, input.getRecords.asScala.toList, context.getRemainingTimeInMillis)
-    } yield SQSBatchResponse.builder().withBatchItemFailures(potentialFailures.asJava).build
+      batchResponse <- run(Aggregator[IO](DASFNClient[IO](), DADynamoDBClient[IO]()), input, context, config)
+    } yield batchResponse
   }.unsafeRunSync()
+
+  def run(aggregator: Aggregator[IO], input: SQSEvent, context: Context, config: Config): IO[SQSBatchResponse] = {
+    for {
+      potentialFailures <- aggregator.aggregate(config, groupCacheAtomicCell, input.getRecords.asScala.toList, context.getRemainingTimeInMillis)
+    } yield SQSBatchResponse.builder().withBatchItemFailures(potentialFailures.asJava).build
+  }
 
 object Lambda:
 
