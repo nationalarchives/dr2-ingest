@@ -34,7 +34,8 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       * @param taskExecutorName
       *   Name of the task executor which sent the success
       * @return
-      *   IO[String]: name of the task executor which sent the success
+      *   IO[String]: name of the task executor which sent success, a hard coded string "CONTINUE_TO_NEXT_SYSTEM" to indicate that no task was sent for the tried system
+      *   or an empty string to indicate that there is nothing more to do
       */
     def startTaskOnReservedChannel(
         sourceSystems: List[SourceSystem],
@@ -44,7 +45,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
     ): IO[String] = {
       if sourceSystems.isEmpty then
         logger.info(Map("taskExecutor" -> s"$taskExecutorName"))("list of remaining sourceSystems is empty, nothing more to do on reserved channel") >> IO.pure(taskExecutorName)
-      else if !taskExecutorName.isBlank then
+      else if !(taskExecutorName.isBlank) && taskExecutorName != continueProcessingNextSystem then
         logger.info(Map("successSentBy" -> taskExecutorName))("Sent task success on a reserved channel, exiting reserved channel computation") >> IO.pure(taskExecutorName)
       else
         val currentSystem = sourceSystems.head
@@ -74,18 +75,17 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
               .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === currentSystem.systemName)
               .flatMap { queueTableItems =>
                 if queueTableItems.nonEmpty then
-                  val successExecutorName = logger.info(
+                  logger.info(
                     Map(
                       "executionName" -> executionNameForLogging,
                       "taskTokens" -> queueTableItems.map(_.taskToken).mkString(", "),
                       "currentSystem" -> s"${currentSystem.systemName}"
                     )
                   )(s"Initiate processing for current system") >>
-                  processItems(currentSystem.systemName, queueTableItems)
-                  if successExecutorName == IO.pure(continueProcessingNextSystem) then
-                    startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, "")
-                  else
-                    successExecutorName
+                    processItems(currentSystem.systemName, queueTableItems).flatMap { itemOutput =>
+                      if itemOutput == continueProcessingNextSystem then startTaskOnReservedChannel(sourceSystems.tail, executionsBySystem, flowControlConfig, "")
+                      else IO(itemOutput)
+                    }
                 else
                   logger.info(
                     Map(
@@ -110,7 +110,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       * @param sourceSystems
       *   List of source systems to iterate for starting a task
       * @return
-      *   IO[Unit]
+      *   IO[String]: name of the task executor which sent success, a hard coded string "CONTINUE_TO_NEXT_SYSTEM" to indicate that no task was sent for the tried system
       */
     def startTaskBasedOnProbability(sourceSystems: List[SourceSystem]): IO[String] = {
       val executionNameForLogging = potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME")
@@ -142,18 +142,17 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
               .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === systemToStartTaskOn)
               .flatMap { queueTableItems =>
                 if queueTableItems.nonEmpty then
-                  val successExecutorName = logger.info(
+                  logger.info(
                     Map(
                       "executionName" -> executionNameForLogging,
                       "taskTokens" -> queueTableItems.map(_.taskToken).mkString(", "),
                       "currentSystem" -> sourceSystems.head.systemName
                     )
                   )("Initiate processing using probability approach") >>
-                    processItems(systemToStartTaskOn, queueTableItems)
-                    if successExecutorName == IO.pure(continueProcessingNextSystem) then
-                      startTaskBasedOnProbability(sourceSystems.filter(_.systemName != systemToStartTaskOn))
-                    else
-                      successExecutorName
+                    processItems(systemToStartTaskOn, queueTableItems).flatMap { successExecutorName =>
+                      if successExecutorName == continueProcessingNextSystem then startTaskBasedOnProbability(sourceSystems.filter(_.systemName != systemToStartTaskOn))
+                      else IO.pure(successExecutorName)
+                    }
                 else
                   val remainingSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
                   logger.info(
@@ -287,24 +286,27 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       )(
         s"Found ${runningExecutions.size} running executions against max concurrency of ${flowControlConfig.maxConcurrency}"
       )
-      taskSuccessExecutor <- if (runningExecutions.size < flowControlConfig.maxConcurrency) {
-        if flowControlConfig.hasReservedChannels then
-          val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
-          startTaskOnReservedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, "").flatMap { taskExecutorName =>
-            if taskExecutorName.nonEmpty then 
-              logger.info(Map("executionName" -> executionNameForLogging, "resumedExecution" -> taskExecutorName))("Task started successfully on reserved channel. Terminating lambda") >>
-              IO.pure(taskExecutorName)
-            else if (flowControlConfig.hasSpareChannels)
-              logger.info(Map("executionName" -> executionNameForLogging))("Attempting to start task based on probability") >>
-              startTaskBasedOnProbability(flowControlConfig.sourceSystems)
-            else
-              logger.info(Map("executionName" -> executionNameForLogging))("No task sent, no spare channels available, terminating lambda") >> 
-              IO.pure(executionNameForLogging)
-          }
-        else startTaskBasedOnProbability(flowControlConfig.sourceSystems)
-      } else {
-        logger.info(Map("executionName" -> executionNameForLogging))("Max concurrency reached, terminating lambda") >> IO.pure(executionNameForLogging)
-      }
+      taskSuccessExecutor <-
+        if (runningExecutions.size < flowControlConfig.maxConcurrency) {
+          if flowControlConfig.hasReservedChannels then
+            val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
+            startTaskOnReservedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, "").flatMap { taskExecutorName =>
+              if taskExecutorName.nonEmpty then
+                logger.info(Map("executionName" -> executionNameForLogging, "resumedExecution" -> taskExecutorName))(
+                  "Task started successfully on reserved channel. Terminating lambda"
+                ) >>
+                  IO.pure(taskExecutorName)
+              else if (flowControlConfig.hasSpareChannels)
+                logger.info(Map("executionName" -> executionNameForLogging))("Attempting to start task based on probability") >>
+                  startTaskBasedOnProbability(flowControlConfig.sourceSystems)
+              else
+                logger.info(Map("executionName" -> executionNameForLogging))("No task sent, no spare channels available, terminating lambda") >>
+                  IO.pure(executionNameForLogging)
+            }
+          else startTaskBasedOnProbability(flowControlConfig.sourceSystems)
+        } else {
+          logger.info(Map("executionName" -> executionNameForLogging))("Max concurrency reached, terminating lambda") >> IO.pure(executionNameForLogging)
+        }
     } yield StateOutput(taskSuccessExecutor)
   }
 
