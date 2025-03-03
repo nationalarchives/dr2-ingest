@@ -123,49 +123,56 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
           )("Iterated over all source systems for probability, none of them have a waiting task, terminating lambda") >> IO.pure(executionNameForLogging)
         case _ =>
           val sourceSystemProbabilities = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, Range])
-          val maxRandomValue: Int = sourceSystemProbabilities.values.map(_.endExclusive).max
-          val luckyDip = dependencies.randomInt(1, maxRandomValue)
-          val sourceSystemEntry = sourceSystemProbabilities.find((_, probRange) => probRange.startInclusive <= luckyDip && probRange.endExclusive > luckyDip).get
-          val systemToStartTaskOn = sourceSystemEntry._1
-          val systemProbabilitiesStr = sourceSystemProbabilities.map { case (system, range) => s"$system -> (${range.startInclusive}, ${range.endExclusive})" }.mkString(", ")
-          logger.info(
-            Map(
-              "executionName" -> executionNameForLogging,
-              "luckyDip" -> s"$luckyDip",
-              "systemRanges" -> systemProbabilitiesStr,
-              "selection" -> systemToStartTaskOn
-            )
-          )(
-            s"Selected source system based on probability. Attempting to send task success"
-          ) >>
-            dependencies.dynamoClient
-              .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === systemToStartTaskOn)
-              .flatMap { queueTableItems =>
-                if queueTableItems.nonEmpty then
-                  logger.info(
-                    Map(
-                      "executionName" -> executionNameForLogging,
-                      "taskTokens" -> queueTableItems.map(_.taskToken).mkString(", "),
-                      "currentSystem" -> sourceSystems.head.systemName
-                    )
-                  )("Initiate processing using probability approach") >>
-                    processItems(systemToStartTaskOn, queueTableItems).flatMap { successExecutorName =>
-                      if successExecutorName == continueProcessingNextSystem then startTaskBasedOnProbability(sourceSystems.filter(_.systemName != systemToStartTaskOn))
-                      else IO.pure(successExecutorName)
-                    }
-                else
-                  val remainingSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
-                  logger.info(
-                    Map(
-                      "executionName" -> executionNameForLogging,
-                      "remainingSystems" -> remainingSystems.map(_.systemName).mkString(", "),
-                      "attemptedSystem" -> systemToStartTaskOn
-                    )
-                  )(
-                    s"Attempted system does not have a waiting task, continuing to attempt on remaining systems"
-                  ) >>
-                    startTaskBasedOnProbability(remainingSystems)
-              }
+          if (sourceSystemProbabilities.isEmpty) then
+            logger.info(
+              Map(
+                "executionName" -> executionNameForLogging
+              )
+            )(s"All remaining source systems, ${sourceSystems.map(_.systemName).mkString(", ")} have zero probability, terminating lambda") >> IO.pure(executionNameForLogging)
+          else
+            val maxRandomValue: Int = sourceSystemProbabilities.values.map(_.endExclusive).max
+            val luckyDip = dependencies.randomInt(1, maxRandomValue)
+            val sourceSystemEntry = sourceSystemProbabilities.find((_, probRange) => probRange.startInclusive <= luckyDip && probRange.endExclusive > luckyDip).get
+            val systemToStartTaskOn = sourceSystemEntry._1
+            val systemProbabilitiesStr = sourceSystemProbabilities.map { case (system, range) => s"$system -> (${range.startInclusive}, ${range.endExclusive})" }.mkString(", ")
+            logger.info(
+              Map(
+                "executionName" -> executionNameForLogging,
+                "luckyDip" -> s"$luckyDip",
+                "systemRanges" -> systemProbabilitiesStr,
+                "selection" -> systemToStartTaskOn
+              )
+            )(
+              s"Selected source system based on probability. Attempting to send task success"
+            ) >>
+              dependencies.dynamoClient
+                .queryItems[IngestQueueTableItem](config.flowControlQueueTableName, "sourceSystem" === systemToStartTaskOn)
+                .flatMap { queueTableItems =>
+                  if queueTableItems.nonEmpty then
+                    logger.info(
+                      Map(
+                        "executionName" -> executionNameForLogging,
+                        "taskTokens" -> queueTableItems.map(_.taskToken).mkString(", "),
+                        "currentSystem" -> sourceSystems.head.systemName
+                      )
+                    )("Initiate processing using probability approach") >>
+                      processItems(systemToStartTaskOn, queueTableItems).flatMap { successExecutorName =>
+                        if successExecutorName == continueProcessingNextSystem then startTaskBasedOnProbability(sourceSystems.filter(_.systemName != systemToStartTaskOn))
+                        else IO.pure(successExecutorName)
+                      }
+                  else
+                    val remainingSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
+                    logger.info(
+                      Map(
+                        "executionName" -> executionNameForLogging,
+                        "remainingSystems" -> remainingSystems.map(_.systemName).mkString(", "),
+                        "attemptedSystem" -> systemToStartTaskOn
+                      )
+                    )(
+                      s"Attempted system does not have a waiting task, continuing to attempt on remaining systems"
+                    ) >>
+                      startTaskBasedOnProbability(remainingSystems)
+                }
     }
 
     def writeItemToQueueTable(flowControlConfig: FlowControlConfig): IO[Unit] = IO.whenA(potentialInput.nonEmpty) {
@@ -333,9 +340,13 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
     systems match
       case Nil => sourceSystemProbabilityRanges
       case _ =>
-        val rangeEnd = systems.head.probability + rangeStart
-        val newMap = sourceSystemProbabilityRanges ++ Map(systems.head.systemName -> Range(rangeStart, rangeEnd))
-        buildProbabilityRangesMap(systems.tail, rangeEnd, newMap)
+        if systems.head.probability == 0 then {
+          buildProbabilityRangesMap(systems.tail, rangeStart, sourceSystemProbabilityRanges)
+        } else {
+          val rangeEnd = systems.head.probability + rangeStart
+          val newMap = sourceSystemProbabilityRanges ++ Map(systems.head.systemName -> Range(rangeStart, rangeEnd))
+          buildProbabilityRangesMap(systems.tail, rangeEnd, newMap)
+        }
   }
 
   override def dependencies(config: Config): IO[Dependencies] = IO(
