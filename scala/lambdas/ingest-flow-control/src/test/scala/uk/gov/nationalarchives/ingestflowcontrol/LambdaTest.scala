@@ -111,7 +111,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda" should "delete the task from dynamo table when SFN client sendTaskSucess errors as task time out" in {
     val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)), "a-task-already-running", "TST_6b6db6bf_0"))
-    val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 2, 65), SourceSystem("SystemThree", 1, 25), SourceSystem("DEFAULT", 0, 10), SourceSystem("Zero", 1))
+    val validSourceSystems =
+      List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 2, 65), SourceSystem("SystemThree", 1, 25), SourceSystem("DEFAULT", 0, 10), SourceSystem("Zero", 1))
     val initialConfig = FlowControlConfig(7, validSourceSystems)
     val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "a-task-already-running"))
     val input = Option(Input("TDR_execution_name_2", ""))

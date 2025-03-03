@@ -34,8 +34,8 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       * @param taskExecutorName
       *   Name of the task executor which sent the success
       * @return
-      *   IO[String]: name of the task executor which sent success, a hard coded string "CONTINUE_TO_NEXT_SYSTEM" to indicate that no task was sent for the tried system
-      *   or an empty string to indicate that there is nothing more to do
+      *   IO[String]: name of the task executor which sent success, a hard coded string "CONTINUE_TO_NEXT_SYSTEM" to indicate that no task was sent for the tried system or an empty
+      *   string to indicate that there is nothing more to do
       */
     def startTaskOnReservedChannel(
         sourceSystems: List[SourceSystem],
