@@ -11,7 +11,6 @@ flowchart LR;
     --> AssetOpexCreator[Asset OPEX Creator]
     --> FolderOpexCreator[Folder OPEX Creator]
     --> ParentFoldrOpexCreator[Parent Folder OPEX Creator]
-    --> CopyToPreservationSystem[Copy to Preservation System]
     --> StartWorkflow[Start Workflow]
     --> WorflowMonitor[Workflow monitor]
     --> Reconcile[Reconcile assets and children]
@@ -73,7 +72,7 @@ Both when creating or updating a folder, identifiers are passed through into the
 ### Asset OPEX Creation
 
 ```mermaid
-flowchart LR;
+flowchart TB;
     subgraph Map over each asset
         1[Task: Find existing assts] --> 2
         2[Choice: Does asset exist?] --> 3
@@ -86,7 +85,7 @@ The Preservation System is expecting an [OPEX package](https://developers.preser
 
 For each asset, we first [check to see if it's already in the Preservation System](/scala/lambdas/ingest-find-existing-asset/). If it is, we add the `skipIngest` attribute to our DynamoDB table and ignore the asset when generating the OPEX package. We retain the asset within our DynamoDB table to allow us to reconcile the new ingest candidate against the existing ingested asset to ensure they are the same - we want to appear idempotent to clients.
 
-If the asset doesn't already exist within the Preservation System, we proceed to generate an unzipped [PAX](https://developers.preservica.com/documentation/preservation-asset-exchange-pax) and OPEX representation of it at the correct location within a single OPEX package for the whole batch, we write the OPEX package to our `staging` bucket. As our representation of an asset has fewer levels of hierarchy than the Preservation System's, we’ve hardcoded some duplication into this process to create the additional levels; each File within our package generates a CO with a single bitstream. The `id` of our files (which are UUIDs) become the titles of the CO entities as the Preservation System uses the bitstream filenames as the object keys in S3, which could expose sensitive data. We add descriptive metadata (title, description, identifiers, etc.) as part of the OPEX representation, using the same logic applied in our [Upsert Lambda](/scala/lambdas/ingest-upsert-archive-folders/).
+If the asset doesn't already exist within the Preservation System, we proceed to generate an unzipped [PAX](https://developers.preservica.com/documentation/preservation-asset-exchange-pax) and OPEX representation of it at the correct location within a single OPEX package for the whole batch, we write the OPEX package to the Preservation Systems's Ingest bucket. As our representation of an asset has fewer levels of hierarchy than the Preservation System's, we’ve hardcoded some duplication into this process to create the additional levels; each File within our package generates a CO with a single bitstream. The `id` of our files (which are UUIDs) become the titles of the CO entities as the Preservation System uses the bitstream filenames as the object keys in S3, which could expose sensitive data. We add descriptive metadata (title, description, identifiers, etc.) as part of the OPEX representation, using the same logic applied in our [Upsert Lambda](/scala/lambdas/ingest-upsert-archive-folders/).
 
 ### Folder OPEX Creation
 
@@ -95,10 +94,6 @@ Once we’ve created our PAX packages and `.pax.opex` files, we can create our .
 Similar to our Asset OPEX Creator, this Lambda is run in a Map State, but this time passed the `id` of an ArchiveFolder or ContentFolder item within our DynamoDB table. Both types are processed in the same way, with the exception that ArchiveFolder adds the <opex:SourceID> element to the document with the value of the `name`, from our table; within the Preservation System this merges the new folder with the folder we created/found when the Upsert Lambda ran.
 
 Within the Preservation System, we’ve enabled the feature "Require folder manifests" which only allows an ingest to proceed if all subfolders and files are included within the .opex manifests. This reduces the potential for a race condition, where the system begins ingesting whilst we’re still writing packages and enforces a check that the OPEX package we’ve supplied is complete. Unfortunately, it requires that the top-level folder (our root node) also have an .opex manifest; this is a folder that doesn’t get created within the Preservation System but only exists to hold our ingest package for the ingest workflow. As this folder isn’t represented in our package and therefore also not in our DynamoDB table, we’ve [implemented a hack to create this file by listing the contents of our S3 prefix](/scala/lambdas/ingest-parent-folder-opex-creator/).
-
-### Copy to the Preservation System
-
-So far, we've created our OPEX ingest package within a bucket we own. As we're using a managed service for the Preservation System, we need to copy the package to an ingest location it can read from. We've used AWS DataSync to do this.
 
 ### Ingesting
 
