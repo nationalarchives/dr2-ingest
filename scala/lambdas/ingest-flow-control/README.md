@@ -17,27 +17,30 @@ The configuration which governs how the flow of various tasks is controlled. A t
 
 ```json
 {
-  "maxConcurrency": 7,
-  "sourceSystems": {
-    "TDR": {
-      "reservedChannels": 2,
-      "probability": 25
-    },
-    "FCL": {
-      "reservedChannels": 2,
-      "probability": 60
-    },
-    "DEFAULT": {
-      "reservedChannels": 1,
-      "probability": 15
-    }
-  }
+   "maxConcurrency": 8,
+   "sourceSystems": [
+      {
+         "systemName": "TDR",
+         "reservedChannels": 2,
+         "probability": 20
+      },
+      {
+         "systemName": "COURTDOC",
+         "reservedChannels": 2,
+         "probability": 20
+      },
+      {
+         "systemName": "DEFAULT",
+         "reservedChannels": 1,
+         "probability": 60
+      }
+   ]
 }
 ```
 
 In the configuration shown above,
-- `"maxConcurrency: 7"` indicates that there can be upto 7 ingest processes running at a time
-- Each source system is configured with its name (e.g. "TDR", "FCL" etc.)
+- `"maxConcurrency: 8"` indicates that there can be upto 8 ingest processes running at a time
+- Each source system is configured with its `systemName` (e.g. "TDR", "FCL" etc.)
 - Each source system has a configuration of `reservedChannels` and `probability`
 - `reservedChannels` means there is a reserved channel out of the `maxConcurrency` for that specific system.
 - `probability` comes into picture when there are free channels to schedule an ingest process. When such situation arises, the scheduling is done based on the probability allocated to each of the system. (e.g. a probability of 65 means, there is 65% chance given to that system to use next free channel)   
@@ -66,3 +69,6 @@ The lambda operates based on the flow control configuration. Each invocation of 
 1. Once it successfully schedules a task (either on reserved channel or through probability), the lambda invocation terminates.
 1. If neither the reserved channels, nor probability approach schedules a task (e.g. no waiting task), the lambda invocation terminates.
 
+
+## Error handling
+At times, it is possible that more than one invocation reads the same item(s) from the dynamoDB table. In such case, the first invocation succeeds and deletes the item. Any subsequent invocation faces an error condition. In such case, these subsequent invocations simply delete the item and continue processing remaining systems from the configuration.
