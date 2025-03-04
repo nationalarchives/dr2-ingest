@@ -75,7 +75,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
                     }
                 else
                   logInfo(
-                    "Reserved channel: No tasks in queue for current system, continuing with reamining systems",
+                    "Reserved channel: No tasks in queue for current system, continuing with remaining systems",
                     executionNameForLogging,
                     currentSystem.systemName,
                     sourceSystems.tail.map(_.systemName).mkString(", ")
@@ -137,7 +137,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
                   else
                     val remainingSystems = sourceSystems.filter(_.systemName != systemToStartTaskOn)
                     logInfo(
-                      "Probability: No tasks in queue for current system, continuing with reamining systems",
+                      "Probability: No tasks in queue for current system, continuing with remaining systems",
                       executionNameForLogging,
                       systemToStartTaskOn,
                       remainingSystems.map(_.systemName).mkString(", ")
@@ -154,15 +154,15 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
         case _ =>
           val sourceSystemName = input.executionName.split("_").head
           val systemName = flowControlConfig.sourceSystems.find(_.systemName == sourceSystemName).map(_.systemName).getOrElse(default)
-          val queuedAtTime = Instant.now.toString
-          logInfo("Writing item to ingest queue table", input.executionName, systemName, queuedAt = queuedAtTime) >>
+          val queuedTimeAndExecution = Instant.now.toString + "_" + input.executionName
+          logInfo("Writing item to ingest queue table", input.executionName, systemName, queuedTimeAndExecution = queuedTimeAndExecution) >>
             dependencies.dynamoClient
               .writeItem(
                 DADynamoDbWriteItemRequest(
                   config.flowControlQueueTableName,
                   Map(
                     sourceSystem -> AttributeValue.builder.s(systemName).build(),
-                    queuedAt -> AttributeValue.builder.s(queuedAtTime).build(),
+                    queuedAt -> AttributeValue.builder.s(queuedTimeAndExecution).build(),
                     taskToken -> AttributeValue.builder.s(input.taskToken).build(),
                     executionName -> AttributeValue.builder.s(input.executionName).build()
                   )
@@ -173,11 +173,11 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
 
     def deleteItem(systemName: String, firstItem: IngestQueueTableItem) = {
       val executionNameForLogging = potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME")
-      logInfo("Deleting item from ingest queue table", executionNameForLogging, systemName, queuedAt = s"${firstItem.queuedAt}") >>
+      logInfo("Deleting item from ingest queue table", executionNameForLogging, systemName, queuedTimeAndExecution = s"${firstItem.queuedAtAndExecution}") >>
         dependencies.dynamoClient
           .deleteItems(
             config.flowControlQueueTableName,
-            List(IngestQueuePrimaryKey(IngestQueuePartitionKey(systemName), IngestQueueSortKey(firstItem.queuedAt)))
+            List(IngestQueuePrimaryKey(IngestQueuePartitionKey(systemName), IngestQueueSortKey(firstItem.queuedAtAndExecution)))
           )
     }
 
@@ -189,7 +189,13 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
             IO.pure(continueProcessingNextSystem)
         case _ =>
           val item = items.head
-          logInfo("sending success for the task", item.executionName, systemName, queuedAt = s"${item.queuedAt}", resumedExecution = executionNameForLogging) >>
+          logInfo(
+            "sending success for the task",
+            item.executionName,
+            systemName,
+            queuedTimeAndExecution = s"${item.queuedAtAndExecution}",
+            resumedExecution = executionNameForLogging
+          ) >>
             dependencies.stepFunctionClient
               .sendTaskSuccess(item.taskToken)
               .flatMap { _ =>
@@ -197,14 +203,19 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
                   "Task sent successfully, deleting item from table",
                   item.executionName,
                   systemName,
-                  queuedAt = s"${item.queuedAt}",
+                  queuedTimeAndExecution = s"${item.queuedAtAndExecution}",
                   resumedExecution = executionNameForLogging
                 ) >>
                   deleteItem(systemName, item) >> IO.pure(executionNameForLogging)
               }
               .handleErrorWith {
                 case timeoutException: TaskTimedOutException =>
-                  logInfo("Encountered TaskTimedOutException, deleting item from table", executionNameForLogging, systemName, queuedAt = s"${item.queuedAt}") >>
+                  logInfo(
+                    "Encountered TaskTimedOutException, deleting item from table",
+                    executionNameForLogging,
+                    systemName,
+                    queuedTimeAndExecution = s"${item.queuedAtAndExecution}"
+                  ) >>
                     deleteItem(systemName, item).void >>
                     processItems(systemName, items.tail)
                 case exception: Throwable =>
@@ -245,7 +256,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       executionName: String,
       currentSystem: String = "",
       remainingSystems: String = "",
-      queuedAt: String = "",
+      queuedTimeAndExecution: String = "",
       resumedExecution: String = ""
   ): IO[Unit] = {
     logger.info(
@@ -253,7 +264,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
         "executionName" -> executionName,
         "currentSystem" -> currentSystem,
         "remainingSystems" -> remainingSystems,
-        "queuedAt" -> queuedAt,
+        "queuedAt" -> queuedTimeAndExecution,
         "resumedExecution" -> resumedExecution
       ).filter(_._2.nonEmpty)
     )(message)

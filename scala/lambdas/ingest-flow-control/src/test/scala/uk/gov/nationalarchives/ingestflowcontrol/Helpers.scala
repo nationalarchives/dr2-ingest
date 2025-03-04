@@ -11,8 +11,6 @@ import uk.gov.nationalarchives.ingestflowcontrol.Lambda.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASSMClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 
-import java.time.Instant
-
 object Helpers {
   case class StepFunctionExecution(name: String, taskToken: String, taskTokenSuccess: Boolean = false)
 
@@ -70,7 +68,7 @@ object Helpers {
         ref
           .update { r =>
             r.filterNot { row =>
-              primaryKeyAttributes.contains(IngestQueuePrimaryKey(IngestQueuePartitionKey(row.sourceSystem), IngestQueueSortKey(row.queuedAt)))
+              primaryKeyAttributes.contains(IngestQueuePrimaryKey(IngestQueuePartitionKey(row.sourceSystem), IngestQueueSortKey(row.queuedAtAndExecution)))
             }
           }
           .map(_ => Nil)
@@ -81,7 +79,7 @@ object Helpers {
           .update { existing =>
             IngestQueueTableItem(
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(sourceSystem).s(),
-              Instant.parse(dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedAt).s()),
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedAt).s(),
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(taskToken).s(),
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(executionName).s()
             ) :: existing
@@ -98,7 +96,7 @@ object Helpers {
             map <- values.toMap[String].toOption
           } yield existingItems
             .filter(item => map.get("conditionAttributeValue0").contains(item.sourceSystem))
-            .sortBy(_.queuedAt)
+            .sortBy(_.queuedAtAndExecution)
             .map(_.asInstanceOf[U])).getOrElse(Nil)
         }
 

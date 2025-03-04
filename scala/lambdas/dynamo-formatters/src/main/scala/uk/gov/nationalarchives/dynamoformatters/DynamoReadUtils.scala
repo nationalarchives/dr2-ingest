@@ -212,7 +212,7 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
   def readIngestQueueTableItem: Either[InvalidPropertiesError, IngestQueueTableItem] =
     (
       getValidatedMandatoryAttributeAsString(sourceSystem),
-      stringToScalaType[Instant](queuedAt, getPotentialStringValue(queuedAt), Instant.parse),
+      getValidatedMandatoryAttributeAsString(queuedAt),
       getValidatedMandatoryAttributeAsString(taskToken),
       getValidatedMandatoryAttributeAsString(executionName)
     ).mapN(IngestQueueTableItem.apply).toEither.left.map(InvalidPropertiesError.apply)

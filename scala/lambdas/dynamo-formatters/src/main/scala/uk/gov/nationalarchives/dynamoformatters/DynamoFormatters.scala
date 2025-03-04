@@ -126,7 +126,7 @@ object DynamoFormatters {
 
       (validateProperty(av, sourceSystem), validateProperty(av, queuedAt))
         .mapN { (sourceSystem, queuedAt) =>
-          IngestQueuePrimaryKey(IngestQueuePartitionKey(sourceSystem), IngestQueueSortKey(Instant.parse(queuedAt)))
+          IngestQueuePrimaryKey(IngestQueuePartitionKey(sourceSystem), IngestQueueSortKey(queuedAt))
         }
         .toEither
         .left
@@ -286,9 +286,9 @@ object DynamoFormatters {
 
   case class IngestLockTableItem(assetId: UUID, groupId: String, message: String)
 
-  case class IngestQueueTableItem(sourceSystem: String, queuedAt: Instant, taskToken: String, executionName: String)
+  case class IngestQueueTableItem(sourceSystem: String, queuedAtAndExecution: String, taskToken: String, executionName: String)
   case class IngestQueuePartitionKey(sourceSystem: String)
-  case class IngestQueueSortKey(queuedAt: Instant)
+  case class IngestQueueSortKey(queuedAt: String)
   case class IngestQueuePrimaryKey(partitionKey: IngestQueuePartitionKey, sortKey: IngestQueueSortKey)
 
   enum FileRepresentationType:
