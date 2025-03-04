@@ -46,7 +46,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       if sourceSystems.isEmpty then
         logInfo("Reserved channel: No more source systems to iterate over", taskExecutorName) >>
           IO.pure(taskExecutorName)
-      else if !(taskExecutorName.isBlank) && taskExecutorName != continueProcessingNextSystem then
+      else if !taskExecutorName.isBlank && taskExecutorName != continueProcessingNextSystem then
         logInfo("Reserved channel: Task success sent by an execution, terminating further computation", taskExecutorName) >>
           IO.pure(taskExecutorName)
       else
@@ -56,7 +56,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
         val executionNameForLogging = potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME")
         if currentExecutionCount >= reservedChannels then
           logInfo(
-            s"Reserved channel: Execution count of ${currentExecutionCount} exceeds reserved channels",
+            s"Reserved channel: Execution count of $currentExecutionCount exceeds reserved channels",
             executionNameForLogging,
             currentSystem.systemName,
             remainingSystems = sourceSystems.tail.map(_.systemName).mkString(",")
@@ -103,7 +103,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       val executionNameForLogging = potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME")
       sourceSystems match
         case Nil =>
-          logInfo("Iterated over all source systems for probability, none of them have a waiting task, terminating lambda", executionNameForLogging, "") >>
+          logInfo("Iterated over all source systems for probability, none of them have a waiting task, terminating lambda", executionNameForLogging) >>
             IO.pure(executionNameForLogging)
         case _ =>
           val sourceSystemProbabilities = buildProbabilityRangesMap(sourceSystems, 1, Map.empty[String, Range])

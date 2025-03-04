@@ -65,7 +65,7 @@ object DynamoWriteUtils {
           ingestedPreservica -> DynamoValue.fromString(fileDynamoItem.ingestedPreservica.toString),
           location -> DynamoValue.fromString(fileDynamoItem.location.toString),
           ingestedCustodialCopy -> DynamoValue.fromString(fileDynamoItem.ingestedCustodialCopy.toString)
-        ) ++ fileDynamoItem.checksums.map(eachChecksum => s"${checksumPrefix}${eachChecksum.algorithm}" -> DynamoValue.fromString(eachChecksum.fingerprint)).toMap
+        ) ++ fileDynamoItem.checksums.map(eachChecksum => s"$checksumPrefix${eachChecksum.algorithm}" -> DynamoValue.fromString(eachChecksum.fingerprint)).toMap
     }.toDynamoValue
 
   def writeLockTableItem(lockTableItem: IngestLockTableItem): DynamoValue =

@@ -134,7 +134,7 @@ object DynamoFormatters {
     }
 
     override def write(t: IngestQueuePrimaryKey): DynamoValue = {
-      DynamoValue.fromMap(Map(sourceSystem -> DynamoValue.fromString(t.partitionKey.sourceSystem), queuedAt -> DynamoValue.fromString(t.sortKey.queuedAt.toString)))
+      DynamoValue.fromMap(Map(sourceSystem -> DynamoValue.fromString(t.partitionKey.sourceSystem), queuedAt -> DynamoValue.fromString(t.sortKey.queuedAt)))
     }
 
   given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
