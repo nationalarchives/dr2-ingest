@@ -18,13 +18,13 @@ import java.util.UUID
 class MetadataSchemaTest extends AnyFlatSpec {
 
   "the metadata schema" should "validate against the TDRMetadata case class" in {
-    val projectRoot = new File(".")
-      .getCanonicalPath
+    val projectRoot = new File(".").getCanonicalPath
       .replace("/scala/lambdas/preingest-tdr-package-builder", "")
 
     val schemaPath = s"$projectRoot/python/lambdas/copy-files-from-tdr/metadata-schema.json"
 
-    val transferDateTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+    val transferDateTime = DateTimeFormatter
+      .ofPattern("yyyy-MM-dd HH:mm:ss")
       .format(LocalDateTime.ofInstant(Instant.EPOCH, ZoneId.of("UTC")))
 
     def tdrMetadata(description: Option[String]) = TDRMetadata(
