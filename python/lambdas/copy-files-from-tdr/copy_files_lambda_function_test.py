@@ -156,7 +156,8 @@ class TestLambdaFunction(unittest.TestCase):
 
     def test_should_successfully_validate_when_the_fields_are_valid(self):
         mock_response_body = json.dumps(self.valid_metadata())
-        result = lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
+        schema_location = "python/lambdas/copy-files-from-tdr/metadata-schema.json"
+        result = lambda_function.validate_mandatory_fields_exist(schema_location, json.loads(mock_response_body))
         self.assertEqual(True, result)
 
     @patch('lambda_function.s3_client.head_object')
@@ -203,7 +204,8 @@ class TestLambdaFunction(unittest.TestCase):
             str(ex.exception))
 
     def test_should_raise_an_exception_if_fields_are_missing(self):
-        with open("metadata-schema.json", "r") as metadata_schema_file:
+        schema_location = "python/lambdas/copy-files-from-tdr/metadata-schema.json"
+        with open(schema_location, "r") as metadata_schema_file:
             metadata_schema = json.load(metadata_schema_file)
         required_fields = metadata_schema["required"]
         for field in required_fields:
@@ -212,11 +214,13 @@ class TestLambdaFunction(unittest.TestCase):
             invalid_metadata.pop(field)
 
             with self.assertRaises(Exception) as ex:
-                lambda_function.validate_mandatory_fields_exist(invalid_metadata)
+
+                lambda_function.validate_mandatory_fields_exist(schema_location, invalid_metadata)
             self.assertEqual(f"'{field}' is a required property", str(ex.exception))
 
     def test_should_raise_an_exception_if_fields_are_wrong_type(self):
-        with open("metadata-schema.json", "r") as metadata_schema_file:
+        schema_location = "python/lambdas/copy-files-from-tdr/metadata-schema.json"
+        with open(schema_location, "r") as metadata_schema_file:
             metadata_schema = json.load(metadata_schema_file)
         properties = metadata_schema["properties"]
 
@@ -236,7 +240,7 @@ class TestLambdaFunction(unittest.TestCase):
                 invalid_metadata = self.valid_metadata().copy()
                 invalid_metadata[json_property] = test_value
                 with self.assertRaises(Exception) as ex:
-                    lambda_function.validate_mandatory_fields_exist(invalid_metadata)
+                    lambda_function.validate_mandatory_fields_exist(schema_location, invalid_metadata)
 
                 if "format" in property_value and test_value is str:
                     format_type = property_value["format"]

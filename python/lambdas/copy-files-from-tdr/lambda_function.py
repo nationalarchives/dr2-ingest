@@ -42,12 +42,12 @@ def assert_objects_exist_in_bucket(source_bucket, files):
 def validate_metadata(bucket, s3_key):
     response = s3_client.get_object(Bucket=bucket, Key=s3_key)
     json_metadata = json.loads(response['Body'].read().decode('utf-8'))
-    validate_mandatory_fields_exist(json_metadata)
+    validate_mandatory_fields_exist("metadata-schema.json", json_metadata)
     validate_formats(json_metadata, bucket, s3_key)
 
 
-def validate_mandatory_fields_exist(json_metadata):
-    with open("metadata-schema.json", "r") as metadata_schema_file:
+def validate_mandatory_fields_exist(schema_location, json_metadata):
+    with open(schema_location, "r") as metadata_schema_file:
         metadata_schema = json.load(metadata_schema_file)
     try:
         validator = jsonschema.Draft202012Validator(schema=metadata_schema,
