@@ -7,7 +7,6 @@ import boto3
 import botocore
 import jsonschema
 from botocore.exceptions import ClientError
-from jsonschema import validate
 
 s3_client = boto3.client("s3")
 sqs_client = boto3.client("sqs")
@@ -48,8 +47,12 @@ def validate_metadata(bucket, s3_key):
 
 
 def validate_mandatory_fields_exist(json_metadata):
+    with open("metadata-schema.json", "r") as metadata_schema_file:
+        metadata_schema = json.load(metadata_schema_file)
     try:
-        validate(json_metadata, metadata_schema)
+        validator = jsonschema.Draft202012Validator(schema=metadata_schema,
+                                                    format_checker=jsonschema.draft202012_format_checker)
+        validator.validate(json_metadata)
     except jsonschema.exceptions.ValidationError as err:
         raise Exception(err.message)
 
@@ -85,28 +88,3 @@ def copy_objects(destination_bucket, s3_key, source_bucket):
         print(f"Error during copy of '{s3_key}' from '{source_bucket}' to '{destination_bucket}': {e}")
         raise e
 
-
-metadata_schema = {
-    "type": "object",
-    "properties": {
-        "Series": {"type": "string"},
-        "UUID": {"type": "string", "format": "uuid"},
-        "description": {"type": ["string", "null"]},
-        "TransferringBody": {"type": "string"},
-        "TransferInitiatedDatetime": {"type": "string"},
-        "ConsignmentReference": {"type": "string"},
-        "Filename": {"type": "string"},
-        "SHA256ServerSideChecksum": {"type": "string"},
-        "FileReference": {"type": "string"}
-    },
-    "required": [
-        "Series",
-        "UUID",
-        "TransferringBody",
-        "TransferInitiatedDatetime",
-        "ConsignmentReference",
-        "Filename",
-        "SHA256ServerSideChecksum",
-        "FileReference"
-    ]
-}
