@@ -239,9 +239,11 @@ class TestLambdaFunction(unittest.TestCase):
                     lambda_function.validate_mandatory_fields_exist(invalid_metadata)
 
                 if "format" in property_value and test_value is str:
-                    err_msg = f"{test_value} is not a '{property_value["format"]}'"
+                    format_type = property_value["format"]
+                    err_msg = f"{test_value} is not a '{format_type}'"
                 elif type(property_value_type) is list:
-                    err_msg = f"{test_value} is not of type '{"', '".join(property_value_type)}'"
+                    format_type = "', '".join(property_value_type)
+                    err_msg = f"{test_value} is not of type '{format_type}'"
                 else:
                     err_msg = f"{test_value} is not of type '{property_value_type}'"
                 self.assertEqual(err_msg, str(ex.exception))
