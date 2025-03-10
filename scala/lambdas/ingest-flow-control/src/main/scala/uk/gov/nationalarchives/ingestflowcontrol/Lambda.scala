@@ -225,7 +225,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       _ <- writeTaskToQueueTable(flowControlConfig)
       runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
       taskSuccessExecutor <-
-        if (runningExecutions.size < flowControlConfig.maxConcurrency) then
+        if runningExecutions.size < flowControlConfig.maxConcurrency then
           if flowControlConfig.hasReservedChannels then
             val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
             startTaskOnReservedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, "").flatMap { taskExecutorName =>
