@@ -109,7 +109,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task").exists(_.taskTokenSuccess) should be(false)
   }
 
-  "lambda" should "delete the task from dynamo table when SFN client sendTaskSucess errors as task time out" in {
+  "lambda" should "delete the task from dynamo table when SFN client sendTaskSuccess errors as task time out" in {
     val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_2ec6248e_0", "a-task-already-running", "TDR_2ec6248e_0"))
     val validSourceSystems =
       List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 2, 65), SourceSystem("SystemThree", 1, 25), SourceSystem("DEFAULT", 0, 10), SourceSystem("Zero", 1))
@@ -270,7 +270,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   }
 
   "lambda" should "write a system name as DEFAULT if the system name is not available in the config" in {
-    val deleteThisLine = Instant.now.minus(Duration.ofHours(1))
     val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_6b6db6bf_0", "tdr-task-1", "TDR_6b6db6bf_0"))
     val validSourceSystems = List(SourceSystem("TDR", 0, 25), SourceSystem("FCL", 0, 65), SourceSystem("ABC", 1, 10), SourceSystem("DEFAULT"))
     val initialConfig = FlowControlConfig(4, validSourceSystems)
@@ -284,7 +283,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   }
 
   "lambda" should "send success for a task when the system is not explicitly configured and DEFAULT has a reserved channel" in {
-    val deleteThisLine = Instant.now.minus(Duration.ofHours(1))
     val initialDynamo = List.empty
     val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("DEFAULT", 1, 10))
     val initialConfig = FlowControlConfig(4, validSourceSystems)

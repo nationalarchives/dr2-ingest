@@ -68,7 +68,7 @@ object Helpers {
         ref
           .update { r =>
             r.filterNot { row =>
-              primaryKeyAttributes.contains(IngestQueuePrimaryKey(IngestQueuePartitionKey(row.sourceSystem), IngestQueueSortKey(row.queuedAtAndExecution)))
+              primaryKeyAttributes.contains(IngestQueuePrimaryKey(IngestQueuePartitionKey(row.sourceSystem), IngestQueueSortKey(row.queuedTimeAndExecutionName)))
             }
           }
           .map(_ => Nil)
@@ -96,7 +96,7 @@ object Helpers {
             map <- values.toMap[String].toOption
           } yield existingItems
             .filter(item => map.get("conditionAttributeValue0").contains(item.sourceSystem))
-            .sortBy(_.queuedAtAndExecution)
+            .sortBy(_.queuedTimeAndExecutionName)
             .map(_.asInstanceOf[U])).getOrElse(Nil)
         }
 

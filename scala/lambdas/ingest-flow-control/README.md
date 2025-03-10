@@ -59,13 +59,23 @@ The Lambda validates the flow control configuration for:
 
 ## Lambda steps
 
-The lambda operates based on the flow control configuration. Each invocation of the lambda sends task success to, at most, one task. It carries out the operations as follows:
+The lambda operates based on the flow control configuration. Each invocation of the lambda sends task success to, at most, one task. This lambda is invoked from two places, once before the "flow controlled ingest" and once after the "flow controlled ingest". It carries out the operations as follows:
 
-1. It makes use of a dynamoDB table to maintain a queue of tasks. 
-1. On invocation, if there is a taskToken passed in, it adds the taskToken as well as current timestamp into a dynamoDB table.
-1. It then reads the config, iterates over all the systems mentioned in the config to find a matching task in dynamoDB table.
-   1. If it finds an entry for a system in the dynamoDB table, and a free reserved channel for that system, it calls `sendTaskSuccess` for that task and the lambda invocation terminates. 
-   1. If it cannot progress a task on reserved channel (e.g. no free channels), it attempts to progress a task based on probability in the configuration. If there is a free channel available, it generates a random number between 1 and 100 (both inclusive) and tries to schedule a task based on the configured probability ranges.
+1. It makes use of a dynamoDB table to maintain a queue of tasks. To achieve this, as soon as it is invoked, it adds a new item to the dynamoDB table.  
+   1. On invocation, it extracts the systemName from the current execution, a taskToken is passed as input, and currentTime is generated when the lambda is about to write an item.
+   1. It adds the systemName (used as primary key), an entry of the format `currentTime_executionName` which is used as sort key, a taskToken and the execution name as an item into dynamoDB table.
+   1. If the input is empty (i.e. lambda is invoked after the "flow controlled ingest", no entry is written to the database, such invocation only progresses any existing running execution. 
+1.It then reads the configuration, iterates over all the systems mentioned in the config to find a matching task in dynamoDB table. Since the iteration is done based on system names rather than executions, it is possible that an exeuction started by one system may progress a waiting execution from another system.
+   1. Once it reads an entry from the configuration, it finds a list of all tasks from the dynamoDB table for that system. If there is a channel available for the system, it calls "sendTaskSuccess" for that system and invocation of this lambda eventually terminates.
+   1. If there are not enough reserved channels for the system, it carries on iterating over the remaining systems to try and call "sendTaskSuccess" on any running execution
+   1. If there are no reserved channels available for any system, it tries to schedule a task based on probability.
+1. For progressing a task based on probability, it iterates over all the systems in the configuration by systemName
+   1. It finds the number of free channels available and calculates the probability range for the system
+   1. It generates a random number between 1 and 100 (both inclusive) and if the random number falls within the probability range of the system, it calls "sendTaskSuccess" for that system and invocation of this lambda eventually terminates.
+   1. If the selected system does not have a "running" execution, it excludes that system and regenerates the probability ranges for the remaining systems
+   1. It continues this process until it finds a system with a running execution and the random number falls within the probability range of that system
+   1. Once it finds such a system, it calls "sendTaskSuccess" for that system and invocation of this lambda eventually terminates.
+   1. If it cannot find a system with a running execution, it terminates the lambda invocation.
 1. Once it successfully schedules a task (either on reserved channel or through probability), the lambda invocation terminates.
 1. If neither the reserved channels, nor probability approach schedules a task (e.g. no waiting task), the lambda invocation terminates.
 

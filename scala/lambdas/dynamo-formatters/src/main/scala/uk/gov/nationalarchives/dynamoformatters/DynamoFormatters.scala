@@ -286,7 +286,7 @@ object DynamoFormatters {
 
   case class IngestLockTableItem(assetId: UUID, groupId: String, message: String)
 
-  case class IngestQueueTableItem(sourceSystem: String, queuedAtAndExecution: String, taskToken: String, executionName: String)
+  case class IngestQueueTableItem(sourceSystem: String, queuedTimeAndExecutionName: String, taskToken: String, executionName: String)
   case class IngestQueuePartitionKey(sourceSystem: String)
   case class IngestQueueSortKey(queuedAt: String)
   case class IngestQueuePrimaryKey(partitionKey: IngestQueuePartitionKey, sortKey: IngestQueueSortKey)
