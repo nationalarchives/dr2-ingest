@@ -13,7 +13,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.*
 
 import java.net.URI
-import java.time.OffsetDateTime
+import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
@@ -538,7 +538,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       List(parentPath, title, description, sortOrder, fileSize, "checksums", fileExtension, "identifiers", skipIngest, correlationId, digitalAssetSubtype).filter(
         resultMap.contains
       )
-    assert(optionalsInResult.size == 0, s"The following fields are not ignored: ${optionalsInResult.mkString(",")}")
+    assert(optionalsInResult.isEmpty, s"The following fields are not ignored: ${optionalsInResult.mkString(",")}")
   }
 
   "assetItemFormat write" should "write skipIngest if set to true and not write it otherwise" in {
@@ -603,6 +603,37 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val attributeValueMap = filesTablePkFormat.write(FilesTablePrimaryKey(FilesTablePartitionKey(uuid), FilesTableSortKey(batchId))).toAttributeValue.m().asScala
     UUID.fromString(attributeValueMap(id).s()) should equal(uuid)
     attributeValueMap(batchId).s() should equal(batchId)
+  }
+
+  "queueTablePkFormat write" should "write the correct fields" in {
+    val uuid = UUID.randomUUID()
+    val attributeValueMap = queueTablePkFormat
+      .write(IngestQueuePrimaryKey(IngestQueuePartitionKey("TEST"), IngestQueueSortKey("2025-01-28T14:56:16.813553232Z_SOMESYS_2ec6248e_0")))
+      .toAttributeValue
+      .m()
+      .asScala
+    attributeValueMap(sourceSystem).s() should equal("TEST")
+    attributeValueMap(queuedAt).s() should equal("2025-01-28T14:56:16.813553232Z_SOMESYS_2ec6248e_0")
+  }
+
+  "queueTablePkFormat read" should "read the ingest queue primary key " in {
+    val queueTime = Instant.parse("2025-02-11T11:51:16.Z")
+    val input = fromM(Map(sourceSystem -> fromS("SOME_SYSTEM"), queuedAt -> fromS(queueTime.toString + "_SOMESYS_2ec6248e_0")).asJava)
+    val readResult = queueTablePkFormat.read(input).value
+
+    readResult.partitionKey.sourceSystem should equal("SOME_SYSTEM")
+    readResult.sortKey.queuedAt should equal("2025-02-11T11:51:16Z_SOMESYS_2ec6248e_0")
+  }
+
+  "queueTablePkFormat read" should "error when the property is missing" in {
+    val input = fromM(Map("randomName" -> fromS("SOME_SYSTEM"), "notQueued" -> fromS("2025-02-11T11:51:16.Z")).asJava)
+    val readResult = queueTablePkFormat.read(input)
+
+    readResult.isLeft should be(true)
+    val errors = readResult.left.value.asInstanceOf[InvalidPropertiesError].errors
+    errors.size should be(2)
+    errors.find(_._1 == sourceSystem).get._2 should be(MissingProperty)
+    errors.find(_._1 == queuedAt).get._2 should be(MissingProperty)
   }
 
   "ingestLockTableItemFormat read" should "read the correct fields" in {
