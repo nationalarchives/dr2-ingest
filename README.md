@@ -20,7 +20,7 @@ This is a monorepo which contains the source code for the Lambda functions withi
 For our Scala Lambdas, this repository contains [multiple sbt subprojects](https://www.scala-sbt.org/1.x/docs/Multi-Project.html) where each subproject is a different Lambda.
 
 ## Deployment
-When a change is made to one subproject and merged to main, **all** lambas are deployed to the environment.
+When a change is made to one subproject and merged to main, **all** lambdas are deployed to the environment.
 This means that all lambdas are on the same version number. 
 
 ## Creating a new Lambda.
@@ -89,4 +89,17 @@ You can test the lambdas by passing in mock clients to the handler method.
   val output = new Lambda().handler(input, config, argumentVerifier.dependencies).unsafeRunSync()
   output.valueToBeReturned should equal("something")
 }
+```
+
+## Deployment
+To include the newly created lambda for deployment with all the existing lambdas, you can add the name of newly created lambda to `build.sbt` found under `<project_root>scala/lambdas/build.sbt` as shown below
+    
+```scala
+lazy val ingestLambdasRoot = (project in file("."))
+  .aggregate(
+    existingLambda1, // One or more existing lambdas
+    existingLambda2,
+    existingLambda3,
+    newLambda  // Add the name of the new lambda here
+  )
 ```
