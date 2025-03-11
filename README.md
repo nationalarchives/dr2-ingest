@@ -103,4 +103,4 @@ lazy val ingestLambdasRoot = (project in file("."))
     newLambda  // Add the name of the new lambda here
   )
 ```
-For the automatic deployment to succeed, you also need to update the `deploy_lambda_policy`. Update terraform code corresponding to the policy and add this lambda into the list of existing lambdas 
+For the automatic deployment to succeed, you also need to update the `deploy_lambda_policy`. Update [terraform code](https://github.com/nationalarchives/dr2-terraform-environments/blob/main/deploy_roles.tf#L22) corresponding to the policy and add this lambda into the list of existing lambdas 
