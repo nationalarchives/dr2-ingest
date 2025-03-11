@@ -20,7 +20,6 @@ import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Utils.LambdaCon
 import java.net.URI
 import java.nio.ByteBuffer
 import scala.io.Source
-import scala.jdk.CollectionConverters.*
 
 object LambdaTestUtils {
   case class TestInput(input: String, expectedErrors: List[String])
