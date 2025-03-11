@@ -25,7 +25,6 @@ import uk.gov.nationalarchives.DADynamoDBClient
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
-import scala.jdk.CollectionConverters.*
 
 class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll with TableDrivenPropertyChecks with EitherValues {
 

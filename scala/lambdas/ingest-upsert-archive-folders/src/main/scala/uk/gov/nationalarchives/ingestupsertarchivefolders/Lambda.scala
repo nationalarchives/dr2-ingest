@@ -2,7 +2,6 @@ package uk.gov.nationalarchives.ingestupsertarchivefolders
 
 import cats.effect.IO
 import cats.implicits.*
-import cats.syntax.all.*
 import io.circe.generic.auto.*
 import pureconfig.ConfigReader
 import sttp.capabilities.fs2.Fs2Streams

@@ -16,7 +16,6 @@ import uk.gov.nationalarchives.utils.ExternalUtils.*
 import java.net.URI
 import java.nio.ByteBuffer
 import java.util.UUID
-import scala.jdk.CollectionConverters.*
 
 object Utils:
 
