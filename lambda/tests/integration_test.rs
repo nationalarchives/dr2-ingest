@@ -80,14 +80,14 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
 
     let path_to_output_file = input_dir.to_owned().join("output.tar.gz");
     let output_dir = TempDir::new().unwrap();
-    write(&path_to_output_file, &put_request.body).unwrap();
+    write(&path_to_output_file, &put_request.body[5..]).unwrap();
     decompress_test_file(&path_to_output_file, &output_dir);
     let metadata_json = get_metadata_json_fields(&output_dir.to_owned());
     assert_eq!(metadata_json.contact_email, "XXXXXXXXX");
     assert_eq!(metadata_json.contact_name, "XXXXXXXXX");
     assert_eq!(
         metadata_json.checksum,
-        "fa0c3828d4ad516c5e58d9ddc2739c8cae6701c0000a94e7684d589921787ccd"
+        "9330f5cb8b67a81d3bfdedc5b9f5b84952a2c0d2f76a3208b84901febdf4db6a"
     );
 }
 

@@ -113,6 +113,7 @@ async fn upload(
     key: &str,
 ) -> Result<(), Error> {
     let body = ByteStream::from_path(body_path).await?;
+    let a = body.bytes();
     client
         .put_object()
         .bucket(bucket)

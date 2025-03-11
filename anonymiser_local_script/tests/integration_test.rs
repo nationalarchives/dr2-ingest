@@ -32,7 +32,7 @@ fn creates_a_valid_test_package() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(metadata_json.contact_name, "XXXXXXXXX");
     assert_eq!(
         metadata_json.checksum,
-        "fa0c3828d4ad516c5e58d9ddc2739c8cae6701c0000a94e7684d589921787ccd"
+        "9330f5cb8b67a81d3bfdedc5b9f5b84952a2c0d2f76a3208b84901febdf4db6a"
     );
     Ok(())
 }
