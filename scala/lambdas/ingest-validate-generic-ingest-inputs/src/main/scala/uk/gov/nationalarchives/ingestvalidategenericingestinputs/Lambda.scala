@@ -4,7 +4,6 @@ import cats.*
 import cats.effect.IO
 import cats.effect.std.AtomicCell
 import cats.implicits.*
-import cats.syntax.all.*
 import com.networknt.schema.InputFormat.JSON
 import com.networknt.schema.SpecVersion.VersionFlag
 import com.networknt.schema.{JsonSchema, JsonSchemaFactory}

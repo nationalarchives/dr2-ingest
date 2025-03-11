@@ -23,7 +23,6 @@ import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.*
 import java.time.{OffsetDateTime, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 import java.util.UUID
-import scala.jdk.CollectionConverters.*
 
 class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
 

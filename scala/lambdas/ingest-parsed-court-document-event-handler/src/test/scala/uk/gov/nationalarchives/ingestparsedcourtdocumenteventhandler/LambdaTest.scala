@@ -16,7 +16,6 @@ import uk.gov.nationalarchives.utils.ExternalUtils.*
 import java.net.URI
 import java.time.OffsetDateTime
 import java.util.UUID
-import scala.jdk.CollectionConverters.*
 
 class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherValues {
 
