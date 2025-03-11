@@ -211,7 +211,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
                     "Encountered TaskTimedOutException, deleting task from table",
                     executorName,
                     systemName,
-                    queuedTimeAndExecution = s"${task.queuedTimeAndExecutionName}"
+                    queuedTimeAndExecution = task.queuedTimeAndExecutionName
                   ) >>
                     deleteTask(systemName, task).void >>
                     sendTaskSuccessThenDelete(systemName, tasks.tail)
