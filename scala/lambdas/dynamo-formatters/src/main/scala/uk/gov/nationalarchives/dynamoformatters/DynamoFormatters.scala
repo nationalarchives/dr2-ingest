@@ -100,15 +100,15 @@ object DynamoFormatters {
   val queuedAt = "queuedAt"
   val sourceSystem = "sourceSystem"
   val taskToken = "taskToken"
+  val executionName = "executionName"
+
+  private def validateProperty(av: DynamoValue, name: String) =
+    av.toAttributeValue.m().asScala.get(name).map(_.s()).map(Validated.Valid.apply).getOrElse(Validated.Invalid(name -> MissingProperty)).toValidatedNel
 
   given filesTablePkFormat: Typeclass[FilesTablePrimaryKey] = new DynamoFormat[FilesTablePrimaryKey]:
     override def read(av: DynamoValue): Either[DynamoReadError, FilesTablePrimaryKey] = {
-      val valueMap = av.toAttributeValue.m().asScala
 
-      def validateProperty(name: String) =
-        valueMap.get(name).map(_.s()).map(Validated.Valid.apply).getOrElse(Validated.Invalid(name -> MissingProperty)).toValidatedNel
-
-      (validateProperty(id), validateProperty(batchId))
+      (validateProperty(av, id), validateProperty(av, batchId))
         .mapN { (id, batchId) =>
           FilesTablePrimaryKey(FilesTablePartitionKey(UUID.fromString(id)), FilesTableSortKey(batchId))
         }
@@ -121,10 +121,25 @@ object DynamoFormatters {
       DynamoValue.fromMap(Map(id -> DynamoValue.fromString(t.partitionKey.id.toString), batchId -> DynamoValue.fromString(t.sortKey.batchId)))
     }
 
+  given queueTablePkFormat: Typeclass[IngestQueuePrimaryKey] = new DynamoFormat[IngestQueuePrimaryKey]:
+    override def read(av: DynamoValue): Either[DynamoReadError, IngestQueuePrimaryKey] = {
+
+      (validateProperty(av, sourceSystem), validateProperty(av, queuedAt))
+        .mapN { (sourceSystem, queuedAt) =>
+          IngestQueuePrimaryKey(IngestQueuePartitionKey(sourceSystem), IngestQueueSortKey(queuedAt))
+        }
+        .toEither
+        .left
+        .map(InvalidPropertiesError.apply)
+    }
+
+    override def write(t: IngestQueuePrimaryKey): DynamoValue = {
+      DynamoValue.fromMap(Map(sourceSystem -> DynamoValue.fromString(t.partitionKey.sourceSystem), queuedAt -> DynamoValue.fromString(t.sortKey.queuedAt)))
+    }
+
   given lockTablePkFormat: Typeclass[LockTablePartitionKey] = deriveDynamoFormat[LockTablePartitionKey]
 
   given Typeclass[IngestQueuePartitionKey] = deriveDynamoFormat[IngestQueuePartitionKey]
-  given Typeclass[IngestQueuePrimaryKey] = deriveDynamoFormat[IngestQueuePrimaryKey]
   given Typeclass[IngestQueueSortKey] = deriveDynamoFormat[IngestQueueSortKey]
 
   given typeFormatter: DynamoFormat[Type] = new DynamoFormat[Type]:
@@ -271,9 +286,9 @@ object DynamoFormatters {
 
   case class IngestLockTableItem(assetId: UUID, groupId: String, message: String)
 
-  case class IngestQueueTableItem(sourceSystem: String, queuedAt: Instant, taskToken: String)
+  case class IngestQueueTableItem(sourceSystem: String, queuedTimeAndExecutionName: String, taskToken: String, executionName: String)
   case class IngestQueuePartitionKey(sourceSystem: String)
-  case class IngestQueueSortKey(queuedAt: Instant)
+  case class IngestQueueSortKey(queuedAt: String)
   case class IngestQueuePrimaryKey(partitionKey: IngestQueuePartitionKey, sortKey: IngestQueueSortKey)
 
   enum FileRepresentationType:
