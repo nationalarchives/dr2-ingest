@@ -12,6 +12,19 @@ from test_utils import copy_helper
 @patch.dict('os.environ', {'OUTPUT_BUCKET_NAME': 'destination-bucket'})
 @patch.dict('os.environ', {'OUTPUT_QUEUE_URL': 'destination-queue'})
 class TestLambdaFunction(unittest.TestCase):
+    @staticmethod
+    def valid_metadata():
+        return {
+            "Filename": "name",
+            "ConsignmentReference": "TDR-2024-PQXN",
+            "FileReference": "ZDSCFC",
+            "Series": "MOCK1 123",
+            "TransferInitiatedDatetime": "2024-09-19 07:21:57",
+            "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1",
+            "TransferringBody": "Body",
+            "SHA256ServerSideChecksum": "checksum"
+        }
+
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.create_multipart_upload')
     @patch('lambda_function.s3_client.upload_part_copy')
@@ -26,10 +39,10 @@ class TestLambdaFunction(unittest.TestCase):
                   mock_create_multipart_upload,
                   mock_head_object):
         copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
-                         mock_send_message, mock_complete_multipart_upload, _,
-                         mock_create_multipart_upload,
-                         mock_head_object, {'body': '{"bucket": "source-bucket","fileId":"test-file"}'},
-                         '{"id": "test-file", "location": "s3://destination-bucket/test-file"}')
+                    mock_send_message, mock_complete_multipart_upload, _,
+                    mock_create_multipart_upload,
+                    mock_head_object, {'body': '{"bucket": "source-bucket","fileId":"test-file"}'},
+                    '{"id": "test-file", "location": "s3://destination-bucket/test-file"}')
 
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.create_multipart_upload')
@@ -48,9 +61,9 @@ class TestLambdaFunction(unittest.TestCase):
         expected_message_id = ('{"id": "test-file", "location": "s3://destination-bucket/test-file", "messageId": '
                                '"message-id"}')
         copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
-                         mock_send_message, mock_complete_multipart_upload, _,
-                         mock_create_multipart_upload,
-                         mock_head_object, body_with_message_id, expected_message_id)
+                    mock_send_message, mock_complete_multipart_upload, _,
+                    mock_create_multipart_upload,
+                    mock_head_object, body_with_message_id, expected_message_id)
 
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.copy_object')
@@ -142,33 +155,10 @@ class TestLambdaFunction(unittest.TestCase):
         self.assertEqual(str(cm.exception), "SQS Send message failed")
 
     def test_should_successfully_validate_when_the_fields_are_valid(self):
-        mock_response_body = """{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series": "MOCK1 123", "TransferInitiatedDatetime": "2024-09-19 07:21:57","UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"}"""
-        result = lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
+        mock_response_body = json.dumps(self.valid_metadata())
+        schema_location = "common/preingest-tdr/metadata-schema.json"
+        result = lambda_function.validate_mandatory_fields_exist(schema_location, json.loads(mock_response_body))
         self.assertEqual(True, result)
-
-    def test_should_raise_an_exception_when_series_does_not_exist(self):
-        mock_get_object_response = {
-            'Body':
-                '{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", '
-                '"TransferInitiatedDatetime": "2024-09-19 07:21:57","UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"}'
-        }
-        with self.assertRaises(Exception) as ex:
-            lambda_function.validate_mandatory_fields_exist(mock_get_object_response)
-        self.assertEqual("'Series' is a required property", str(ex.exception))
-
-    def test_should_raise_an_exception_when_transfer_initiated_datetime_does_not_exist(self):
-        mock_response_body = """{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series":"MOCK1 123", "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"}"""
-        with self.assertRaises(Exception) as ex:
-            lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
-        self.assertEqual("'TransferInitiatedDatetime' is a required property", str(ex.exception))
-
-    def test_should_raise_an_exception_when_UUID_does_not_exist(self):
-        mock_response_body = """{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series":"MOCK1 123", 
-        "TransferInitiatedDatetime": "2024-09-19 07:21:57"}"""
-
-        with self.assertRaises(Exception) as ex:
-            lambda_function.validate_mandatory_fields_exist(json.loads(mock_response_body))
-        self.assertEqual("'UUID' is a required property", str(ex.exception))
 
     @patch('lambda_function.s3_client.head_object')
     def test_should_raise_an_exception_when_the_file_does_not_exist_in_source_bucket(self, mock_head_object):
@@ -213,9 +203,56 @@ class TestLambdaFunction(unittest.TestCase):
             "Object 'some_key.metadata' does not exist in 'some_bucket', underlying error is: 'An error occurred (404) when calling the HeadObject operation: Not Found'",
             str(ex.exception))
 
-    def test_should_raise_an_exception_when_UUID_is_invalid(self):
-        # mock_response_body = """{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series":"MOCK1 123", "TransferInitiatedDatetime": "2024-09-19 07:21:57", "UUID": "invalid-uuid-format"}"""
+    def test_should_raise_an_exception_if_fields_are_missing(self):
+        schema_location = "common/preingest-tdr/metadata-schema.json"
+        with open(schema_location, "r") as metadata_schema_file:
+            metadata_schema = json.load(metadata_schema_file)
+        required_fields = metadata_schema["required"]
+        for field in required_fields:
 
+            invalid_metadata = self.valid_metadata().copy()
+            invalid_metadata.pop(field)
+
+            with self.assertRaises(Exception) as ex:
+
+                lambda_function.validate_mandatory_fields_exist(schema_location, invalid_metadata)
+            self.assertEqual(f"'{field}' is a required property", str(ex.exception))
+
+    def test_should_raise_an_exception_if_fields_are_wrong_type(self):
+        schema_location = "common/preingest-tdr/metadata-schema.json"
+        with open(schema_location, "r") as metadata_schema_file:
+            metadata_schema = json.load(metadata_schema_file)
+        properties = metadata_schema["properties"]
+
+        for json_property in properties:
+            property_value = properties[json_property]
+            property_value_type = property_value["type"]
+            if property_value_type == "string":
+                test_values = [1, False, None, ["test"], {"test": "value"}]
+            elif property_value.get("format") == "uuid":
+                test_values = ["test", 1, None, False, ["test"], {"test": "value"}]
+            elif type(property_value_type) is list and "string" in property_value_type and "null" in property_value_type:
+                test_values = [1, False, ["test"], {"test": "value"}]
+            else:
+                raise "Unexpected property value"
+
+            for test_value in test_values:
+                invalid_metadata = self.valid_metadata().copy()
+                invalid_metadata[json_property] = test_value
+                with self.assertRaises(Exception) as ex:
+                    lambda_function.validate_mandatory_fields_exist(schema_location, invalid_metadata)
+
+                if "format" in property_value and test_value is str:
+                    format_type = property_value["format"]
+                    err_msg = f"{test_value} is not a '{format_type}'"
+                elif type(property_value_type) is list:
+                    format_type = "', '".join(property_value_type)
+                    err_msg = f"{test_value} is not of type '{format_type}'"
+                else:
+                    err_msg = f"{test_value} is not of type '{property_value_type}'"
+                self.assertEqual(err_msg, str(ex.exception))
+
+    def test_should_raise_an_exception_when_UUID_is_invalid(self):
         mock_response_body = """{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series":"MOCK1 123", 
                 "TransferInitiatedDatetime": "2024-09-19 07:21:57", "UUID": "invalid-uuid-format"}"""
 
