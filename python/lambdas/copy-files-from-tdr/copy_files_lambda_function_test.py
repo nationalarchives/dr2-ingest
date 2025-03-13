@@ -156,7 +156,7 @@ class TestLambdaFunction(unittest.TestCase):
 
     def test_should_successfully_validate_when_the_fields_are_valid(self):
         mock_response_body = json.dumps(self.valid_metadata())
-        schema_location = "python/lambdas/copy-files-from-tdr/metadata-schema.json"
+        schema_location = "common/metadata-schema.json"
         result = lambda_function.validate_mandatory_fields_exist(schema_location, json.loads(mock_response_body))
         self.assertEqual(True, result)
 
@@ -204,7 +204,7 @@ class TestLambdaFunction(unittest.TestCase):
             str(ex.exception))
 
     def test_should_raise_an_exception_if_fields_are_missing(self):
-        schema_location = "python/lambdas/copy-files-from-tdr/metadata-schema.json"
+        schema_location = "common/metadata-schema.json"
         with open(schema_location, "r") as metadata_schema_file:
             metadata_schema = json.load(metadata_schema_file)
         required_fields = metadata_schema["required"]
@@ -219,7 +219,7 @@ class TestLambdaFunction(unittest.TestCase):
             self.assertEqual(f"'{field}' is a required property", str(ex.exception))
 
     def test_should_raise_an_exception_if_fields_are_wrong_type(self):
-        schema_location = "python/lambdas/copy-files-from-tdr/metadata-schema.json"
+        schema_location = "common/metadata-schema.json"
         with open(schema_location, "r") as metadata_schema_file:
             metadata_schema = json.load(metadata_schema_file)
         properties = metadata_schema["properties"]
