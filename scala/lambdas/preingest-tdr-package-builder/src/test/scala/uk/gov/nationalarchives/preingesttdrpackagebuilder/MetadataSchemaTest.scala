@@ -21,7 +21,7 @@ class MetadataSchemaTest extends AnyFlatSpec {
     val projectRoot = new File(".").getCanonicalPath
       .replace("/scala/lambdas/preingest-tdr-package-builder", "")
 
-    val schemaPath = s"$projectRoot/common/metadata-schema.json"
+    val schemaPath = s"$projectRoot/common/preingest-tdr/metadata-schema.json"
 
     val transferDateTime = DateTimeFormatter
       .ofPattern("yyyy-MM-dd HH:mm:ss")
