@@ -71,7 +71,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         config.lastEventActionTableName
       )
       updatedSinceResponse = updatedSinceResponses.head
-      updatedSinceAsDate = OffsetDateTime.parse(updatedSinceResponse.datetime).toZonedDateTime.minus(Duration.ofMinutes(10))
+      updatedSinceAsDate = OffsetDateTime.parse(updatedSinceResponse.datetime).toZonedDateTime
       recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, startFrom)
       _ <- logger.info(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
 
