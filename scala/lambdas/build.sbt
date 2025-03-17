@@ -48,7 +48,7 @@ lazy val commonSettings = Seq(
     scalaTest % Test,
     wiremock % Test
   ),
-  dependencyOverrides += awsDynamo,
+  dependencyOverrides ++= Seq(awsDynamo, commonsLogging),
     assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
