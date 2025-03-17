@@ -42,7 +42,7 @@ def assert_objects_exist_in_bucket(source_bucket, files):
 def validate_metadata(bucket, s3_key):
     response = s3_client.get_object(Bucket=bucket, Key=s3_key)
     json_metadata = json.loads(response['Body'].read().decode('utf-8'))
-    validate_mandatory_fields_exist("common/metadata-schema.json", json_metadata)
+    validate_mandatory_fields_exist("common/preingest-tdr/metadata-schema.json", json_metadata)
     validate_formats(json_metadata, bucket, s3_key)
 
 
