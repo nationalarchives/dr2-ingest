@@ -265,6 +265,7 @@ lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-bu
       circeFs2,
       dynamoClient,
       fs2Reactive,
+      jsonSchemaValidator % Test,
       s3Client,
       reactorTest % Test,
       scalaCheck % Test,
