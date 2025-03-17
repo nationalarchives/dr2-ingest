@@ -16,7 +16,7 @@ import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 
-import java.time.{Instant, OffsetDateTime}
+import java.time.{Duration, Instant, OffsetDateTime}
 
 class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
   private val maxEntitiesPerPage: Int = 1000
@@ -83,7 +83,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
           }
         } else IO.pure(None)
 
-      _ <- IO.whenA(entityLastEventActionDate.exists(_.isBefore(eventTriggeredDatetime))) {
+      _ <- IO.whenA(entityLastEventActionDate.exists(_.isBefore(eventTriggeredDatetime.minus(Duration.ofMinutes(10))))) {
         for {
           _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
           updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
