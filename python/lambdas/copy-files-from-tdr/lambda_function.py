@@ -7,7 +7,6 @@ import boto3
 import botocore
 import jsonschema
 from botocore.exceptions import ClientError
-from jsonschema import validate
 
 s3_client = boto3.client("s3")
 sqs_client = boto3.client("sqs")
@@ -43,13 +42,17 @@ def assert_objects_exist_in_bucket(source_bucket, files):
 def validate_metadata(bucket, s3_key):
     response = s3_client.get_object(Bucket=bucket, Key=s3_key)
     json_metadata = json.loads(response['Body'].read().decode('utf-8'))
-    validate_mandatory_fields_exist(json_metadata)
+    validate_mandatory_fields_exist("common/metadata-schema.json", json_metadata)
     validate_formats(json_metadata, bucket, s3_key)
 
 
-def validate_mandatory_fields_exist(json_metadata):
+def validate_mandatory_fields_exist(schema_location, json_metadata):
+    with open(schema_location, "r") as metadata_schema_file:
+        metadata_schema = json.load(metadata_schema_file)
     try:
-        validate(json_metadata, metadata_schema)
+        validator = jsonschema.Draft202012Validator(schema=metadata_schema,
+                                                    format_checker=jsonschema.draft202012_format_checker)
+        validator.validate(json_metadata)
     except jsonschema.exceptions.ValidationError as err:
         raise Exception(err.message)
 
@@ -85,13 +88,3 @@ def copy_objects(destination_bucket, s3_key, source_bucket):
         print(f"Error during copy of '{s3_key}' from '{source_bucket}' to '{destination_bucket}': {e}")
         raise e
 
-
-metadata_schema = {
-    "type": "object",
-    "properties": {
-        "Series": {"type": "string"},
-        "UUID": {"type": "string"},
-        "TransferInitiatedDatetime": {"type": "string"}
-    },
-    "required": ["Series", "UUID", "TransferInitiatedDatetime"],
-}
