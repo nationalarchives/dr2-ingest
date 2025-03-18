@@ -20,15 +20,19 @@ def lambda_handler(event, context):
         file_id = body["fileId"]
         metadata_file_id = f"{file_id}.metadata"
         source_bucket = body["bucket"]
-        files = [file_id, metadata_file_id]
-        assert_objects_exist_in_bucket(source_bucket, files)
-        validate_metadata(source_bucket, metadata_file_id)
-        file_location = copy_objects(destination_bucket, file_id, source_bucket)
-        copy_objects(destination_bucket, metadata_file_id, source_bucket)
-        potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
-        sqs_body = {"id": file_id, "location": file_location}
-        sqs_body.update(potential_message_id)
-        sqs_client.send_message(QueueUrl=destination_queue, MessageBody=json.dumps(sqs_body))
+        try:
+            files = [file_id, metadata_file_id]
+            assert_objects_exist_in_bucket(source_bucket, files)
+            validate_metadata(source_bucket, metadata_file_id)
+            file_location = copy_objects(destination_bucket, file_id, source_bucket)
+            copy_objects(destination_bucket, metadata_file_id, source_bucket)
+            potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
+            sqs_body = {"id": file_id, "location": file_location}
+            sqs_body.update(potential_message_id)
+            sqs_client.send_message(QueueUrl=destination_queue, MessageBody=json.dumps(sqs_body))
+        except Exception as e:
+            print(json.dumps({"error": str(e), "fileId": file_id}))
+            raise Exception(str(e))
 
 
 def assert_objects_exist_in_bucket(source_bucket, files):
