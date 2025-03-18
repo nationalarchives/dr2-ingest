@@ -48,7 +48,8 @@ lazy val commonSettings = Seq(
     scalaTest % Test,
     wiremock % Test
   ),
-  assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
+  dependencyOverrides ++= Seq(awsDynamo, commonsLogging),
+    assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
     case _                                                   => MergeStrategy.first
@@ -156,7 +157,6 @@ lazy val entityEventGenerator = (project in file("entity-event-generator-lambda"
   .dependsOn(utils)
   .settings(
     libraryDependencies ++= Seq(
-      awsSecretsManager,
       catsEffect,
       dynamoClient,
       preservicaClient,
