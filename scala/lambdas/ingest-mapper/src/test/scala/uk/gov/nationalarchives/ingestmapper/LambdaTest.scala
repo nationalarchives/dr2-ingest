@@ -186,7 +186,7 @@ class LambdaTest extends AnyFlatSpec {
 
   }
 
-  "handler" should "return an error if the discovery api is unavailable" in {
+  "handler" should "not return an error if the discovery api is unavailable" in {
     val metadataResponse = getMetadata
 
     val dynamoItems = (for {
