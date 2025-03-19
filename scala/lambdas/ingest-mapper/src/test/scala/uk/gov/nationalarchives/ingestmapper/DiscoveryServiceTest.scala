@@ -106,16 +106,24 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     checkAsset(seriesCollectionAsset, "T TEST")
   }
 
-  "getDiscoveryCollectionAssets" should "return an error if the discovery API returns an error" in {
+  "getDiscoveryCollectionAssets" should "return an empty description if the discovery API returns an error" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError()).whenAnyRequest
       .thenRespondServerError()
 
-    val ex = intercept[Exception] {
-      DiscoveryService(baseUrl, backend, uuidIterator)
-        .getDiscoveryCollectionAssets(Option("A TEST"))
-        .unsafeRunSync()
-    }
-    ex.getMessage should equal("statusCode: 500, response: Internal server error")
+    val assets = DiscoveryService(baseUrl, backend, uuidIterator)
+      .getDiscoveryCollectionAssets(Option("A TEST"))
+      .unsafeRunSync()
+
+    val discoveryAsset = assets.potentialDepartmentCollectionAsset.get
+    val seriesAsset = assets.potentialSeriesCollectionAsset.get
+
+    discoveryAsset.title should equal("A")
+    discoveryAsset.citableReference should equal("A")
+    discoveryAsset.scopeContent.description should equal("")
+
+    seriesAsset.title should equal("A TEST")
+    seriesAsset.citableReference should equal("A TEST")
+    seriesAsset.scopeContent.description should equal("")
   }
 
   "getDiscoveryCollectionAssets" should "set the citable ref as the title and description as '', if the series reference doesn't match the response" in {
