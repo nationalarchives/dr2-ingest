@@ -76,11 +76,11 @@ object DiscoveryService {
           body <- Async[F].fromEither(response.body)
           potentialAsset = body.assets.find(_.citableReference == citableReference)
           formattedAsset <- potentialAsset.map(stripHtmlFromDiscoveryResponse).getOrElse {
-            Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), citableReference))
+            Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), ""))
           }
         } yield formattedAsset
       }.handleErrorWith { e =>
-        logger.warn(e)("Error from Discovery") >> Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), citableReference))
+        logger.warn(e)("Error from Discovery") >> Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), ""))
       }
 
       override def getDiscoveryCollectionAssets(potentialSeries: Option[String]): F[DepartmentAndSeriesCollectionAssets] = {
