@@ -168,7 +168,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
           UpdateEntityRequest(
             entity.ref,
             potentialNewTitle.get,
-            if (descriptionHasChanged) potentialNewDescription else None,
+            if (descriptionHasChanged) potentialNewDescription else entity.description,
             StructuralObject,
             entity.securityTag.get,
             parentRef

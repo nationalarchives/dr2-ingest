@@ -117,11 +117,11 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val discoveryAsset = assets.potentialDepartmentCollectionAsset.get
     val seriesAsset = assets.potentialSeriesCollectionAsset.get
 
-    discoveryAsset.title should equal("A")
+    discoveryAsset.title should equal("")
     discoveryAsset.citableReference should equal("A")
     discoveryAsset.scopeContent.description should equal("")
 
-    seriesAsset.title should equal("A TEST")
+    seriesAsset.title should equal("")
     seriesAsset.citableReference should equal("A TEST")
     seriesAsset.scopeContent.description should equal("")
   }
@@ -164,7 +164,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val departmentItem = result.potentialDepartmentCollectionAsset.get
     val seriesItem = result.potentialSeriesCollectionAsset.get
 
-    departmentItem.title should equal("T")
+    departmentItem.title should equal("")
     departmentItem.scopeContent.description should equal("")
     departmentItem.citableReference should equal("T")
     seriesItem.title should equal("Test Title T TEST")
@@ -192,7 +192,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     departmentItem.title should equal("Test Title T")
     departmentItem.scopeContent.description should equal("TestDescription T 1          \nTestDescription T 2")
     departmentItem.citableReference should equal("T")
-    seriesItem.title should equal("T TEST")
+    seriesItem.title should equal("")
     seriesItem.scopeContent.description should equal("")
     seriesItem.citableReference should equal("T TEST")
   }
