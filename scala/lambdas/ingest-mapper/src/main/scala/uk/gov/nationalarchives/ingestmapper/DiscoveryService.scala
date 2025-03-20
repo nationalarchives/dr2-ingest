@@ -29,7 +29,7 @@ trait DiscoveryService[F[_]] {
 }
 object DiscoveryService {
   case class DiscoveryScopeContent(description: String)
-  case class DiscoveryCollectionAsset(citableReference: String, scopeContent: DiscoveryScopeContent, title: String)
+  case class DiscoveryCollectionAsset(citableReference: String, scopeContent: DiscoveryScopeContent, title: Option[String])
   private case class DiscoveryCollectionAssetResponse(assets: List[DiscoveryCollectionAsset])
   case class DepartmentAndSeriesCollectionAssets(
       potentialDepartmentCollectionAsset: Option[DiscoveryCollectionAsset],
@@ -62,8 +62,11 @@ object DiscoveryService {
           transformer.transform(input, result)
           val newDescription = outputStream.toByteArray.map(_.toChar).mkString.trim
           val scopeContentWithNewDescription = discoveryAsset.scopeContent.copy(description = newDescription)
-          val titleWithoutHtmlCodes = replaceHtmlCodesWithUnicodeChars(discoveryAsset.title)
-          val titleWithoutBackslashes = XML.loadString(titleWithoutHtmlCodes.replaceAll("\\\\", "")).text
+          val titleWithoutBackslashes = discoveryAsset.title.map { discoveryAssetTitle =>
+            val titleWithoutHtmlCodes = replaceHtmlCodesWithUnicodeChars(discoveryAssetTitle)
+            XML.loadString(titleWithoutHtmlCodes.replaceAll("\\\\", "")).text
+          }
+
           Async[F].pure(discoveryAsset.copy(scopeContent = scopeContentWithNewDescription, title = titleWithoutBackslashes)).handleError(_ => discoveryAsset)
         }
       }
@@ -76,11 +79,11 @@ object DiscoveryService {
           body <- Async[F].fromEither(response.body)
           potentialAsset = body.assets.find(_.citableReference == citableReference)
           formattedAsset <- potentialAsset.map(stripHtmlFromDiscoveryResponse).getOrElse {
-            Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), ""))
+            Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), None))
           }
         } yield formattedAsset
       }.handleErrorWith { e =>
-        logger.warn(e)("Error from Discovery") >> Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), ""))
+        logger.warn(e)("Error from Discovery") >> Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), None))
       }
 
       override def getDiscoveryCollectionAssets(potentialSeries: Option[String]): F[DepartmentAndSeriesCollectionAssets] = {
@@ -98,9 +101,8 @@ object DiscoveryService {
             "id" -> Str(randomUuidGenerator().toString),
             "name" -> Str(asset.citableReference),
             "type" -> Str(ArchiveFolder.toString),
-            "title" -> Str(asset.title),
             "description" -> Str(asset.scopeContent.description)
-          )
+          ) ++ asset.title.map(title => Map("title" -> Str(title))).getOrElse(Map())
 
         val departmentTableEntryMap = departmentAndSeriesAssets.potentialDepartmentCollectionAsset
           .map(generateTableItem)
