@@ -115,7 +115,7 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
           val input = Input(batchId, URI.create("s3://bucket/prefix/metadata.json"), "executionName")
 
           def createCollectionAsset(obj: Obj) =
-            Option(DiscoveryCollectionAsset(obj("name").str, DiscoveryScopeContent(obj("description").str), Option(obj("title").str)))
+            Option(DiscoveryCollectionAsset(obj("name").str, DiscoveryScopeContent(Option(obj("description").str)), Option(obj("title").str)))
 
           val discoveryService: DiscoveryService[IO] = new DiscoveryService[IO]:
             override def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems =
