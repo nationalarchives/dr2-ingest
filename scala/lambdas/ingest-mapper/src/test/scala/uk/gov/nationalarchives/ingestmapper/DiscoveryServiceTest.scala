@@ -98,15 +98,15 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val departmentCollectionAsset = result.potentialDepartmentCollectionAsset.get
     val seriesCollectionAsset = result.potentialSeriesCollectionAsset.get
     def checkAsset(asset: DiscoveryCollectionAsset, suffix: String) = {
-      asset.title.get should equal(s"Test Title $suffix")
-      asset.scopeContent.description.get should equal(s"TestDescription $suffix 1          \nTestDescription $suffix 2")
+      asset.potentialTitle.get should equal(s"Test Title $suffix")
+      asset.scopeContent.potentialDescription.get should equal(s"TestDescription $suffix 1          \nTestDescription $suffix 2")
       asset.citableReference should equal(suffix)
     }
     checkAsset(departmentCollectionAsset, "T")
     checkAsset(seriesCollectionAsset, "T TEST")
   }
 
-  "getDiscoveryCollectionAssets" should "return an empty description if the discovery API returns an error" in {
+  "getDiscoveryCollectionAssets" should "return an empty title and description if the discovery API returns an error" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError()).whenAnyRequest
       .thenRespondServerError()
 
@@ -117,16 +117,16 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val discoveryAsset = assets.potentialDepartmentCollectionAsset.get
     val seriesAsset = assets.potentialSeriesCollectionAsset.get
 
-    discoveryAsset.title should equal(None)
+    discoveryAsset.potentialTitle should equal(None)
     discoveryAsset.citableReference should equal("A")
-    discoveryAsset.scopeContent.description should equal(None)
+    discoveryAsset.scopeContent.potentialDescription should equal(None)
 
-    seriesAsset.title should equal(None)
+    seriesAsset.potentialTitle should equal(None)
     seriesAsset.citableReference should equal("A TEST")
-    seriesAsset.scopeContent.description should equal(None)
+    seriesAsset.scopeContent.potentialDescription should equal(None)
   }
 
-  "getDiscoveryCollectionAssets" should "set the citable ref as the title and description as '', if the series reference doesn't match the response" in {
+  "getDiscoveryCollectionAssets" should "set the citable ref as the title and description as None, if the series reference doesn't match the response" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/A"))
       .thenRespond(bodyMap("T"))
@@ -141,8 +141,8 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val seriesItem = result.potentialSeriesCollectionAsset.get
 
     def checkAsset(asset: DiscoveryCollectionAsset, suffix: String) = {
-      asset.title should equal(suffix)
-      asset.scopeContent.description should equal("")
+      asset.potentialTitle should equal(suffix)
+      asset.scopeContent.potentialDescription should equal("")
       asset.citableReference should equal(suffix)
     }
   }
@@ -164,11 +164,11 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val departmentItem = result.potentialDepartmentCollectionAsset.get
     val seriesItem = result.potentialSeriesCollectionAsset.get
 
-    departmentItem.title should equal(None)
-    departmentItem.scopeContent.description should equal(None)
+    departmentItem.potentialTitle should equal(None)
+    departmentItem.scopeContent.potentialDescription should equal(None)
     departmentItem.citableReference should equal("T")
-    seriesItem.title.get should equal("Test Title T TEST")
-    seriesItem.scopeContent.description.get should equal("TestDescription T TEST 1          \nTestDescription T TEST 2")
+    seriesItem.potentialTitle.get should equal("Test Title T TEST")
+    seriesItem.scopeContent.potentialDescription.get should equal("TestDescription T TEST 1          \nTestDescription T TEST 2")
     seriesItem.citableReference should equal("T TEST")
   }
 
@@ -189,11 +189,11 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val departmentItem = result.potentialDepartmentCollectionAsset.get
     val seriesItem = result.potentialSeriesCollectionAsset.get
 
-    departmentItem.title.get should equal("Test Title T")
-    departmentItem.scopeContent.description.get should equal("TestDescription T 1          \nTestDescription T 2")
+    departmentItem.potentialTitle.get should equal("Test Title T")
+    departmentItem.scopeContent.potentialDescription.get should equal("TestDescription T 1          \nTestDescription T 2")
     departmentItem.citableReference should equal("T")
-    seriesItem.title should equal(None)
-    seriesItem.scopeContent.description should equal(None)
+    seriesItem.potentialTitle should equal(None)
+    seriesItem.scopeContent.potentialDescription should equal(None)
     seriesItem.citableReference should equal("T TEST")
   }
 
@@ -212,8 +212,8 @@ class DiscoveryServiceTest extends AnyFlatSpec {
 
   "getDepartmentAndSeriesItems" should "not add a title attribute if the title is missing" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
-    val departmentCollectionAsset = assetMap("T").map(_.copy(title = None))
-    val seriesCollectionAsset = assetMap("T TEST").map(_.copy(title = None))
+    val departmentCollectionAsset = assetMap("T").map(_.copy(potentialTitle = None))
+    val seriesCollectionAsset = assetMap("T TEST").map(_.copy(potentialTitle = None))
 
     val result = DiscoveryService(baseUrl, backend, uuidIterator)
       .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(departmentCollectionAsset, seriesCollectionAsset))
@@ -227,8 +227,8 @@ class DiscoveryServiceTest extends AnyFlatSpec {
 
   "getDepartmentAndSeriesItems" should "not add a description attribute if the description is missing" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
-    val departmentCollectionAsset = assetMap("T").map(departmentAsset => departmentAsset.copy(scopeContent = departmentAsset.scopeContent.copy(description = None)))
-    val seriesCollectionAsset = assetMap("T TEST").map(seriesAsset => seriesAsset.copy(scopeContent = seriesAsset.scopeContent.copy(description = None)))
+    val departmentCollectionAsset = assetMap("T").map(departmentAsset => departmentAsset.copy(scopeContent = departmentAsset.scopeContent.copy(potentialDescription = None)))
+    val seriesCollectionAsset = assetMap("T TEST").map(seriesAsset => seriesAsset.copy(scopeContent = seriesAsset.scopeContent.copy(potentialDescription = None)))
 
     val result = DiscoveryService(baseUrl, backend, uuidIterator)
       .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(departmentCollectionAsset, seriesCollectionAsset))

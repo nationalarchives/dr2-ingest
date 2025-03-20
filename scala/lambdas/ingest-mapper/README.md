@@ -13,7 +13,7 @@ The lambda:
 ```
 * Downloads the metadata file from the `metadataPackage` location and parses it.
 * Gets a list of series names from the metadata json. Extracts the department reference from the series reference by doing `series.split(" ").head.
-* For each unique series and department pair, gets the title and description from Discovery. This is run through the XSLT in `src/main/resources/transform.xsl` to replace the EAD tags with newlines.
+* For each unique series and department pair, gets the title and description from Discovery. This is run through the XSLT in `src/main/resources/transform.xsl` to replace the EAD tags with newlines. If discovery is unavailable, or the series doesn't yet exist, the title and description are not added to the table.
 * If the series is `Unknown`, it will create a hierarchy of `Unknown/`.
 * Creates a ujson Obj with the department and series output and the metadata json. We use a generic `Obj` because we will eventually have to handle fields we don't know about in advance.
 * Generates the `parentPath` of each entity, replacing the `parentId`.

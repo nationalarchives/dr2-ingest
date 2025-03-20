@@ -28,8 +28,8 @@ trait DiscoveryService[F[_]] {
 
 }
 object DiscoveryService {
-  case class DiscoveryScopeContent(description: Option[String])
-  case class DiscoveryCollectionAsset(citableReference: String, scopeContent: DiscoveryScopeContent, title: Option[String])
+  case class DiscoveryScopeContent(potentialDescription: Option[String])
+  case class DiscoveryCollectionAsset(citableReference: String, scopeContent: DiscoveryScopeContent, potentialTitle: Option[String])
   private case class DiscoveryCollectionAssetResponse(assets: List[DiscoveryCollectionAsset])
   case class DepartmentAndSeriesCollectionAssets(
       potentialDepartmentCollectionAsset: Option[DiscoveryCollectionAsset],
@@ -65,15 +65,18 @@ object DiscoveryService {
       }
 
       private def stripHtmlFromDiscoveryResponse(discoveryAsset: DiscoveryCollectionAsset) = {
-        discoveryAsset.scopeContent.description.traverse(transformWithXslt).map { potentialDescription =>
-          val titleWithoutBackslashes = discoveryAsset.title.map { discoveryAssetTitle =>
+        discoveryAsset.scopeContent.potentialDescription.traverse(transformWithXslt).map { potentialDescription =>
+          val potentialTitleWithoutBackslashes = discoveryAsset.potentialTitle.map { discoveryAssetTitle =>
             val titleWithoutHtmlCodes = replaceHtmlCodesWithUnicodeChars(discoveryAssetTitle)
             XML.loadString(titleWithoutHtmlCodes.replaceAll("\\\\", "")).text
           }
           val newScopeContent = DiscoveryScopeContent(potentialDescription)
-          discoveryAsset.copy(title = titleWithoutBackslashes, scopeContent = newScopeContent)
+          discoveryAsset.copy(potentialTitle = potentialTitleWithoutBackslashes, scopeContent = newScopeContent)
         }
       }
+
+      private def defaultCollectionAsset(citableReference: String): F[DiscoveryCollectionAsset] =
+        Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(None), None))
 
       private def getAssetFromDiscoveryApi(citableReference: String): F[DiscoveryCollectionAsset] = {
         val uri = uri"$discoveryBaseUrl/API/records/v1/collection/$citableReference"
@@ -82,12 +85,10 @@ object DiscoveryService {
           response <- backend.send(request)
           body <- Async[F].fromEither(response.body)
           potentialAsset = body.assets.find(_.citableReference == citableReference)
-          formattedAsset <- potentialAsset.map(stripHtmlFromDiscoveryResponse).getOrElse {
-            Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(None), None))
-          }
+          formattedAsset <- potentialAsset.map(stripHtmlFromDiscoveryResponse).getOrElse(defaultCollectionAsset(citableReference))
         } yield formattedAsset
       }.handleErrorWith { e =>
-        logger.warn(e)("Error from Discovery") >> Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(None), None))
+        logger.warn(e)("Error from Discovery") >> defaultCollectionAsset(citableReference)
       }
 
       override def getDiscoveryCollectionAssets(potentialSeries: Option[String]): F[DepartmentAndSeriesCollectionAssets] = {
@@ -105,8 +106,8 @@ object DiscoveryService {
             "id" -> Str(randomUuidGenerator().toString),
             "name" -> Str(asset.citableReference),
             "type" -> Str(ArchiveFolder.toString)
-          ) ++ asset.title.map(title => Map("title" -> Str(title))).getOrElse(Map())
-            ++ asset.scopeContent.description.map(description => Map("description" -> Str(description))).getOrElse(Map())
+          ) ++ asset.potentialTitle.map(title => Map("title" -> Str(title))).getOrElse(Map())
+            ++ asset.scopeContent.potentialDescription.map(description => Map("description" -> Str(description))).getOrElse(Map())
 
         val departmentTableEntryMap = departmentAndSeriesAssets.potentialDepartmentCollectionAsset
           .map(generateTableItem)
