@@ -28,8 +28,8 @@ trait DiscoveryService[F[_]] {
 
 }
 object DiscoveryService {
-  case class DiscoveryScopeContent(potentialDescription: Option[String])
-  case class DiscoveryCollectionAsset(citableReference: String, scopeContent: DiscoveryScopeContent, potentialTitle: Option[String])
+  case class DiscoveryScopeContent(description: Option[String])
+  case class DiscoveryCollectionAsset(citableReference: String, scopeContent: DiscoveryScopeContent, title: Option[String])
   private case class DiscoveryCollectionAssetResponse(assets: List[DiscoveryCollectionAsset])
   case class DepartmentAndSeriesCollectionAssets(
       potentialDepartmentCollectionAsset: Option[DiscoveryCollectionAsset],
@@ -65,13 +65,13 @@ object DiscoveryService {
       }
 
       private def stripHtmlFromDiscoveryResponse(discoveryAsset: DiscoveryCollectionAsset) = {
-        discoveryAsset.scopeContent.potentialDescription.traverse(transformWithXslt).map { potentialDescription =>
-          val potentialTitleWithoutBackslashes = discoveryAsset.potentialTitle.map { discoveryAssetTitle =>
+        discoveryAsset.scopeContent.description.traverse(transformWithXslt).map { potentialDescription =>
+          val potentialTitleWithoutBackslashes = discoveryAsset.title.map { discoveryAssetTitle =>
             val titleWithoutHtmlCodes = replaceHtmlCodesWithUnicodeChars(discoveryAssetTitle)
             XML.loadString(titleWithoutHtmlCodes.replaceAll("\\\\", "")).text
           }
           val newScopeContent = DiscoveryScopeContent(potentialDescription)
-          discoveryAsset.copy(potentialTitle = potentialTitleWithoutBackslashes, scopeContent = newScopeContent)
+          discoveryAsset.copy(title = potentialTitleWithoutBackslashes, scopeContent = newScopeContent)
         }
       }
 
@@ -106,8 +106,8 @@ object DiscoveryService {
             "id" -> Str(randomUuidGenerator().toString),
             "name" -> Str(asset.citableReference),
             "type" -> Str(ArchiveFolder.toString)
-          ) ++ asset.potentialTitle.map(title => Map("title" -> Str(title))).getOrElse(Map())
-            ++ asset.scopeContent.potentialDescription.map(description => Map("description" -> Str(description))).getOrElse(Map())
+          ) ++ asset.title.map(title => Map("title" -> Str(title))).getOrElse(Map())
+            ++ asset.scopeContent.description.map(description => Map("description" -> Str(description))).getOrElse(Map())
 
         val departmentTableEntryMap = departmentAndSeriesAssets.potentialDepartmentCollectionAsset
           .map(generateTableItem)
