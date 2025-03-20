@@ -28,6 +28,5 @@ jobs:
           sbt e2eTests/test
         env:
           INGEST_SQS_QUEUE: https://sqs.eu-west-2.amazonaws.com/${{ secrets.ACCOUNT_NUMBER }}/intg-dr2-copy-files-from-tdr
-          NOTIFICATIONS_SQS_QUEUE: https://sqs.eu-west-2.amazonaws.com/${{ secrets.ACCOUNT_NUMBER }}/intg-dr2-e2e-tests
           PREINGEST_SFN_ARN: arn:aws:states:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:stateMachine:intg-dr2-preingest-tdr
-          COPY_FILES_DLQ: https://sqs.eu-west-2.amazonaws.com/${{ secrets.ACCOUNT_NUMBER }}/intg-dr2-copy-files-from-tdr-dlq
+          COPY_FILES_LOG_GROUP: arn:aws:logs:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:log-group:/aws/lambda/intg-dr2-copy-files-from-tdr

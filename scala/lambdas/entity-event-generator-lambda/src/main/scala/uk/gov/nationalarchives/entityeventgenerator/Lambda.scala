@@ -3,6 +3,7 @@ package uk.gov.nationalarchives.entityeventgenerator
 import cats.effect.IO
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import io.circe.Encoder
+import cats.syntax.all.*
 import org.scanamo.generic.auto.*
 import pureconfig.ConfigReader
 import software.amazon.awssdk.services.dynamodb.model.*
@@ -74,15 +75,23 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
       updatedSinceAsDate = OffsetDateTime.parse(updatedSinceResponse.datetime).toZonedDateTime
       recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, startFrom)
       _ <- logger.info(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
+      _ <- recentlyUpdatedEntities.traverse(e => logger.info(e.ref.toString))
 
       entityLastEventActionDate <-
         if (recentlyUpdatedEntities.nonEmpty) {
           val lastUpdatedEntity: Entity = recentlyUpdatedEntities.last
-          entitiesClient.entityEventActions(lastUpdatedEntity).map { entityEventActions =>
-            Some(entityEventActions.head.dateOfEvent.toOffsetDateTime)
-          }
-        } else IO.pure(None)
+          for {
+            _ <- logger.info("Last updated entity")
+            _ <- logger.info(lastUpdatedEntity.ref.toString)
+            entityEventActions <- entitiesClient.entityEventActions(lastUpdatedEntity)
+            _ <- entityEventActions.traverse(ea => logger.info(ea.toString))
+            _ <- logger.info(entityEventActions.head.toString)
+          } yield Some(entityEventActions.head.dateOfEvent.toOffsetDateTime)
 
+        } else IO.pure(None)
+      _ <- logger.info(s"Event triggered datetime $eventTriggeredDatetime")
+      _ <- logger.info(s"Event triggered datetime minus 10 ${eventTriggeredDatetime.minus(Duration.ofMinutes(10))}")
+      _ <- logger.info(entityLastEventActionDate.toString)
       _ <- IO.whenA(entityLastEventActionDate.exists(_.isBefore(eventTriggeredDatetime.minus(Duration.ofMinutes(10))))) {
         for {
           _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
