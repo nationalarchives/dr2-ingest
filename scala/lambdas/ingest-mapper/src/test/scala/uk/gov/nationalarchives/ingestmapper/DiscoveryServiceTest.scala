@@ -36,7 +36,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
 
   val baseUrl = "http://localhost"
   val assetMap: Map[String, Option[DiscoveryCollectionAsset]] = List("T", "T TEST").map { col =>
-    col -> Option(DiscoveryCollectionAsset(col, DiscoveryScopeContent(s"TestDescription $col 1          \nTestDescription $col 2"), s"Test Title $col"))
+    col -> Option(DiscoveryCollectionAsset(col, DiscoveryScopeContent(Option(s"TestDescription $col 1          \nTestDescription $col 2")), Option(s"Test Title $col")))
   }.toMap
   val bodyMap: Map[String, String] = List("T", "T TEST").map { col =>
     val description = <scopecontent>
@@ -98,15 +98,15 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val departmentCollectionAsset = result.potentialDepartmentCollectionAsset.get
     val seriesCollectionAsset = result.potentialSeriesCollectionAsset.get
     def checkAsset(asset: DiscoveryCollectionAsset, suffix: String) = {
-      asset.title should equal(s"Test Title $suffix")
-      asset.scopeContent.description should equal(s"TestDescription $suffix 1          \nTestDescription $suffix 2")
+      asset.title.get should equal(s"Test Title $suffix")
+      asset.scopeContent.description.get should equal(s"TestDescription $suffix 1          \nTestDescription $suffix 2")
       asset.citableReference should equal(suffix)
     }
     checkAsset(departmentCollectionAsset, "T")
     checkAsset(seriesCollectionAsset, "T TEST")
   }
 
-  "getDiscoveryCollectionAssets" should "return an empty description if the discovery API returns an error" in {
+  "getDiscoveryCollectionAssets" should "return an empty title and description if the discovery API returns an error" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError()).whenAnyRequest
       .thenRespondServerError()
 
@@ -117,16 +117,16 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val discoveryAsset = assets.potentialDepartmentCollectionAsset.get
     val seriesAsset = assets.potentialSeriesCollectionAsset.get
 
-    discoveryAsset.title should equal("")
+    discoveryAsset.title should equal(None)
     discoveryAsset.citableReference should equal("A")
-    discoveryAsset.scopeContent.description should equal("")
+    discoveryAsset.scopeContent.description should equal(None)
 
-    seriesAsset.title should equal("")
+    seriesAsset.title should equal(None)
     seriesAsset.citableReference should equal("A TEST")
-    seriesAsset.scopeContent.description should equal("")
+    seriesAsset.scopeContent.description should equal(None)
   }
 
-  "getDiscoveryCollectionAssets" should "set the citable ref as the title and description as '', if the series reference doesn't match the response" in {
+  "getDiscoveryCollectionAssets" should "set the citable ref as the title and description as None, if the series reference doesn't match the response" in {
     val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/A"))
       .thenRespond(bodyMap("T"))
@@ -164,11 +164,11 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val departmentItem = result.potentialDepartmentCollectionAsset.get
     val seriesItem = result.potentialSeriesCollectionAsset.get
 
-    departmentItem.title should equal("")
-    departmentItem.scopeContent.description should equal("")
+    departmentItem.title should equal(None)
+    departmentItem.scopeContent.description should equal(None)
     departmentItem.citableReference should equal("T")
-    seriesItem.title should equal("Test Title T TEST")
-    seriesItem.scopeContent.description should equal("TestDescription T TEST 1          \nTestDescription T TEST 2")
+    seriesItem.title.get should equal("Test Title T TEST")
+    seriesItem.scopeContent.description.get should equal("TestDescription T TEST 1          \nTestDescription T TEST 2")
     seriesItem.citableReference should equal("T TEST")
   }
 
@@ -189,11 +189,11 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val departmentItem = result.potentialDepartmentCollectionAsset.get
     val seriesItem = result.potentialSeriesCollectionAsset.get
 
-    departmentItem.title should equal("Test Title T")
-    departmentItem.scopeContent.description should equal("TestDescription T 1          \nTestDescription T 2")
+    departmentItem.title.get should equal("Test Title T")
+    departmentItem.scopeContent.description.get should equal("TestDescription T 1          \nTestDescription T 2")
     departmentItem.citableReference should equal("T")
-    seriesItem.title should equal("")
-    seriesItem.scopeContent.description should equal("")
+    seriesItem.title should equal(None)
+    seriesItem.scopeContent.description should equal(None)
     seriesItem.citableReference should equal("T TEST")
   }
 
@@ -208,6 +208,36 @@ class DiscoveryServiceTest extends AnyFlatSpec {
 
     checkDynamoItem(departmentItem, "T", uuids.head, None)
     checkDynamoItem(seriesItem, "T TEST", uuids.head, Option(uuids.head))
+  }
+
+  "getDepartmentAndSeriesItems" should "not add a title attribute if the title is missing" in {
+    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+    val departmentCollectionAsset = assetMap("T").map(_.copy(title = None))
+    val seriesCollectionAsset = assetMap("T TEST").map(_.copy(title = None))
+
+    val result = DiscoveryService(baseUrl, backend, uuidIterator)
+      .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(departmentCollectionAsset, seriesCollectionAsset))
+
+    val departmentItem = result.departmentItem
+    val seriesItem = result.potentialSeriesItem.head
+
+    departmentItem.value.contains("title") should equal(false)
+    seriesItem.value.contains("title") should equal(false)
+  }
+
+  "getDepartmentAndSeriesItems" should "not add a description attribute if the description is missing" in {
+    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+    val departmentCollectionAsset = assetMap("T").map(departmentAsset => departmentAsset.copy(scopeContent = departmentAsset.scopeContent.copy(description = None)))
+    val seriesCollectionAsset = assetMap("T TEST").map(seriesAsset => seriesAsset.copy(scopeContent = seriesAsset.scopeContent.copy(description = None)))
+
+    val result = DiscoveryService(baseUrl, backend, uuidIterator)
+      .getDepartmentAndSeriesItems("testBatch", DepartmentAndSeriesCollectionAssets(departmentCollectionAsset, seriesCollectionAsset))
+
+    val departmentItem = result.departmentItem
+    val seriesItem = result.potentialSeriesItem.head
+
+    departmentItem.value.contains("description") should equal(false)
+    seriesItem.value.contains("description") should equal(false)
   }
 
   "getDepartmentAndSeriesItems" should "return unknown for the department if the department is missing" in {

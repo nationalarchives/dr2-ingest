@@ -146,7 +146,7 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
     if !discoveryServiceException then
       new DiscoveryService[IO]:
         def generateDiscoveryCollectionAsset(col: String): DiscoveryCollectionAsset =
-          DiscoveryCollectionAsset(col, DiscoveryScopeContent(s"TestDescription$col with 0"), s"Test Title $col")
+          DiscoveryCollectionAsset(col, DiscoveryScopeContent(Option(s"TestDescription$col with 0")), Option(s"Test Title $col"))
 
         def generateJson: Obj = Obj("id" -> randomUuidGenerator().toString, "type" -> "ArchiveFolder", "name" -> "Test name")
 
