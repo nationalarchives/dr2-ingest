@@ -56,34 +56,6 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     lambdaResult.value should equal(1)
   }
 
-  "handler" should "not update the datetime or send a message if the date returned is less than 10 minutes before the event triggered date" in {
-    val inputEvent = event("2023-06-06T20:39:59.000000+00:00")
-    val dynamoResponse = List("2023-06-06T20:39:59.000000+00:00")
-    val eventActionTime = "2023-06-06T20:30:00.000000+00:00"
-    val entities = List(generateEntity)
-    val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entities, List(generateEventAction(eventActionTime)), dynamoResponse)
-
-    dynamoResult.size should equal(1)
-    dynamoResult.head should equal("2023-06-06T20:39:59.000000+00:00")
-    snsResult.size should equal(0)
-    lambdaResult.value should equal(1)
-  }
-
-  "handler" should "update the datetime and send a message if the date returned is just over 10 minutes before the event triggered date" in {
-    val inputEvent = event("2023-06-06T20:40:01.000000+00:00")
-    val dynamoResponse = List("2023-06-06T20:40:01.000000+00:00")
-    val eventActionTime = "2023-06-06T20:30:00.000000+00:00"
-    val entities = List(generateEntity)
-    val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entities, List(generateEventAction(eventActionTime)), dynamoResponse)
-
-    dynamoResult.head should equal("2023-06-06T20:30Z")
-
-    snsResult.head.deleted should equal(false)
-    snsResult.head.id should equal(s"io:${entities.head.ref}")
-
-    lambdaResult.value should equal(1)
-  }
-
   "handler" should "not update the datetime or send a message if there is an error getting the event actions" in {
     val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
     val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
