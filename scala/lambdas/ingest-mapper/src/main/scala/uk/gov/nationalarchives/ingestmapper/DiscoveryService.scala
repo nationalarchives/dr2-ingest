@@ -3,6 +3,8 @@ package uk.gov.nationalarchives.ingestmapper
 import cats.effect.{Async, Resource}
 import cats.implicits.*
 import io.circe.generic.auto.*
+import org.typelevel.log4cats.SelfAwareStructuredLogger
+import org.typelevel.log4cats.slf4j.Slf4jFactory
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3.circe.*
 import sttp.client3.httpclient.fs2.HttpClientFs2Backend
@@ -36,6 +38,9 @@ object DiscoveryService {
 
   def apply[F[_]: Async](discoveryBaseUrl: String, backend: SttpBackend[F, Fs2Streams[F]], randomUuidGenerator: () => UUID): DiscoveryService[F] =
     new DiscoveryService[F] {
+
+      private val logger: SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger
+
       private def replaceHtmlCodesWithUnicodeChars(input: String) =
         "&#[0-9]+".r.replaceAllIn(input, _.matched.drop(2).toInt.toChar.toString)
 
@@ -74,6 +79,8 @@ object DiscoveryService {
             Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), citableReference))
           }
         } yield formattedAsset
+      }.handleErrorWith { e =>
+        logger.warn(e)("Error from Discovery") >> Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(""), citableReference))
       }
 
       override def getDiscoveryCollectionAssets(potentialSeries: Option[String]): F[DepartmentAndSeriesCollectionAssets] = {

@@ -186,19 +186,52 @@ class LambdaTest extends AnyFlatSpec {
 
   }
 
-  "handler" should "return an error if the discovery api is unavailable" in {
+  "handler" should "not return an error if the discovery api is unavailable" in {
     val metadataResponse = getMetadata
 
-    val ex = intercept[Exception] {
-      (for {
-        s3Ref <- Ref.of[IO, List[S3Object]](List(S3Object("input", "TEST/metadata.json", metadataResponse.metadata)))
-        dynamoRef <- Ref.of[IO, List[Obj]](Nil)
-        deps = dependencies(s3Ref, dynamoRef, discoveryServiceException = true)
-        _ <- new Lambda().handler(input(), config, deps)
-      } yield ()).unsafeRunSync()
-    }
+    val dynamoItems = (for {
+      s3Ref <- Ref.of[IO, List[S3Object]](List(S3Object("input", "TEST/metadata.json", metadataResponse.metadata)))
+      dynamoRef <- Ref.of[IO, List[Obj]](Nil)
+      deps = dependencies(s3Ref, dynamoRef, discoveryServiceException = true)
+      _ <- new Lambda().handler(input(), config, deps)
+      dynamoItems <- dynamoRef.get
+    } yield dynamoItems).unsafeRunSync()
 
-    ex.getMessage should equal("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A")
+    val departmentId = UUID.fromString(uuids.head)
+    val seriesId = UUID.fromString(uuids.tail.head)
+    val fixedTimeInSeconds = 1712707200
+
+    checkDynamoItems(
+      dynamoItems,
+      DynamoFilesTableItem(
+        "TEST",
+        departmentId,
+        "",
+        "A",
+        ArchiveFolder,
+        "A",
+        "",
+        Some("A"),
+        1,
+        fixedTimeInSeconds
+      )
+    )
+
+    checkDynamoItems(
+      dynamoItems,
+      DynamoFilesTableItem(
+        "TEST",
+        seriesId,
+        departmentId.toString,
+        "A 1",
+        ArchiveFolder,
+        "A 1",
+        "",
+        Some("A 1"),
+        1,
+        fixedTimeInSeconds
+      )
+    )
   }
 
   "handler" should "return an error if the input files are not stored in S3" in {
