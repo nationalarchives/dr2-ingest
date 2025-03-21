@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - main
-      - DR2-2159-rewrite-e2e-tests
 
 permissions:
   id-token: write
