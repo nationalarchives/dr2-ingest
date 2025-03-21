@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - DR2-2159-rewrite-e2e-tests
 
 permissions:
   id-token: write
@@ -25,8 +26,10 @@ jobs:
           aws-region: eu-west-2
           role-session-name: RunE2ETestsRole
       - run: |
-          sbt e2eTests/test
+          cd kotlin/e2e-tests/e2etests/
+          gradle test
         env:
           INGEST_SQS_QUEUE: https://sqs.eu-west-2.amazonaws.com/${{ secrets.ACCOUNT_NUMBER }}/intg-dr2-copy-files-from-tdr
+          EXTERNAL_LOG_GROUP: arn:aws:logs:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:log-group:/intg-external-notifications
           PREINGEST_SFN_ARN: arn:aws:states:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:stateMachine:intg-dr2-preingest-tdr
           COPY_FILES_LOG_GROUP: arn:aws:logs:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:log-group:/aws/lambda/intg-dr2-copy-files-from-tdr

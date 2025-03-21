@@ -83,7 +83,7 @@ class IngestUtils(
     ) {
         val invalidChecksumValue = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         files.addAll(List<UUID>(numberOfFiles) { UUID.randomUUID() })
-        files.forEach { println(it) }
+        files.forEach { println("$it $invalidChecksum $emptyChecksum $invalidMetadata") }
         coroutineScope {
             files.map {
                 launch {

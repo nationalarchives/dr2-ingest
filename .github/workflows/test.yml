@@ -16,5 +16,6 @@ jobs:
         find . -name requirements.txt | xargs -I {} pip install -r {}
         AWS_DEFAULT_REGION=eu-west-2 pytest
         sbt e2eTests/scalafmtCheckAll scalafmtCheckAll test
+        (cd kotlin/e2e-tests/lib && gradle test)
     secrets:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
