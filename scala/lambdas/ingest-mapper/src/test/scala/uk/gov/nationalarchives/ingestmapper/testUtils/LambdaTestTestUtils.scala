@@ -14,6 +14,8 @@ import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
+import sttp.client3.impl.cats.CatsMonadAsyncError
+import sttp.client3.testing.SttpBackendStub
 import ujson.Obj
 import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
 import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, Dependencies, Input}
@@ -140,22 +142,26 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
     Dependencies(metadataService, dynamo, mocks3Client(s3Ref), fixedTime)
   }
 
-  def createDiscoveryService(discoveryServiceException: Boolean, randomUuidGenerator: () => UUID): DiscoveryService[IO] = new DiscoveryService[IO]:
+  def createDiscoveryService(discoveryServiceException: Boolean, randomUuidGenerator: () => UUID): DiscoveryService[IO] =
+    if !discoveryServiceException then
+      new DiscoveryService[IO]:
+        def generateDiscoveryCollectionAsset(col: String): DiscoveryCollectionAsset =
+          DiscoveryCollectionAsset(col, DiscoveryScopeContent(Option(s"TestDescription$col with 0")), Option(s"Test Title $col"))
 
-    def generateDiscoveryCollectionAsset(col: String): DiscoveryCollectionAsset =
-      DiscoveryCollectionAsset(col, DiscoveryScopeContent(s"TestDescription$col with 0"), s"Test Title $col")
+        def generateJson: Obj = Obj("id" -> randomUuidGenerator().toString, "type" -> "ArchiveFolder", "name" -> "Test name")
 
-    def generateJson: Obj = Obj("id" -> randomUuidGenerator().toString, "type" -> "ArchiveFolder", "name" -> "Test name")
+        override def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems =
+          DiscoveryService[IO]("baseUrl", randomUuidGenerator).unsafeRunSync().getDepartmentAndSeriesItems(batchId, departmentAndSeriesAssets)
 
-    override def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems =
-      DiscoveryService[IO]("baseUrl", randomUuidGenerator).unsafeRunSync().getDepartmentAndSeriesItems(batchId, departmentAndSeriesAssets)
-
-    override def getDiscoveryCollectionAssets(series: Option[String]): IO[DepartmentAndSeriesCollectionAssets] =
-      if discoveryServiceException then IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
-      else if series.isEmpty then IO.pure(DepartmentAndSeriesCollectionAssets(None, None))
-      else
-        val department = series.get.split(" ").head
-        IO.pure(DepartmentAndSeriesCollectionAssets(Option(generateDiscoveryCollectionAsset(department)), Option(generateDiscoveryCollectionAsset(series.get))))
+        override def getDiscoveryCollectionAssets(series: Option[String]): IO[DepartmentAndSeriesCollectionAssets] =
+          if discoveryServiceException then IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
+          else if series.isEmpty then IO.pure(DepartmentAndSeriesCollectionAssets(None, None))
+          else
+            val department = series.get.split(" ").head
+            IO.pure(DepartmentAndSeriesCollectionAssets(Option(generateDiscoveryCollectionAsset(department)), Option(generateDiscoveryCollectionAsset(series.get))))
+    else
+      val backendStub = SttpBackendStub(CatsMonadAsyncError[IO]()).whenAnyRequest.thenRespondServerError()
+      DiscoveryService[IO]("https://example.com", backendStub, randomUuidGenerator)
 
   case class S3Object(bucket: String, key: String, fileContent: String)
 
