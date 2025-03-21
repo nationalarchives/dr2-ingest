@@ -1,7 +1,7 @@
 Feature: Ingest tests
 
   Scenario: Ingest should succeed if all metadata is valid
-    Given An ingest with 1 files
+    Given An ingest with 50 files
     When I send messages to the input queue
     Then I receive an ingest complete message
 
