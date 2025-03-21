@@ -19,6 +19,6 @@ dependencies {
 }
 
 tasks.test {
-    useJUnitPlatform() // Enables JUnit 5 test engine
+    useJUnitPlatform()
     testLogging.showStandardStreams = true
 }

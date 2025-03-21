@@ -28,6 +28,6 @@ version = "1.0.0-SNAPSHOT"
 description = "e2etests"
 
 tasks.test {
-    useJUnitPlatform() // Enables JUnit 5 test engine
+    useJUnitPlatform()
     testLogging.showStandardStreams = true
 }
