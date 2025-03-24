@@ -11,6 +11,7 @@ import kotlinx.serialization.SerializationException
 import java.time.LocalDate
 import java.util.*
 import java.util.concurrent.TimeoutException
+import kotlin.math.exp
 import kotlin.test.*
 
 class IngestUtilsTest {
@@ -133,18 +134,34 @@ class IngestUtilsTest {
     }
 
     @Test
-    fun testSendMessagesSendsAllFiles() {
+    fun testSendTdrMessagesSendsAllFiles() {
         val returnedFiles: MutableList<UUID> = mutableListOf()
         val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
-        runBlocking { sqsIngestUtils(returnedFiles, files).sendMessages() }
+        runBlocking { sqsIngestUtils(returnedFiles, files).sendTdrMessages() }
         assertContentEquals(files, returnedFiles)
     }
 
     @Test
-    fun testSendMessagesSendsNoFiles() {
+    fun testSendTdrMessagesSendsNoFiles() {
         val returnedFiles: MutableList<UUID> = mutableListOf()
         val files = mutableListOf<UUID>()
-        runBlocking { sqsIngestUtils(returnedFiles, files).sendMessages() }
+        runBlocking { sqsIngestUtils(returnedFiles, files).sendTdrMessages() }
+        assertContentEquals(files, returnedFiles)
+    }
+
+    @Test
+    fun testSendJudgmentMessagesSendsAllFiles() {
+        val returnedFiles: MutableList<UUID> = mutableListOf()
+        val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
+        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentMessage() }
+        assertContentEquals(files, returnedFiles)
+    }
+
+    @Test
+    fun testSendJudgmentMessagesSendsNoFiles() {
+        val returnedFiles: MutableList<UUID> = mutableListOf()
+        val files = mutableListOf<UUID>()
+        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentMessage() }
         assertContentEquals(files, returnedFiles)
     }
 
@@ -174,7 +191,7 @@ class IngestUtilsTest {
     fun createFilesCreatesValidFiles(): Unit = runBlocking {
         val fileContents: MutableList<UUID> = mutableListOf()
         val metadataList: MutableList<JsonUtils.TDRMetadata> = mutableListOf()
-        createFilesIngestUtils(fileContents, metadataList).createFiles(1)
+        createTdrFilesIngestUtils(fileContents, metadataList).createFiles(1)
         assertEquals(fileContents.size, 1)
 
         val metadata = metadataList.first()
@@ -192,7 +209,7 @@ class IngestUtilsTest {
     fun createFilesCreatesFileWithEmptyChecksum(): Unit = runBlocking {
         val fileContents: MutableList<UUID> = mutableListOf()
         val metadataList: MutableList<JsonUtils.TDRMetadata> = mutableListOf()
-        createFilesIngestUtils(fileContents, metadataList).createFiles(1, emptyChecksum = true)
+        createTdrFilesIngestUtils(fileContents, metadataList).createFiles(1, emptyChecksum = true)
         assertEquals(fileContents.size, 1)
 
         val metadata = metadataList.first()
@@ -203,7 +220,7 @@ class IngestUtilsTest {
     fun createFilesCreatesFileWithInvalidChecksum(): Unit = runBlocking {
         val fileContents: MutableList<UUID> = mutableListOf()
         val metadataList: MutableList<JsonUtils.TDRMetadata> = mutableListOf()
-        createFilesIngestUtils(fileContents, metadataList).createFiles(1, invalidChecksum = true)
+        createTdrFilesIngestUtils(fileContents, metadataList).createFiles(1, invalidChecksum = true)
         assertEquals(fileContents.size, 1)
 
         val metadata = metadataList.first()
@@ -214,17 +231,58 @@ class IngestUtilsTest {
     fun createFilesCreatesFileWithInvalidMetadata(): Unit = runBlocking {
         val fileContents: MutableList<UUID> = mutableListOf()
         val metadataList: MutableList<JsonUtils.TDRMetadata> = mutableListOf()
-        createFilesIngestUtils(fileContents, metadataList).createFiles(1, invalidMetadata = true)
+        createTdrFilesIngestUtils(fileContents, metadataList).createFiles(1, invalidMetadata = true)
         assertEquals(fileContents.size, 1)
 
         val metadata = metadataList.first()
         assertTrue(listOf(null, "TEST123", "").contains(metadata.Series))
     }
 
-    private fun createFilesIngestUtils(fileContents: MutableList<UUID>, metadata: MutableList<JsonUtils.TDRMetadata>): IngestUtils {
+    @Test
+    fun createJudgmentCreatesAJudgmentPackage(): Unit = runBlocking {
+        val expectedBytes = byteArrayOf(
+            0x50, 0x4B, 0x03, 0x04,  0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37, 0x4F,  0x5A, 0x5A, 0xDC.toByte(), 0xA7.toByte(),
+            0x7C, 0x06, 0x3A, 0x08,  0x00, 0x00, 0x3A, 0x08,0x00, 0x00, 0x11, 0x00,  0x00, 0x00, 0x77, 0x6F,
+            0x72, 0x64, 0x2F, 0x64,  0x6F, 0x63, 0x75, 0x6D, 0x65, 0x6E, 0x74, 0x2E,  0x78, 0x6D, 0x6C, 0x78,
+            0x6D, 0x6C, 0x6E, 0x73,  0x3A, 0x77, 0x3D, 0x22, 0x68, 0x74, 0x74, 0x70,  0x3A, 0x2F, 0x2F, 0x70,
+            0x75, 0x72, 0x6C, 0x2E,  0x6F, 0x63, 0x6C, 0x63, 0x2E, 0x6F, 0x72, 0x67,  0x2F, 0x6F, 0x6F, 0x78,
+            0x6D, 0x6C, 0x2F, 0x77,  0x6F, 0x72, 0x64, 0x70, 0x72, 0x6F, 0x63, 0x65,  0x73, 0x73, 0x69, 0x6E,
+            0x67, 0x6D, 0x6C, 0x2F,  0x6D, 0x61, 0x69, 0x6E, 0x22)
+        val fileContents: MutableList<ByteArray> = mutableListOf()
+        val metadataList: MutableList<JsonUtils.TREMetadata> = mutableListOf()
+
+        createJudgmentFilesIngestUtils(fileContents, metadataList).createJudgment()
+
+        assertContentEquals(fileContents.first(), expectedBytes)
+        val metadata = metadataList.first()
+        val expectedReference = metadata.parameters.TDR.UUID.toString().split("-").first()
+        assertEquals(metadata.parameters.PARSER.uri, "http://example.com/id/ijkl/2025/1/doc-type/3")
+        assertEquals(metadata.parameters.PARSER.cite, "cite")
+        assertEquals(metadata.parameters.PARSER.name, "test")
+        assertEquals(metadata.parameters.TRE.reference, expectedReference)
+        assertEquals(metadata.parameters.TRE.payload.filename, "test.docx")
+        assertEquals(metadata.parameters.TDR.`Document-Checksum-sha256`, "d315c315347b08cccbf38d48d54f24afa7f3d7c7740a86fdc85e2832f6367f95")
+        assertEquals(metadata.parameters.TDR.`Source-Organization`, "TDR")
+        assertEquals(metadata.parameters.TDR.`Internal-Sender-Identifier`, "id")
+        assertEquals(metadata.parameters.TDR.`File-Reference`, expectedReference)
+    }
+
+    private fun createJudgmentFilesIngestUtils(fileContents: MutableList<ByteArray>, metadata: MutableList<JsonUtils.TREMetadata>): IngestUtils {
         return IngestUtils(
             SqsClient.builder().build(),
-            AWSClients.TestS3Client(fileContents, metadata),
+            AWSClients.TestJudgmentS3Client(fileContents, metadata),
+            CloudWatchLogsClient.builder().build(),
+            DynamoDbClient.builder().build(),
+            SfnClient.builder().build(),
+            ConfigFactory.load(),
+            mutableListOf()
+        )
+    }
+
+    private fun createTdrFilesIngestUtils(fileContents: MutableList<UUID>, metadata: MutableList<JsonUtils.TDRMetadata>): IngestUtils {
+        return IngestUtils(
+            SqsClient.builder().build(),
+            AWSClients.TestTDRS3Client(fileContents, metadata),
             CloudWatchLogsClient.builder().build(),
             DynamoDbClient.builder().build(),
             SfnClient.builder().build(),
@@ -247,7 +305,19 @@ class IngestUtilsTest {
 
     private fun sqsIngestUtils(returnedFiles: MutableList<UUID>, files: MutableList<UUID>): IngestUtils {
         return IngestUtils(
-            AWSClients.TestSqsClient(returnedFiles),
+            AWSClients.TestTdrSqsClient(returnedFiles),
+            S3Client.builder().build(),
+            CloudWatchLogsClient.builder().build(),
+            DynamoDbClient.builder().build(),
+            SfnClient.builder().build(),
+            ConfigFactory.load(),
+            files
+        )
+    }
+
+    private fun sqsJudgmentIngestUtils(returnedFiles: MutableList<UUID>, files: MutableList<UUID>): IngestUtils {
+        return IngestUtils(
+            AWSClients.TestJudgmentSqsClient(returnedFiles),
             S3Client.builder().build(),
             CloudWatchLogsClient.builder().build(),
             DynamoDbClient.builder().build(),

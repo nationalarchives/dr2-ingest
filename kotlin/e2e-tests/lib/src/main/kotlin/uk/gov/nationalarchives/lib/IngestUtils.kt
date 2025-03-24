@@ -17,15 +17,26 @@ import aws.smithy.kotlin.runtime.content.ByteStream
 import com.typesafe.config.Config
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.takeWhile
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import uk.gov.nationalarchives.lib.JsonUtils.ExternalNotificationMessage
 import uk.gov.nationalarchives.lib.JsonUtils.ValidationErrorMessage
 import uk.gov.nationalarchives.lib.JsonUtils.TDRMetadata
+import uk.gov.nationalarchives.lib.JsonUtils.TREMetadata
+import uk.gov.nationalarchives.lib.JsonUtils.TREMetadataParameters
+import uk.gov.nationalarchives.lib.JsonUtils.Parser
+import uk.gov.nationalarchives.lib.JsonUtils.Payload
+import uk.gov.nationalarchives.lib.JsonUtils.TREParams
+import uk.gov.nationalarchives.lib.JsonUtils.TDRParams
 import uk.gov.nationalarchives.lib.JsonUtils.jsonCodec
+import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.security.MessageDigest
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.util.*
 import java.util.concurrent.TimeoutException
+import java.util.zip.GZIPOutputStream
 import kotlin.random.Random
 
 class IngestUtils(
@@ -35,7 +46,7 @@ class IngestUtils(
     private val dynamoDbClient: DynamoDbClient,
     private val sfnClient: SfnClient,
     private val config: Config,
-    private val files: MutableList<UUID>
+    private val fileIds: MutableList<UUID>
 ) {
 
     private val completeStatus = "Asset has been written to custodial copy disk."
@@ -53,9 +64,8 @@ class IngestUtils(
                         }
                     }
                     .map { it.fileId }
-                files.removeAll(assetIds)
-                println(files)
-                files.isEmpty()
+                fileIds.removeAll(assetIds)
+                fileIds.isEmpty()
             } ?: false
         }
     }
@@ -69,8 +79,8 @@ class IngestUtils(
                     .map { jsonCodec.decodeFromString<ExternalNotificationMessage>(it.message!!) }
                     .filter { it.body.properties.messageType == "preserve.digital.asset.ingest.$messageType" && it.body.parameters.status == status }
                     .map { it.body.parameters.assetId }
-                files.removeAll(assetIds)
-                files.isEmpty()
+                fileIds.removeAll(assetIds)
+                fileIds.isEmpty()
             } ?: false
         }
     }
@@ -82,28 +92,72 @@ class IngestUtils(
         invalidChecksum: Boolean = false
     ) {
         val invalidChecksumValue = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        files.addAll(List<UUID>(numberOfFiles) { UUID.randomUUID() })
-        files.forEach { println("$it $invalidChecksum $emptyChecksum $invalidMetadata") }
+        fileIds.addAll(List<UUID>(numberOfFiles) { UUID.randomUUID() })
         coroutineScope {
-            files.map {
+            fileIds.map {
                 launch {
-                    val checksum = if (emptyChecksum) {
-                        ""
-                    } else if (invalidChecksum) {
-                        invalidChecksumValue
-                    } else {
-                        hash(it.toString())
-                    }
-                    createFile(it.toString(), ByteStream.fromString(it.toString()))
-                    createFile("${it}.metadata", createMetadataJson(it, checksum, invalidMetadata))
+                    val checksum = if (emptyChecksum) ""
+                    else if (invalidChecksum) invalidChecksumValue
+                    else hash(it.toString())
+                    uploadFileToS3(it.toString(), ByteStream.fromString(it.toString()))
+                    uploadFileToS3("${it}.metadata", createMetadataJson(it, checksum, invalidMetadata))
                 }
             }
         }
     }
 
-    suspend fun sendMessages() = coroutineScope {
+    private fun idToRef(id: UUID): String = id.toString().split("-").first()
+
+    private fun createTarGzByteStream(id: UUID, metadataBytes: ByteArray): ByteStream {
+        //This identifies as a Word doc in DROID.
+        val wordDocBytes = byteArrayOf(
+            0x50, 0x4B, 0x03, 0x04,  0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37, 0x4F,  0x5A, 0x5A, 0xDC.toByte(), 0xA7.toByte(),
+            0x7C, 0x06, 0x3A, 0x08,  0x00, 0x00, 0x3A, 0x08,0x00, 0x00, 0x11, 0x00,  0x00, 0x00, 0x77, 0x6F,
+            0x72, 0x64, 0x2F, 0x64,  0x6F, 0x63, 0x75, 0x6D, 0x65, 0x6E, 0x74, 0x2E,  0x78, 0x6D, 0x6C, 0x78,
+            0x6D, 0x6C, 0x6E, 0x73,  0x3A, 0x77, 0x3D, 0x22, 0x68, 0x74, 0x74, 0x70,  0x3A, 0x2F, 0x2F, 0x70,
+            0x75, 0x72, 0x6C, 0x2E,  0x6F, 0x63, 0x6C, 0x63, 0x2E, 0x6F, 0x72, 0x67,  0x2F, 0x6F, 0x6F, 0x78,
+            0x6D, 0x6C, 0x2F, 0x77,  0x6F, 0x72, 0x64, 0x70, 0x72, 0x6F, 0x63, 0x65,  0x73, 0x73, 0x69, 0x6E,
+            0x67, 0x6D, 0x6C, 0x2F,  0x6D, 0x61, 0x69, 0x6E, 0x22
+        )
+        val byteArrayOutputStream = ByteArrayOutputStream()
+        val batchRef = idToRef(id)
+
+        val filesToTar = listOf("$batchRef/test.docx" to wordDocBytes, "$batchRef/TRE-$batchRef-metadata.json" to metadataBytes)
+
+        GZIPOutputStream(byteArrayOutputStream).use { gzipOutput ->
+            TarArchiveOutputStream(gzipOutput).use { tarOutput ->
+                for ((fileName, fileContent) in filesToTar) {
+                    val entry = TarArchiveEntry(fileName)
+                    entry.size = fileContent.size.toLong()
+                    tarOutput.putArchiveEntry(entry)
+                    tarOutput.write(fileContent)
+                    tarOutput.closeArchiveEntry()
+                }
+                tarOutput.finish()
+            }
+        }
+        return ByteStream.fromBytes(byteArrayOutputStream.toByteArray())
+    }
+
+    private fun createJudgmentMetadata(id: UUID): ByteArray {
+        val parser = Parser("http://example.com/id/ijkl/2025/1/doc-type/3", "cite", "test", listOf(), listOf())
+        val treParams = TREParams(idToRef(id), Payload("test.docx"))
+        val checksum = "d315c315347b08cccbf38d48d54f24afa7f3d7c7740a86fdc85e2832f6367f95"
+        val tdrParams = TDRParams(checksum, "TDR", "id", OffsetDateTime.now(), idToRef(id), id)
+        return jsonCodec.encodeToString(TREMetadata(TREMetadataParameters(parser, treParams, tdrParams))).toByteArray()
+    }
+
+    suspend fun createJudgment() {
+        val id = UUID.randomUUID()
+        fileIds.add(id)
+        val metadataBytes = createJudgmentMetadata(id)
+        val tarGz = createTarGzByteStream(id, metadataBytes)
+        uploadFileToS3("$id.tar.gz", tarGz)
+    }
+
+    suspend fun sendTdrMessages() = coroutineScope {
         val bucket = config.getString("s3Bucket")
-        files.map {
+        fileIds.map {
             async {
                 val request = SendMessageRequest {
                     queueUrl = config.getString("sqsQueue")!!
@@ -114,16 +168,27 @@ class IngestUtils(
         }
     }
 
+    suspend fun sendJudgmentMessage() = coroutineScope {
+        val bucket = config.getString("s3Bucket")
+        fileIds.map {
+            async {
+                val inputParameters = JsonUtils.TREInputParameters("", idToRef(it), true, bucket, "$it.tar.gz")
+                val request = SendMessageRequest {
+                    queueUrl = config.getString("judgmentSqsQueue")!!
+                    messageBody = jsonCodec.encodeToString(JsonUtils.TREInput(inputParameters))
+                }
+                sqsClient.sendMessage(request)
+            }
+        }
+    }
+
     suspend fun createBatch() = coroutineScope {
         val groupId = "E2E_${UUID.randomUUID()}"
         val batchId = "${groupId}_0"
-        files.map {
+        fileIds.map {
             async {
                 val input = jsonCodec.encodeToString(
-                    JsonUtils.AggregatorInputMessage(
-                        it,
-                        URI.create("s3://${config.getString("s3Bucket")}/$it")
-                    )
+                    JsonUtils.AggregatorInputMessage(it, URI.create("s3://${config.getString("s3Bucket")}/$it"))
                 )
                 val request = PutItemRequest {
                     conditionExpression = "attribute_not_exists(assetId)"
@@ -161,16 +226,10 @@ class IngestUtils(
 
     private fun createMetadataJson(id: UUID, checksum: String, invalidMetadata: Boolean): ByteStream {
         val thisYear = LocalDate.now().year
-        fun <T> generateValue(ifPresent: T) = if (invalidMetadata && Random.nextBoolean()) {
-            null
-        } else {
-            ifPresent
-        }
+        fun <T> generateValue(value: T): T? = if (invalidMetadata && Random.nextBoolean()) null else value
 
         fun generateSeries() = listOf(null, "TEST123", "").shuffled().first()
-        val series = if (invalidMetadata) {
-            generateSeries()
-        } else "TEST 123"
+        val series = if (invalidMetadata) generateSeries() else "TEST 123"
         val metadata = TDRMetadata(
             series,
             generateValue(id),
@@ -185,7 +244,7 @@ class IngestUtils(
         return ByteStream.fromString(jsonCodec.encodeToString(metadata))
     }
 
-    private suspend fun createFile(objectKey: String, bodyStream: ByteStream) {
+    private suspend fun uploadFileToS3(objectKey: String, bodyStream: ByteStream) {
         val bucketName = config.getString("s3Bucket")!!
         val request = PutObjectRequest {
             bucket = bucketName

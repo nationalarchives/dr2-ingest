@@ -5,8 +5,6 @@ import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
 import aws.sdk.kotlin.services.s3.S3Client
 import aws.sdk.kotlin.services.sfn.SfnClient
 import aws.sdk.kotlin.services.sqs.SqsClient
-import aws.sdk.kotlin.services.sqs.model.SendMessageRequest
-import aws.sdk.kotlin.services.sqs.model.SendMessageResponse
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import io.cucumber.java.en.Given
@@ -19,7 +17,7 @@ import java.util.*
 
 class StepDefs {
 
-    private val files: MutableList<UUID> = mutableListOf()
+    private val fileIds: MutableList<UUID> = mutableListOf()
 
     private val config: Config = ConfigFactory.load()
 
@@ -31,7 +29,7 @@ class StepDefs {
         val cloudWatchLogsClient = CloudWatchLogsClient.fromEnvironment()
         val dynamoClient = DynamoDbClient.fromEnvironment()
         val sfnClient = SfnClient.fromEnvironment()
-        IngestUtils(sqsClient, s3Client, cloudWatchLogsClient, dynamoClient, sfnClient, config, files)
+        IngestUtils(sqsClient, s3Client, cloudWatchLogsClient, dynamoClient, sfnClient, config, fileIds)
     }
 
     @Given("An ingest with {int} files")
@@ -39,21 +37,31 @@ class StepDefs {
         utils.createFiles(numberOfFiles)
     }
 
+    @Given("A judgment")
+    fun aJudgment() = runBlocking {
+        utils.createJudgment()
+    }
+
+    @When("I send a message to the judgment queue")
+    fun iSendAMessageToTheJudgmentQueue() = runBlocking {
+        utils.sendJudgmentMessage()
+    }
+
     @When("I send messages to the input queue")
     fun iSendMessagesToTheInputQueue() = runBlocking {
-        utils.sendMessages()
+        utils.sendTdrMessages()
     }
 
     @Then("I receive an ingest complete message")
     fun iReceiveAnIngestCompleteMessage() = runBlocking {
         utils.checkForIngestStatusMessages(config.getString("externalLogGroup"), 60 * 60 * 1000, "complete")
-        assertTrue(files.isEmpty())
+        assertTrue(fileIds.isEmpty())
     }
 
     @Then("I receive an ingest error message")
     fun iReceiveAnIngestErrorMessage() = runBlocking {
         utils.checkForIngestStatusMessages(config.getString("externalLogGroup"), 40 * 60 * 1000, "update")
-        assertTrue(files.isEmpty())
+        assertTrue(fileIds.isEmpty())
     }
 
     @Given("An ingest with {int} file with an empty checksum")

@@ -5,6 +5,11 @@ Feature: Ingest tests
     When I send messages to the input queue
     Then I receive an ingest complete message
 
+  Scenario: Judgment should succeed if all metadata is valid
+    Given A judgment
+    When I send a message to the judgment queue
+    Then I receive an ingest complete message
+
   Scenario: Ingest should fail if there is an empty checksum
     Given An ingest with 1 file with an empty checksum
     When I create a batch with this file
