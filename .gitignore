@@ -35,3 +35,7 @@ metals.sbt
 venv/
 __pycache__/
 
+build/
+.gradle/
+.kotlin/
+kotlin/e2e-tests/gradle/wrapper/
