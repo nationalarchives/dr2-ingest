@@ -151,18 +151,20 @@ class IngestUtilsTest {
 
     @Test
     fun testSendJudgmentMessagesSendsAllFiles() {
-        val returnedFiles: MutableList<UUID> = mutableListOf()
+        val returnedFiles: MutableList<String> = mutableListOf()
         val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
         runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentMessage() }
-        assertContentEquals(files, returnedFiles)
+        val expectedBatchRefs = files.map { it.toString().split("-").first() }
+        assertContentEquals(expectedBatchRefs, returnedFiles)
     }
 
     @Test
     fun testSendJudgmentMessagesSendsNoFiles() {
-        val returnedFiles: MutableList<UUID> = mutableListOf()
+        val returnedFiles: MutableList<String> = mutableListOf()
         val files = mutableListOf<UUID>()
         runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentMessage() }
-        assertContentEquals(files, returnedFiles)
+        val expectedBatchRefs = files.map { it.toString().split("-").first() }
+        assertContentEquals(expectedBatchRefs, returnedFiles)
     }
 
     @Test
@@ -315,7 +317,7 @@ class IngestUtilsTest {
         )
     }
 
-    private fun sqsJudgmentIngestUtils(returnedFiles: MutableList<UUID>, files: MutableList<UUID>): IngestUtils {
+    private fun sqsJudgmentIngestUtils(returnedFiles: MutableList<String>, files: MutableList<UUID>): IngestUtils {
         return IngestUtils(
             AWSClients.TestJudgmentSqsClient(returnedFiles),
             S3Client.builder().build(),
