@@ -12,8 +12,7 @@ import io.circe.*
 import io.circe.generic.auto.*
 import io.circe.parser.decode
 import io.circe.syntax.*
-import org.typelevel.log4cats.SelfAwareStructuredLogger
-import org.typelevel.log4cats.slf4j.Slf4jFactory
+import org.slf4j.{Logger, LoggerFactory, MDC}
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.NewGroupReason.*
@@ -28,6 +27,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 import java.net.URI
 import java.time.Instant
 import java.util.UUID
+import scala.jdk.CollectionConverters.*
 
 trait Aggregator[F[_]]:
 
@@ -58,10 +58,19 @@ object Aggregator:
     case NoExistingGroup, ExpiryBeforeLambdaTimeout, MaxGroupSizeExceeded
 
   def apply[F[_]: Async: Parallel](sfnClient: DASFNClient[F], dynamoClient: DADynamoDBClient[F])(using Generators): Aggregator[F] = new Aggregator[F]:
-    private val logger: SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger
+    private val logger: Logger = LoggerFactory.getLogger("preingest-tdr-aggregator")
+    
+    private def logWithCtx(message: String, ctx: Map[String, String]): Unit = {
+      MDC.clear()
+      MDC.setContextMap(ctx.asJava)
+      logger.info(message)
+      MDC.clear()
+    }
 
-    private def logWithReason(sourceId: String)(newGroupReason: NewGroupReason): F[Unit] =
-      logger.info(Map("action" -> "Start new group", "reason" -> newGroupReason.toString, "sourceId" -> sourceId))("Starting a new group")
+    private def logWithReason(sourceId: String)(newGroupReason: NewGroupReason): F[Unit] = Async[F].pure {
+      val logCtx = Map("action" -> "Start new group", "reason" -> newGroupReason.toString, "sourceId" -> sourceId)
+      logWithCtx("Starting a new group", logCtx)
+    }
 
     private def toDynamoString(value: String): AttributeValue = AttributeValue.builder.s(value).build
 
@@ -120,12 +129,15 @@ object Aggregator:
             _ <- writeToLockTable(input, config, groupId)
           } yield record.getMessageId
           process.handleErrorWith { err =>
-            logger.error(Map(), err)(err.getMessage) >>
+            Async[F].pure(logger.error(err.getMessage, err)) >>
               Async[F].raiseError(AggregatorError(record.getMessageId))
           }.start
         }
         results <- fibers.traverse(_.join)
-        _ <- logger.info(Map("successes" -> results.count(_.isSuccess).toString, "failures" -> results.count(_.isError).toString))("Aggregation complete")
+        _ <- Async[F].pure {
+          val ctx = Map("successes" -> results.count(_.isSuccess).toString, "failures" -> results.count(_.isError).toString)
+          logWithCtx("Aggregation complete", ctx)
+        }
         response <- handleErrors(results)
       } yield response
     }

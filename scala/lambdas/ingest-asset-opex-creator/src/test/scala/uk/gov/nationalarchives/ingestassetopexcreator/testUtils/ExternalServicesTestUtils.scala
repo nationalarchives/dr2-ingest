@@ -1,27 +1,24 @@
 package uk.gov.nationalarchives.ingestassetopexcreator.testUtils
 
-import fs2.interop.reactivestreams.*
-import cats.effect.{IO, Ref}
 import cats.effect.unsafe.implicits.global
-import org.reactivestreams.Publisher
+import cats.effect.{IO, Ref}
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
-import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.{BatchWriteItemResponse, ResourceNotFoundException}
 import software.amazon.awssdk.services.s3.model.{CopyObjectResponse, DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
-import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.PreservationRepresentationType
-import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{AssetDynamoItem, Checksum, FileDynamoItem, FilesTablePrimaryKey, Identifier}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.{Config, Dependencies, Input, InputAsset}
 import uk.gov.nationalarchives.ingestassetopexcreator.{Lambda, XMLCreator}
+import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
+import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.nio.ByteBuffer
 import java.time.OffsetDateTime
-import scala.jdk.CollectionConverters.*
 import java.util.UUID
+import scala.jdk.CollectionConverters.*
 import scala.xml.Elem
 
 object ExternalServicesTestUtils:
@@ -75,7 +72,7 @@ object ExternalServicesTestUtils:
     override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = notImplemented
 
   def s3Client(ref: Ref[IO, List[S3Object]], errors: Option[Errors]): DAS3Client[IO] = new DAS3Client[IO]:
-    override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] =
+    override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CopyObjectResponse] =
       s3CopyError(errors.exists(_.s3CopyError)) >>
         ref
           .update { existing =>
@@ -84,26 +81,21 @@ object ExternalServicesTestUtils:
               .map(obj => obj.copy(bucket = destinationBucket, key = destinationKey))
               .toList
           }
-          .map(_ => CompletedCopy.builder.response(CopyObjectResponse.builder.build).build)
+          .map(_ => CopyObjectResponse.builder.build)
 
-    override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = notImplemented
+    override def download(bucket: String, key: String): IO[ByteArrayOutputStream] = notImplemented
 
-    override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] =
+    override def upload(bucket: String, key: String, byteBuffer: ByteBuffer): IO[PutObjectResponse] =
       s3UploadError(errors.exists(_.s3UploadError)) >>
-        (for {
-          content <- publisher
-            .toStreamBuffered[IO](1024)
-            .map(_.array().map(_.toChar).mkString)
-            .compile
-            .string
-          _ <- ref.update(existing => S3Object(bucket, key, content) :: existing)
-        } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build)
+        ref.update(existing => S3Object(bucket, key, byteBuffer.array().map(_.toChar).mkString) :: existing)
+          .map(_ => PutObjectResponse.builder.build)
+          
 
     override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = notImplemented
 
     override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = notImplemented
 
-    override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = notImplemented
+    override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[java.util.stream.Stream[String]] = notImplemented
 
   case class Errors(dynamoGetError: Boolean = false, dynamoQueryError: Boolean = false, s3CopyError: Boolean = false, s3UploadError: Boolean = false)
 

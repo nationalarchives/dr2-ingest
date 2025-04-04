@@ -4,6 +4,7 @@ import cats.effect.*
 import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import io.circe.{Decoder, Encoder, HCursor, Json, JsonObject}
+import io.circe.syntax.*
 import pureconfig.ConfigReader
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.dp.client.EntityClient
@@ -14,20 +15,27 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.utils.EventCodecs.given
 import io.circe.parser.decode
+import software.amazon.awssdk.services.sqs.SqsClient
+import software.amazon.awssdk.services.sqs.model.SendMessageRequest
 import uk.gov.nationalarchives.DASQSClient.FifoQueueConfiguration
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType
 
 import scala.jdk.CollectionConverters.*
 import java.util.UUID
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
 
   override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = { (sqsEvent, config, dependencies) =>
     sqsEvent.getRecords.asScala.toList.parTraverse { record =>
+      logger.info("Logging things")
       for {
+        _ <- log(Map("something" -> "something else"))("A message")
         messageBody <- IO.fromEither(decode[MessageBody](record.getBody))
         potentialMessageGroupId <- messageBody match
-          case IoMessageBody(id, _) => IO.pure(id.some)
+          case IoMessageBody(id, _) =>
+            logger.info(s"Logging more things $id")
+            IO.pure(id.some)
           case CoMessageBody(id, deleted) =>
             if deleted then IO.none
             else
@@ -37,19 +45,35 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
           case SoMessageBody(id, _) => IO.none
         _ <- IO.whenA(potentialMessageGroupId.nonEmpty) {
           val fifoConfiguration = potentialMessageGroupId.map(messageGroupId => FifoQueueConfiguration(messageGroupId.toString, dependencies.uuidGenerator().toString))
-          dependencies.sqsClient.sendMessage(config.outputQueue)(messageBody, fifoConfiguration).void
+          IO {
+            val sendMessageRequestBuilder = SendMessageRequest.builder()
+              .messageBody(messageBody.asJson.noSpaces)
+              .queueUrl(config.outputQueue)
+            val messageRequest = fifoConfiguration
+              .map { fifoQueueConfiguration =>
+                sendMessageRequestBuilder
+                  .messageGroupId(fifoQueueConfiguration.messageGroupId)
+                  .messageDeduplicationId(fifoQueueConfiguration.messageDeduplicationId)
+                  .build
+              }
+              .getOrElse(sendMessageRequestBuilder.build)
+            dependencies.sqsClient.sendMessage(messageRequest)
+          }
         }
       } yield ()
     }.void
   }
 
   override def dependencies(config: Config): IO[Dependencies] =
-    Fs2Client.entityClient(config.apiUrl, config.secretName).map(entityClient => Dependencies(entityClient, DASQSClient[IO](), () => UUID.randomUUID))
+    
+    Fs2Client.entityClient(config.apiUrl, config.secretName).map(entityClient => Dependencies(entityClient, SqsClient.builder().build(), () => UUID.randomUUID))
 
 object Lambda:
 
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+
   case class Config(apiUrl: String, secretName: String, outputQueue: String) derives ConfigReader
-  case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], sqsClient: DASQSClient[IO], uuidGenerator: () => UUID)
+  case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], sqsClient: SqsClient, uuidGenerator: () => UUID)
 
   private def toJson(id: UUID, deleted: Boolean, messageType: String): Json =
     Json.fromJsonObject(JsonObject(("id", Json.fromString(s"$messageType:$id")), ("deleted", Json.fromBoolean(deleted))))

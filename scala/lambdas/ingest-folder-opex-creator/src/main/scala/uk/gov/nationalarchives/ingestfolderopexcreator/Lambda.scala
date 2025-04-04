@@ -2,22 +2,21 @@ package uk.gov.nationalarchives.ingestfolderopexcreator
 
 import cats.effect.IO
 import cats.implicits.*
-import fs2.Stream
 import io.circe.generic.auto.*
-import org.reactivestreams.FlowAdapters
 import org.scanamo.*
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
-import software.amazon.awssdk.transfer.s3.model.CompletedUpload
+import software.amazon.awssdk.services.s3.model.PutObjectResponse
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd.PreservicaSchema
+import uk.gov.nationalarchives.dp.client.fs2.Fs2Client.xmlValidator
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
-import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
-import uk.gov.nationalarchives.dp.client.fs2.Fs2Client.xmlValidator
 import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
+import java.nio.ByteBuffer
 import java.util.UUID
 import scala.jdk.CollectionConverters.MapHasAsScala
 
@@ -87,10 +86,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         .queryItems[FolderOrAssetItem](tableName, "batchId" === asset.batchId and "parentPath" === childrenParentPath, Option(gsiName))
     }
 
-    def uploadXMLToS3(xmlString: String, destinationBucket: String, key: String): IO[CompletedUpload] =
-      Stream.emits[IO, Byte](xmlString.getBytes).chunks.map(_.toByteBuffer).toPublisherResource.use { publisher =>
-        dependencies.s3Client.upload(destinationBucket, key, FlowAdapters.toPublisher(publisher))
-      }
+    def uploadXMLToS3(xmlString: String, destinationBucket: String, key: String): IO[PutObjectResponse] =
+      dependencies.s3Client.upload(destinationBucket, key, ByteBuffer.wrap(xmlString.getBytes))
 
     def getAssetRowsWithFileSize(children: List[FolderOrAssetItem], bucketName: String, executionName: String): IO[List[AssetWithFileSize]] =
       children.collect {
@@ -111,10 +108,10 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         new Exception(s"No folder found for ${input.id} and ${input.batchId}")
       )
       idCode = folder.identifiers.find(_.identifierName == "Code").map(_.value).orNull
-      log = logger.info(Map("batchRef" -> input.batchId, "folderId" -> folder.id.toString, "idCode" -> idCode))(_)
+      logger = log(Map("batchRef" -> input.batchId, "folderId" -> folder.id.toString, "idCode" -> idCode))(_)
 
       _ <- IO.whenA(!isFolder(folder.`type`))(IO.raiseError(new Exception(s"Object ${folder.id} is of type ${folder.`type`} and not 'ContentFolder' or 'ArchiveFolder'")))
-      _ <- log(s"Fetched ${folderItems.length} folder items from Dynamo")
+      _ <- logger(s"Fetched ${folderItems.length} folder items from Dynamo")
 
       children <- childrenOfFolder(folder, config.dynamoTableName, config.dynamoGsiName)
       _ <- IO.raiseWhen(folder.childCount != children.length)(
@@ -122,17 +119,17 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       )
       childrenWithoutSkip <- IO(children.filterNot(_.skipIngest))
       _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
-      _ <- log(s"Fetched ${children.length} children from Dynamo")
+      _ <- logger(s"Fetched ${children.length} children from Dynamo")
 
       assetRows <- getAssetRowsWithFileSize(childrenWithoutSkip, config.bucketName, input.executionName)
-      _ <- log("File sizes for assets fetched from S3")
+      _ <- logger("File sizes for assets fetched from S3")
 
       folderRows <- IO.pure(childrenWithoutSkip.filter(child => isFolder(child.`type`)))
       folderOpex <- dependencies.xmlCreator.createFolderOpex(folder, assetRows, folderRows, folder.identifiers)
       _ <- xmlValidator(PreservicaSchema.OpexMetadataSchema).xmlStringIsValid("""<?xml version="1.0" encoding="UTF-8"?>""" + folderOpex)
       key = generateKey(input.executionName, folder)
       _ <- uploadXMLToS3(folderOpex, config.bucketName, key)
-      _ <- log(s"Uploaded OPEX $key to S3 ${config.bucketName}")
+      _ <- logger(s"Uploaded OPEX $key to S3 ${config.bucketName}")
     } yield ()
 
   override def dependencies(config: Config): IO[Dependencies] = {

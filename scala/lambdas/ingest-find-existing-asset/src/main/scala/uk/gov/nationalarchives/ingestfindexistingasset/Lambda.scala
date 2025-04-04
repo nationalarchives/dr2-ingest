@@ -50,8 +50,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
             new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")
           )
           logCtx = Map("batchId" -> item.batchId, "assetId" -> asset.id.toString)
-          log = logger.info(logCtx)(_)
-          _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
+          logger = log(logCtx)(_)
+          _ <- logger(s"Asset ${asset.id} retrieved from Dynamo")
         } yield asset
       }
       .flatMap { assets =>

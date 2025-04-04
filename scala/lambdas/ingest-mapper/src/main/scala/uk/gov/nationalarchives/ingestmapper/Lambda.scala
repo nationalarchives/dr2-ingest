@@ -2,29 +2,25 @@ package uk.gov.nationalarchives.ingestmapper
 
 import cats.effect.IO
 import cats.syntax.traverse.*
-import io.circe.syntax.*
-import fs2.Stream
+import io.circe.*
 import io.circe.generic.auto.*
+import io.circe.syntax.*
 import org.scanamo.*
 import org.scanamo.generic.semiauto.*
 import pureconfig.ConfigReader
 import ujson.*
-import upickle.core.*
-import uk.gov.nationalarchives.ingestmapper.Lambda.{BucketInfo, Config, Dependencies, Input, StateOutput}
+import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, *}
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
-
-import java.util.UUID
-import io.circe.*
-import org.reactivestreams.FlowAdapters
-import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
-import uk.gov.nationalarchives.utils.Generators
+import upickle.core.*
 
 import java.net.URI
 import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
@@ -105,12 +101,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   }
   private def uploadIdsToS3(s3Client: DAS3Client[IO], bucketName: String, executionName: String)(jsonFileName: String, ids: List[UUID]) = {
     val key = s"$executionName/$jsonFileName.json"
-    Stream
-      .eval(IO.pure(ids.asJson.noSpaces))
-      .map(s => ByteBuffer.wrap(s.getBytes()))
-      .toPublisherResource
-      .use(pub => s3Client.upload(bucketName, key, FlowAdapters.toPublisher(pub)))
-      .map(_ => BucketInfo(bucketName, key))
+    s3Client.upload(bucketName, key, ByteBuffer.wrap(ids.asJson.noSpaces.getBytes())).map(_ => BucketInfo(bucketName, key))
   }
 }
 object Lambda {

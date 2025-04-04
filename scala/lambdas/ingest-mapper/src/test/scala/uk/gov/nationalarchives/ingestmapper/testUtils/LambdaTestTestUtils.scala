@@ -2,18 +2,13 @@ package uk.gov.nationalarchives.ingestmapper.testUtils
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
-import fs2.interop.reactivestreams.*
-import org.reactivestreams.Publisher
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
-import reactor.core.publisher.Flux
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
-import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
-import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
+import software.amazon.awssdk.services.s3.model.{CopyObjectResponse, DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
 import sttp.client3.impl.cats.CatsMonadAsyncError
 import sttp.client3.testing.SttpBackendStub
 import ujson.Obj
@@ -25,6 +20,7 @@ import uk.gov.nationalarchives.ingestmapper.{DiscoveryService, MetadataService}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import upickle.default.write
 
+import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.nio.ByteBuffer
 import java.time.Instant
@@ -187,30 +183,27 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
 
   def mocks3Client(ref: Ref[IO, List[S3Object]]): DAS3Client[IO] =
     new DAS3Client[IO]():
-      override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = ref.get.flatMap { objects =>
+      override def download(bucket: String, key: String): IO[ByteArrayOutputStream] = ref.get.flatMap { objects =>
         IO.fromOption {
           objects
             .find(obj => obj.bucket == bucket && obj.key == key)
-            .map(obj => Flux.just(ByteBuffer.wrap(obj.fileContent.getBytes)))
+            .map(obj => {
+              val baos = new ByteArrayOutputStream()
+              baos.write(obj.fileContent.getBytes)
+              baos
+            })
         }(new Exception(s"Key $key not found in bucket $bucket"))
       }
 
-      override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = notImplemented
+      override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CopyObjectResponse] = notImplemented
 
-      override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] = for {
-        _ <- IO(assert(bucket == "testInputStateBucket"))
-        actualUploadedJson <- publisher
-          .toStreamBuffered[IO](1024)
-          .map(_.array().map(_.toChar).mkString)
-          .compile
-          .string
-        _ <- ref.update(s3Objects => S3Object(bucket, key, actualUploadedJson) :: s3Objects)
-
-      } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build
+      override def upload(bucket: String, key: String, byteBuffer: ByteBuffer): IO[PutObjectResponse] =
+        ref.update(s3Objects => S3Object(bucket, key, byteBuffer.array().map(_.toChar).mkString) :: s3Objects)
+          .map(_ => PutObjectResponse.builder.build)
 
       override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = notImplemented
 
       override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = notImplemented
 
-      override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = notImplemented
+      override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[java.util.stream.Stream[String]] = notImplemented
 }

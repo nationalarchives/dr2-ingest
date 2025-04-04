@@ -9,11 +9,10 @@ import com.networknt.schema.SpecVersion.VersionFlag
 import com.networknt.schema.{JsonSchema, JsonSchemaFactory}
 import fs2.Stream
 import fs2.io.file.*
-import fs2.io.{file => fs2File}
+import fs2.io.file as fs2File
 import io.circe.*
 import io.circe.parser.*
 import io.circe.syntax.*
-import org.reactivestreams.FlowAdapters
 import org.typelevel.jawn.Facade
 import org.typelevel.jawn.fs2.*
 import uk.gov.nationalarchives.DAS3Client
@@ -25,6 +24,7 @@ import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.Type.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 
+import java.nio.ByteBuffer
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.*
@@ -114,9 +114,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       IO.whenA(allValidation.anyErrors) {
         val bucket = input.metadataPackage.getHost
         val resultPath = s"${input.metadataPackage.getPath}/validation-result.json"
-        Stream.evals[IO, List, Byte](IO.pure(allValidation.asJson.noSpaces.getBytes.toList)).chunks.map(_.toByteBuffer).toPublisherResource.use { pub =>
-          dependencies.s3.upload(bucket, resultPath, FlowAdapters.toPublisher(pub)).void
-        } >> IO.raiseError(new Exception(s"Validation failed. Results are at s3://$bucket/$resultPath"))
+        dependencies.s3.upload(bucket, resultPath, ByteBuffer.wrap(allValidation.asJson.noSpaces.getBytes)).void >> 
+          IO.raiseError(new Exception(s"Validation failed. Results are at s3://$bucket/$resultPath"))
       }
     }
 
@@ -176,12 +175,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     }
     given Monoid[Map[UUID, ParentWithType]] = Monoid.instance[Map[UUID, ParentWithType]](Map.empty, (_, second) => second)
     for {
-      pub <- dependencies.s3.download(input.metadataPackage.getHost, input.metadataPackage.getPath.drop(1))
+      outputStream <- dependencies.s3.download(input.metadataPackage.getHost, input.metadataPackage.getPath.drop(1))
       schemaMap <- createSchemaMap
       idToParentIdTypeCell <- AtomicCell[IO].empty[Map[UUID, ParentWithType]]
       parentIdCountCell <- AtomicCell[IO].empty[Map[Option[UUID], Int]]
       countsCell <- AtomicCell[IO].of(ObjectCounts(0, 0, 0))
-      singleObjectValidation <- validateIndividualObjects(pub.toByteStream, schemaMap)(idToParentIdTypeCell, parentIdCountCell, countsCell)
+      singleObjectValidation <- validateIndividualObjects(Stream.emits(outputStream.toByteArray), schemaMap)(idToParentIdTypeCell, parentIdCountCell, countsCell)
       _ <- IO.whenA(singleObjectValidation.nonEmpty)(uploadErrors(input, WholeFileValidationResult(Nil, singleObjectValidation)))
       parentIdType <- idToParentIdTypeCell.get
       parentIdCount <- parentIdCountCell.get

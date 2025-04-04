@@ -2,12 +2,10 @@ package uk.gov.nationalarchives.ingestassetopexcreator
 
 import cats.effect.*
 import cats.implicits.*
-import fs2.Stream
 import io.circe.generic.auto.*
-import org.reactivestreams.FlowAdapters
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
-import software.amazon.awssdk.transfer.s3.model.CompletedUpload
+import software.amazon.awssdk.services.s3.model.PutObjectResponse
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd
 import uk.gov.nationalarchives.dp.client.ValidateXmlAgainstXsd.PreservicaSchema.{OpexMetadataSchema, XipXsdSchemaV7}
@@ -17,8 +15,10 @@ import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
+import java.nio.ByteBuffer
 import java.time.OffsetDateTime
 import java.util.UUID
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
@@ -42,37 +42,36 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
             new Exception(s"No asset found for ${item.id} and ${item.batchId}")
           )
           fileReference = asset.identifiers.find(_.identifierName == "BornDigitalRef").map(_.value).orNull
-          log = logger.info(Map("batchRef" -> item.batchId, "fileReference" -> fileReference, "assetId" -> asset.id.toString))(_)
+          logger = log(Map("batchRef" -> item.batchId, "fileReference" -> fileReference, "assetId" -> asset.id.toString))(_)
           _ <- IO.whenA(asset.`type` != Asset)(IO.raiseError(new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")))
-          _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
+          _ <- logger(s"Asset ${asset.id} retrieved from Dynamo")
 
           children <- childrenOfAsset(dynamoClient, asset, config.dynamoTableName, config.dynamoGsiName)
           _ <- IO.raiseWhen(children.length != asset.childCount)(
             new Exception(s"Asset id ${asset.id}: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
           )
           _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${item.id} and ${item.batchId}"))
-          _ <- log(s"${children.length} children found for asset ${asset.id}")
+          _ <- logger(s"${children.length} children found for asset ${asset.id}")
 
-          _ <- log(s"Starting copy from ${children.map(_.location).mkString(", ")} to ${config.destinationBucket}")
+          _ <- logger(s"Starting copy from ${children.map(_.location).mkString(", ")} to ${config.destinationBucket}")
           _ <- children.parTraverse(child => copyFromSourceToDestination(s3Client, item, config.destinationBucket, asset, child, xmlCreator))
           xip <- xmlCreator.createXip(asset, children.sortBy(_.sortOrder))
           _ <- ValidateXmlAgainstXsd[IO](XipXsdSchemaV7).xmlStringIsValid(xip)
           _ <- uploadXMLToS3(s3Client, xip, config.destinationBucket, s"${assetPath(item, asset)}/${asset.id}.xip")
-          _ <- log(s"XIP ${assetPath(item, asset)}/${asset.id}.xip uploaded to ${config.destinationBucket}")
+          _ <- logger(s"XIP ${assetPath(item, asset)}/${asset.id}.xip uploaded to ${config.destinationBucket}")
 
           opex <- xmlCreator.createOpex(asset, children, xip.getBytes.length, asset.identifiers)
           _ <- ValidateXmlAgainstXsd[IO](OpexMetadataSchema).xmlStringIsValid(opex)
           _ <- uploadXMLToS3(s3Client, opex, config.destinationBucket, s"${parentPath(item, asset)}/${asset.id}.pax.opex")
-          _ <- log(s"OPEX ${parentPath(item, asset)}/${asset.id}.pax.opex uploaded to ${config.destinationBucket}")
+          _ <- logger(s"OPEX ${parentPath(item, asset)}/${asset.id}.pax.opex uploaded to ${config.destinationBucket}")
         } yield ()
       }
       .void
   }
 
-  private def uploadXMLToS3(s3Client: DAS3Client[IO], xmlString: String, destinationBucket: String, key: String): IO[CompletedUpload] =
-    Stream.emits[IO, Byte](xmlString.getBytes).chunks.map(_.toByteBuffer).toPublisherResource.use { publisher =>
-      s3Client.upload(destinationBucket, key, FlowAdapters.toPublisher(publisher))
-    }
+  private def uploadXMLToS3(s3Client: DAS3Client[IO], xmlString: String, destinationBucket: String, key: String): IO[PutObjectResponse] =
+    s3Client.upload(destinationBucket, key, ByteBuffer.wrap(xmlString.getBytes))
+
 
   private def copyFromSourceToDestination(
       s3Client: DAS3Client[IO],
@@ -105,6 +104,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 }
 
 object Lambda {
+
+  @static def main(args: Array[String]): Unit = new Lambda().run()
 
   case class InputAsset(id: UUID, batchId: String, assetExists: Boolean)
 

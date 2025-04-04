@@ -17,7 +17,6 @@ import DynamoFormatters.*
 
 import java.lang
 import java.net.URI
-import java.time.Instant
 
 class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
 

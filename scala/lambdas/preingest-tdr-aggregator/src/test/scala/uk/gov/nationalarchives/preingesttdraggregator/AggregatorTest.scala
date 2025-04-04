@@ -17,7 +17,7 @@ import org.scalatest.matchers.should.Matchers.*
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
+import software.amazon.awssdk.services.sfn.model.{GetActivityTaskResponse, StartExecutionResponse}
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
 import uk.gov.nationalarchives.utils.Generators
@@ -97,6 +97,8 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     override def startExecution[T <: Product](stateMachineArn: String, input: T, name: Option[String])(using enc: Encoder[T]): IO[StartExecutionResponse] =
       if sfnError then IO.raiseError(new Exception("Error starting step function"))
       else ref.update(args => StartExecutionArgs(stateMachineArn, input.asInstanceOf[SFNArguments], name) :: args).map(_ => StartExecutionResponse.builder.build)
+
+    override def getActivityTask(activityArn: String): IO[GetActivityTaskResponse] = notImplemented
 
   private def getAggregatorOutput(
       assetIds: List[UUID],

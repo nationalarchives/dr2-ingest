@@ -5,10 +5,13 @@ import fs2.*
 import io.circe.generic.auto.*
 import org.reactivestreams.{FlowAdapters, Publisher}
 import pureconfig.ConfigReader
-import software.amazon.awssdk.transfer.s3.model.CompletedUpload
+import software.amazon.awssdk.services.s3.model.PutObjectResponse
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestparentfolderopexcreator.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
+
+import java.nio.ByteBuffer
+import scala.jdk.CollectionConverters.IteratorHasAsScala
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
@@ -36,34 +39,30 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       Dependencies
   ) => IO[Unit] = (input, config, dependencies) => {
 
-    def uploadToS3(opexXmlContent: String, fileName: String): Stream[IO, CompletedUpload] = Stream.eval {
-      Stream
-        .emits[IO, Byte](opexXmlContent.getBytes)
-        .chunks
-        .map(_.toByteBuffer)
-        .toPublisherResource
-        .use { publisher =>
-          dependencies.s3Client.upload(config.destinationBucket, fileName, FlowAdapters.toPublisher(publisher))
-        }
+    def uploadToS3(opexXmlContent: String, fileName: String): Stream[IO, PutObjectResponse] = Stream.eval {
+      dependencies.s3Client.upload(config.destinationBucket, fileName, ByteBuffer.wrap(opexXmlContent.getBytes))
     }
 
     val keyPrefix = s"opex/${input.executionId}/"
     val opexFileName = s"$keyPrefix${input.executionId}.opex"
     val batchRef = input.executionId.split('-').take(3).mkString("-")
-    val log = logger.info(Map("batchRef" -> batchRef))(_)
+    val logger = log(Map("batchRef" -> batchRef))(_)
     for {
-      publisher <- dependencies.s3Client.listCommonPrefixes(config.destinationBucket, keyPrefix)
-      _ <- log(s"Retrieved prefixes for key $keyPrefix from bucket ${config.destinationBucket}")
-      completedUpload <- publisher.publisherToStream
+      prefixStream <- dependencies.s3Client.listCommonPrefixes(config.destinationBucket, keyPrefix)
+      _ <- logger(s"Retrieved prefixes for key $keyPrefix from bucket ${config.destinationBucket}")
+      completedUpload <- javaStreamToFs2(prefixStream)
         .through(accumulatePrefixes)
         .map(generateOpexWithManifest)
         .flatMap { opexXmlString => uploadToS3(opexXmlString, opexFileName) }
         .compile
         .toList
-      _ <- log(s"Uploaded opex file $opexFileName")
+      _ <- logger(s"Uploaded opex file $opexFileName")
       _ <- IO.raiseWhen(completedUpload.isEmpty)(new Exception(s"No uploads were attempted for '$keyPrefix'"))
     } yield completedUpload.head
   }
+  
+  private def javaStreamToFs2[T](javaStream: java.util.stream.Stream[T]): Stream[IO, T] = 
+    Stream.fromIterator(javaStream.iterator().asScala, 64)
 
   override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DAS3Client[IO](config.roleArn, lambdaName)))
 }

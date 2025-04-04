@@ -1,0 +1,321 @@
+package build
+
+import mill._
+import mill.scalalib._
+import Deps._
+import mill.api.Loose
+import mill.define.ModuleRef
+
+
+object Deps {
+
+  private val awsClientsVersion = "0.1.115-SNAPSHOT"
+  val scalaVersion = "3.6.4"
+  val awsCrt = ivy"software.amazon.awssdk.crt:aws-crt:0.36.3"
+  val catsEffect = ivy"org.typelevel::cats-effect:3.5.7"
+  val circeCore = ivy"io.circe::circe-core:0.14.12"
+  val circeGeneric = ivy"io.circe::circe-generic:0.14.12"
+  val circeParser = ivy"io.circe::circe-parser:0.14.12"
+  val circFs2 = ivy"io.circe::circe-fs2:0.14.1"
+  val commonsCompress = ivy"org.apache.commons:commons-compress:1.27.1"
+  val daDynamoDbClient = ivy"uk.gov.nationalarchives::da-dynamodb-client:$awsClientsVersion" 
+  val daEventBridgeClient = ivy"uk.gov.nationalarchives::da-eventbridge-client:$awsClientsVersion"
+  val daS3Client = ivy"uk.gov.nationalarchives::da-s3-client:$awsClientsVersion"
+  val daSecretsManagerClient = ivy"uk.gov.nationalarchives::da-secretsmanager-client:$awsClientsVersion"
+  val daSfnClient = ivy"uk.gov.nationalarchives::da-sfn-client:$awsClientsVersion"
+  val daSnsClient = ivy"uk.gov.nationalarchives::da-sns-client:$awsClientsVersion"
+  val daSqsClient = ivy"uk.gov.nationalarchives::da-sqs-client:$awsClientsVersion"
+  val fs2Core = ivy"co.fs2::fs2-core:3.11.0"
+  val fs2Io = ivy"co.fs2::fs2-io:3.11.0"
+  val fs2ReactiveStreams = ivy"co.fs2::fs2-reactive-streams:3.11.0"
+  val jawnFs2 = ivy"org.typelevel::jawn-fs2:2.4.0"
+  val jsonSchemaValidator = ivy"com.networknt:json-schema-validator:1.5.6"
+  val lambdaCore = ivy"com.amazonaws:aws-lambda-java-core:1.2.3"
+  val lambdaJavaEvents = ivy"com.amazonaws:aws-lambda-java-events:3.15.0"
+  val preservicaClient = ivy"uk.gov.nationalarchives::preservica-client-fs2:0.0.128-SNAPSHOT"
+  val pureConfigCats = ivy"com.github.pureconfig::pureconfig-cats-effect:0.17.8"
+  val pureConfig = ivy"com.github.pureconfig::pureconfig-core:0.17.8"
+  val reactorTest = ivy"io.projectreactor:reactor-test:3.7.4"
+  val scalaLambdaRuntime = ivy"org.encalmo::scala-aws-lambda-runtime:0.9.11"
+  val scalaCheck = ivy"org.scalacheck::scalacheck:1.18.1"
+  val scalaCheckPlus = ivy"org.scalatestplus::scalacheck-1-16:3.2.14.0"
+  val scalaTest = ivy"org.scalatest::scalatest:3.2.18"
+  val scalaTestPlusMockito = ivy"org.scalatestplus::mockito-5-10:3.2.18.0"
+  val scalaXml = ivy"org.scala-lang.modules::scala-xml:2.3.0"
+  val scanamo = ivy"org.scanamo::scanamo:3.0.0"
+  val ssmClient = ivy"uk.gov.nationalarchives::da-ssm-client:$awsClientsVersion"
+  val sttpCirce = ivy"com.softwaremill.sttp.client3::circe:3.10.3"
+  val sttpClientCore = ivy"com.softwaremill.sttp.client3::core:3.10.3"
+  val sttpFs2 = ivy"com.softwaremill.sttp.client3::fs2:3.10.3"
+  val typesafeConfig = ivy"com.typesafe:config:1.4.3"
+  val upickle = ivy"com.lihaoyi::upickle:4.1.0"
+  val wiremock = ivy"com.github.tomakehurst:wiremock:3.0.1"
+
+  def commonDependencies = Agg(
+    lambdaCore,
+    lambdaJavaEvents,
+    pureConfigCats,
+    pureConfig,
+    circeCore,
+    circeGeneric,
+    circeParser,
+    ivy"org.slf4j:slf4j-api:1.7.32",
+    ivy"ch.qos.logback:logback-classic:1.2.10",
+    ivy"ch.qos.logback:logback-core:1.2.10",
+    ivy"net.logstash.logback:logstash-logback-encoder:6.6",
+    scalaLambdaRuntime
+  )
+}
+
+//noinspection ScalaUnusedSymbol,DuplicatedCode
+object `package` extends RootModule {
+  object `custodial-copy-queue-creator` extends CommonModule {
+    override def mainClass: T[Option[String]] = Some("uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda")
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(daSqsClient, preservicaClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.utils)
+  }
+
+  object `entity-event-generator-lambda` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(
+      sttpClientCore,
+      typesafeConfig,
+      catsEffect,
+      daDynamoDbClient,
+      daSnsClient,
+      preservicaClient
+    )
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.utils)
+  }
+
+  object `get-latest-preservica-version-lambda` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(daDynamoDbClient, daEventBridgeClient, preservicaClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `ingest-asset-opex-creator` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(
+      fs2Core,
+      scalaXml,
+      awsCrt,
+      daDynamoDbClient,
+      daS3Client,
+      preservicaClient
+    )
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `ingest-asset-reconciler` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(daDynamoDbClient, preservicaClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `ingest-failure-notifications` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(daDynamoDbClient, daSnsClient)
+
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `ingest-files-change-handler` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(daDynamoDbClient, daSnsClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `ingest-find-existing-asset` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(daDynamoDbClient, preservicaClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `ingest-flow-control` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(daDynamoDbClient, daSfnClient, ssmClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `ingest-folder-opex-creator` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(
+      fs2Core,
+      scalaXml,
+      awsCrt,
+      daDynamoDbClient,
+      daS3Client,
+      preservicaClient
+    )
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `ingest-mapper` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(
+      fs2ReactiveStreams,
+      upickle,
+      sttpCirce,
+      sttpFs2,
+      scalaXml,
+      awsCrt,
+      daDynamoDbClient,
+      daS3Client
+    )
+
+    override def additionalTestDependencies = Agg(reactorTest)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.utils)
+  }
+
+  object `ingest-parent-folder-opex-creator` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(fs2Core, scalaXml, daS3Client)
+
+    override def additionalTestDependencies = Agg(reactorTest)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.utils)
+  }
+
+  object `ingest-parsed-court-document-event-handler` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(
+      fs2Io,
+      commonsCompress,
+      awsCrt,
+      daDynamoDbClient,
+      daS3Client,
+      daSfnClient
+    )
+
+    override def additionalTestDependencies: Loose.Agg[Dep] = Agg(reactorTest)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `ingest-start-workflow` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(preservicaClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.utils)
+  }
+
+  object `ingest-upsert-archive-folders` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(daDynamoDbClient, preservicaClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `ingest-validate-generic-ingest-inputs` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(
+      fs2Io,
+      fs2ReactiveStreams,
+      upickle,
+      jsonSchemaValidator,
+      sttpCirce,
+      sttpFs2,
+      circFs2,
+      catsEffect,
+      jawnFs2,
+      awsCrt,
+      daS3Client,
+      daSfnClient
+    )
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+
+    override def additionalTestDependencies = Agg(reactorTest)
+  }
+
+  object `ingest-workflow-monitor` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(preservicaClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.utils)
+  }
+
+  object `preingest-tdr-aggregator` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(daDynamoDbClient, daSfnClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.utils)
+  }
+
+  object `preingest-tdr-package-builder` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(fs2ReactiveStreams, circFs2, daDynamoDbClient, daS3Client)
+
+    override def additionalTestDependencies: Loose.Agg[Dep] = Agg(scalaCheck, scalaCheckPlus, reactorTest, jsonSchemaValidator)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.`dynamo-formatters`, build.utils)
+  }
+
+  object `rotate-preservation-system-password` extends CommonModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(daSecretsManagerClient, preservicaClient)
+
+    override def moduleDeps: Seq[JavaModule] = super.moduleDeps ++ Agg(build.utils)
+  }
+
+  object utils extends CommonLibraryModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(scanamo)
+  }
+
+  object `dynamo-formatters` extends CommonLibraryModule {
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(scanamo)
+  }
+}
+
+trait CommonLibraryModule extends SbtModule {
+
+  def scalaVersion: T[String] = Deps.scalaVersion
+
+  override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq(
+    "-Yretain-trees",
+    "-Xmax-inlines",
+    "40",
+    "-Wunused:imports",
+    "-Werror",
+    "-deprecation",
+    "-feature",
+    "-language:implicitConversions"
+  )
+
+  def additionalTestDependencies: Loose.Agg[Dep] = Agg()
+
+  override def ivyDeps: T[Agg[Dep]] = Deps.commonDependencies
+
+  override def sources: Target[Seq[PathRef]] = Task.Sources(
+    millSourcePath / os.up / "scala/lambdas" / artifactName() / "src/main/scala"
+  )
+
+  override def resources: Target[Seq[PathRef]] = Task.Sources(
+    millSourcePath / os.up / "scala/lambdas" / artifactName() / "src/main/resources"
+  )
+
+  object test extends SbtTests with TestModule.ScalaTest {
+    override def sources: Target[Seq[PathRef]] = Task.Sources(
+      millSourcePath / os.up / "scala/lambdas" / artifactNameParts().head / "src/test/scala"
+    )
+
+    override def resources: Target[Seq[PathRef]] = Task.Sources(
+      millSourcePath / os.up / "scala/lambdas" / artifactNameParts().head / "src/test/resources"
+    )
+
+    override def ivyDeps: T[Agg[Dep]] = super.ivyDeps() ++ Agg(wiremock, scalaTest, scalaTestPlusMockito) ++ additionalTestDependencies
+
+    override def testSandboxWorkingDir = false
+  }
+}
+
+trait CommonModule extends CommonLibraryModule with NativeImageModule {
+  object ZincWorkerGraalvm extends ZincWorkerModule {
+    override def jvmId = "graalvm-community:23.0.1"
+  }
+
+  override def nativeImageOptions: T[Seq[String]] = Seq(
+    s"-H:ResourceConfigurationFiles=${millSourcePath / os.up / "resource-config.json"}",
+    s"-H:ReflectionConfigurationFiles=${millSourcePath / os.up / "reflect-config.json"}",
+    "-Dlogback.debug=true",
+    "--enable-https",
+    "--strict-image-heap",
+    "--initialize-at-build-time=org.slf4j,ch.qos.logback,net.logstash.logback,com.fasterxml.jackson,org.xml.sax",
+    "--no-fallback"
+  )
+
+  override def zincWorker: ModuleRef[ZincWorkerModule] = ModuleRef(ZincWorkerGraalvm)
+}

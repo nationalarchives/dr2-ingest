@@ -3,8 +3,8 @@ package uk.gov.nationalarchives.ingestmapper
 import cats.effect.{Async, Resource}
 import cats.implicits.*
 import io.circe.generic.auto.*
-import org.typelevel.log4cats.SelfAwareStructuredLogger
-import org.typelevel.log4cats.slf4j.Slf4jFactory
+import org.slf4j
+import org.slf4j.LoggerFactory
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3.circe.*
 import sttp.client3.httpclient.fs2.HttpClientFs2Backend
@@ -39,7 +39,7 @@ object DiscoveryService {
   def apply[F[_]: Async](discoveryBaseUrl: String, backend: SttpBackend[F, Fs2Streams[F]], randomUuidGenerator: () => UUID): DiscoveryService[F] =
     new DiscoveryService[F] {
 
-      private val logger: SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger
+      val logger: slf4j.Logger = LoggerFactory.getLogger(getClass.getName)
 
       private def replaceHtmlCodesWithUnicodeChars(input: String) =
         "&#[0-9]+".r.replaceAllIn(input, _.matched.drop(2).toInt.toChar.toString)
@@ -88,7 +88,7 @@ object DiscoveryService {
           formattedAsset <- potentialAsset.map(stripHtmlFromDiscoveryResponse).getOrElse(defaultCollectionAsset(citableReference))
         } yield formattedAsset
       }.handleErrorWith { e =>
-        logger.warn(e)("Error from Discovery") >> defaultCollectionAsset(citableReference)
+        Async[F].pure(logger.warn("Error from discovery", e)) >> defaultCollectionAsset(citableReference)
       }
 
       override def getDiscoveryCollectionAssets(potentialSeries: Option[String]): F[DepartmentAndSeriesCollectionAssets] = {

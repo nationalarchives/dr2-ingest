@@ -2,7 +2,6 @@ package uk.gov.nationalarchives.ingestmapper
 
 import cats.effect.IO
 import cats.implicits.*
-import fs2.interop.reactivestreams.*
 import fs2.{Chunk, Pipe, Stream, text}
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
@@ -11,6 +10,7 @@ import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.{Asset, File}
 
+import java.nio.ByteBuffer
 import java.util.UUID
 import scala.util.Try
 
@@ -144,9 +144,8 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService[IO]
 
   private def parseFileFromS3[T](input: Input, decoderPipe: Pipe[IO, String, T]): IO[List[T]] =
     for {
-      pub <- s3.download(input.metadataPackage.getHost, input.metadataPackage.getPath.drop(1))
-      s3FileString <- pub
-        .toStreamBuffered[IO](bufferSize)
+      outputStream <- s3.download(input.metadataPackage.getHost, input.metadataPackage.getPath.drop(1))
+      s3FileString <- Stream.emit(ByteBuffer.wrap(outputStream.toByteArray))
         .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
         .through(text.utf8.decode)
         .through(decoderPipe)

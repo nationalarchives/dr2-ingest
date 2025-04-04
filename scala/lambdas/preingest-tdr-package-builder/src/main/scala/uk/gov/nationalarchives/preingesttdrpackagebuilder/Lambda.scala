@@ -4,14 +4,12 @@ import cats.effect.IO
 import cats.effect.std.AtomicCell
 import fs2.Collector.string
 import fs2.hashing.{HashAlgorithm, Hashing}
-import fs2.interop.reactivestreams.*
 import fs2.{Chunk, Stream}
 import io.circe
 import io.circe.Json
 import io.circe.fs2.{decoder as fs2Decoder, *}
 import io.circe.generic.auto.*
 import io.circe.syntax.*
-import org.reactivestreams.FlowAdapters
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
 import uk.gov.nationalarchives.DADynamoDBClient.given
@@ -152,9 +150,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       val potentialMessageId = lockTableMessage.messageId
       dependencies.s3Client
         .download(metadataUri.getHost, metadataUri.getPath.drop(1))
-        .map { pub =>
-          pub
-            .toStreamBuffered[IO](bufferSize)
+        .map { outputStream =>
+          Stream.emit(ByteBuffer.wrap(outputStream.toByteArray))
             .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
             .through(byteStreamParser[IO])
             .through(metadataJsonStream => processTdrMetadata(metadataJsonStream, fileLocation, potentialMessageId, contentFolderCell))
@@ -175,9 +172,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           .flatMap { metadata =>
             IO.raiseWhen(metadata.isEmpty)(new Exception(s"Metadata list for ${input.groupId} is empty")) >> {
               val metadataBytes = metadata.asJson.noSpaces.getBytes
-              Stream.emits(metadataBytes).chunks.map(_.toByteBuffer).toPublisherResource[IO, ByteBuffer].use { publisher =>
-                dependencies.s3Client.upload(config.rawCacheBucket, s"${input.batchId}/metadata.json", FlowAdapters.toPublisher(publisher)) >> IO.unit
-              }
+              dependencies.s3Client.upload(config.rawCacheBucket, s"${input.batchId}/metadata.json", ByteBuffer.wrap(metadataBytes)).void
             }
           }
       }

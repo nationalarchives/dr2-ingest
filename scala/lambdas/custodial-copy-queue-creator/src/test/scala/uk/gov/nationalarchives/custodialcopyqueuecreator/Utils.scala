@@ -6,6 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.{MessageAttribute, SQSMessage}
 import io.circe.syntax.*
 import io.circe.{Decoder, Encoder}
+import software.amazon.awssdk.services.sqs.SqsClient
 import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, SendMessageResponse}
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
@@ -33,7 +34,7 @@ object Utils:
     for {
       sqsMessagesRef <- Ref.of[IO, Map[String, List[SQSMessage]]](Map(inputQueue -> sqsMessages, outputQueue -> Nil))
       entitiesRef <- Ref.of[IO, List[Entity]](entities)
-      _ <- new Lambda().handler(sqsEvent, config, Dependencies(entityClient(entitiesRef), sqsClient(sqsMessagesRef), () => dedupeUuid))
+      _ <- new Lambda().handler(sqsEvent, config, Dependencies(entityClient(entitiesRef), SqsClient.builder.build, () => dedupeUuid))
       messages <- sqsMessagesRef.get
     } yield messages
   }.unsafeRunSync()

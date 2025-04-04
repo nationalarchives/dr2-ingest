@@ -126,8 +126,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         val processModifyRecord = record.dynamodb.newImage match
           case Some(newImage) =>
             newImage match
-              case assetRow: AssetDynamoItem => logger.info(s"Processing asset ${assetRow.id}") >> processAsset(assetRow)
-              case fileRow: FileDynamoItem   => logger.info(s"Processing file ${fileRow.id}") >> getParentAsset(fileRow).flatMap(_.traverse(processAsset)).void
+              case assetRow: AssetDynamoItem => IO(logger.info(s"Processing asset ${assetRow.id}")) >> processAsset(assetRow)
+              case fileRow: FileDynamoItem   => IO(logger.info(s"Processing file ${fileRow.id}")) >> getParentAsset(fileRow).flatMap(_.traverse(processAsset)).void
               case _                         => IO.unit
           case None => IO.unit
         processModifyRecord.start

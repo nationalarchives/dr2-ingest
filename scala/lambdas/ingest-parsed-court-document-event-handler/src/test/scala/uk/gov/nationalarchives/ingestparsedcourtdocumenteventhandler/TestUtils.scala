@@ -10,15 +10,11 @@ import io.circe.generic.auto.*
 import io.circe.syntax.*
 import org.apache.commons.compress.archivers.tar.{TarArchiveEntry, TarArchiveOutputStream}
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream
-import org.reactivestreams.Publisher
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
-import reactor.core.publisher.Flux
-import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
-import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
-import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
+import software.amazon.awssdk.services.s3.model.{CopyObjectResponse, DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
+import software.amazon.awssdk.services.sfn.model.{GetActivityTaskResponse, StartExecutionResponse}
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.*
@@ -62,6 +58,8 @@ object TestUtils:
 
     override def sendTaskSuccess[T: Encoder](taskToken: String, potentialOutput: Option[T]): IO[Unit] = notImplemented
 
+    override def getActivityTask(activityArn: String): IO[GetActivityTaskResponse] = notImplemented
+
     override def startExecution[T <: Product](stateMachineArn: String, input: T, name: Option[String])(using enc: Encoder[T]): IO[StartExecutionResponse] =
       sfnRef
         .update { existingArgs =>
@@ -71,25 +69,23 @@ object TestUtils:
 
   def s3Client(ref: Ref[IO, List[S3Object]], errors: Option[Errors] = None): DAS3Client[IO] = new DAS3Client[IO]:
 
-    override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = notImplemented
+    override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CopyObjectResponse] = notImplemented
 
-    override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = errors.raise(_.download, "Error downloading files") >>
+    override def download(bucket: String, key: String): IO[ByteArrayOutputStream] = errors.raise(_.download, "Error downloading files") >>
       (for {
         existing <- ref.get
         s3Object <- IO.fromOption(existing.find(obj => obj.key == key && obj.bucket == bucket))(new Exception("Object not found"))
-      } yield Flux.just(s3Object.content))
+      } yield {
+        val baos = new ByteArrayOutputStream()
+        baos.write(s3Object.content.array())
+        baos
+      })
 
-    override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] = errors.raise(_.upload, "Upload failed") >> ref
+    override def upload(bucket: String, key: String, content: ByteBuffer): IO[PutObjectResponse] = errors.raise(_.upload, "Upload failed") >> ref
       .update { existing =>
-        val content = Flux
-          .from(publisher)
-          .toIterable
-          .asScala
-          .toList
-          .head
         S3Object(bucket, key, content) :: existing
       }
-      .map(_ => CompletedUpload.builder.response(PutObjectResponse.builder.build).build)
+      .map(_ => PutObjectResponse.builder.build)
 
     override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = notImplemented
 
@@ -99,7 +95,7 @@ object TestUtils:
       }
       .map(_ => DeleteObjectsResponse.builder.build)
 
-    override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = notImplemented
+    override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[java.util.stream.Stream[String]] = notImplemented
 
   val reference = "TEST-REFERENCE"
 

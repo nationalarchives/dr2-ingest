@@ -14,6 +14,8 @@ import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
 
+import scala.annotation.static
+
 class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
 
   private val lowImpactEndpoint = "entities/by-identifier?type=tnaTest&value=getLatestPreservicaVersion"
@@ -46,6 +48,9 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
 }
 
 object Lambda {
+
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+
   case class Config(
       demoApiUrl: String,
       secretName: String,

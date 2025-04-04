@@ -1,0 +1,41 @@
+[
+	{
+		"name": "com.github.benmanes.caffeine.cache.SSMS",
+		"allDeclaredConstructors": true
+	},
+	{
+		"name": "com.github.benmanes.caffeine.cache.PSMS",
+		"allDeclaredConstructors": true
+	},
+	{
+		"name": "ch.qos.logback.classic.Logger",
+		"allDeclaredConstructors": true,
+		"allDeclaredMethods": true,
+		"allDeclaredFields": true
+	},
+	{
+		"name": "ch.qos.logback.core.ConsoleAppender",
+		"allDeclaredConstructors": true,
+		"allDeclaredMethods": true
+	},
+	{
+		"name": "net.logstash.logback.encoder.LogstashEncoder",
+		"allDeclaredConstructors": true,
+		"allDeclaredMethods": true
+	},
+	{
+		"name": "ch.qos.logback.classic.LoggerContext",
+		"allDeclaredConstructors": true,
+		"allDeclaredMethods": true
+	},
+	{
+		"name": "ch.qos.logback.core.LayoutBase",
+		"allDeclaredConstructors": true,
+		"allDeclaredMethods": true
+	},
+	{
+		"name": "ch.qos.logback.core.encoder.EncoderBase",
+		"allDeclaredConstructors": true,
+		"allDeclaredMethods": true
+	}
+]

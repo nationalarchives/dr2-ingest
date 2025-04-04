@@ -53,7 +53,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
         payload = treMetadata.parameters.TRE.payload
         potentialCite = treMetadata.parameters.PARSER.cite
         fileReference = treMetadata.parameters.TDR.`File-Reference`
-        logWithFileRef = logger.info(logCtx ++ Map("fileReference" -> fileReference.orNull))(_)
+        logWithFileRef = log(logCtx ++ Map("fileReference" -> fileReference.orNull))(_)
 
         fileInfo <- IO.fromOption(fileNameToFileInfo.get(s"$batchRef/${payload.filename}"))(
           new RuntimeException(s"Document not found for file belonging to $batchRef")

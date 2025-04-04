@@ -36,8 +36,8 @@ class FileProcessor(
 
   def copyFilesFromDownloadToUploadBucket(downloadBucketKey: String): IO[Map[String, FileInfo]] = {
     s3.download(downloadBucket, downloadBucketKey)
-      .flatMap(
-        _.publisherToStream
+      .flatMap(outStream =>
+        Stream.emit(ByteBuffer.wrap(outStream.toByteArray))
           .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
           .through(Compression[IO].gunzip())
           .flatMap(_.content)
@@ -50,8 +50,8 @@ class FileProcessor(
 
   def readJsonFromPackage(metadataId: UUID): IO[TREMetadata] = {
     for {
-      s3Publisher <- s3.download(uploadBucket, metadataId.toString)
-      contentString <- s3Publisher.publisherToStream
+      outStream <- s3.download(uploadBucket, metadataId.toString)
+      contentString <- Stream.emit(ByteBuffer.wrap(outStream.toByteArray))
         .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
         .through(extractMetadataFromJson)
         .compile
@@ -178,14 +178,10 @@ class FileProcessor(
               Stream.eval[IO, (String, FileInfo)](
                 stream.compile.toList.flatMap { bytes =>
                   val byteArray = bytes.toArray
-                  Stream
-                    .emit[IO, ByteBuffer](ByteBuffer.wrap(byteArray))
-                    .toPublisherResource
-                    .use(pub => s3.upload(uploadBucket, id.toString, FlowAdapters.toPublisher(pub)))
-                    .map { _ =>
-                      val sha256Checksum = DigestUtils.sha256Hex(byteArray)
-                      tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, sha256Checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
-                    }
+                  s3.upload(uploadBucket, id.toString, ByteBuffer.wrap(byteArray)).map { _ =>
+                    val sha256Checksum = DigestUtils.sha256Hex(byteArray)
+                    tarEntry.getName -> FileInfo(id, tarEntry.getSize, tarEntry.getName.split('/').last, sha256Checksum, URI.create(s"s3://$uploadBucket/${id.toString}"))
+                  }
                 }
               )
             } else Stream.empty
@@ -203,14 +199,7 @@ class FileProcessor(
   }
 
   private def uploadAsFile(fileContent: String, s3Location: URI): IO[Unit] = {
-    Stream
-      .eval(IO.pure(fileContent))
-      .map(s => ByteBuffer.wrap(s.getBytes()))
-      .toPublisherResource
-      .use { pub =>
-        s3.upload(s3Location.getHost, s3Location.getPath.drop(1), FlowAdapters.toPublisher(pub))
-      }
-      .map(_ => ())
+    s3.upload(s3Location.getHost, s3Location.getPath.drop(1), ByteBuffer.wrap(fileContent.getBytes())).void
   }
 
   def createMetadataJson(metadata: List[MetadataObject], s3Location: URI): IO[Unit] =

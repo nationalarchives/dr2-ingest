@@ -119,8 +119,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       )
 
       logCtx = Map("batchId" -> batchId, "assetId" -> assetId.toString)
-      log = logger.info(logCtx)(_)
-      _ <- log(s"Asset $assetId retrieved from Dynamo")
+      logger = log(logCtx)(_)
+      _ <- logger(s"Asset $assetId retrieved from Dynamo")
 
       entitiesMap <- dependencies.entityClient.entitiesPerIdentifier(Seq(PreservicaIdentifier(sourceId, assetId.toString)))
       entitiesWithAssetId = entitiesMap.map { case (identifier, entities) => identifier.value -> entities }.getOrElse(assetId.toString, Nil)
@@ -138,7 +138,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       _ <- IO.fromOption(children.headOption)(
         new Exception(s"No children were found for $assetId from $batchId")
       )
-      _ <- log(s"${children.length} children found for asset $assetId")
+      _ <- logger(s"${children.length} children found for asset $assetId")
       childrenGroupedByRepType = children.groupBy(_.representationType match {
         case FileRepresentationType.PreservationRepresentationType => Preservation
         case FileRepresentationType.AccessRepresentationType       => Access
@@ -153,7 +153,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
               dependencies.entityClient.getContentObjectsFromRepresentation(entity.ref, representationType, generationVersion)
             }.flatSequence
 
-            _ <- log("Content Objects, belonging to the representation, have been retrieved from API")
+            _ <- logger("Content Objects, belonging to the representation, have been retrieved from API")
 
             stateOutput <-
               if (contentObjects.isEmpty)
@@ -166,7 +166,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     .map(co => dependencies.entityClient.getBitstreamInfo(co.ref))
                     .flatSequence
 
-                  _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
+                  _ <- logger(s"Bitstreams of Content Objects have been retrieved from API")
                 } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType)
           } yield stateOutput
         }

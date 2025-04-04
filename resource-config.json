@@ -1,0 +1,18 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": "application.conf"
+      },
+      {
+        "pattern": "logback.xml"
+      },
+      {
+        "pattern": "XIP-V7.xsd"
+      },
+      {
+        "pattern": "OPEX-Metadata.xsd"
+      }
+    ]
+  }
+}

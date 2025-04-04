@@ -6,7 +6,7 @@ import io.circe.{Decoder, Encoder}
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.sfn.model.{StartExecutionResponse, TaskTimedOutException}
+import software.amazon.awssdk.services.sfn.model.{GetActivityTaskResponse, StartExecutionResponse, TaskTimedOutException}
 import uk.gov.nationalarchives.ingestflowcontrol.Lambda.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASSMClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
@@ -122,6 +122,8 @@ object Helpers {
             existing.filter(_.taskToken != token) ++ updatedExecution
           }
     }
+
+    override def getActivityTask(activityArn: String): IO[GetActivityTaskResponse] = notImplemented
 
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 

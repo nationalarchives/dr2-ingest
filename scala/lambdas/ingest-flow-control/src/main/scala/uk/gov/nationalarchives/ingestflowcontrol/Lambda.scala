@@ -254,7 +254,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
       queuedTimeAndExecution: String = "",
       resumedExecution: String = ""
   ): IO[Unit] = {
-    logger.info(
+    log(
       Map(
         "executionName" -> executionName,
         "currentSystem" -> currentSystem,

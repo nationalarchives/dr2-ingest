@@ -1,25 +1,21 @@
 package uk.gov.nationalarchives.preingesttdrpackagebuilder
 
 import cats.effect.{IO, Ref}
-import fs2.interop.reactivestreams.*
+import io.circe.*
 import io.circe.derivation.Configuration
 import io.circe.generic.semiauto.deriveEncoder
 import io.circe.parser.decode
 import io.circe.syntax.*
-import io.circe.*
-import org.reactivestreams.Publisher
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
-import reactor.core.publisher.Flux
-import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
-import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
+import software.amazon.awssdk.services.s3.model.{CopyObjectResponse, DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
+import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.nio.ByteBuffer
 
@@ -59,7 +55,7 @@ object TestUtils:
     new DAS3Client[IO]() {
       override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = IO.pure(DeleteObjectsResponse.builder.build)
 
-      override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] =
+      override def download(bucket: String, key: String): IO[ByteArrayOutputStream] =
         given Encoder[TDRMetadata] = deriveEncoder[TDRMetadata]
         if downloadError then IO.raiseError(new Exception(s"Error downloading $key from S3 $bucket"))
         else
@@ -68,26 +64,29 @@ object TestUtils:
             metadata <- fileMap(key) match
               case metadata: TDRMetadata => IO.pure(metadata.asJson.noSpaces.getBytes)
               case _                     => IO.raiseError(new Exception("Expecting TDR Metadata Json"))
-          } yield Flux.just(ByteBuffer.wrap(metadata))
+          } yield {
+            val baos = new ByteArrayOutputStream()
+            baos.write(metadata)
+            baos
+          }
 
       override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = ref.get.map { objectsMap =>
         val fileSize = objectsMap.get(key).collect({ case mockTdrFile: MockTdrFile => mockTdrFile }).get.fileSize
         HeadObjectResponse.builder.contentLength(fileSize).build
       }
 
-      override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = IO.pure(SdkPublisher.fromIterable(java.util.List.of()))
+      override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[java.util.stream.Stream[String]] = IO.pure(java.util.stream.Stream.empty())
 
-      override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] = {
+      override def upload(bucket: String, key: String, byteBuffer: ByteBuffer): IO[PutObjectResponse] = {
         if uploadError then IO.raiseError(new Exception(s"Error uploading $key to $bucket"))
         else
           for {
-            jsonString <- publisher.toStreamBuffered[IO](1024).map(_.array().map(_.toChar).mkString).compile.string
-            json <- IO.fromEither(decode[List[MetadataObject]](jsonString))
+            json <- IO.fromEither(decode[List[MetadataObject]](byteBuffer.array().map(_.toChar).mkString))
             _ <- ref.update(currentMap => currentMap + (key -> json))
-          } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build
+          } yield PutObjectResponse.builder.build
 
       }
 
-      override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = IO.pure(CompletedCopy.builder.build)
+      override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CopyObjectResponse] = IO.pure(CopyObjectResponse.builder.build)
     }
   }

@@ -2,19 +2,16 @@ package uk.gov.nationalarchives.ingestfolderopexcreator
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
-import fs2.interop.reactivestreams.*
-import org.reactivestreams.Publisher
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
-import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.{BatchWriteItemResponse, ResourceNotFoundException}
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
-import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
+import software.amazon.awssdk.services.s3.model.{CopyObjectResponse, DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetItem, Config, Dependencies, Input}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -75,20 +72,14 @@ object ExternalServicesTestUtils:
     override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = notImplemented
 
   def s3Client(ref: Ref[IO, List[S3Object]], errors: Option[Errors]): DAS3Client[IO] = new DAS3Client[IO]:
-    override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = notImplemented
+    override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CopyObjectResponse] = notImplemented
 
-    override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = notImplemented
+    override def download(bucket: String, key: String): IO[ByteArrayOutputStream] = notImplemented
 
-    override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] =
+    override def upload(bucket: String, key: String, byteBuffer: ByteBuffer): IO[PutObjectResponse] =
       s3UploadError(errors.exists(_.s3UploadError)) >>
-        (for {
-          content <- publisher
-            .toStreamBuffered[IO](1024)
-            .map(_.array().map(_.toChar).mkString)
-            .compile
-            .string
-          _ <- ref.update(existing => S3Object(bucket, key, content) :: existing)
-        } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build)
+        ref.update(existing => S3Object(bucket, key, byteBuffer.array().map(_.toChar).mkString) :: existing).map(_ => PutObjectResponse.builder.build)
+        
 
     override def headObject(bucket: String, key: String): IO[HeadObjectResponse] =
       s3HeadObjectError(errors.exists(_.s3HeadObjectError)) >>
@@ -99,7 +90,7 @@ object ExternalServicesTestUtils:
 
     override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = notImplemented
 
-    override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = notImplemented
+    override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[java.util.stream.Stream[String]] = notImplemented
 
   case class Errors(dynamoGetError: Boolean = false, dynamoQueryError: Boolean = false, s3HeadObjectError: Boolean = false, s3UploadError: Boolean = false)
 
