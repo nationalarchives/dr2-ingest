@@ -18,6 +18,7 @@ import scala.annotation.tailrec
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import org.scanamo.syntax.*
 import software.amazon.awssdk.services.sfn.model.TaskTimedOutException
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependencies] {
 
@@ -301,6 +302,7 @@ class Lambda extends LambdaRunner[Option[Input], StateOutput, Config, Dependenci
 }
 
 object Lambda {
+  @static def main(args: Array[String]): Unit = new Lambda().run()
 
   given Decoder[Option[Input]] = (c: HCursor) =>
     for {

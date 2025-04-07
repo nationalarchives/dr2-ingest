@@ -9,6 +9,7 @@ import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.MonitorCategory.*
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.ingestworkflowmonitor.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies]:
 
@@ -43,6 +44,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies]:
     Fs2Client.processMonitorClient(config.apiUrl, config.secretName).map(Dependencies.apply)
 
 object Lambda:
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+
   case class Input(executionId: String)
 
   case class StateOutput(status: String, mappedId: String)

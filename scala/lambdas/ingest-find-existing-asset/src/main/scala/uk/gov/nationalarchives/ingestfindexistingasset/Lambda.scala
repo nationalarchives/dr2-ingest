@@ -18,6 +18,7 @@ import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.util.UUID
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   private val sourceId = "SourceID"
@@ -74,6 +75,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 }
 
 object Lambda {
+  @static def main(args: Array[String]): Unit = new Lambda().run()
   case class Config(apiUrl: String, secretName: String, dynamoTableName: String) derives ConfigReader
 
   case class InputItems(id: UUID, batchId: String)

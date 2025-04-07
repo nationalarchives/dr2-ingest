@@ -21,6 +21,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 import java.net.URI
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
   override def handler: (
@@ -124,6 +125,8 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 }
 
 object Lambda {
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+  
   case class Dependencies(s3: DAS3Client[IO], sfn: DASFNClient[IO], dynamo: DADynamoDBClient[IO], randomUuidGenerator: () => UUID, seriesMapper: SeriesMapper)
 
   type Output = StepFunctionInput

@@ -24,6 +24,7 @@ import java.net.URI
 import java.nio.ByteBuffer
 import java.time.{LocalDateTime, ZoneOffset}
 import java.util.UUID
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   lazy private val bufferSize = 1024 * 5
@@ -196,6 +197,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
 end Lambda
 
 object Lambda:
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+  
   case class TDRMetadata(
       Series: String,
       UUID: UUID,

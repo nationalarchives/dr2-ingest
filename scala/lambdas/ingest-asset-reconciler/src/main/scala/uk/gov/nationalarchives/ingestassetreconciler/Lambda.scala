@@ -23,6 +23,7 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.time.OffsetDateTime
 import java.util.UUID
+import scala.annotation.static
 import scala.math.abs
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
@@ -182,6 +183,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 }
 
 object Lambda {
+
+  @static def main(args: Array[String]): Unit = new Lambda().run()
 
   case class Input(executionId: String, batchId: String, assetId: UUID)
 

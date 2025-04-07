@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
@@ -105,6 +106,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   }
 }
 object Lambda {
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+
   case class BucketInfo(bucket: String, key: String)
   case class StateOutput(
       batchId: String,

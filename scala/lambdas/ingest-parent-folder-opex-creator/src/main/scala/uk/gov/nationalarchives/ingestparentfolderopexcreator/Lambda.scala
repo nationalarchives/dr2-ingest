@@ -12,6 +12,7 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters.IteratorHasAsScala
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
@@ -66,8 +67,9 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DAS3Client[IO](config.roleArn, lambdaName)))
 }
-object Lambda extends App {
-
+object Lambda {
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+  
   extension (publisher: Publisher[String])
     def publisherToStream: Stream[IO, String] = Stream.eval(IO.delay(publisher)).flatMap { publisher =>
       fs2.interop.flow.fromPublisher[IO](FlowAdapters.toFlowPublisher(publisher), chunkSize = 16)

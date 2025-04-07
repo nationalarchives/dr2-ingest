@@ -19,9 +19,13 @@ import uk.gov.nationalarchives.utils.ExternalUtils.{OutputMessage, OutputParamet
 
 import java.time.Instant
 import java.util.UUID
+import scala.annotation.static
+import io.circe.syntax.*
+import io.circe.generic.auto.*
 
 class Lambda extends LambdaRunner[SfnEvent, Unit, Config, Dependencies]:
   override def handler: (SfnEvent, Config, Dependencies) => IO[Unit] = (event, config, dependencies) =>
+    println(event.asJson.noSpaces)
     for {
       items <- dependencies.dynamoClient
         .queryItems[IngestLockTableItem](config.lockTableName, groupId === event.detail.input.groupId, Option(config.lockTableGsiName))
@@ -39,6 +43,8 @@ class Lambda extends LambdaRunner[SfnEvent, Unit, Config, Dependencies]:
 end Lambda
 
 object Lambda:
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+
   given Decoder[SfnInput] = deriveDecoder[SfnInput]
 
   given Decoder[SfnDetail] = (c: HCursor) =>

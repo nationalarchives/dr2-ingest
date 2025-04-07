@@ -28,6 +28,7 @@ import java.nio.ByteBuffer
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.*
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   given Facade[Json] = io.circe.jawn.CirceSupportParser.facade
@@ -193,4 +194,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   }
 
   override def dependencies(config: Config): IO[Dependencies] = IO.pure(Dependencies(DAS3Client[IO]()))
+}
+object Lambda {
+  @static def main(args: Array[String]): Unit = new Lambda().run()
 }

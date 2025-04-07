@@ -1,11 +1,12 @@
 package uk.gov.nationalarchives.utils
 
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
-import com.amazonaws.services.lambda.runtime.events.{SQSEvent, ScheduledEvent}
+import com.amazonaws.services.lambda.runtime.events.{SQSBatchResponse, SQSEvent, ScheduledEvent}
 import io.circe.generic.semiauto.deriveEncoder
-import io.circe.{Decoder, Encoder, HCursor, Json}
+import io.circe.{Decoder, Encoder, HCursor, Json, JsonObject}
 import org.joda.time.DateTime
 import uk.gov.nationalarchives.utils.ExternalUtils.*
+
 import scala.jdk.CollectionConverters.*
 
 object EventCodecs {
@@ -45,5 +46,13 @@ object EventCodecs {
       event.setRecords(records.asJava)
       event
 
+    }
+
+  given Encoder[SQSBatchResponse] = new Encoder[SQSBatchResponse]:
+    override def apply(batchResponse: SQSBatchResponse): Json = {
+      val batchItemFailures = batchResponse.getBatchItemFailures.asScala.map { failure =>
+        JsonObject("itemIdentifier" -> Json.fromString(failure.getItemIdentifier)).toJson
+      }.toList
+      JsonObject("batchItemFailures" -> Json.fromValues(batchItemFailures)).toJson
     }
 }

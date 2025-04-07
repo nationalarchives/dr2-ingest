@@ -22,6 +22,7 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 
 import java.time.Instant
 import java.util.UUID
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
@@ -149,6 +150,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
   )
 
 object Lambda:
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+  
   given Decoder[DynamodbEvent] = deriveDecoder[DynamodbEvent]
 
   private def jsonToDynamoValue(json: JsonObject): DynamoValue = {

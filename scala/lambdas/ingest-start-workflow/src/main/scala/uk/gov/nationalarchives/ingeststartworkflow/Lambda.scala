@@ -9,6 +9,8 @@ import uk.gov.nationalarchives.dp.client.WorkflowClient
 import uk.gov.nationalarchives.dp.client.WorkflowClient.{Parameter, StartWorkflowRequest}
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 
+import scala.annotation.static
+
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   override def handler: (
@@ -34,6 +36,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 }
 
 object Lambda {
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+  
   case class Input(workflowContextName: String, executionId: String)
   case class Config(apiUrl: String, secretName: String) derives ConfigReader
   case class StateOutput(id: Int)

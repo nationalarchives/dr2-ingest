@@ -17,8 +17,10 @@ import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.DADynamoDBClient
 
 import java.util.UUID
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
+
   private val sourceId = "SourceID"
 
   given Ordering[ArchiveFolderDynamoItem] = (x: ArchiveFolderDynamoItem, y: ArchiveFolderDynamoItem) => x.potentialParentPath.compare(y.potentialParentPath)
@@ -208,7 +210,9 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   }
 }
 
-object Lambda extends App {
+object Lambda {
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+  
   case class Config(apiUrl: String, secretName: String, archiveFolderTableName: String) derives ConfigReader
 
   case class StepFnInput(

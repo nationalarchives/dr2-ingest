@@ -15,6 +15,7 @@ import uk.gov.nationalarchives.rotatepreservationsystempassword.Lambda.RotationS
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 import scala.jdk.CollectionConverters.*
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
@@ -89,6 +90,7 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 }
 
 object Lambda:
+  @static def main(args: Array[String]): Unit = new Lambda().run()
 
   private case class AuthDetails(username: String, password: String)
 

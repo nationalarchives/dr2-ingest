@@ -19,6 +19,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import java.nio.ByteBuffer
 import java.util.UUID
 import scala.jdk.CollectionConverters.MapHasAsScala
+import scala.annotation.static
 
 class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
@@ -141,6 +142,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 }
 
 object Lambda {
+  @static def main(args: Array[String]): Unit = new Lambda().run()
+
   case class Config(dynamoTableName: String, bucketName: String, dynamoGsiName: String, roleArn: String) derives ConfigReader
 
   case class Input(id: UUID, batchId: String, executionName: String)
