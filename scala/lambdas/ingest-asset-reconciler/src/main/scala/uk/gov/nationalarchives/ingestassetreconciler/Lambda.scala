@@ -66,7 +66,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     }
 
   private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoItem, fixities: List[Client.Fixity]): Boolean =
-    item.checksums.exists { checksum =>
+    item.checksums.forall { checksum =>
       fixities.exists(fixity => fixity.algorithm.toLowerCase == checksum.algorithm.toLowerCase && fixity.value == checksum.fingerprint)
     }
 
