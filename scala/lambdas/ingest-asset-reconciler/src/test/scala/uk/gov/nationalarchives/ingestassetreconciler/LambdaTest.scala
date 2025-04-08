@@ -143,6 +143,27 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     res.value.wasReconciled should equal(true)
   }
 
+  "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if there are multiple checksums to match in Dynamo" in {
+    val asset = generateAsset
+    val dynamoFile = generateFile
+    val twoChecksumFile = dynamoFile.copy(checksums = Checksum("sha1", "checksum2") :: dynamoFile.checksums)
+    val fullEntity = generateFullEntity(asset.id, "title".some)
+    val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, List(twoChecksumFile))), List(fullEntity))
+
+    res.value.wasReconciled should equal(true)
+  }
+
+  "handler" should "return a 'wasReconciled' value of 'false' and a 'TitleChecksumMismatch' reason if one of two checksums doesn't match" in {
+    val asset = generateAsset
+    val dynamoFile = generateFile
+    val twoChecksumFile = dynamoFile.copy(checksums = Checksum("sha1", "checksum1") :: dynamoFile.checksums)
+    val fullEntity = generateFullEntity(asset.id, "title".some)
+    val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, List(twoChecksumFile))), List(fullEntity))
+
+    res.value.wasReconciled should equal(false)
+    res.value.failures.head.failureReason.toString should equal("TitleChecksumMismatch")
+  }
+
   forAll(uncommonButAcceptableFileExtensionStates) { (childTitle, entityTitle) =>
     "handler" should s"return a 'wasReconciled' value of 'true' if the DDB title is $childTitle and the entity title is $entityTitle" in {
       val asset = generateAsset

@@ -135,7 +135,7 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
     s"${UUID.randomUUID}.json",
     1235,
     "http://localhost/api/entity/content-objects/4dee285b-64e4-49f8-942e-84ab460b5af6/generations/1/bitstreams/1/content",
-    List(Fixity("SHA256", checksum.getOrElse("checksum"))),
+    List(Fixity("SHA256", checksum.getOrElse("checksum")), Fixity("SHA1", checksum.getOrElse("checksum2"))),
     1,
     Original,
     title,
