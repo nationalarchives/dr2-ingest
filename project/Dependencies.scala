@@ -4,22 +4,22 @@ object Dependencies {
   lazy val pureConfigVersion = "0.17.8"
   lazy val daAwsClientsVersion = "0.1.114"
   private val fs2Version = "3.12.0"
-  private val sttpVersion = "3.10.3"
+  private val sttpVersion = "3.11.0"
   private val circeVersion = "0.14.12"
   private val log4CatsVersion = "2.7.0"
   private val awsLibraryVersion = "1.12.782"
   private lazy val scalaTestVersion = "3.2.18"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.36.3"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.38.1"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.7"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.1"
   lazy val circeCore = "io.circe" %% "circe-core" % circeVersion
   lazy val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
   lazy val circeFs2 = "io.circe" %% "circe-fs2" % "0.14.1"
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.27.1"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.5"
-  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.31.6"
+  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.31.21"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version

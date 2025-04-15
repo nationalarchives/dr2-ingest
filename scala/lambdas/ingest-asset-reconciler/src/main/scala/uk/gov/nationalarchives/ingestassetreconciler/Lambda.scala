@@ -65,14 +65,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       titleOfCoWithoutExtension == assetChildTitleOrFileNameWithoutExtension
     }
 
-  private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoItem, fixities: List[Client.Fixity]): Boolean = {
-    val sortedChecksums = item.checksums.sortBy(_.algorithm.toUpperCase)
-    val sortedFixities = fixities.sortBy(_.algorithm)
-
-    sortedChecksums.zip(sortedFixities).forall { case (dynamoItemChecksum, preservedFixity) =>
-      dynamoItemChecksum.algorithm.toUpperCase == preservedFixity.algorithm && dynamoItemChecksum.fingerprint == preservedFixity.value
+  private def doesChecksumMatchFixity(item: DynamoFormatters.FileDynamoItem, fixities: List[Client.Fixity]): Boolean =
+    item.checksums.forall { checksum =>
+      fixities.exists(fixity => fixity.algorithm.toLowerCase == checksum.algorithm.toLowerCase && fixity.value == checksum.fingerprint)
     }
-  }
 
   private def verifyFilesInDdbAreInPreservica(
       childrenForRepresentationType: List[FileDynamoItem],
