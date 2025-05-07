@@ -5,9 +5,10 @@ from datetime import datetime, timedelta
 import boto3
 from pytz import UTC
 
-sfn_client = boto3.client("stepfunctions", region_name="eu-west-2")
-s3_client = boto3.client("s3", region_name="eu-west-2")
 common_exec_args = {"maxResults": 100, "statusFilter": "SUCCEEDED"}
+
+s3_client = lambda: boto3.client("s3")
+sfn_client = lambda: boto3.client("stepfunctions")
 
 
 def next_token(executions_info):
@@ -15,13 +16,13 @@ def next_token(executions_info):
     return {} if token == "" else {"nextToken": token}
 
 
-def get_workflow_executions(cut_off_date, workflow_sfn_arn, relevant_executions=[], next_page_token={}) \
+def get_workflow_executions(sfn, cut_off_date, workflow_sfn_arn, relevant_executions=[], next_page_token={}) \
     -> list[dict]:
     execution_args = {"stateMachineArn": workflow_sfn_arn} | common_exec_args
     execution_args.update(next_page_token)
 
     if next_page_token or not relevant_executions:
-        workflow_sfn_executions_info = sfn_client.list_executions(**execution_args)
+        workflow_sfn_executions_info = sfn.list_executions(**execution_args)
         workflow_sfn_executions = workflow_sfn_executions_info["executions"]
 
         for execution in workflow_sfn_executions:
@@ -33,19 +34,19 @@ def get_workflow_executions(cut_off_date, workflow_sfn_arn, relevant_executions=
             relevant_executions.append(execution)
         else:
             next_page_token = next_token(workflow_sfn_executions_info)
-            relevant_executions = get_workflow_executions(cut_off_date, workflow_sfn_arn,
-                                                          relevant_executions, next_page_token)
+            relevant_executions = get_workflow_executions(sfn, cut_off_date, workflow_sfn_arn, relevant_executions,
+                                                          next_page_token)
 
     return relevant_executions
 
 
-def get_ingest_timings(cut_off_date, workflow_sfn_executions, ingest_sfn_arn, preingest_sfn_arn, executions=
+def get_ingest_timings(sfn, cut_off_date, workflow_sfn_executions, ingest_sfn_arn, preingest_sfn_arn, executions=
 tuple(), next_page_token={}):
     execution_args = {"stateMachineArn": ingest_sfn_arn} | common_exec_args
     execution_args.update(next_page_token)
 
     if next_page_token or not executions:
-        ingest_sfn_executions_info = sfn_client.list_executions(**execution_args)
+        ingest_sfn_executions_info = sfn.list_executions(**execution_args)
         ingest_sfn_executions = ingest_sfn_executions_info["executions"]
 
         for execution in ingest_sfn_executions:
@@ -67,7 +68,7 @@ tuple(), next_page_token={}):
             }
 
             if name.startswith("TDR_"):
-                preingest_sfn_execution_info = sfn_client.describe_execution(executionArn=f"{preingest_sfn_arn}:{name}")
+                preingest_sfn_execution_info = sfn.describe_execution(executionArn=f"{preingest_sfn_arn}:{name}")
 
                 execution_info["steps"]["preingest"] = {
                     "name": preingest_sfn_execution_info["name"],
@@ -76,7 +77,7 @@ tuple(), next_page_token={}):
                 }
 
             workflow_execution = \
-            [workflow_ex for workflow_ex in workflow_sfn_executions if name in workflow_ex["name"]][0]
+                [workflow_ex for workflow_ex in workflow_sfn_executions if name in workflow_ex["name"]][0]
 
             execution_info["steps"]["preservicaWorkflow"] = {
                 "name": workflow_execution["name"],
@@ -88,7 +89,7 @@ tuple(), next_page_token={}):
 
         else:
             next_page_token = next_token(ingest_sfn_executions_info)
-            executions = get_ingest_timings(cut_off_date, workflow_sfn_executions, ingest_sfn_arn,
+            executions = get_ingest_timings(sfn, cut_off_date, workflow_sfn_executions, ingest_sfn_arn,
                                             preingest_sfn_arn, executions, next_page_token)
 
     return executions
@@ -104,8 +105,9 @@ def lambda_handler(event, context):
     preingest_sfn_arn = os.environ["PREINGEST_SFN_ARN"]
     bucket_name = os.environ["OUTPUT_BUCKET_NAME"]
 
-    workflow_sfn_executions = get_workflow_executions(last_ingest_completion_date, workflow_sfn_arn)
-    ingest_timings = get_ingest_timings(last_ingest_completion_date, workflow_sfn_executions, ingest_sfn_arn,
+    sfn = sfn_client()
+    workflow_sfn_executions = get_workflow_executions(sfn, last_ingest_completion_date, workflow_sfn_arn)
+    ingest_timings = get_ingest_timings(sfn, last_ingest_completion_date, workflow_sfn_executions, ingest_sfn_arn,
                                         preingest_sfn_arn)
 
     for ingest_timing in ingest_timings:
@@ -113,6 +115,7 @@ def lambda_handler(event, context):
         ingest_timing_json_obj = json.dumps(ingest_timing)
 
         try:
-            s3_client.put_object(Body=ingest_timing_json_obj, Bucket=bucket_name, Key=json_file_key, ContentType="application/json")
+            s3_client().put_object(Body=ingest_timing_json_obj, Bucket=bucket_name, Key=json_file_key,
+                                   ContentType="application/json")
         except Exception as e:
             print(f"There was an error when attempting to upload file {json_file_key} to bucket {bucket_name}: {e}")
