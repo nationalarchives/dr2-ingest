@@ -423,7 +423,13 @@ class TestIngestTimingsHandler(unittest.TestCase):
               patch("sfn_timings.lambda_function.get_ingest_timings") as get_ingest_timings):
             get_workflow_executions.return_value = []
             get_ingest_timings.return_value = ({"name": "ingestExecutionName"},)
-            self.assertRaises(Exception, lambda_function.lambda_handler(event, {}))
+
+            with self.assertRaises(Exception) as cm:
+                lambda_function.lambda_handler(event, {})
+
+            self.assertEqual("There was an error when attempting to upload file "
+                             "step-function-timings-for-ingestExecutionName.json to bucket bucket-name: S3 Error",
+                             cm.exception.args[0])
 
 
 if __name__ == "__main__":
