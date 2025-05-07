@@ -11,6 +11,7 @@ from sfn_timings import lambda_function
 @patch.dict("os.environ", {"INGEST_SFN_ARN": "ingest-arn"})
 @patch.dict("os.environ", {"PREINGEST_SFN_ARN": "preingest-arn"})
 @patch.dict("os.environ", {"OUTPUT_BUCKET_NAME": "bucket-name"})
+@patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-2"})
 class TestIngestTimingsHandler(unittest.TestCase):
     workflow_executions = [
         {
@@ -74,17 +75,17 @@ class TestIngestTimingsHandler(unittest.TestCase):
     def test_get_workflow_executions_should_call_list_executions_once_and_return_executions_if_there_is_no_next_token(
         self):
         cut_off_date = UTC.localize(datetime(2024, 12, 21))
-        lambda_function.sfn_client = Mock()
+        sfn_client = Mock()
         response = {"executions": [self.workflow_executions[0]]}
 
-        lambda_function.sfn_client.list_executions = Mock(return_value=response)
+        sfn_client.list_executions = Mock(return_value=response)
 
-        executions = lambda_function.get_workflow_executions(cut_off_date, "workflow-arn", relevant_executions=[],
-                                                             next_page_token={})
+        executions = lambda_function.get_workflow_executions(sfn_client, cut_off_date, "workflow-arn",
+                                                             relevant_executions=[], next_page_token={})
 
-        self.assertEqual(1, lambda_function.sfn_client.list_executions.call_count)
+        self.assertEqual(1, sfn_client.list_executions.call_count)
         self.assertEqual({"maxResults": 100, "stateMachineArn": "workflow-arn", "statusFilter": "SUCCEEDED"},
-                         lambda_function.sfn_client.list_executions.call_args_list[0][1])
+                         sfn_client.list_executions.call_args_list[0][1])
 
         self.assertEqual(
             [
@@ -103,25 +104,25 @@ class TestIngestTimingsHandler(unittest.TestCase):
     def test_get_workflow_executions_should_call_list_executions_once_and_return_executions_if_there_is_a_next_token(
         self):
         cut_off_date = UTC.localize(datetime(2024, 12, 21))
-        lambda_function.sfn_client = Mock()
+        sfn_client = Mock()
         response1 = {
             "executions": [self.workflow_executions[0]],
             "nextToken": "next_token"
         }
         response2 = {"executions": [self.workflow_executions[1]]}
 
-        lambda_function.sfn_client.list_executions = Mock()
-        lambda_function.sfn_client.list_executions.side_effect = [response1, response2]
+        sfn_client.list_executions = Mock()
+        sfn_client.list_executions.side_effect = [response1, response2]
 
-        executions = lambda_function.get_workflow_executions(cut_off_date, "workflow-arn", relevant_executions=[],
-                                                             next_page_token={})
+        executions = lambda_function.get_workflow_executions(sfn_client, cut_off_date, "workflow-arn",
+                                                             relevant_executions=[], next_page_token={})
 
-        self.assertEqual(2, lambda_function.sfn_client.list_executions.call_count)
+        self.assertEqual(2, sfn_client.list_executions.call_count)
         self.assertEqual({"maxResults": 100, "stateMachineArn": "workflow-arn", "statusFilter": "SUCCEEDED"},
-                         lambda_function.sfn_client.list_executions.call_args_list[0][1])
+                         sfn_client.list_executions.call_args_list[0][1])
         self.assertEqual({"maxResults": 100, "stateMachineArn": "workflow-arn", "statusFilter": "SUCCEEDED",
                           "nextToken": "next_token"},
-                         lambda_function.sfn_client.list_executions.call_args_list[1][1])
+                         sfn_client.list_executions.call_args_list[1][1])
         self.assertEqual(
             [
                 {
@@ -147,25 +148,24 @@ class TestIngestTimingsHandler(unittest.TestCase):
     def test_get_workflow_executions_should_stop_processing_executions_if_they_are_before_the_cut_off(
         self):
         cut_off_date = UTC.localize(datetime(2025, 1, 2))
-        lambda_function.sfn_client = Mock()
+        sfn_client = Mock()
         response1 = {
             "executions": [self.workflow_executions[0]],
             "nextToken": "next_token"
         }
         response2 = {"executions": [self.workflow_executions[1]]}
 
-        lambda_function.sfn_client.list_executions = Mock()
-        lambda_function.sfn_client.list_executions.side_effect = [response1, response2]
+        sfn_client.list_executions = Mock()
+        sfn_client.list_executions.side_effect = [response1, response2]
 
-        executions = lambda_function.get_workflow_executions(cut_off_date, "workflow-arn", relevant_executions=[],
-                                                             next_page_token={})
+        executions = lambda_function.get_workflow_executions(sfn_client, cut_off_date, "workflow-arn",
+                                                             relevant_executions=[], next_page_token={})
 
-        self.assertEqual(2, lambda_function.sfn_client.list_executions.call_count)
+        self.assertEqual(2, sfn_client.list_executions.call_count)
         self.assertEqual({"maxResults": 100, "stateMachineArn": "workflow-arn", "statusFilter": "SUCCEEDED"},
-                         lambda_function.sfn_client.list_executions.call_args_list[0][1])
+                         sfn_client.list_executions.call_args_list[0][1])
         self.assertEqual({"maxResults": 100, "stateMachineArn": "workflow-arn", "statusFilter": "SUCCEEDED",
-                          "nextToken": "next_token"},
-                         lambda_function.sfn_client.list_executions.call_args_list[1][1])
+                          "nextToken": "next_token"}, sfn_client.list_executions.call_args_list[1][1])
         self.assertEqual(
             [
                 {
@@ -182,18 +182,18 @@ class TestIngestTimingsHandler(unittest.TestCase):
 
     def test_get_ingest_timings_should_call_list_executions_once_and_return_executions_if_there_is_no_next_token(self):
         cut_off_date = UTC.localize(datetime(2024, 12, 21))
-        lambda_function.sfn_client = Mock()
+        sfn_client = Mock()
         response = {"executions": self.ingest_executions_responses[0]["executions"]}
 
-        lambda_function.sfn_client.list_executions = Mock(return_value=response)
+        sfn_client.list_executions = Mock(return_value=response)
 
-        executions = lambda_function.get_ingest_timings(cut_off_date, self.workflow_executions, "ingest-arn",
-                                                        "preingest-arn")
+        executions = lambda_function.get_ingest_timings(sfn_client, cut_off_date, self.workflow_executions,
+                                                        "ingest-arn", "preingest-arn")
 
-        self.assertEqual(1, lambda_function.sfn_client.list_executions.call_count)
-        self.assertEqual(0, lambda_function.sfn_client.describe_execution.call_count)
+        self.assertEqual(1, sfn_client.list_executions.call_count)
+        self.assertEqual(0, sfn_client.describe_execution.call_count)
         self.assertEqual({"maxResults": 100, "stateMachineArn": "ingest-arn", "statusFilter": "SUCCEEDED"},
-                         lambda_function.sfn_client.list_executions.call_args_list[0][1])
+                         sfn_client.list_executions.call_args_list[0][1])
 
         self.assertEqual(
             [
@@ -218,21 +218,21 @@ class TestIngestTimingsHandler(unittest.TestCase):
 
     def test_get_ingest_timings_should_call_list_executions_once_and_return_executions_if_there_is_a_next_token(self):
         cut_off_date = UTC.localize(datetime(2024, 12, 21))
-        lambda_function.sfn_client = Mock()
+        sfn_client = Mock()
+        lambda_function.sfn_client = lambda: sfn_client
 
-        lambda_function.sfn_client.list_executions = Mock()
-        lambda_function.sfn_client.list_executions.side_effect = self.ingest_executions_responses
+        sfn_client.list_executions = Mock()
+        sfn_client.list_executions.side_effect = self.ingest_executions_responses
 
-        executions = lambda_function.get_ingest_timings(cut_off_date, self.workflow_executions, "ingest-arn",
-                                                        "preingest-arn")
+        executions = lambda_function.get_ingest_timings(sfn_client, cut_off_date, self.workflow_executions,
+                                                        "ingest-arn", "preingest-arn")
 
-        self.assertEqual(2, lambda_function.sfn_client.list_executions.call_count)
-        self.assertEqual(0, lambda_function.sfn_client.describe_execution.call_count)
+        self.assertEqual(2, sfn_client.list_executions.call_count)
+        self.assertEqual(0, sfn_client.describe_execution.call_count)
         self.assertEqual({"maxResults": 100, "stateMachineArn": "ingest-arn", "statusFilter": "SUCCEEDED"},
-                         lambda_function.sfn_client.list_executions.call_args_list[0][1])
+                         sfn_client.list_executions.call_args_list[0][1])
         self.assertEqual({"maxResults": 100, "stateMachineArn": "ingest-arn", "statusFilter": "SUCCEEDED",
-                          "nextToken": "next_token"},
-                         lambda_function.sfn_client.list_executions.call_args_list[1][1])
+                          "nextToken": "next_token"}, sfn_client.list_executions.call_args_list[1][1])
         self.assertEqual(
             [
                 {
@@ -270,21 +270,21 @@ class TestIngestTimingsHandler(unittest.TestCase):
 
     def test_get_ingest_timings_should_stop_processing_executions_if_they_are_before_the_cut_off(self):
         cut_off_date = UTC.localize(datetime(2025, 1, 2))
-        lambda_function.sfn_client = Mock()
+        sfn_client = Mock()
 
-        lambda_function.sfn_client.list_executions = Mock()
-        lambda_function.sfn_client.list_executions.side_effect = self.ingest_executions_responses
+        sfn_client.list_executions = Mock()
+        sfn_client.list_executions.side_effect = self.ingest_executions_responses
 
-        executions = lambda_function.get_ingest_timings(cut_off_date, self.workflow_executions, "ingest-arn",
-                                                        "preingest-arn")
+        executions = lambda_function.get_ingest_timings(sfn_client, cut_off_date, self.workflow_executions,
+                                                        "ingest-arn", "preingest-arn")
 
-        self.assertEqual(2, lambda_function.sfn_client.list_executions.call_count)
-        self.assertEqual(0, lambda_function.sfn_client.describe_execution.call_count)
+        self.assertEqual(2, sfn_client.list_executions.call_count)
+        self.assertEqual(0, sfn_client.describe_execution.call_count)
         self.assertEqual({"maxResults": 100, "stateMachineArn": "ingest-arn", "statusFilter": "SUCCEEDED"},
-                         lambda_function.sfn_client.list_executions.call_args_list[0][1])
+                         sfn_client.list_executions.call_args_list[0][1])
         self.assertEqual({"maxResults": 100, "stateMachineArn": "ingest-arn", "statusFilter": "SUCCEEDED",
                           "nextToken": "next_token"},
-                         lambda_function.sfn_client.list_executions.call_args_list[1][1])
+                         sfn_client.list_executions.call_args_list[1][1])
         self.assertEqual(
             [
                 {
@@ -309,7 +309,8 @@ class TestIngestTimingsHandler(unittest.TestCase):
     def test_get_ingest_timings_should_call_describe_execution_once_and_return_preingest_info_if_the_name_of_the_execution_starts_with_tdr(
         self):
         cut_off_date = UTC.localize(datetime(2024, 12, 21))
-        lambda_function.sfn_client = Mock()
+        sfn_client = Mock()
+        lambda_function.sfn_client = lambda: sfn_client
         sfn_execs_response = {
             "executions": [
                 {
@@ -332,8 +333,8 @@ class TestIngestTimingsHandler(unittest.TestCase):
             "stopDate": UTC.localize(datetime(2025, 1, 2))
         }
 
-        lambda_function.sfn_client.list_executions = Mock(return_value=sfn_execs_response)
-        lambda_function.sfn_client.describe_execution = Mock(return_value=preingest_sfn_response)
+        sfn_client.list_executions = Mock(return_value=sfn_execs_response)
+        sfn_client.describe_execution = Mock(return_value=preingest_sfn_response)
 
         workflow_executions = [{
             "executionArn": "workflowArn",
@@ -344,16 +345,16 @@ class TestIngestTimingsHandler(unittest.TestCase):
             "stopDate": UTC.localize(datetime(2025, 1, 2))
         }]
 
-        executions = lambda_function.get_ingest_timings(cut_off_date, workflow_executions, "ingest-arn",
+        executions = lambda_function.get_ingest_timings(sfn_client, cut_off_date, workflow_executions, "ingest-arn",
                                                         "preingest-arn")
 
-        self.assertEqual(1, lambda_function.sfn_client.list_executions.call_count)
-        self.assertEqual(1, lambda_function.sfn_client.describe_execution.call_count)
+        self.assertEqual(1, sfn_client.list_executions.call_count)
+        self.assertEqual(1, sfn_client.describe_execution.call_count)
         self.assertEqual({"maxResults": 100, "stateMachineArn": "ingest-arn", "statusFilter": "SUCCEEDED"},
-                         lambda_function.sfn_client.list_executions.call_args_list[0][1])
+                         sfn_client.list_executions.call_args_list[0][1])
 
         self.assertEqual({"executionArn": "preingest-arn:TDR_ingestExecutionName"},
-                         lambda_function.sfn_client.describe_execution.call_args_list[0][1])
+                         sfn_client.describe_execution.call_args_list[0][1])
 
         self.assertEqual(
             [
@@ -383,12 +384,14 @@ class TestIngestTimingsHandler(unittest.TestCase):
 
     def test_lambda_handler_should_call_correct_functions(self):
         event = {"time": "2025-04-21T10:00:00Z"}
-        lambda_function.sfn_client = Mock()
+        sfn_client = Mock()
+        lambda_function.sfn_client = lambda: sfn_client
         sfn_response = {"executions": [self.workflow_executions[0]]}
         lambda_function.sfn_client.list_executions = Mock(return_value=sfn_response)
 
-        lambda_function.s3_client = Mock()
-        lambda_function.s3_client.put_object = Mock()
+        s3_client = Mock()
+        lambda_function.s3_client = lambda: s3_client
+        s3_client.put_object = Mock()
 
         with (patch("sfn_timings.lambda_function.get_workflow_executions") as get_workflow_executions,
               patch("sfn_timings.lambda_function.get_ingest_timings") as get_ingest_timings):
@@ -397,22 +400,24 @@ class TestIngestTimingsHandler(unittest.TestCase):
             lambda_function.lambda_handler(event, {})
 
             expected_time = UTC.localize(datetime(2025, 4, 21, 9, 50))
-            get_workflow_executions.assert_called_with(expected_time, "workflow-arn")
-            get_ingest_timings.assert_called_with(expected_time, [], "ingest-arn", "preingest-arn")
+            get_workflow_executions.assert_called_with(sfn_client, expected_time, "workflow-arn")
+            get_ingest_timings.assert_called_with(sfn_client, expected_time, [], "ingest-arn", "preingest-arn")
 
             expected_body = """{"name": "ingestExecutionName"}"""
-            lambda_function.s3_client.put_object.assert_called_with(Body=expected_body, Bucket="bucket-name",
-                                                                    Key="step-function-timings-for-ingestExecutionName.json",
-                                                                    ContentType="application/json")
+            s3_client.put_object.assert_called_with(Body=expected_body, Bucket="bucket-name",
+                                                    Key="step-function-timings-for-ingestExecutionName.json",
+                                                    ContentType="application/json")
 
     def test_lambda_handler_should_throw_an_error_if_s3_returns_an_error(self):
         event = {"time": "2025-04-21T10:00:00Z"}
-        lambda_function.sfn_client = Mock()
+        sfn_client = Mock()
+        lambda_function.sfn_client = lambda: sfn_client
         sfn_response = {"executions": [self.workflow_executions[0]]}
-        lambda_function.sfn_client.list_executions = Mock(return_value=sfn_response)
+        sfn_client.list_executions = Mock(return_value=sfn_response)
 
-        lambda_function.s3_client = Mock()
-        lambda_function.s3_client.put_object.side_effect = Exception("S3 Error")
+        s3_client = Mock()
+        lambda_function.s3_client = lambda: s3_client
+        s3_client.put_object.side_effect = Exception("S3 Error")
 
         with (patch("sfn_timings.lambda_function.get_workflow_executions") as get_workflow_executions,
               patch("sfn_timings.lambda_function.get_ingest_timings") as get_ingest_timings):
