@@ -118,4 +118,5 @@ def lambda_handler(event, context):
             s3_client().put_object(Body=ingest_timing_json_obj, Bucket=bucket_name, Key=json_file_key,
                                    ContentType="application/json")
         except Exception as e:
-            print(f"There was an error when attempting to upload file {json_file_key} to bucket {bucket_name}: {e}")
+            raise Exception(
+                f"There was an error when attempting to upload file {json_file_key} to bucket {bucket_name}: {e}")
