@@ -1,8 +1,10 @@
 # DR2 Ingest failure notifications
 
+This Lambda is triggered by EventBridge when a step function fails
+
 ## Lambda input
 
-The lambda takes the following input from an EventBridge event:
+The lambda extracts the following input from an EventBridge event:
 
 ```json
 {
