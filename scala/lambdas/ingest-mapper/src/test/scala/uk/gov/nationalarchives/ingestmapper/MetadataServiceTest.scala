@@ -73,7 +73,7 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
           def tableItem(id: UUID, tableType: String, parentPath: String) =
             Obj.from {
               Map(
-                "batchId" -> "batchId",
+                "batchId" -> "groupId_0",
                 "id" -> id.toString,
                 "parentPath" -> parentPath,
                 "name" -> tableType,
@@ -84,8 +84,8 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
                 "series" -> seriesIdOpt.map(_.toString).getOrElse("Unknown")
               )
             }
-
-          val batchId = "batchId"
+          val groupId = "groupId"
+          val batchId = s"${groupId}_0"
           val folderIdOne = UUID.randomUUID()
           val assetIdOne = UUID.randomUUID()
           val fileIdOne = UUID.randomUUID()
@@ -112,7 +112,7 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
            |]
            |""".stripMargin.replaceAll("\n", "")
           val s3 = mockS3(metadata)
-          val input = Input(batchId, URI.create("s3://bucket/prefix/metadata.json"), "executionName")
+          val input = Input(groupId, batchId, URI.create("s3://bucket/prefix/metadata.json"), "executionName")
 
           def createCollectionAsset(obj: Obj) =
             Option(DiscoveryCollectionAsset(obj("name").str, DiscoveryScopeContent(obj("description").strOpt), obj("title").strOpt))
