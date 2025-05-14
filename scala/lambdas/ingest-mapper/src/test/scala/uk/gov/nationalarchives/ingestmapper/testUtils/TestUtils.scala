@@ -1,7 +1,6 @@
 package uk.gov.nationalarchives.ingestmapper.testUtils
 
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type
-import upickle.default.*
 
 import java.util.UUID
 object TestUtils {

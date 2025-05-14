@@ -13,7 +13,6 @@ import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcess
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.{Dependencies, Output}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{assetId, groupId, message}
 import uk.gov.nationalarchives.utils.Generators
-import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.*
 import uk.gov.nationalarchives.utils.ExternalUtils.StepFunctionInput
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}

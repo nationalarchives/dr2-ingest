@@ -22,9 +22,7 @@ import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
 import uk.gov.nationalarchives.utils.Generators
 
-import java.net.URI
 import java.time.Instant
-import java.util
 import java.util.UUID
 import scala.collection.immutable.Map
 
