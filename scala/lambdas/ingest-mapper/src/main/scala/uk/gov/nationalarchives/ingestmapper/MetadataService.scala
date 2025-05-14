@@ -9,7 +9,7 @@ import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestmapper.DiscoveryService.DepartmentAndSeriesCollectionAssets
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
-import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.{Asset, File}
+import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.File
 
 import java.util.UUID
 import scala.util.Try

@@ -1,7 +1,6 @@
 package uk.gov.nationalarchives.custodialcopyqueuecreator
 
 import cats.syntax.all.*
-import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import io.circe.parser.decode
 import org.scalatest.EitherValues
@@ -10,7 +9,6 @@ import org.scalatest.matchers.should.Matchers.*
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
-import uk.gov.nationalarchives.dp.client.{Entities, EntityClient}
 import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.*
 import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.MessageBody.*
 import uk.gov.nationalarchives.custodialcopyqueuecreator.Utils.*

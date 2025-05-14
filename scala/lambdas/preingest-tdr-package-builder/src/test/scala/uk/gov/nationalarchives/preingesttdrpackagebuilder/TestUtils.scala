@@ -2,7 +2,6 @@ package uk.gov.nationalarchives.preingesttdrpackagebuilder
 
 import cats.effect.{IO, Ref}
 import fs2.interop.reactivestreams.*
-import io.circe.derivation.Configuration
 import io.circe.generic.semiauto.deriveEncoder
 import io.circe.parser.decode
 import io.circe.syntax.*
@@ -20,7 +19,6 @@ import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
-import java.net.URI
 import java.nio.ByteBuffer
 
 object TestUtils:

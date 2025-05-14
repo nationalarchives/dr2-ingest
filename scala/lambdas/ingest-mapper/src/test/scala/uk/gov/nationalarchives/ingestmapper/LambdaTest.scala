@@ -5,7 +5,6 @@ import cats.effect.{IO, Ref}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import ujson.Obj
-import uk.gov.nationalarchives.ingestmapper.Lambda.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
 import uk.gov.nationalarchives.ingestmapper.testUtils.LambdaTestTestUtils
 import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.DynamoFilesTableItem
@@ -27,7 +26,8 @@ class LambdaTest extends AnyFlatSpec {
       s3Objects <- s3Ref.get
     } yield (stateData, s3Objects)).unsafeRunSync()
 
-    stateOutput.batchId should be("TEST")
+    stateOutput.groupId should be("TEST")
+    stateOutput.batchId should be("TEST_0")
     stateOutput.metadataPackage should be(URI.create(s"s3://input/TEST/metadata.json"))
     stateOutput.assets.bucket should be("testInputStateBucket")
     stateOutput.assets.key should be("executionName/assets.json")
@@ -87,7 +87,7 @@ class LambdaTest extends AnyFlatSpec {
       checkDynamoItems(
         dynamoItems,
         DynamoFilesTableItem(
-          "TEST",
+          "TEST_0",
           departmentUuid,
           "",
           expectedDepartment,
@@ -103,7 +103,7 @@ class LambdaTest extends AnyFlatSpec {
         checkDynamoItems(
           dynamoItems,
           DynamoFilesTableItem(
-            "TEST",
+            "TEST_0",
             seriesUuid,
             departmentUuid.toString,
             testResponse.series,
@@ -118,7 +118,7 @@ class LambdaTest extends AnyFlatSpec {
       checkDynamoItems(
         dynamoItems,
         DynamoFilesTableItem(
-          "TEST",
+          "TEST_0",
           folderIdentifier,
           topFolderPath,
           "TestName",
@@ -133,7 +133,7 @@ class LambdaTest extends AnyFlatSpec {
       checkDynamoItems(
         dynamoItems,
         DynamoFilesTableItem(
-          "TEST",
+          "TEST_0",
           assetIdentifier,
           s"$topFolderPath/$folderIdentifier",
           "TestAssetName",
@@ -150,7 +150,7 @@ class LambdaTest extends AnyFlatSpec {
       checkDynamoItems(
         dynamoItems,
         DynamoFilesTableItem(
-          "TEST",
+          "TEST_0",
           docxIdentifier,
           s"$topFolderPath/$folderIdentifier/$assetIdentifier",
           "Test.docx",
@@ -167,7 +167,7 @@ class LambdaTest extends AnyFlatSpec {
       checkDynamoItems(
         dynamoItems,
         DynamoFilesTableItem(
-          "TEST",
+          "TEST_0",
           metadataIdentifier,
           s"$topFolderPath/$folderIdentifier/$assetIdentifier",
           "TEST-metadata.json",
@@ -204,7 +204,7 @@ class LambdaTest extends AnyFlatSpec {
     checkDynamoItems(
       dynamoItems,
       DynamoFilesTableItem(
-        "TEST",
+        "TEST_0",
         departmentId,
         "",
         "A",
@@ -220,7 +220,7 @@ class LambdaTest extends AnyFlatSpec {
     checkDynamoItems(
       dynamoItems,
       DynamoFilesTableItem(
-        "TEST",
+        "TEST_0",
         seriesId,
         departmentId.toString,
         "A 1",

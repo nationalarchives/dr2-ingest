@@ -11,7 +11,7 @@ import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
-import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, Identifier, UpdateEntityRequest, Identifier as PreservicaIdentifier, *}
+import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, Identifier, UpdateEntityRequest, Identifier as PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, EntityClient}

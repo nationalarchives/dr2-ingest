@@ -6,7 +6,6 @@ import cats.syntax.all.*
 import fs2.interop.reactivestreams.*
 import fs2.{Chunk, Stream}
 import io.circe.*
-import io.circe.derivation.Configuration
 import io.circe.generic.semiauto.*
 import org.reactivestreams.Publisher
 import pureconfig.ConfigReader
@@ -27,7 +26,7 @@ object Utils:
   trait ErrorMessage
 
   object ErrorMessage:
-    given Show[ErrorMessage] = Show[ErrorMessage] {
+    given Show[ErrorMessage] = Show.show {
       case ParentTypeInvalid(parentTypeOpt, fileTypeOpt, id) => s"Parent type ${parentTypeOpt.orNull} is not valid for file type ${fileTypeOpt.orNull} for id $id"
       case CircularDependency(id, existingParents)           => s"Circular dependency with id $id -> ${existingParents.filter(_ != id).mkString(" -> ")} -> $id"
       case NoAssetChildren(id)                               => s"Asset $id has no children"

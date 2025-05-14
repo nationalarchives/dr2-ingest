@@ -41,7 +41,7 @@ object Helpers {
   }.unsafeRunSync()
 
   case class LambdaRunResults(
-      result: Either[Throwable, StateOutput],
+      result: Either[Throwable, TaskOutput],
       finalItemsInTable: List[IngestQueueTableItem],
       flowConfig: FlowControlConfig,
       finalStepFnExecutions: List[StepFunctionExecution]

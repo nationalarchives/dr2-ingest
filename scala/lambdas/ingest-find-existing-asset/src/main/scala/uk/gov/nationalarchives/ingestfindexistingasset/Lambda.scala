@@ -12,7 +12,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.DADynamoDBClient
 import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.*
 import uk.gov.nationalarchives.dp.client.EntityClient
-import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier as AssetIdentifier, *}
+import uk.gov.nationalarchives.dp.client.EntityClient.Identifier as AssetIdentifier
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.utils.LambdaRunner
