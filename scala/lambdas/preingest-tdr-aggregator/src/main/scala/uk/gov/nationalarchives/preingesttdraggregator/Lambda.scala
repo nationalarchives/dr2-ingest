@@ -16,9 +16,7 @@ import uk.gov.nationalarchives.preingesttdraggregator.Lambda.*
 import uk.gov.nationalarchives.utils.Generators.given
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 
-import java.net.URI
 import java.time.Instant
-import java.util.UUID
 import scala.jdk.CollectionConverters.*
 class Lambda extends RequestHandler[SQSEvent, SQSBatchResponse]:
 

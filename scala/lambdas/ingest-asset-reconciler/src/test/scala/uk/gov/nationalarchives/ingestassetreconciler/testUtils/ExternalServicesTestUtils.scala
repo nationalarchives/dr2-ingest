@@ -15,7 +15,7 @@ import uk.gov.nationalarchives.dp.client.Client.{BitStreamInfo, Fixity}
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.InformationObject
 import uk.gov.nationalarchives.dp.client.EntityClient.GenerationType.Original
-import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest, Identifier as PreservicaIdentifier, *}
+import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest, Identifier as PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, EntityClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Identifier as DynamoIdentifier, *}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*

@@ -5,7 +5,6 @@ import cats.effect.{IO, Ref}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import ujson.Obj
-import uk.gov.nationalarchives.ingestmapper.Lambda.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
 import uk.gov.nationalarchives.ingestmapper.testUtils.LambdaTestTestUtils
 import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.DynamoFilesTableItem
