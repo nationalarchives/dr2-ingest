@@ -5,7 +5,6 @@ import io.circe.Decoder.{AccumulatingResult, Result}
 import io.circe.Json.Null
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
-import io.circe.derivation.Configuration
 import io.circe.syntax.*
 import uk.gov.nationalarchives.utils.ExternalUtils.Type.*
 import cats.implicits.*

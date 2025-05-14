@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import uk.gov.nationalarchives.ingestfailurenotifications.Lambda.*
 import uk.gov.nationalarchives.ingestfailurenotifications.LambdaTestUtils.*
-import uk.gov.nationalarchives.utils.ExternalUtils.{MessageStatus, MessageType, OutputMessage}
+import uk.gov.nationalarchives.utils.ExternalUtils.{MessageStatus, MessageType}
 
 class LambdaTest extends AnyFlatSpec:
 

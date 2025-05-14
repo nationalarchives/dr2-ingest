@@ -1,11 +1,11 @@
 import Dependencies.*
-ThisBuild / scalaVersion := "3.6.4"
+ThisBuild / scalaVersion := "3.7.0"
 
 lazy val root = (project in file("."))
   .aggregate(e2eTestsSpec, ingestLambdasRoot)
   .settings(
     name := "ingest",
-    scalaVersion := "3.6.4"
+    scalaVersion := "3.7.0"
   )
 
 lazy val ingestLambdasRoot = project in file("./scala/lambdas")

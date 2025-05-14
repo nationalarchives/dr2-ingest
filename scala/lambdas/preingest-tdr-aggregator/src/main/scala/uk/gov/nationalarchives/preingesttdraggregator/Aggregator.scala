@@ -25,9 +25,7 @@ import uk.gov.nationalarchives.utils.ExternalUtils.NotificationMessage
 import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 
-import java.net.URI
 import java.time.Instant
-import java.util.UUID
 
 trait Aggregator[F[_]]:
 

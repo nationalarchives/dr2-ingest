@@ -50,6 +50,6 @@ abstract class LambdaRunner[Event, Result, Config, Dependencies](using
     }
   } yield ()).onError(logLambdaError).unsafeRunSync()
 
-  private def logLambdaError(error: Throwable): IO[Unit] =
-    logger.error(error)(s"Error running $lambdaName")
+  private def logLambdaError: PartialFunction[Throwable, IO[Unit]] =
+    case error => logger.error(error)(s"Error running $lambdaName")
 }
