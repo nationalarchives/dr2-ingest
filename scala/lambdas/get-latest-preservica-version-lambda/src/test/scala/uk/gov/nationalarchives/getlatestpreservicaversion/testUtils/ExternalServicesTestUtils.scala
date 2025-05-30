@@ -86,7 +86,7 @@ object ExternalServicesTestUtils:
           .map(_ => PutEventsResponse.builder.build)
   }
 
-  val config: Config = Config("", "", "", "")
+  val config: Config = Config("", "", "")
 
   case class Errors(dynamoError: Boolean = false, preservicaError: Boolean = false, eventBridgeError: Boolean = false)
 

@@ -44,11 +44,11 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
   }
 
   override def dependencies(config: Config): IO[Dependencies] =
-    Fs2Client.entityClient(config.apiUrl, config.secretName).map(entityClient => Dependencies(entityClient, DASQSClient[IO](), () => UUID.randomUUID))
+    Fs2Client.entityClient(config.secretName).map(entityClient => Dependencies(entityClient, DASQSClient[IO](), () => UUID.randomUUID))
 
 object Lambda:
 
-  case class Config(apiUrl: String, secretName: String, outputQueue: String) derives ConfigReader
+  case class Config(secretName: String, outputQueue: String) derives ConfigReader
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], sqsClient: DASQSClient[IO], uuidGenerator: () => UUID)
 
   private def toJson(id: UUID, deleted: Boolean, messageType: String): Json =

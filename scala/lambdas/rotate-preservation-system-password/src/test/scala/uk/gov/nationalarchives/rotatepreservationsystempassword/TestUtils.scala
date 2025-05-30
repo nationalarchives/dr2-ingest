@@ -88,7 +88,7 @@ object TestUtils:
       secretRef <- Ref.of[IO, Secret](secret)
       credentialsRef <- Ref.of[IO, Credentials](credentials)
       dependencies = Dependencies(_ => IO(userClient(credentialsRef)), _ => secretsManagerClient(secretRef, errors))
-      res <- new Lambda().handler(event, Config(""), dependencies).attempt
+      res <- new Lambda().handler(event, Config(), dependencies).attempt
       secret <- secretRef.get
       credentials <- credentialsRef.get
     } yield (secret, credentials, res)

@@ -40,13 +40,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies]:
     } yield StateOutput(monitorStatus, monitor.mappedId)
 
   override def dependencies(config: Config): IO[Dependencies] =
-    Fs2Client.processMonitorClient(config.apiUrl, config.secretName).map(Dependencies.apply)
+    Fs2Client.processMonitorClient(config.secretName).map(Dependencies.apply)
 
 object Lambda:
   case class Input(executionId: String)
 
   case class StateOutput(status: String, mappedId: String)
 
-  case class Config(apiUrl: String, secretName: String) derives ConfigReader
+  case class Config(secretName: String) derives ConfigReader
 
   case class Dependencies(processMonitorClient: ProcessMonitorClient[IO])
