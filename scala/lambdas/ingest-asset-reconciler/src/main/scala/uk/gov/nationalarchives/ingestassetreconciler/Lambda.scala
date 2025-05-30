@@ -74,7 +74,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       childrenForRepresentationType: List[FileDynamoItem],
       bitstreamInfoPerContentObject: Seq[BitStreamInfo],
       assetId: UUID,
-      representationType: RepresentationType
+      representationType: RepresentationType,
+      ioRef: UUID
   ) = {
     val failedChildren =
       childrenForRepresentationType.filter { assetChild =>
@@ -85,12 +86,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
         bitstreamWithSameChecksum.isEmpty
       }
-    if failedChildren.isEmpty then StateOutput(true, Nil, assetId)
+    if failedChildren.isEmpty then StateOutput(true, Nil, assetId, ioRef)
     else
       StateOutput(
         wasReconciled = failedChildren.isEmpty,
         List(Failures(TitleChecksumMismatch, failedChildren.map(_.id))),
-        assetId
+        assetId,
+        ioRef
       )
   }
 
@@ -154,7 +156,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
             stateOutput <-
               if (contentObjects.isEmpty)
                 IO.pure(
-                  StateOutput(wasReconciled = false, List(Failures(NoContentObjects, childrenForRepresentationType.map(_.id))), assetId)
+                  StateOutput(wasReconciled = false, List(Failures(NoContentObjects, childrenForRepresentationType.map(_.id))), assetId, entity.ref)
                 )
               else
                 for {
@@ -163,13 +165,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     .flatSequence
 
                   _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
-                } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType)
+                } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType, entity.ref)
           } yield stateOutput
         }
         .toList
         .sequence
       allReconciled = stateOutputs.forall(_.wasReconciled)
-    } yield StateOutput(allReconciled, stateOutputs.flatMap(_.failures), assetId)
+    } yield StateOutput(allReconciled, stateOutputs.flatMap(_.failures), assetId, entity.ref)
 
   override def dependencies(config: Config): IO[Dependencies] =
     Fs2Client
@@ -188,7 +190,7 @@ object Lambda {
 
   case class Failures(failureReason: FailureReason, childIds: List[UUID])
 
-  case class StateOutput(wasReconciled: Boolean, failures: List[Failures], assetId: UUID)
+  case class StateOutput(wasReconciled: Boolean, failures: List[Failures], assetId: UUID, ioRef: UUID)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO], newMessageId: UUID, datetime: () => OffsetDateTime)
 
