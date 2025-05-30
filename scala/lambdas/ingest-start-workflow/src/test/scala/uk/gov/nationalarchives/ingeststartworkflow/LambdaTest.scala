@@ -11,7 +11,7 @@ import uk.gov.nationalarchives.ingeststartworkflow.Lambda.{Config, Dependencies,
 import scala.util.hashing.MurmurHash3
 
 class LambdaTest extends AnyFlatSpec {
-  private val config: Config = Config("", "")
+  private val config: Config = Config("")
   private val input: Input = Input("testContextName", "TST-1234-345")
 
   private val workflowClient: WorkflowClient[IO] = (startWorkflowRequest: StartWorkflowRequest) => IO.pure(MurmurHash3.productHash(startWorkflowRequest))

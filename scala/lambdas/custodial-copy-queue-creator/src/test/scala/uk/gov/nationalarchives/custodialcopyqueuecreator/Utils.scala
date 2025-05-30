@@ -24,7 +24,7 @@ import scala.jdk.CollectionConverters.*
 object Utils:
   val inputQueue = "input-queue"
   val outputQueue = "output-queue"
-  val config: Config = Config("", "", outputQueue)
+  val config: Config = Config("", outputQueue)
   val dedupeUuid: UUID = UUID.randomUUID
 
   def runLambda(sqsMessages: List[SQSMessage], entities: List[Entity]): Map[String, List[SQSMessage]] = {

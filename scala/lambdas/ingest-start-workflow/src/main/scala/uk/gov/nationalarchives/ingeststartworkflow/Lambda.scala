@@ -30,12 +30,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     } yield StateOutput(id)
   }
 
-  override def dependencies(config: Config): IO[Dependencies] = Fs2Client.workflowClient(config.apiUrl, config.secretName).map(Dependencies.apply)
+  override def dependencies(config: Config): IO[Dependencies] = Fs2Client.workflowClient(config.secretName).map(Dependencies.apply)
 }
 
 object Lambda {
   case class Input(workflowContextName: String, executionId: String)
-  case class Config(apiUrl: String, secretName: String) derives ConfigReader
+  case class Config(secretName: String) derives ConfigReader
   case class StateOutput(id: Int)
 
   case class Dependencies(workflowClient: WorkflowClient[IO])

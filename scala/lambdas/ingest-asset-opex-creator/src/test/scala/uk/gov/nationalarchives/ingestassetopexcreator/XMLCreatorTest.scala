@@ -71,20 +71,20 @@ class XMLCreatorTest extends AnyFlatSpec {
     </opex:OPEXMetadata>
 
   val expectedXipXml: Elem =
-    <XIP xmlns="http://preservica.com/XIP/v7.0">
-      <InformationObject xmlns="http://preservica.com/XIP/v7.0">
+    <XIP xmlns="http://preservica.com/XIP/v7.7">
+      <InformationObject xmlns="http://preservica.com/XIP/v7.7">
         <Ref>90730c77-8faa-4dbf-b20d-bba1046dac87</Ref>
         <SecurityTag>open</SecurityTag>
         <Title>Preservation</Title>
       </InformationObject>
-      <Representation xmlns="http://preservica.com/XIP/v7.0">
+      <Representation xmlns="http://preservica.com/XIP/v7.7">
         <InformationObject>90730c77-8faa-4dbf-b20d-bba1046dac87</InformationObject>
         <Name>Preservation_1</Name>
         <Type>Preservation</Type>
         <ContentObjects>
           <ContentObject>a814ee41-89f4-4975-8f92-303553fe9a02</ContentObject>
         </ContentObjects>
-      </Representation><Representation xmlns="http://preservica.com/XIP/v7.0">
+      </Representation><Representation xmlns="http://preservica.com/XIP/v7.7">
       <InformationObject>90730c77-8faa-4dbf-b20d-bba1046dac87</InformationObject>
       <Name>Access_1</Name>
       <Type>Access</Type>
@@ -92,29 +92,29 @@ class XMLCreatorTest extends AnyFlatSpec {
         <ContentObject>9ecbba86-437f-42c6-aeba-e28b678bbf4c</ContentObject>
       </ContentObjects>
     </Representation>
-      <ContentObject xmlns="http://preservica.com/XIP/v7.0">
+      <ContentObject xmlns="http://preservica.com/XIP/v7.7">
         <Ref>a814ee41-89f4-4975-8f92-303553fe9a02</Ref>
         <Title>name0</Title>
         <SecurityTag>open</SecurityTag>
         <Parent>90730c77-8faa-4dbf-b20d-bba1046dac87</Parent>
-      </ContentObject><ContentObject xmlns="http://preservica.com/XIP/v7.0">
+      </ContentObject><ContentObject xmlns="http://preservica.com/XIP/v7.7">
       <Ref>9ecbba86-437f-42c6-aeba-e28b678bbf4c</Ref>
       <Title>name1</Title>
       <SecurityTag>open</SecurityTag>
       <Parent>90730c77-8faa-4dbf-b20d-bba1046dac87</Parent>
     </ContentObject>
-      <Generation original="true" active="true" xmlns="http://preservica.com/XIP/v7.0">
+      <Generation original="true" active="true" xmlns="http://preservica.com/XIP/v7.7">
         <ContentObject>a814ee41-89f4-4975-8f92-303553fe9a02</ContentObject>
         <Bitstreams>
           <Bitstream>Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02/Generation_1/a814ee41-89f4-4975-8f92-303553fe9a02.ext0</Bitstream>
         </Bitstreams>
-      </Generation><Generation original="true" active="true" xmlns="http://preservica.com/XIP/v7.0">
+      </Generation><Generation original="true" active="true" xmlns="http://preservica.com/XIP/v7.7">
       <ContentObject>9ecbba86-437f-42c6-aeba-e28b678bbf4c</ContentObject>
       <Bitstreams>
         <Bitstream>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1/9ecbba86-437f-42c6-aeba-e28b678bbf4c.ext1</Bitstream>
       </Bitstreams>
     </Generation>
-      <Bitstream xmlns="http://preservica.com/XIP/v7.0">
+      <Bitstream xmlns="http://preservica.com/XIP/v7.7">
         <Filename>a814ee41-89f4-4975-8f92-303553fe9a02.ext0</Filename>
         <FileSize>1</FileSize>
         <PhysicalLocation>Representation_Preservation/a814ee41-89f4-4975-8f92-303553fe9a02/Generation_1</PhysicalLocation>
@@ -128,7 +128,7 @@ class XMLCreatorTest extends AnyFlatSpec {
             <FixityValue>testChecksumAlgo2</FixityValue>
           </Fixity>
         </Fixities>
-      </Bitstream><Bitstream xmlns="http://preservica.com/XIP/v7.0">
+      </Bitstream><Bitstream xmlns="http://preservica.com/XIP/v7.7">
       <Filename>9ecbba86-437f-42c6-aeba-e28b678bbf4c.ext1</Filename>
       <FileSize>1</FileSize>
       <PhysicalLocation>Representation_Preservation/9ecbba86-437f-42c6-aeba-e28b678bbf4c/Generation_1</PhysicalLocation>

@@ -8,7 +8,7 @@ import uk.gov.nationalarchives.ingestworkflowmonitor.Lambda.{Config, StateOutput
 import uk.gov.nationalarchives.ingestworkflowmonitor.testUtils.ExternalServicesTestUtils
 
 class LambdaTest extends ExternalServicesTestUtils with TableDrivenPropertyChecks:
-  val config: Config = Config("", "")
+  val config: Config = Config("")
 
   forAll(runningStatuses) { (apiStatus, normalisedStatus) =>
     "handler" should s"pass a '$normalisedStatus' 'state', 'mappedId', 0 succeededAssetId, 0 failedAssetIds, 0 duplicatedAssetIds" +

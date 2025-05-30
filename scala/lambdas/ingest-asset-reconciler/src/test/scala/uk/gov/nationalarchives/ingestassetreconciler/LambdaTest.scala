@@ -14,7 +14,7 @@ import uk.gov.nationalarchives.ingestassetreconciler.testUtils.ExternalServicesT
 import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPropertyChecks with EitherValues {
-  val config: Config = Config("", "", "", "test-table")
+  val config: Config = Config("", "", "test-table")
 
   case class State(checksum: String, title: String, name: String)
   case class DbEntityStates(dynamoState: State, entityState: State, wasReconciled: Boolean)

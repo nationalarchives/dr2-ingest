@@ -30,7 +30,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
   val firstItem: InputItems = input.Items.head
   val assetId: UUID = firstItem.id
   val batchId: String = firstItem.batchId
-  val config: Config = Config("", "", "table-name")
+  val config: Config = Config("", "table-name")
 
   def generateAsset: AssetDynamoItem = AssetDynamoItem(
     batchId,

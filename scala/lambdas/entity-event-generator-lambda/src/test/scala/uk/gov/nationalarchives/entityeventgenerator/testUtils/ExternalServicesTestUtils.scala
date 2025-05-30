@@ -27,7 +27,7 @@ import java.util.UUID
 
 object ExternalServicesTestUtils {
 
-  val config: Config = Config("", "", "arn:aws:sns:eu-west-2:123456789012:MockResourceId", "table-name")
+  val config: Config = Config("", "arn:aws:sns:eu-west-2:123456789012:MockResourceId", "table-name")
 
   def event(time: String): ScheduledEvent = {
     val event = new ScheduledEvent()
