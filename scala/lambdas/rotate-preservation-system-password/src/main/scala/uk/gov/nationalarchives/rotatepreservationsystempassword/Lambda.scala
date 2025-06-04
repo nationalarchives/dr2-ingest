@@ -18,13 +18,14 @@ import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
-  given Decoder[AuthDetails] = (c: HCursor) => for {
-    userName <- c.downField("userName").as[String]
-    password <- c.downField("password").as[String]
-    apiUrl <- c.downField("apiUrl").as[String]
-  } yield AuthDetails(userName, password, apiUrl)
+  given Decoder[AuthDetails] = (c: HCursor) =>
+    for {
+      userName <- c.downField("userName").as[String]
+      password <- c.downField("password").as[String]
+      apiUrl <- c.downField("apiUrl").as[String]
+    } yield AuthDetails(userName, password, apiUrl)
 
-  given Encoder[AuthDetails] = (authDetails: AuthDetails) => 
+  given Encoder[AuthDetails] = (authDetails: AuthDetails) =>
     Json.obj("userName" -> Json.fromString(authDetails.userName), "password" -> Json.fromString(authDetails.password), "apiUrl" -> Json.fromString(authDetails.apiUrl))
 
   override def dependencies(config: Config): IO[Dependencies] =
@@ -113,5 +114,5 @@ object Lambda:
   case class Config() derives ConfigReader
 
   case class Dependencies(userClient: String => IO[UserClient[IO]], secretsManagerClient: String => DASecretsManagerClient[IO])
-  
+
   case class AuthDetails(userName: String, password: String, apiUrl: String)
