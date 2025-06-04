@@ -140,6 +140,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val fullEntity = generateFullEntity(asset.id, "title".some)
     val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, List(generateFile))), List(fullEntity))
 
+    res.value.ioRef should equal(fullEntity.entity.ref)
     res.value.wasReconciled should equal(true)
   }
 
@@ -150,6 +151,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val fullEntity = generateFullEntity(asset.id, "title".some)
     val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, List(twoChecksumFile))), List(fullEntity))
 
+    res.value.ioRef should equal(fullEntity.entity.ref)
     res.value.wasReconciled should equal(true)
   }
 
@@ -172,16 +174,18 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, List(file))), entities)
 
       val stateOutput = res.value
+      stateOutput.ioRef should equal(entities.head.entity.ref)
       stateOutput.wasReconciled should equal(true)
     }
   }
 
-  "handler" should "return a 'wasReconciled' value of 'true' if the child title is missing" in {
+  "handler" should "return a 'wasReconciled' value of 'false' if the child title is missing" in {
     val asset = generateAsset
     val entities = List(generateFullEntity(asset.id))
     val file = generateFile.copy(potentialTitle = None)
     val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, List(file))), entities)
 
     val stateOutput = res.value
+    stateOutput.wasReconciled should equal(false)
   }
 }
