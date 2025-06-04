@@ -7,13 +7,13 @@ import software.amazon.awssdk.services.secretsmanager.model.{DescribeSecretRespo
 import uk.gov.nationalarchives.DASecretsManagerClient.Stage
 import uk.gov.nationalarchives.DASecretsManagerClient
 import uk.gov.nationalarchives.dp.client.UserClient
-import uk.gov.nationalarchives.rotatepreservationsystempassword.Lambda.{Config, Dependencies, RotationEvent}
+import uk.gov.nationalarchives.rotatepreservationsystempassword.Lambda.{AuthDetails, Config, Dependencies, RotationEvent}
 
 import scala.util.Random
 import scala.jdk.CollectionConverters.*
 
 object TestUtils:
-  case class SecretStage(value: Map[String, String], stage: Stage)
+  case class SecretStage(value: Option[AuthDetails], stage: Stage)
   case class Secret(versionToStage: Map[String, List[SecretStage]], rotationEnabled: Boolean = true)
 
   case class Credentials(oldPassword: String, newPassword: String, testSuccess: Boolean = true)
@@ -44,7 +44,9 @@ object TestUtils:
           existing.versionToStage.values.flatten.find(_.stage == stage).map(_.value)
         }(new Exception(s"Stage $stage not found"))
         _ <- IO.raiseWhen(versionMap.isEmpty)(new Exception(s"Secret not found for stage $stage"))
-      } yield versionMap.asInstanceOf[T])
+      } yield {
+        versionMap.asInstanceOf[Some[AuthDetails]].get.asInstanceOf[T]
+      })
 
     override def getSecretValue[T](versionId: String, stage: Stage)(using decoder: Decoder[T]): IO[T] = ref.get.flatMap { existing =>
       for {
@@ -53,12 +55,12 @@ object TestUtils:
           existing.versionToStage(versionId).find(_.stage == stage).map(_.value)
         }(new Exception(s"Stage $stage not found"))
         _ <- IO.raiseWhen(versionMap.isEmpty)(new Exception(s"Secret not found for stage $stage"))
-      } yield versionMap.asInstanceOf[T]
+      } yield versionMap.asInstanceOf[Some[AuthDetails]].get.asInstanceOf[T]
     }
 
     override def putSecretValue[T](secret: T, stage: Stage, clientRequestToken: Option[String])(using encoder: Encoder[T]): IO[PutSecretValueResponse] = ref
       .update { existing =>
-        val secretStage = SecretStage(secret.asInstanceOf[Map[String, String]], stage)
+        val secretStage = SecretStage(Option(secret.asInstanceOf[AuthDetails]), stage)
         val newVersionStage: Map[String, List[SecretStage]] = existing.versionToStage + (clientRequestToken.getOrElse("") -> List(secretStage))
         existing.copy(versionToStage = newVersionStage)
       }
