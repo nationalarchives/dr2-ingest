@@ -86,4 +86,16 @@ object DynamoWriteUtils {
         executionName -> DynamoValue.fromString(ingestQueueTableItem.executionName)
       )
     }.toDynamoValue
+
+  def writeStatusTableItem(statusTableItem: PostIngestStatusTableItem): DynamoValue =
+    DynamoObject {
+      Map(
+        assetId -> DynamoValue.fromString(statusTableItem.assetId.toString),
+        batchId -> DynamoValue.fromString(statusTableItem.batchId)
+      ) ++
+        statusTableItem.potentialQueue.map(queue => Map(queue -> DynamoValue.fromString(queue))).getOrElse(Map()) ++
+        statusTableItem.potentialFirstQueued.map(firstQueued => Map(firstQueued -> DynamoValue.fromString(firstQueued))).getOrElse(Map()) ++
+        statusTableItem.potentialLastQueued.map(lastQueued => Map(lastQueued -> DynamoValue.fromString(lastQueued))).getOrElse(Map()) ++
+        statusTableItem.potentialResultCC.map(resultCC => Map(resultCC -> DynamoValue.fromString(resultCC))).getOrElse(Map())
+    }.toDynamoValue
 }

@@ -73,7 +73,7 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
           def tableItem(id: UUID, tableType: String, parentPath: String) =
             Obj.from {
               Map(
-                "batchId" -> "batchId",
+                "batchId" -> "groupId_0",
                 "id" -> id.toString,
                 "parentPath" -> parentPath,
                 "name" -> tableType,
