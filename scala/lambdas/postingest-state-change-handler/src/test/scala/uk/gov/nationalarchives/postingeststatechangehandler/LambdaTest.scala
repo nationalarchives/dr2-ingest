@@ -102,7 +102,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   }
 
   forAll(updateTableScenarios) { (oldImage, newImage, description) =>
-    "handler" should f"delete the item if the event is an 'MODIFY' one, $description" in {
+    "handler" should s"delete the item if the event is an 'MODIFY' one, $description" in {
       val additionalItemInTable =
         PostIngestStatusTableItem(UUID.fromString("e5c55836-3917-405d-8bde-a1d970136c1d"), "batchId2", "input2", Some("correlationId2"), None, None, None, None)
       val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage, newImage))))
