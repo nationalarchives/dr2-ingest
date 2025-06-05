@@ -89,15 +89,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           val processModifyRecord =
             (record.dynamodb.oldImage, record.dynamodb.newImage) match
               case (Some(oldItem), newItem) =>
-                val newItemAsMap = newItem.productElementNames.zip(newItem.productIterator).toMap
-                val oldItemAsMap = oldItem.productElementNames.zip(oldItem.productIterator).toMap
-
-                val potentialQueue = queues.find { queue =>
-                  val potentialNewItemQueueResult = newItemAsMap(queue.resultAttrNameAlias).asInstanceOf[Option[String]]
-                  val potentialOldItemQueueResult = oldItemAsMap(queue.resultAttrNameAlias).asInstanceOf[Option[String]]
-
-                  newResultDiffersFromOld(potentialNewItemQueueResult, potentialOldItemQueueResult)
-                }
+                val potentialQueue = queues.find(queue => queue.getResult(newItem) != queue.getResult(oldItem))
 
                 potentialQueue match {
                   case Some(queue) =>
@@ -130,7 +122,14 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
 object Lambda:
   given Decoder[DynamodbEvent] = deriveDecoder[DynamodbEvent]
-  given Decoder[Queue] = deriveDecoder[Queue]
+  given Decoder[Queue] = (c: HCursor) =>
+    for {
+      queueAlias <- c.downField("queueAlias").as[String]
+      queueOrder <- c.downField("queueOrder").as[Int]
+      queueUrl <- c.downField("queueUrl").as[String]
+    } yield queueAlias match
+      case "CC" => CCQueue(queueAlias, queueOrder, queueUrl)
+
   given Encoder[OutputQueueMessage] = deriveEncoder[OutputQueueMessage]
 
   private def jsonToDynamoValue(json: JsonObject): DynamoValue = {
@@ -205,9 +204,16 @@ object Lambda:
 
   case class StreamRecord(keys: Option[FilesTablePrimaryKey], oldImage: Option[PostIngestStatusTableItem], newImage: PostIngestStatusTableItem)
 
-  case class Queue(queueAlias: String, queueOrder: Int, queueUrl: String) {
-    val resultAttrName: String = queueAliasAndResultAttr(queueAlias)
-    val resultAttrNameAlias: String = s"potentialResult$queueAlias"
+  sealed trait Queue {
+    def queueAlias: String
+    def queueOrder: Int
+    def queueUrl: String
+    def resultAttrName: String = s"result_$queueAlias"
+    def getResult: PostIngestStatusTableItem => Option[String]
+  }
+
+  case class CCQueue(queueAlias: String, queueOrder: Int, queueUrl: String) extends Queue {
+    val getResult: PostIngestStatusTableItem => Option[String] = tableItem => tableItem.potentialResultCC
   }
 
   case class OutputQueueMessage(assetId: UUID, batchId: String, resultAttrName: String, payload: String)

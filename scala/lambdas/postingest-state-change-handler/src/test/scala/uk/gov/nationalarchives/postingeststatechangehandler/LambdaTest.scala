@@ -147,10 +147,10 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val oldDynamoItem = Some(fullyPostIngestedAsset)
     val newDynamoItem = fullyPostIngestedAsset
     val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem))))
-    val ex = intercept[Exception] {
+    val ex = intercept[MatchError] {
       runLambda(Nil, event, getConfig("UnexpectedQueueAlias")).unsafeRunSync()
     }
-    ex.getMessage should equal("key not found: UnexpectedQueueAlias")
+    ex.getMessage should equal("UnexpectedQueueAlias (of class java.lang.String)")
   }
 
   "handler" should s"throw an error if the event is a 'MODIFY' one, NewImage is present but no OldImage" in {
