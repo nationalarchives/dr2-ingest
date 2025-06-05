@@ -1,7 +1,7 @@
 package uk.gov.nationalarchives.rotatepreservationsystempassword
 
 import cats.effect.IO
-import io.circe.{Decoder, HCursor}
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import pureconfig.ConfigReader
 import software.amazon.awssdk.services.secretsmanager.model.DescribeSecretResponse
 import uk.gov.nationalarchives.DASecretsManagerClient
@@ -18,15 +18,24 @@ import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
+  given Decoder[AuthDetails] = (c: HCursor) =>
+    for {
+      userName <- c.downField("userName").as[String]
+      password <- c.downField("password").as[String]
+      apiUrl <- c.downField("apiUrl").as[String]
+    } yield AuthDetails(userName, password, apiUrl)
+
+  given Encoder[AuthDetails] = (authDetails: AuthDetails) =>
+    Json.obj("userName" -> Json.fromString(authDetails.userName), "password" -> Json.fromString(authDetails.password), "apiUrl" -> Json.fromString(authDetails.apiUrl))
+
   override def dependencies(config: Config): IO[Dependencies] =
-    IO(Dependencies(secretId => userClient(config.apiUrl, secretId), secretId => DASecretsManagerClient[IO](secretId = secretId)))
+    IO(Dependencies(secretId => userClient(secretId), secretId => DASecretsManagerClient[IO](secretId = secretId)))
 
   override def handler: (RotationEvent, Config, Dependencies) => IO[Unit] = (event, config, dependencies) => {
     val secretsClient = dependencies.secretsManagerClient(event.secretId)
 
-    def getAuthDetailsFromSecret(stage: Stage) = for {
-      (username, password) <- secretsClient.getSecretValue[Map[String, String]](stage).map(_.head)
-    } yield AuthDetails(username, password)
+    def getAuthDetailsFromSecret(stage: Stage) =
+      secretsClient.getSecretValue[AuthDetails](stage)
 
     def finishSecret(token: String) = for {
       describeSecretResponse <- secretsClient.describeSecret()
@@ -41,10 +50,10 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
     def createSecret(token: String) = for {
       currentSecret <- getAuthDetailsFromSecret(Current)
-      _ <- secretsClient.getSecretValue[Map[String, String]](token, Pending).recoverWith { _ =>
+      _ <- secretsClient.getSecretValue[AuthDetails](token, Pending).recoverWith { _ =>
         for {
           password <- secretsClient.generateRandomPassword()
-          _ <- secretsClient.putSecretValue(Map(currentSecret.username -> password), Pending, Option(token))
+          _ <- secretsClient.putSecretValue(currentSecret.copy(password = password), Pending, Option(token))
         } yield ()
       }
     } yield ()
@@ -90,8 +99,6 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
 object Lambda:
 
-  private case class AuthDetails(username: String, password: String)
-
   enum RotationStep:
     case CreateSecret, SetSecret, TestSecret, FinishSecret
 
@@ -104,6 +111,8 @@ object Lambda:
 
   case class RotationEvent(step: RotationStep, secretId: String, clientRequestToken: String)
 
-  case class Config(apiUrl: String) derives ConfigReader
+  case class Config() derives ConfigReader
 
   case class Dependencies(userClient: String => IO[UserClient[IO]], secretsManagerClient: String => DASecretsManagerClient[IO])
+
+  case class AuthDetails(userName: String, password: String, apiUrl: String)

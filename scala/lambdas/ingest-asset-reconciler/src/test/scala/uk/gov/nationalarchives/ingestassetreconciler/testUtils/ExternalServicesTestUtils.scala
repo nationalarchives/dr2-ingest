@@ -36,7 +36,7 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
   case class FullEntity(entity: Entity, identifiers: List[PreservicaIdentifier], contentObjects: List[BitStreamEntity])
 
   def generateInput(assetId: UUID): Input = Input("", batchId, assetId)
-  val config: Config = Config("", "", "", "")
+  val config: Config = Config("", "", "")
 
   def resourceNotFound(dynamoError: Boolean): IO[Unit] = IO.raiseWhen(dynamoError)(ResourceNotFoundException.builder.message(s"Error getting Dynamo items").build)
 

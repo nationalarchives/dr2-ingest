@@ -20,7 +20,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
 
   "handler" should "fail if there are no stages for the secret version" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val secret = Secret(Map("anotherToken" -> List(SecretStage(Map.empty, Current))))
+    val secret = Secret(Map("anotherToken" -> List(SecretStage(None, Current))))
 
     val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", ""))
 
@@ -29,7 +29,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
 
   "handler" should "fail if the version is already current" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val secret = Secret(Map("token" -> List(SecretStage(Map.empty, Current))))
+    val secret = Secret(Map("token" -> List(SecretStage(None, Current))))
 
     val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", ""))
 
@@ -47,7 +47,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
 
   "handler createSecret" should "return an error if there is an error getting the secret" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val secret = Secret(Map("token" -> List(SecretStage(Map.empty, Pending))))
+    val secret = Secret(Map("token" -> List(SecretStage(None, Pending))))
 
     val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", ""), Errors(getSecret = true).some)
 
@@ -56,34 +56,34 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
 
   "handler createSecret" should "not call putSecretValue if a Pending value already exists" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
-    val secret = Secret(Map("token" -> List(SecretStage(Map("username" -> "password"), Pending))))
+    val secret = Secret(Map("token" -> List(SecretStage(Option(AuthDetails("username", "password", "")), Pending))))
 
     val (secretResult, _, _) = runLambda(rotationEvent, secret, Credentials("", ""))
 
     secretResult.versionToStage.size should equal(1)
-    secretResult.versionToStage("token").head.value should equal(Map("username" -> "password"))
+    secretResult.versionToStage("token").head.value should equal(Option(AuthDetails("username", "password", "")))
 
   }
 
   "handler createSecret" should "create the secret value if a Pending value does not already exist" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
     val versionToStage = Map(
-      "token" -> List(SecretStage(Map.empty, Pending)),
-      "anotherToken" -> List(SecretStage(Map("user" -> "currentSecret"), Current))
+      "token" -> List(SecretStage(None, Pending)),
+      "anotherToken" -> List(SecretStage(Option(AuthDetails("user", "currentSecret", "")), Current))
     )
     val secret = Secret(versionToStage)
 
     val (secretResult, _, _) = runLambda(rotationEvent, secret, Credentials("", ""))
 
-    val newPassword = secretResult.versionToStage("token").head.value("user")
+    val newPassword = secretResult.versionToStage("token").head.value.get.password
     newPassword.length should equal(15)
   }
 
   "handler setSecret" should "call reset password with the correct credentials" in {
     val rotationEvent = RotationEvent(SetSecret, "id", "token")
     val versionToStage = Map(
-      "token" -> List(SecretStage(Map("user" -> "pendingSecret"), Pending)),
-      "anotherToken" -> List(SecretStage(Map("user" -> "currentSecret"), Current))
+      "token" -> List(SecretStage(Option(AuthDetails("user", "pendingSecret", "")), Pending)),
+      "anotherToken" -> List(SecretStage(Option(AuthDetails("user", "currentSecret", "")), Current))
     )
     val secret = Secret(versionToStage)
 
@@ -96,7 +96,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
   "handler testSecret" should "return an error if test secret fails" in {
     val rotationEvent = RotationEvent(TestSecret, "id", "token")
 
-    val secret = Secret(Map("token" -> List(SecretStage(Map.empty, Pending))))
+    val secret = Secret(Map("token" -> List(SecretStage(None, Pending))))
     val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", "", testSuccess = false))
 
     res.left.value.getMessage should equal("Password test failed")
@@ -104,8 +104,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
 
   "handler finishSecret" should "update the secret version" in {
     val rotationEvent = RotationEvent(FinishSecret, "id", "token")
-    val pendingStages = List(SecretStage(Map("user" -> "pendingSecret"), Pending))
-    val currentStages = List(SecretStage(Map("user" -> "currentSecret"), Current))
+    val pendingStages = List(SecretStage(Option(AuthDetails("user", "pendingSecret", "")), Pending))
+    val currentStages = List(SecretStage(Option(AuthDetails("user", "currentSecret", "")), Current))
     val versionToStage = Map("token" -> pendingStages, "anotherToken" -> currentStages)
     val secret = Secret(versionToStage)
 
