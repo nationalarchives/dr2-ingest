@@ -73,7 +73,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     )
     val secret = Secret(versionToStage)
 
-    val (secretResult, _, res) = runLambda(rotationEvent, secret, Credentials("", ""))
+    val (secretResult, _, _) = runLambda(rotationEvent, secret, Credentials("", ""))
 
     val newPassword = secretResult.versionToStage("token").head.value.get.password
     newPassword.length should equal(15)
