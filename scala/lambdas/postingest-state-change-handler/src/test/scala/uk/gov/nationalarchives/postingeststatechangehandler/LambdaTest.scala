@@ -143,6 +143,27 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     }
   }
 
+  "handler" should s"throw an error if the queues share any of the same values for their properties" in {
+    val oldDynamoItem = Some(fullyPostIngestedAsset)
+    val newDynamoItem = fullyPostIngestedAsset
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem))))
+
+    val duplicatedQueues =
+      s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
+        s"""{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
+        s"""{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"}]"""
+
+    val config = Config("ddbTable", "ddbGsi", "topicArn", duplicatedQueues)
+
+    val ex = intercept[Exception] {
+      runLambda(Nil, event, config).unsafeRunSync()
+    }
+    ex.getMessage should equal(
+      "The values in each queue should be unique but there is more than 1 queue with:\n" +
+        "Property: queueOrder, Value: 1\nProperty: queueUrl, Value: https://queueUrl1.com\nProperty: queueAlias, Value: CC"
+    )
+  }
+
   "handler" should s"throw an error if a queue alias could not be found in the 'queueAliasAndResultAttr' map" in {
     val oldDynamoItem = Some(fullyPostIngestedAsset)
     val newDynamoItem = fullyPostIngestedAsset

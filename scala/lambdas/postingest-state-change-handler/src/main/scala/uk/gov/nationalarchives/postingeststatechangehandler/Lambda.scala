@@ -106,6 +106,15 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
     for {
       queues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
+      queuePropsAndValues = queues.flatMap(queue => (queue.productElementNames zip queue.productIterator))
+      queuesWithSameValue = queuePropsAndValues.groupBy(identity).filter { case (_, propsAndVals) => propsAndVals.length > 1 }
+      _ <- IO.raiseWhen(queuesWithSameValue.nonEmpty) {
+        val queueMessage = queuesWithSameValue.keys.map { case (property, value) =>
+          s"Property: $property, Value: $value"
+        }
+
+        new Exception(s"The values in each queue should be unique but there is more than 1 queue with:\n${queueMessage.mkString("\n")}")
+      }
       insert <- getInsertFibers(queues)
       modify <- getModifyFibers(queues)
       allResults <- (insert ++ modify).parTraverse(_.join)
@@ -204,7 +213,7 @@ object Lambda:
 
   case class StreamRecord(keys: Option[FilesTablePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: PostIngestStateTableItem)
 
-  sealed trait Queue {
+  sealed trait Queue extends Product {
     def queueAlias: String
     def queueOrder: Int
     def queueUrl: String
