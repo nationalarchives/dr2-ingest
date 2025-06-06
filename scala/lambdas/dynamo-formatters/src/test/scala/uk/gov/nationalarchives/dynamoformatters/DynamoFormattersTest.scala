@@ -671,6 +671,153 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     attributeValueMap("message").s() should equal("{}")
   }
 
+  "postIngestStatusTableItemFormat read" should "read the correct fields" in {
+    val assetId = UUID.randomUUID()
+    val batchId = "batchId"
+    val inputAttr = "{}"
+    val correlationId = "correlationId"
+    val queue = "queue"
+    val firstQueued = "2038-01-19T15:14:07.000Z"
+    val lastQueued = "2038-01-19T15:14:07.000Z"
+    val resultCC = "result_CC"
+
+    val input =
+      fromM(
+        Map(
+          "assetId" -> fromS(assetId.toString),
+          "batchId" -> fromS(batchId),
+          "input" -> fromS(inputAttr),
+          "correlationId" -> fromS(correlationId),
+          "queue" -> fromS(queue),
+          "firstQueued" -> fromS(firstQueued),
+          "lastQueued" -> fromS(lastQueued),
+          "result_CC" -> fromS(resultCC)
+        ).asJava
+      )
+    val res = postIngestStatusTableItemFormat.read(input).value
+
+    res.assetId should equal(assetId)
+    res.batchId should equal(batchId)
+    res.input should equal(inputAttr)
+    res.potentialCorrelationId should equal(Some(correlationId))
+    res.potentialQueue should equal(Some(queue))
+    res.potentialFirstQueued should equal(Some(firstQueued))
+    res.potentialLastQueued should equal(Some(lastQueued))
+    res.potentialResultCC should equal(Some(resultCC))
+  }
+
+  "postIngestStatusTableItemFormat read" should "return optional fields with the value of 'None' if they were not provided" in {
+    val assetId = UUID.randomUUID()
+    val batchId = "batchId"
+    val inputAttr = "{}"
+
+    val input =
+      fromM(
+        Map(
+          "assetId" -> fromS(assetId.toString),
+          "batchId" -> fromS(batchId),
+          "input" -> fromS(inputAttr)
+        ).asJava
+      )
+    val res = postIngestStatusTableItemFormat.read(input).value
+
+    res.assetId should equal(assetId)
+    res.batchId should equal(batchId)
+    res.input should equal(inputAttr)
+
+    res.potentialCorrelationId should equal(None)
+    res.potentialQueue should equal(None)
+    res.potentialFirstQueued should equal(None)
+    res.potentialLastQueued should equal(None)
+    res.potentialResultCC should equal(None)
+  }
+
+  "postIngestStatusTableItemFormat read" should "error if the field is missing" in {
+    val assetId = UUID.randomUUID()
+
+    val input = fromM(Map("invalidField" -> fromS(assetId.toString)).asJava)
+    val res = postIngestStatusTableItemFormat.read(input)
+
+    val dynamoReadError = res.left.value.asInstanceOf[InvalidPropertiesError].errors.head._2
+    dynamoReadError should be(MissingProperty)
+  }
+
+  "postIngestStatusTableItemFormat write" should "write the correct fields" in {
+    val assetId = UUID.randomUUID()
+    val batchId = "batchId"
+    val input = "{}"
+    val potentialCorrelationId = Some("correlationId")
+    val potentialQueue = Some("potentialQueue")
+    val potentialFirstQueued = Some("2038-01-19T15:14:07.000Z")
+    val potentialLastQueued = Some("2038-01-19T15:14:07.000Z")
+    val potentialResultCC = Some("result_CC")
+
+    val attributeValueMap =
+      postIngestStatusTableItemFormat
+        .write(
+          PostIngestStateTableItem(
+            assetId,
+            batchId,
+            input,
+            potentialCorrelationId,
+            potentialQueue,
+            potentialFirstQueued,
+            potentialLastQueued,
+            potentialResultCC
+          )
+        )
+        .toAttributeValue
+        .m()
+        .asScala
+
+    UUID.fromString(attributeValueMap("assetId").s()) should equal(assetId)
+    attributeValueMap("batchId").s() should equal(batchId)
+    attributeValueMap("input").s() should equal(input)
+    attributeValueMap("correlationId").s() should equal("correlationId")
+    attributeValueMap("queue").s() should equal(potentialQueue.get)
+    attributeValueMap("firstQueued").s() should equal(potentialFirstQueued.get)
+    attributeValueMap("lastQueued").s() should equal(potentialLastQueued.get)
+    attributeValueMap("result_CC").s() should equal(potentialResultCC.get)
+  }
+
+  "postIngestStatusTableItemFormat write" should "not write optional fields if their values are 'None'" in {
+    val assetId = UUID.randomUUID()
+    val batchId = "batchId"
+    val input = "{}"
+    val potentialCorrelationId = None
+    val potentialQueue = None
+    val potentialFirstQueued = None
+    val potentialLastQueued = None
+    val potentialResultCC = None
+
+    val attributeValueMap =
+      postIngestStatusTableItemFormat
+        .write(
+          PostIngestStateTableItem(
+            assetId,
+            batchId,
+            input,
+            potentialCorrelationId,
+            potentialQueue,
+            potentialFirstQueued,
+            potentialLastQueued,
+            potentialResultCC
+          )
+        )
+        .toAttributeValue
+        .m()
+        .asScala
+
+    UUID.fromString(attributeValueMap("assetId").s()) should equal(assetId)
+    attributeValueMap("batchId").s() should equal(batchId)
+    attributeValueMap("input").s() should equal(input)
+    attributeValueMap.get("correlationId") should equal(None)
+    attributeValueMap.get("queue") should equal(None)
+    attributeValueMap.get("firstQueued") should equal(None)
+    attributeValueMap.get("lastQueued") should equal(None)
+    attributeValueMap.get("result_CC") should equal(None)
+  }
+
   "lockTablePkFormat read" should "read the correct fields" in {
     val uuid = UUID.randomUUID()
     val input = fromM(Map(assetId -> fromS(uuid.toString)).asJava)

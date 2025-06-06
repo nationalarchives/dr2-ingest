@@ -23,6 +23,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestUpsertArchiveFolders,
     ingestValidateGenericIngestInputs,
     ingestWorkflowMonitor,
+    postIngestStateChangeHandler,
     preingestTdrAggregator,
     preIngestTdrPackageBuilder,
     rotatePreservationSystemPassword,
@@ -254,6 +255,25 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
       sttpCirce,
       upickle,
       reactorTest % Test
+    )
+  )
+
+lazy val postIngestStateChangeHandler = (project in file("postingest-state-change-handler"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      catsEffect,
+      circeFs2,
+      dynamoClient,
+      fs2Reactive,
+      jsonSchemaValidator % Test,
+      scanamo,
+      snsClient,
+      sqsClient,
+      reactorTest % Test,
+      scalaCheck % Test,
+      scalaCheckPlus % Test
     )
   )
 
