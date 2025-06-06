@@ -319,7 +319,7 @@ object DynamoFormatters {
       assetId: UUID,
       batchId: String,
       input: String,
-      correlationId: Option[String],
+      potentialCorrelationId: Option[String],
       potentialQueue: Option[String],
       potentialFirstQueued: Option[String],
       potentialLastQueued: Option[String],

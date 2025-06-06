@@ -58,7 +58,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         case None                   => (IngestComplete, IngestedCCDisk)
 
       val message = OutputMessage(
-        OutputProperties(item.batchId, dependencies.uuidGenerator(), item.correlationId, dependencies.instantGenerator(), messageType),
+        OutputProperties(item.batchId, dependencies.uuidGenerator(), item.potentialCorrelationId, dependencies.instantGenerator(), messageType),
         OutputParameters(item.assetId, messageStatus)
       )
       dependencies.daSnsClient.publish(config.topicArn)(message :: Nil).void

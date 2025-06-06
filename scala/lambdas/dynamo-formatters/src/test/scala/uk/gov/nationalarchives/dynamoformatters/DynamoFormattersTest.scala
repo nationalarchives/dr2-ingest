@@ -699,7 +699,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     res.assetId should equal(assetId)
     res.batchId should equal(batchId)
     res.input should equal(inputAttr)
-    res.correlationId should equal(Some(correlationId))
+    res.potentialCorrelationId should equal(Some(correlationId))
     res.potentialQueue should equal(Some(queue))
     res.potentialFirstQueued should equal(Some(firstQueued))
     res.potentialLastQueued should equal(Some(lastQueued))
@@ -725,7 +725,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     res.batchId should equal(batchId)
     res.input should equal(inputAttr)
 
-    res.correlationId should equal(None)
+    res.potentialCorrelationId should equal(None)
     res.potentialQueue should equal(None)
     res.potentialFirstQueued should equal(None)
     res.potentialLastQueued should equal(None)

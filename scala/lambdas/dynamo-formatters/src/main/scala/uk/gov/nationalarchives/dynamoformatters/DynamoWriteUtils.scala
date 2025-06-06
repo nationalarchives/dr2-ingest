@@ -94,7 +94,7 @@ object DynamoWriteUtils {
         batchId -> DynamoValue.fromString(stateTableItem.batchId),
         input -> DynamoValue.fromString(stateTableItem.input)
       ) ++
-        stateTableItem.correlationId.map(correlationIdAttrVal => Map(correlationId -> DynamoValue.fromString(correlationIdAttrVal))).getOrElse(Map()) ++
+        stateTableItem.potentialCorrelationId.map(correlationIdAttrVal => Map(correlationId -> DynamoValue.fromString(correlationIdAttrVal))).getOrElse(Map()) ++
         stateTableItem.potentialQueue.map(queueAttrVal => Map(queue -> DynamoValue.fromString(queueAttrVal))).getOrElse(Map()) ++
         stateTableItem.potentialFirstQueued.map(firstQueuedAttrVal => Map(firstQueued -> DynamoValue.fromString(firstQueuedAttrVal))).getOrElse(Map()) ++
         stateTableItem.potentialLastQueued.map(lastQueuedAttrVal => Map(lastQueued -> DynamoValue.fromString(lastQueuedAttrVal))).getOrElse(Map()) ++
