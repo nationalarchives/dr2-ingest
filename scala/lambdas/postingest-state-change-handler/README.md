@@ -202,6 +202,9 @@ The Lambda:
          1. assetId
          2. status - either IngestedPreservation or IngestedCCDisk
 
+Note: The queue configuration is defined in the `post_ingest.tf` terraform environments [file](https://github.com/nationalarchives/dr2-terraform-environments/blob/main/post_ingest/post_ingest.tf);
+in order to add/remove a queue, change the alias name, add another property, modify this file. If the queue configuration
+is modified, update the Decoder in the state change handler to account for the change(s).
 
 There is no output from this Lambda. It sends a message to an SNS topic depending on its input and the state of other
 entries in Dynamo.
