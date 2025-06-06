@@ -91,11 +91,13 @@ object DynamoWriteUtils {
     DynamoObject {
       Map(
         assetId -> DynamoValue.fromString(statusTableItem.assetId.toString),
-        batchId -> DynamoValue.fromString(statusTableItem.batchId)
+        batchId -> DynamoValue.fromString(statusTableItem.batchId),
+        input -> DynamoValue.fromString(statusTableItem.input)
       ) ++
-        statusTableItem.potentialQueue.map(queue => Map(queue -> DynamoValue.fromString(queue))).getOrElse(Map()) ++
-        statusTableItem.potentialFirstQueued.map(firstQueued => Map(firstQueued -> DynamoValue.fromString(firstQueued))).getOrElse(Map()) ++
-        statusTableItem.potentialLastQueued.map(lastQueued => Map(lastQueued -> DynamoValue.fromString(lastQueued))).getOrElse(Map()) ++
-        statusTableItem.potentialResultCC.map(resultCC => Map(resultCC -> DynamoValue.fromString(resultCC))).getOrElse(Map())
+        statusTableItem.correlationId.map(correlationIdAttrVal => Map(correlationId -> DynamoValue.fromString(correlationIdAttrVal))).getOrElse(Map()) ++
+        statusTableItem.potentialQueue.map(queueAttrVal => Map(queue -> DynamoValue.fromString(queueAttrVal))).getOrElse(Map()) ++
+        statusTableItem.potentialFirstQueued.map(firstQueuedAttrVal => Map(firstQueued -> DynamoValue.fromString(firstQueuedAttrVal))).getOrElse(Map()) ++
+        statusTableItem.potentialLastQueued.map(lastQueuedAttrVal => Map(lastQueued -> DynamoValue.fromString(lastQueuedAttrVal))).getOrElse(Map()) ++
+        statusTableItem.potentialResultCC.map(resultCCAttrVal => Map(resultCC -> DynamoValue.fromString(resultCCAttrVal))).getOrElse(Map())
     }.toDynamoValue
 }
