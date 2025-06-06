@@ -79,8 +79,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     updateTableReq.tableName should equal("ddbTable")
     updateTableReq.primaryKeyAndItsValue should equal(Map("assetId" -> fromS(newDynamoItem.assetId.toString)))
     updateTableReq.attributeNamesAndValuesToUpdate("queue") should equal(Some(fromS("CC")))
-    updateTableReq.attributeNamesAndValuesToUpdate("firstQueuedAt") should equal(Some(fromS("2038-01-19T03:14:07Z")))
-    updateTableReq.attributeNamesAndValuesToUpdate("lastQueuedAt") should equal(Some(fromS("2038-01-19T03:14:07Z")))
+    updateTableReq.attributeNamesAndValuesToUpdate("firstQueued") should equal(Some(fromS("2038-01-19T03:14:07Z")))
+    updateTableReq.attributeNamesAndValuesToUpdate("lastQueued") should equal(Some(fromS("2038-01-19T03:14:07Z")))
 
     refs.sentSqsMessages.size should equal(1)
     val (queueUrl, messagesPerQueue) = refs.sentSqsMessages.head

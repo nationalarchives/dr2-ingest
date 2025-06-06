@@ -38,8 +38,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         .updateAttributeValues(
           DADynamoDbRequest(
             config.dynamoTableName,
-            Map("assetId" -> AttributeValue.builder().s(item.assetId.toString).build()),
-            Map("queue" -> Some(postIngestQueue), "firstQueuedAt" -> Some(dateTimeNowIso), "lastQueuedAt" -> Some(dateTimeNowIso))
+            Map(assetId -> AttributeValue.builder().s(item.assetId.toString).build()),
+            Map(queue -> Some(postIngestQueue), firstQueued -> Some(dateTimeNowIso), lastQueued -> Some(dateTimeNowIso))
           )
         )
         .void
