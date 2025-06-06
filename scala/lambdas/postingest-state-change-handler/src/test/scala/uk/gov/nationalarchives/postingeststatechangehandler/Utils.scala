@@ -11,13 +11,13 @@ import software.amazon.awssdk.services.sns.model.PublishBatchResponse
 import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, SendMessageResponse}
 import uk.gov.nationalarchives.DADynamoDBClient.{DADynamoDbRequest, DADynamoDbWriteItemRequest}
 import uk.gov.nationalarchives.DASQSClient.FifoQueueConfiguration
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{FilesTablePartitionKey, FilesTablePrimaryKey, FilesTableSortKey, PostIngestStatusTableItem}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{FilesTablePartitionKey, FilesTablePrimaryKey, FilesTableSortKey, PostIngestStateTableItem}
 import uk.gov.nationalarchives.utils.ExternalUtils.OutputMessage
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, DASQSClient}
 
 object Utils {
 
-  def getPrimaryKey(item: PostIngestStatusTableItem): FilesTablePrimaryKey =
+  def getPrimaryKey(item: PostIngestStateTableItem): FilesTablePrimaryKey =
     FilesTablePrimaryKey(FilesTablePartitionKey(item.assetId), FilesTableSortKey(item.batchId))
 
   def createSnsClient(ref: Ref[IO, List[OutputMessage]]): DASNSClient[IO] = new DASNSClient[IO]() {
@@ -48,7 +48,7 @@ object Utils {
 
     override def deleteMessage(queueUrl: String, receiptHandle: String): IO[DeleteMessageResponse] = IO.pure(DeleteMessageResponse.builder.build)
 
-  def createDynamoClient(itemsInTableRef: Ref[IO, List[PostIngestStatusTableItem]], updateRequestsRef: Ref[IO, List[DADynamoDbRequest]]): DADynamoDBClient[IO] = {
+  def createDynamoClient(itemsInTableRef: Ref[IO, List[PostIngestStateTableItem]], updateRequestsRef: Ref[IO, List[DADynamoDbRequest]]): DADynamoDBClient[IO] = {
     new DADynamoDBClient[IO]():
 
       given DynamoFormat[String] = new DynamoFormat[String]:

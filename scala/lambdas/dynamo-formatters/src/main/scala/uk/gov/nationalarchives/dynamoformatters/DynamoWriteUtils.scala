@@ -87,17 +87,17 @@ object DynamoWriteUtils {
       )
     }.toDynamoValue
 
-  def writeStatusTableItem(statusTableItem: PostIngestStatusTableItem): DynamoValue =
+  def writeStatusTableItem(stateTableItem: PostIngestStateTableItem): DynamoValue =
     DynamoObject {
       Map(
-        assetId -> DynamoValue.fromString(statusTableItem.assetId.toString),
-        batchId -> DynamoValue.fromString(statusTableItem.batchId),
-        input -> DynamoValue.fromString(statusTableItem.input)
+        assetId -> DynamoValue.fromString(stateTableItem.assetId.toString),
+        batchId -> DynamoValue.fromString(stateTableItem.batchId),
+        input -> DynamoValue.fromString(stateTableItem.input)
       ) ++
-        statusTableItem.correlationId.map(correlationIdAttrVal => Map(correlationId -> DynamoValue.fromString(correlationIdAttrVal))).getOrElse(Map()) ++
-        statusTableItem.potentialQueue.map(queueAttrVal => Map(queue -> DynamoValue.fromString(queueAttrVal))).getOrElse(Map()) ++
-        statusTableItem.potentialFirstQueued.map(firstQueuedAttrVal => Map(firstQueued -> DynamoValue.fromString(firstQueuedAttrVal))).getOrElse(Map()) ++
-        statusTableItem.potentialLastQueued.map(lastQueuedAttrVal => Map(lastQueued -> DynamoValue.fromString(lastQueuedAttrVal))).getOrElse(Map()) ++
-        statusTableItem.potentialResultCC.map(resultCCAttrVal => Map(resultCC -> DynamoValue.fromString(resultCCAttrVal))).getOrElse(Map())
+        stateTableItem.correlationId.map(correlationIdAttrVal => Map(correlationId -> DynamoValue.fromString(correlationIdAttrVal))).getOrElse(Map()) ++
+        stateTableItem.potentialQueue.map(queueAttrVal => Map(queue -> DynamoValue.fromString(queueAttrVal))).getOrElse(Map()) ++
+        stateTableItem.potentialFirstQueued.map(firstQueuedAttrVal => Map(firstQueued -> DynamoValue.fromString(firstQueuedAttrVal))).getOrElse(Map()) ++
+        stateTableItem.potentialLastQueued.map(lastQueuedAttrVal => Map(lastQueued -> DynamoValue.fromString(lastQueuedAttrVal))).getOrElse(Map()) ++
+        stateTableItem.potentialResultCC.map(resultCCAttrVal => Map(resultCC -> DynamoValue.fromString(resultCCAttrVal))).getOrElse(Map())
     }.toDynamoValue
 }

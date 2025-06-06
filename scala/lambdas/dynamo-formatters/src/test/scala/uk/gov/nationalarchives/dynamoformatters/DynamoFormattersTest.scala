@@ -755,7 +755,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val attributeValueMap =
       postIngestStatusTableItemFormat
         .write(
-          PostIngestStatusTableItem(
+          PostIngestStateTableItem(
             assetId,
             batchId,
             input,
@@ -793,7 +793,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val attributeValueMap =
       postIngestStatusTableItemFormat
         .write(
-          PostIngestStatusTableItem(
+          PostIngestStateTableItem(
             assetId,
             batchId,
             input,

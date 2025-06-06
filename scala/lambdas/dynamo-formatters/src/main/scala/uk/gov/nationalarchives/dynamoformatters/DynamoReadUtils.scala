@@ -213,13 +213,13 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       .map(stringValue => stringToScalaType(attributeName, Option(stringValue.s()), fromStringToAnotherType))
       .sequence
 
-  def readStateTableItem: Either[InvalidPropertiesError, PostIngestStatusTableItem] =
+  def readStateTableItem: Either[InvalidPropertiesError, PostIngestStateTableItem] =
     (
       allValidatedPostIngestStatusTableAttributes.assetId,
       allValidatedPostIngestStatusTableAttributes.batchId,
       allValidatedPostIngestStatusTableAttributes.input
     ).mapN { (assetId, batchId, input) =>
-      PostIngestStatusTableItem(
+      PostIngestStateTableItem(
         assetId,
         batchId,
         input,

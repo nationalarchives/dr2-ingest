@@ -25,10 +25,10 @@ import java.util.UUID
 class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
   override def handler: (DynamodbEvent, Config, Dependencies) => IO[Unit] = (event, config, dependencies) => {
-    def getPrimaryKey(item: PostIngestStatusTableItem) =
+    def getPrimaryKey(item: PostIngestStateTableItem) =
       FilesTablePrimaryKey(FilesTablePartitionKey(item.assetId), FilesTableSortKey(item.batchId))
 
-    def addOrUpdateItem(item: PostIngestStatusTableItem, queueAlias: String): IO[Unit] = {
+    def addOrUpdateItem(item: PostIngestStateTableItem, queueAlias: String): IO[Unit] = {
       val batchId = AttributeValue.builder().s(item.batchId).build()
       val postIngestQueue = AttributeValue.builder().s(queueAlias).build()
       val dateTimeNow = dependencies.instantGenerator()
@@ -45,13 +45,13 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         .void
     }
 
-    def deleteItemFromTable(item: PostIngestStatusTableItem) =
+    def deleteItemFromTable(item: PostIngestStateTableItem) =
       dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, List(getPrimaryKey(item))).void
 
     def sendMessageToQueue(queueUrl: String, message: OutputQueueMessage): IO[Unit] =
       dependencies.daSqsClient.sendMessage(queueUrl)(message).void
 
-    def sendOutputMessage(item: PostIngestStatusTableItem, newQueueAlias: Option[String] = None): IO[Unit] = {
+    def sendOutputMessage(item: PostIngestStateTableItem, newQueueAlias: Option[String] = None): IO[Unit] = {
       val (messageType, messageStatus) = newQueueAlias match
         case Some("CC")             => (IngestUpdate, IngestedPreservation)
         case Some(unsupportedQueue) => throw new Exception(s"A 'messageType' and 'messageStatus' implementation exist for queue $unsupportedQueue")
@@ -64,7 +64,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       dependencies.daSnsClient.publish(config.topicArn)(message :: Nil).void
     }
 
-    def updateTableAndSendToSqs(newItem: PostIngestStatusTableItem, queue: Queue) =
+    def updateTableAndSendToSqs(newItem: PostIngestStateTableItem, queue: Queue) =
       addOrUpdateItem(newItem, queue.queueAlias) >>
         sendMessageToQueue(
           queue.queueUrl,
@@ -202,18 +202,18 @@ object Lambda:
 
   case class DynamodbStreamRecord(eventName: EventName, dynamodb: StreamRecord)
 
-  case class StreamRecord(keys: Option[FilesTablePrimaryKey], oldImage: Option[PostIngestStatusTableItem], newImage: PostIngestStatusTableItem)
+  case class StreamRecord(keys: Option[FilesTablePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: PostIngestStateTableItem)
 
   sealed trait Queue {
     def queueAlias: String
     def queueOrder: Int
     def queueUrl: String
     def resultAttrName: String = s"result_$queueAlias"
-    def getResult: PostIngestStatusTableItem => Option[String]
+    def getResult: PostIngestStateTableItem => Option[String]
   }
 
   case class CCQueue(queueAlias: String, queueOrder: Int, queueUrl: String) extends Queue {
-    val getResult: PostIngestStatusTableItem => Option[String] = tableItem => tableItem.potentialResultCC
+    val getResult: PostIngestStateTableItem => Option[String] = tableItem => tableItem.potentialResultCC
   }
 
   case class OutputQueueMessage(assetId: UUID, batchId: String, resultAttrName: String, payload: String)

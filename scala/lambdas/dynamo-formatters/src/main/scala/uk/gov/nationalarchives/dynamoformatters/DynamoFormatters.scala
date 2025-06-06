@@ -55,11 +55,11 @@ object DynamoFormatters {
       writeFileItem(table)
   }
 
-  given postIngestStatusTableItemFormat: DynamoFormat[PostIngestStatusTableItem] = new DynamoFormat[PostIngestStatusTableItem] {
-    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, PostIngestStatusTableItem] =
+  given postIngestStatusTableItemFormat: DynamoFormat[PostIngestStateTableItem] = new DynamoFormat[PostIngestStateTableItem] {
+    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, PostIngestStateTableItem] =
       createReadDynamoUtils(dynamoValue).readStateTableItem
 
-    override def write(postIngestStatusTableItem: PostIngestStatusTableItem): DynamoValue = writeStatusTableItem(postIngestStatusTableItem)
+    override def write(postIngestStateTableItem: PostIngestStateTableItem): DynamoValue = writeStatusTableItem(postIngestStateTableItem)
   }
 
   given ingestLockTableItemFormat: DynamoFormat[IngestLockTableItem] = new DynamoFormat[IngestLockTableItem] {
@@ -315,7 +315,7 @@ object DynamoFormatters {
 
   case class IngestLockTableItem(assetId: UUID, groupId: String, message: String)
 
-  case class PostIngestStatusTableItem(
+  case class PostIngestStateTableItem(
       assetId: UUID,
       batchId: String,
       input: String,

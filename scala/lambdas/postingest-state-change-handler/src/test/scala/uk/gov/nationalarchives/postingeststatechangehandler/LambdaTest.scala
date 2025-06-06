@@ -25,9 +25,9 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   val instant: Instant = Instant.ofEpochSecond(2147483647)
   val messageId: UUID = UUID.fromString("de20e39a-948e-468d-a89d-338af262e0f5")
   private val dateTime = Some("2038-01-19T15:14:07.000Z")
-  private val nonPostIngestedAsset = PostIngestStatusTableItem(UUID.randomUUID, "batchId", "input", Some("correlationId"), None, None, None, None)
+  private val nonPostIngestedAsset = PostIngestStateTableItem(UUID.randomUUID, "batchId", "input", Some("correlationId"), None, None, None, None)
   private val fullyPostIngestedAsset =
-    PostIngestStatusTableItem(UUID.randomUUID, "batchId", "input", Some("correlationId"), Some(queue1), dateTime, dateTime, Some(s"result_$queue1"))
+    PostIngestStateTableItem(UUID.randomUUID, "batchId", "input", Some("correlationId"), Some(queue1), dateTime, dateTime, Some(s"result_$queue1"))
   private val queue1Url = "https://queueUrl1.com"
   private def getConfig(queue: String = queue1) =
     Config("ddbTable", "ddbGsi", "topicArn", s"""[{"queueAlias": "$queue", "queueOrder": 1, "queueUrl": "$queue1Url"}]""")
@@ -44,7 +44,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   )
 
   private def runLambda(
-      itemsInTable: List[PostIngestStatusTableItem],
+      itemsInTable: List[PostIngestStateTableItem],
       event: DynamodbEvent,
       config: Config = getConfig()
   ): IO[UpdatedRefs] = {
@@ -104,7 +104,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   forAll(updateTableScenarios) { (oldImage, newImage, description) =>
     "handler" should s"delete the item if the event is an 'MODIFY' one, $description" in {
       val additionalItemInTable =
-        PostIngestStatusTableItem(UUID.fromString("e5c55836-3917-405d-8bde-a1d970136c1d"), "batchId2", "input2", Some("correlationId2"), None, None, None, None)
+        PostIngestStateTableItem(UUID.fromString("e5c55836-3917-405d-8bde-a1d970136c1d"), "batchId2", "input2", Some("correlationId2"), None, None, None, None)
       val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage, newImage))))
       val refs = runLambda(List(newImage, additionalItemInTable), event).unsafeRunSync()
 
@@ -165,7 +165,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
 }
 
 case class UpdatedRefs(
-    itemsRemainingInTable: List[PostIngestStatusTableItem],
+    itemsRemainingInTable: List[PostIngestStateTableItem],
     updateTableReqs: List[DADynamoDbRequest],
     sentSqsMessages: Map[String, List[SQSMessage]],
     sentSnsMessages: List[OutputMessage]

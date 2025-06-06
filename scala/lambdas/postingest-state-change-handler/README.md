@@ -138,7 +138,7 @@ The Lambda:
    2. queue order - (starting from 1) the queue order denotes the order in which to call the queues
    3. queue url - the url to send the message to
    4. result attribute name - the name of the attribute (of the item) that has the queue result (state); this is defined in the DynamoFormatters library
-   5. result attribute name case class alias - the name of the property in the `PostIngestStatusTableItem` case class that 
+   5. result attribute name case class alias - the name of the property in the `PostIngestStateTableItem` case class that
       will hold the result (state) of the queue;
       1. when DDB reads the item out of the table, it is saved to a case class and each attribute name is given a camel cased
          equivalent/alternative
