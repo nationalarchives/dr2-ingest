@@ -101,7 +101,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     sentSnsMessage.parameters.status should equal(IngestedPreservation)
   }
 
-  "handler" should s"delete the item if the event is an 'MODIFY' one, OldImage hasn't gone through any postIngest steps and NewImage has a result for the CC step" in {
+  "handler" should s"delete the item if the event is a 'MODIFY' one, OldImage hasn't gone through any postIngest steps and NewImage has a result for the CC step" in {
     val oldImage = Some(nonPostIngestedAsset)
     val newImage = fullyPostIngestedAsset
     val additionalItemInTable =
