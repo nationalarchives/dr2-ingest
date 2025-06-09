@@ -101,36 +101,36 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     sentSnsMessage.parameters.status should equal(IngestedPreservation)
   }
 
-  forAll(updateTableScenarios) { (oldImage, newImage, description) =>
-    "handler" should s"delete the item if the event is an 'MODIFY' one, $description" in {
-      val additionalItemInTable =
-        PostIngestStateTableItem(UUID.fromString("e5c55836-3917-405d-8bde-a1d970136c1d"), "batchId2", "input2", Some("correlationId2"), None, None, None, None)
-      val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage, newImage))))
-      val refs = runLambda(List(newImage, additionalItemInTable), event).unsafeRunSync()
+  "handler" should s"delete the item if the event is an 'MODIFY' one, OldImage hasn't gone through any postIngest steps and NewImage has a result for the CC step" in {
+    val oldImage = Some(nonPostIngestedAsset)
+    val newImage = fullyPostIngestedAsset
+    val additionalItemInTable =
+      PostIngestStateTableItem(UUID.fromString("e5c55836-3917-405d-8bde-a1d970136c1d"), "batchId2", "input2", Some("correlationId2"), None, None, None, None)
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage, newImage))))
+    val refs = runLambda(List(newImage, additionalItemInTable), event).unsafeRunSync()
 
-      refs.itemsRemainingInTable.size should equal(1)
-      val itemInTable = refs.itemsRemainingInTable.head
+    refs.itemsRemainingInTable.size should equal(1)
+    val itemInTable = refs.itemsRemainingInTable.head
 
-      itemInTable.assetId.toString should equal("e5c55836-3917-405d-8bde-a1d970136c1d")
-      itemInTable.batchId should equal("batchId2")
-      itemInTable.potentialQueue should equal(None)
-      itemInTable.potentialFirstQueued should equal(None)
-      itemInTable.potentialLastQueued should equal(None)
+    itemInTable.assetId.toString should equal("e5c55836-3917-405d-8bde-a1d970136c1d")
+    itemInTable.batchId should equal("batchId2")
+    itemInTable.potentialQueue should equal(None)
+    itemInTable.potentialFirstQueued should equal(None)
+    itemInTable.potentialLastQueued should equal(None)
 
-      refs.updateTableReqs.size should equal(0)
+    refs.updateTableReqs.size should equal(0)
 
-      refs.sentSnsMessages.size should equal(1)
-      val sentSnsMessage = refs.sentSnsMessages.head
+    refs.sentSnsMessages.size should equal(1)
+    val sentSnsMessage = refs.sentSnsMessages.head
 
-      sentSnsMessage.properties.executionId should equal("batchId")
-      sentSnsMessage.properties.messageId should equal(UUID.fromString("de20e39a-948e-468d-a89d-338af262e0f5"))
-      sentSnsMessage.properties.parentMessageId should equal(Some(correlationId))
-      sentSnsMessage.properties.timestamp should equal(Instant.parse("2038-01-19T03:14:07Z"))
-      sentSnsMessage.properties.messageType should equal(IngestComplete)
+    sentSnsMessage.properties.executionId should equal("batchId")
+    sentSnsMessage.properties.messageId should equal(UUID.fromString("de20e39a-948e-468d-a89d-338af262e0f5"))
+    sentSnsMessage.properties.parentMessageId should equal(Some(correlationId))
+    sentSnsMessage.properties.timestamp should equal(Instant.parse("2038-01-19T03:14:07Z"))
+    sentSnsMessage.properties.messageType should equal(IngestComplete)
 
-      sentSnsMessage.parameters.assetId should equal(fullyPostIngestedAsset.assetId)
-      sentSnsMessage.parameters.status should equal(IngestedCCDisk)
-    }
+    sentSnsMessage.parameters.assetId should equal(fullyPostIngestedAsset.assetId)
+    sentSnsMessage.parameters.status should equal(IngestedCCDisk)
   }
 
   forAll(oldAndNewImageErrorScenarios) { (oldImage, newImage, description) =>

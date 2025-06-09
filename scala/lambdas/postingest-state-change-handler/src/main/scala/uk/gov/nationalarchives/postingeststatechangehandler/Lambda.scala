@@ -106,7 +106,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
     for {
       queues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
-      queuePropsAndValues = queues.flatMap(queue => (queue.productElementNames zip queue.productIterator))
+      queuePropsAndValues = queues.flatMap(queue => queue.productElementNames.zip(queue.productIterator))
       queuesWithSameValue = queuePropsAndValues.groupBy(identity).filter { case (_, propsAndVals) => propsAndVals.length > 1 }
       _ <- IO.raiseWhen(queuesWithSameValue.nonEmpty) {
         val queueMessage = queuesWithSameValue.keys.map { case (property, value) =>
