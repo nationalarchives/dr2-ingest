@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives.rotatepreservationsystempassword
 
 import cats.effect.IO
+import cats.syntax.all.*
 import io.circe.{Decoder, Encoder, HCursor, Json}
 import pureconfig.ConfigReader
 import software.amazon.awssdk.services.secretsmanager.model.DescribeSecretResponse
@@ -38,14 +39,8 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
       secretsClient.getSecretValue[AuthDetails](stage)
 
     def finishSecret(token: String) = for {
-      describeSecretResponse <- secretsClient.describeSecret()
-      versions <- versions(describeSecretResponse)
-      currentVersions <- IO {
-        versions.collect {
-          case (version, stages) if stages.headOption.contains(Current) => version
-        }
-      }
-      _ <- secretsClient.updateSecretVersionStage(token, currentVersions.head)
+      currentVersions <- getSecretVersions(Current)
+      _ <- secretsClient.updateSecretVersionStage(token.some, currentVersions.headOption)
     } yield ()
 
     def createSecret(token: String) = for {
@@ -61,8 +56,26 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
     def setSecret(userClient: UserClient[IO]) = for {
       currentSecret <- getAuthDetailsFromSecret(Current)
       newSecret <- getAuthDetailsFromSecret(Pending)
-      _ <- userClient.resetPassword(ResetPasswordRequest(currentSecret.password, newSecret.password))
+      _ <- userClient.resetPassword(ResetPasswordRequest(currentSecret.password, newSecret.password)).onError(removePendingSecret())
     } yield ()
+
+    def getSecretVersions(stage: Stage) = for {
+      describeSecretResponse <- secretsClient.describeSecret()
+      versions <- versions(describeSecretResponse)
+      versions <- IO {
+        versions.collect {
+          case (version, stages) if stages.headOption.contains(stage) => version
+        }
+      }
+    } yield versions
+
+    def removePendingSecret(): PartialFunction[Throwable, IO[Unit]] =
+      case err =>
+        for {
+          _ <- logger.error(err)("Error setting the secret in preservation system")
+          pendingVersions <- getSecretVersions(Pending)
+          _ <- secretsClient.updateSecretVersionStage(None, pendingVersions.headOption, Pending)
+        } yield ()
 
     for {
       userClient <- dependencies.userClient(event.secretId)
