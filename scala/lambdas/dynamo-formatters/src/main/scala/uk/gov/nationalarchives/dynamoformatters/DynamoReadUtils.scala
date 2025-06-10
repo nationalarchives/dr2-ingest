@@ -31,6 +31,21 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     case (name, value) if name.startsWith(checksumPrefix) => Checksum(name.drop(checksumPrefix.length), value.s())
   }.toList
 
+  private val allValidatedPostIngestStatusTableAttributes: PostIngestStatusTableValidatedAttributes = PostIngestStatusTableValidatedAttributes(
+    stringToScalaType[UUID](
+      assetId,
+      getPotentialStringValue(assetId),
+      UUID.fromString
+    ),
+    getValidatedMandatoryAttributeAsString(batchId),
+    getValidatedMandatoryAttributeAsString(input),
+    getPotentialStringValue(correlationId),
+    getPotentialStringValue(queue),
+    getPotentialStringValue(firstQueued),
+    getPotentialStringValue(lastQueued),
+    getPotentialStringValue(resultCC)
+  )
+
   private val allValidatedLockTableAttributes: LockTableValidatedAttributes = LockTableValidatedAttributes(
     stringToScalaType[UUID](
       assetId,
@@ -197,6 +212,26 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     attributes
       .map(stringValue => stringToScalaType(attributeName, Option(stringValue.s()), fromStringToAnotherType))
       .sequence
+
+  def readStateTableItem: Either[InvalidPropertiesError, PostIngestStateTableItem] =
+    (
+      allValidatedPostIngestStatusTableAttributes.assetId,
+      allValidatedPostIngestStatusTableAttributes.batchId,
+      allValidatedPostIngestStatusTableAttributes.input
+    ).mapN { (assetId, batchId, input) =>
+      PostIngestStateTableItem(
+        assetId,
+        batchId,
+        input,
+        allValidatedPostIngestStatusTableAttributes.correlationId,
+        allValidatedPostIngestStatusTableAttributes.queue,
+        allValidatedPostIngestStatusTableAttributes.firstQueued,
+        allValidatedPostIngestStatusTableAttributes.lastQueued,
+        allValidatedPostIngestStatusTableAttributes.resultCC
+      )
+    }.toEither
+      .left
+      .map(InvalidPropertiesError.apply)
 
   def readLockTableItem: Either[InvalidPropertiesError, IngestLockTableItem] =
     (
