@@ -175,7 +175,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   override def dependencies(config: Config): IO[Dependencies] =
     Fs2Client
-      .entityClient(config.apiUrl, config.secretName)
+      .entityClient(config.secretName)
       .map(client => Dependencies(client, DADynamoDBClient[IO](), UUID.randomUUID(), () => OffsetDateTime.now()))
 }
 
@@ -194,5 +194,5 @@ object Lambda {
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO], newMessageId: UUID, datetime: () => OffsetDateTime)
 
-  case class Config(apiUrl: String, secretName: String, dynamoGsiName: String, dynamoTableName: String) derives ConfigReader
+  case class Config(secretName: String, dynamoGsiName: String, dynamoTableName: String) derives ConfigReader
 }

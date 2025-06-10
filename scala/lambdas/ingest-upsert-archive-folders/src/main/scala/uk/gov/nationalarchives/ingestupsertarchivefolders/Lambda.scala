@@ -202,14 +202,14 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   }
 
   override def dependencies(config: Config): IO[Dependencies] = {
-    Fs2Client.entityClient(config.apiUrl, config.secretName).map { client =>
+    Fs2Client.entityClient(config.secretName).map { client =>
       Dependencies(client, DADynamoDBClient[IO]())
     }
   }
 }
 
 object Lambda extends App {
-  case class Config(apiUrl: String, secretName: String, archiveFolderTableName: String) derives ConfigReader
+  case class Config(secretName: String, archiveFolderTableName: String) derives ConfigReader
 
   case class StepFnInput(
       batchId: String,
