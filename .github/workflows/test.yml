@@ -1,9 +1,6 @@
 name: DR2 Run Lambda Tests
 on:
-  push:
-    branches-ignore:
-      - main
-      - release-*
+  pull_request:
 permissions:
   id-token: write
   contents: write
