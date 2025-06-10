@@ -99,7 +99,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
     } yield recentlyUpdatedEntities.length
 
   override def dependencies(config: Config): IO[Dependencies] = for {
-    client <- Fs2Client.entityClient(config.apiUrl, config.secretName)
+    client <- Fs2Client.entityClient(config.secretName)
   } yield Dependencies(client, DASNSClient[IO](), DADynamoDBClient[IO]())
 
   private def convertToCompactEntities(entitiesToTransform: List[Entity]): List[CompactEntity] =
@@ -128,7 +128,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
 }
 
 object Lambda {
-  case class Config(apiUrl: String, secretName: String, snsArn: String, lastEventActionTableName: String) derives ConfigReader
+  case class Config(secretName: String, snsArn: String, lastEventActionTableName: String) derives ConfigReader
   case class CompactEntity(id: String, deleted: Boolean)
   case class PartitionKey(id: String)
   case class GetItemsResponse(datetime: String)

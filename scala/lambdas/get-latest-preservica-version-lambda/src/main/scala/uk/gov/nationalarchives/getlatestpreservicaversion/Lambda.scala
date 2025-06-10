@@ -41,13 +41,12 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
   }
 
   override def dependencies(config: Config): IO[Dependencies] = for {
-    entitiesClient <- Fs2Client.entityClient(config.demoApiUrl, config.secretName)
+    entitiesClient <- Fs2Client.entityClient(config.secretName)
   } yield Dependencies(entitiesClient, DAEventBridgeClient[IO](), DADynamoDBClient[IO]())
 }
 
 object Lambda {
   case class Config(
-      demoApiUrl: String,
       secretName: String,
       snsArn: String,
       currentPreservicaVersionTableName: String
