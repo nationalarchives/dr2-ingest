@@ -6,7 +6,7 @@ object Dependencies {
   private val fs2Version = "3.12.0"
   private val sttpVersion = "3.11.0"
   private val circeVersion = "0.14.13"
-  private val log4CatsVersion = "2.7.0"
+  private val log4CatsVersion = "2.7.1"
   private val awsLibraryVersion = "1.12.782"
   private lazy val scalaTestVersion = "3.2.18"
 
