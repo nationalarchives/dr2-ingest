@@ -28,7 +28,7 @@ import java.util.UUID
 
 class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with BeforeAndAfterAll with TableDrivenPropertyChecks with EitherValues {
 
-  private val config: Config = Config("http://localhost:9014", "", "table-name")
+  private val config: Config = Config("", "table-name")
 
   val input: StepFnInput = StepFnInput("TDD-2023-ABC", Nil)
 
