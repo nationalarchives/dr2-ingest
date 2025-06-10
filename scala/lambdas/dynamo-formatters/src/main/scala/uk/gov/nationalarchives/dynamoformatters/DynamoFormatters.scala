@@ -55,6 +55,13 @@ object DynamoFormatters {
       writeFileItem(table)
   }
 
+  given postIngestStatusTableItemFormat: DynamoFormat[PostIngestStateTableItem] = new DynamoFormat[PostIngestStateTableItem] {
+    override def read(dynamoValue: DynamoValue): Either[DynamoReadError, PostIngestStateTableItem] =
+      createReadDynamoUtils(dynamoValue).readStateTableItem
+
+    override def write(postIngestStateTableItem: PostIngestStateTableItem): DynamoValue = writeStatusTableItem(postIngestStateTableItem)
+  }
+
   given ingestLockTableItemFormat: DynamoFormat[IngestLockTableItem] = new DynamoFormat[IngestLockTableItem] {
     override def read(dynamoValue: DynamoValue): Either[DynamoReadError, IngestLockTableItem] =
       createReadDynamoUtils(dynamoValue).readLockTableItem
@@ -68,12 +75,9 @@ object DynamoFormatters {
 
     override def write(t: IngestQueueTableItem): DynamoValue = writeIngestQueueTableItem(t)
 
-  // Attribute names as defined in the dynamo table
+  // Attribute names as defined in the dynamodb files table
   val batchId = "batchId"
-  val groupId = "groupId"
-  val assetId = "assetId"
   val id = "id"
-  val message = "message"
   val name = "name"
   val typeField = "type"
   val fileSize = "fileSize"
@@ -101,6 +105,20 @@ object DynamoFormatters {
   val sourceSystem = "sourceSystem"
   val taskToken = "taskToken"
   val executionName = "executionName"
+
+  // Attribute names as defined in the dynamodb lock table
+  val assetId = "assetId"
+  val groupId = "groupId"
+  val message = "message"
+
+  // Attribute names as defined in the dynamodb post-ingest state table
+  val input = "input"
+  val queue = "queue"
+  val firstQueued = "firstQueued"
+  val lastQueued = "lastQueued"
+  val resultCC = "result_CC"
+
+  val queueAliasAndResultAttr: Map[String, String] = Map("CC" -> resultCC)
 
   private def validateProperty(av: DynamoValue, name: String) =
     av.toAttributeValue.m().asScala.get(name).map(_.s()).map(Validated.Valid.apply).getOrElse(Validated.Invalid(name -> MissingProperty)).toValidatedNel
@@ -171,6 +189,17 @@ object DynamoFormatters {
   }
 
   private type ValidatedAttribute[T] = ValidatedNel[(FieldName, DynamoReadError), T]
+
+  case class PostIngestStatusTableValidatedAttributes(
+      assetId: ValidatedAttribute[UUID],
+      batchId: ValidatedAttribute[String],
+      input: ValidatedAttribute[String],
+      correlationId: Option[String],
+      queue: Option[String],
+      firstQueued: Option[String],
+      lastQueued: Option[String],
+      resultCC: Option[String]
+  )
 
   case class LockTableValidatedAttributes(
       assetId: ValidatedAttribute[UUID],
@@ -285,6 +314,17 @@ object DynamoFormatters {
   case class LockTablePartitionKey(assetId: UUID)
 
   case class IngestLockTableItem(assetId: UUID, groupId: String, message: String)
+
+  case class PostIngestStateTableItem(
+      assetId: UUID,
+      batchId: String,
+      input: String,
+      potentialCorrelationId: Option[String],
+      potentialQueue: Option[String],
+      potentialFirstQueued: Option[String],
+      potentialLastQueued: Option[String],
+      potentialResultCC: Option[String]
+  )
 
   case class IngestQueueTableItem(sourceSystem: String, queuedTimeAndExecutionName: String, taskToken: String, executionName: String)
   case class IngestQueuePartitionKey(sourceSystem: String)
