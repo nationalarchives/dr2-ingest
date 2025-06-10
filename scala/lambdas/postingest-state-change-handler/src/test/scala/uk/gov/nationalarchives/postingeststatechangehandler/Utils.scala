@@ -8,7 +8,7 @@ import org.scanamo.request.RequestCondition
 import org.scanamo.{DynamoFormat, DynamoReadError, DynamoValue, MissingProperty}
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
-import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, SendMessageResponse}
+import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import uk.gov.nationalarchives.DADynamoDBClient.{DADynamoDbRequest, DADynamoDbWriteItemRequest}
 import uk.gov.nationalarchives.DASQSClient.FifoQueueConfiguration
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{FilesTablePartitionKey, FilesTablePrimaryKey, FilesTableSortKey, PostIngestStateTableItem}
@@ -47,6 +47,8 @@ object Utils {
     override def receiveMessages[T](queueUrl: String, maxNumberOfMessages: Int)(using dec: Decoder[T]): IO[List[DASQSClient.MessageResponse[T]]] = IO.pure(Nil)
 
     override def deleteMessage(queueUrl: String, receiptHandle: String): IO[DeleteMessageResponse] = IO.pure(DeleteMessageResponse.builder.build)
+
+    override def getQueueAttributes(queueUrl: String, attributeNames: List[QueueAttributeName]): IO[GetQueueAttributesResponse] = IO.raiseError(new Exception("Not implemented"))
 
   def createDynamoClient(itemsInTableRef: Ref[IO, List[PostIngestStateTableItem]], updateRequestsRef: Ref[IO, List[DADynamoDbRequest]]): DADynamoDBClient[IO] = {
     new DADynamoDBClient[IO]():
