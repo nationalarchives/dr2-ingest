@@ -8,11 +8,12 @@ permissions:
   contents: write
 jobs:
   pre-deploy:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     outputs:
       next-version: ${{ steps.next-tag.outputs.next-version }}
     steps:
       - uses: actions/checkout@v4
+      - uses: sbt/setup-sbt@v1
       - name: Configure AWS credentials from management account
         uses: aws-actions/configure-aws-credentials@v4.2.1
         with:
@@ -37,7 +38,7 @@ jobs:
           git push origin ${{ steps.next-tag.outputs.next-version }}
   deploy:
     needs: pre-deploy
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=${{ needs.pre-deploy.outputs.next-version }}
