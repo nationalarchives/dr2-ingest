@@ -10,8 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: sbt/setup-sbt@v1
-      - uses: scalacenter/sbt-dependency-submission@v3
-      - uses: actions/dependency-review-action@v4
+      - uses: scalacenter/sbt-dependency-submission@7ebd561e5280336d3d5b445a59013810ff79325e
+      - uses: actions/dependency-review-action@da24556b548a50705dd671f47852072ea4c105d9
       - run: |
           find . -name requirements.txt | xargs -I {} pip install -r {}
           AWS_DEFAULT_REGION=eu-west-2 pytest
