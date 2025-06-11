@@ -61,9 +61,9 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
     def getSecretVersions(stage: Stage) = for {
       describeSecretResponse <- secretsClient.describeSecret()
-      versions <- versions(describeSecretResponse)
+      stageVersions <- versions(describeSecretResponse)
       versions <- IO {
-        versions.collect {
+        stageVersions.collect {
           case (version, stages) if stages.headOption.contains(stage) => version
         }
       }
@@ -72,7 +72,7 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
     def removePendingSecret(): PartialFunction[Throwable, IO[Unit]] =
       case err =>
         for {
-          _ <- logger.error(err)("Error setting the secret in preservation system")
+          _ <- logger.error(err)("Error setting the secret in preservation system; Removing 'Pending' secret")
           pendingVersions <- getSecretVersions(Pending)
           _ <- secretsClient.updateSecretVersionStage(None, pendingVersions.headOption, Pending)
         } yield ()
