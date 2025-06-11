@@ -268,7 +268,6 @@ lazy val postIngestStateChangeHandler = (project in file("postingest-state-chang
       dynamoClient,
       fs2Reactive,
       jsonSchemaValidator % Test,
-      scanamo,
       snsClient,
       sqsClient,
       reactorTest % Test,
@@ -326,7 +325,8 @@ lazy val ingestFailureNotifications = (project in file("ingest-failure-notificat
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)
   .settings(
-    libraryDependencies += scanamo
+    libraryDependencies += scanamo,
+    dependencyOverrides += awsDynamo
   )
 
 lazy val dynamoFormatters = (project in file("dynamo-formatters"))
@@ -334,6 +334,7 @@ lazy val dynamoFormatters = (project in file("dynamo-formatters"))
     libraryDependencies ++= Seq(
       scanamo,
       scalaTest % Test
-    )
+    ),
+    dependencyOverrides += awsDynamo
   )
   .disablePlugins(AssemblyPlugin)
