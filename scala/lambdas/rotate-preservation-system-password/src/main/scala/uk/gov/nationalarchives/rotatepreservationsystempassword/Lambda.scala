@@ -61,13 +61,13 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
     def getSecretVersions(stage: Stage) = for {
       describeSecretResponse <- secretsClient.describeSecret()
-      stageVersions <- versions(describeSecretResponse)
-      versions <- IO {
-        stageVersions.collect {
+      versions <- versions(describeSecretResponse)
+      stageVersions <- IO {
+        versions.collect {
           case (version, stages) if stages.headOption.contains(stage) => version
         }
       }
-    } yield versions
+    } yield stageVersions
 
     def removePendingSecret(): PartialFunction[Throwable, IO[Unit]] =
       case err =>
