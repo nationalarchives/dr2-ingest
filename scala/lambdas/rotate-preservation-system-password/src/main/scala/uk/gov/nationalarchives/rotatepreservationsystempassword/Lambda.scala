@@ -72,7 +72,7 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
     def removePendingSecret(): PartialFunction[Throwable, IO[Unit]] =
       case err =>
         for {
-          _ <- logger.error(err)("Error setting the secret in preservation system; Removing 'Pending' secret")
+          _ <- logger.error(err)("Error setting the secret in preservation system; removing 'Pending' secret")
           pendingVersions <- getSecretVersions(Pending)
           _ <- secretsClient.updateSecretVersionStage(None, pendingVersions.headOption, Pending)
         } yield ()
