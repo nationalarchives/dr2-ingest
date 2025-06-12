@@ -93,6 +93,18 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     credentials.newPassword should equal("pendingSecret")
   }
 
+  "handler setSecret" should "remove the previous version if there is an error resetting the password" in {
+    val rotationEvent = RotationEvent(SetSecret, "id", "token")
+    val versionToStage = Map(
+      "token" -> List(SecretStage(Option(AuthDetails("user", "pendingSecret", "")), Pending)),
+      "anotherToken" -> List(SecretStage(Option(AuthDetails("user", "currentSecret", "")), Current))
+    )
+    val secret = Secret(versionToStage)
+
+    val (secretResponse, _, _) = runLambda(rotationEvent, secret, Credentials("", "", resetSuccess = false))
+    secretResponse.versionToStage("token").size should equal(0)
+  }
+
   "handler testSecret" should "return an error if test secret fails" in {
     val rotationEvent = RotationEvent(TestSecret, "id", "token")
 

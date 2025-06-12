@@ -1,21 +1,22 @@
 name: DR2 Run Lambda Tests
 on:
-  push:
-    branches-ignore:
-      - main
-      - release-*
+  pull_request:
 permissions:
   id-token: write
-  contents: read
+  contents: write
 jobs:
   test:
-    uses: nationalarchives/dr2-github-actions/.github/workflows/dr2_test.yml@main
-    with:
-      repo-name: dr2-ingest
-      test-command: |
-        find . -name requirements.txt | xargs -I {} pip install -r {}
-        AWS_DEFAULT_REGION=eu-west-2 pytest
-        sbt e2eTests/scalafmtCheckAll scalafmtCheckAll test
-        (cd kotlin/e2e-tests/lib && gradle test)
-    secrets:
-      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: sbt/setup-sbt@v1
+      - uses: scalacenter/sbt-dependency-submission@7ebd561e5280336d3d5b445a59013810ff79325e
+      - uses: actions/dependency-review-action@da24556b548a50705dd671f47852072ea4c105d9
+      - run: |
+          find . -name requirements.txt | xargs -I {} pip install -r {}
+          AWS_DEFAULT_REGION=eu-west-2 pytest
+          sbt e2eTests/scalafmtCheckAll scalafmtCheckAll test
+          (cd kotlin/e2e-tests/lib && gradle test)
+
+
+

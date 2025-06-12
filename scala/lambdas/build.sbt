@@ -23,6 +23,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestUpsertArchiveFolders,
     ingestValidateGenericIngestInputs,
     ingestWorkflowMonitor,
+    postIngestStateChangeHandler,
     preingestTdrAggregator,
     preIngestTdrPackageBuilder,
     rotatePreservationSystemPassword,
@@ -257,6 +258,24 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
     )
   )
 
+lazy val postIngestStateChangeHandler = (project in file("postingest-state-change-handler"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      catsEffect,
+      circeFs2,
+      dynamoClient,
+      fs2Reactive,
+      jsonSchemaValidator % Test,
+      snsClient,
+      sqsClient,
+      reactorTest % Test,
+      scalaCheck % Test,
+      scalaCheckPlus % Test
+    )
+  )
+
 lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
@@ -306,7 +325,8 @@ lazy val ingestFailureNotifications = (project in file("ingest-failure-notificat
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)
   .settings(
-    libraryDependencies += scanamo
+    libraryDependencies += scanamo,
+    dependencyOverrides += awsDynamo
   )
 
 lazy val dynamoFormatters = (project in file("dynamo-formatters"))
@@ -314,6 +334,7 @@ lazy val dynamoFormatters = (project in file("dynamo-formatters"))
     libraryDependencies ++= Seq(
       scanamo,
       scalaTest % Test
-    )
+    ),
+    dependencyOverrides += awsDynamo
   )
   .disablePlugins(AssemblyPlugin)
