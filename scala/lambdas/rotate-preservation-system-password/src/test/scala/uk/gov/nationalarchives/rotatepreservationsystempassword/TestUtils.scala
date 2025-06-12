@@ -16,7 +16,7 @@ object TestUtils:
   case class SecretStage(value: Option[AuthDetails], stage: Stage)
   case class Secret(versionToStage: Map[String, List[SecretStage]], rotationEnabled: Boolean = true)
 
-  case class Credentials(oldPassword: String, newPassword: String, testSuccess: Boolean = true)
+  case class Credentials(oldPassword: String, newPassword: String, testSuccess: Boolean = true, resetSuccess: Boolean = true)
 
   case class Errors(getSecret: Boolean = false)
 
@@ -66,19 +66,26 @@ object TestUtils:
       }
       .map(_ => PutSecretValueResponse.builder.build)
 
-    override def updateSecretVersionStage(moveToVersionId: String, removeFromVersionId: String, stage: Stage): IO[UpdateSecretVersionStageResponse] = ref
+    override def updateSecretVersionStage(
+        potentialMoveToVersionId: Option[String],
+        potentialRemoveFromVersionId: Option[String],
+        stage: Stage
+    ): IO[UpdateSecretVersionStageResponse] = ref
       .update { existing =>
+        val removeFromVersionId = potentialRemoveFromVersionId.get // This is always populated in this lambda
         val stageToMove = existing.versionToStage.get(removeFromVersionId).flatMap(_.find(_.stage == stage)).get
         val oldStages = existing.versionToStage(removeFromVersionId).filter(_.stage != stage)
-        val newStages = stageToMove :: existing.versionToStage.getOrElse(moveToVersionId, Nil)
-        val updatedMap: Map[String, List[SecretStage]] = Map(moveToVersionId -> newStages, removeFromVersionId -> oldStages)
+        val newStages: List[SecretStage] = stageToMove :: potentialMoveToVersionId.map(moveToVersionId => existing.versionToStage.getOrElse(moveToVersionId, Nil)).toList.flatten
+        val updatedMap: Map[String, List[SecretStage]] =
+          Map(removeFromVersionId -> oldStages) ++ potentialMoveToVersionId.map(moveToVersionId => Map(moveToVersionId -> newStages)).getOrElse(Map())
         existing.copy(versionToStage = existing.versionToStage ++ updatedMap)
       }
       .map(_ => UpdateSecretVersionStageResponse.builder.build)
 
   def userClient(ref: Ref[IO, Credentials]): UserClient[IO] = new UserClient[IO]:
-    override def resetPassword(changePasswordRequest: UserClient.ResetPasswordRequest): IO[Unit] = ref.update { existing =>
-      existing.copy(oldPassword = changePasswordRequest.password, newPassword = changePasswordRequest.newPassword)
+    override def resetPassword(changePasswordRequest: UserClient.ResetPasswordRequest): IO[Unit] = {
+      ref.get.flatMap(existing => IO.raiseWhen(!existing.resetSuccess)(new Exception("Error resetting password"))) >>
+        ref.update(_.copy(oldPassword = changePasswordRequest.password, newPassword = changePasswordRequest.newPassword))
     }
 
     override def testNewPassword(): IO[Unit] = ref.get.flatMap { existing =>

@@ -6,7 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.{MessageAttribute, SQSMessage}
 import io.circe.syntax.*
 import io.circe.{Decoder, Encoder}
-import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, SendMessageResponse}
+import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DASQSClient
@@ -62,6 +62,8 @@ object Utils:
     override def deleteMessage(queueUrl: String, receiptHandle: String): IO[DeleteMessageResponse] = IO.pure(DeleteMessageResponse.builder.build)
 
     override def receiveMessages[T](queueUrl: String, maxNumberOfMessages: Int)(using dec: Decoder[T]): IO[List[DASQSClient.MessageResponse[T]]] = IO.pure(Nil)
+
+    override def getQueueAttributes(queueUrl: String, attributeNames: List[QueueAttributeName]): IO[GetQueueAttributesResponse] = IO.raiseError(new Exception("Not implemented"))
 
   def entityClient(entitiesRef: Ref[IO, List[Entity]]): EntityClient[IO, Fs2Streams[IO]] = new EntityClient[IO, Fs2Streams[IO]]:
     val entityMetadata: StandardEntityMetadata = StandardEntityMetadata(<A></A>, Seq(<A></A>), Seq(<A></A>), Seq(<A></A>), Seq(<A></A>))
