@@ -3,7 +3,6 @@ package uk.gov.nationalarchives.entityeventgenerator
 import cats.effect.IO
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import io.circe.Encoder
-import io.circe.syntax.*
 import org.scanamo.generic.auto.*
 import pureconfig.ConfigReader
 import software.amazon.awssdk.services.dynamodb.model.*
@@ -17,9 +16,7 @@ import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 
-import java.nio.file.{Path, StandardOpenOption}
 import java.time.{Instant, OffsetDateTime}
-import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
   private val dateItemPrimaryKeyAndValue =
@@ -44,7 +41,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         dASnsDBClient,
         eventTriggeredDatetime
       )
-      _ <- IO.println(s"Num of entities $numOfRecentlyUpdatedEntities")
       _ <-
         if numOfRecentlyUpdatedEntities > 0 then
           publishUpdatedEntitiesAndUpdateDateTime(
@@ -85,10 +81,8 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         } else IO.pure(None)
 
       _ <- IO.whenA(entityLastEventActionDate.exists(_.isBefore(eventTriggeredDatetime))) {
-        val compactEntities: List[CompactEntity] = writeToFile(recentlyUpdatedEntities, "out")
         for {
-          _ <- IO.println(s"Published ${compactEntities.size} entries")
-          _ <- IO.println(s"Start: $currentStart Updated since: $updatedSinceAsDate New updated since: $entityLastEventActionDate")
+          _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
           updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
           start = if entityLastEventActionDate.get.isEqual(OffsetDateTime.parse(updatedSinceResponse.datetime)) then currentStart + 1000 else 0
           startAttributeValue = AttributeValue.builder.n(start.toString).build()
@@ -102,13 +96,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         } yield ()
       }
     } yield recentlyUpdatedEntities.length
-  }
-
-  private def writeToFile(recentlyUpdatedEntities: Seq[Entity], fileName: String) = {
-    val compactEntities = convertToCompactEntities(recentlyUpdatedEntities.toList)
-    java.nio.file.Files.write(Path.of("""C:\Users\spalmer\Documents\""" + fileName + ".log"), compactEntities
-      .map(row => row.asJson.noSpaces).asJava, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND)
-    compactEntities
   }
 
   override def dependencies(config: Config): IO[Dependencies] = for {
@@ -142,7 +129,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
 object Lambda {
   case class Config(secretName: String, snsArn: String, lastEventActionTableName: String) derives ConfigReader
   case class CompactEntity(id: String, deleted: Boolean)
-  case class PartitionKey(id: String)
+  private case class PartitionKey(id: String)
   case class GetItemsResponse(datetime: String, start: Int)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], daSNSClient: DASNSClient[IO], daDynamoDBClient: DADynamoDBClient[IO])
