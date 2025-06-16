@@ -4,18 +4,19 @@ import cats.effect.{IO, Outcome}
 import cats.syntax.all.*
 import io.circe.*
 import io.circe.Decoder.Result
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.generic.semiauto.deriveDecoder
 import io.circe.jawn.decode
 import org.scanamo.{DynamoArray, DynamoObject, DynamoReadError, DynamoValue}
 import pureconfig.ConfigReader
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
-import uk.gov.nationalarchives.postingeststatechangehandler.Lambda.{OutputQueueMessage, *, given}
+import uk.gov.nationalarchives.postingeststatechangehandler.Lambda.{*, given}
 import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.{IngestedCCDisk, IngestedPreservation}
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.{IngestComplete, IngestUpdate}
 import uk.gov.nationalarchives.utils.ExternalUtils.{OutputMessage, OutputParameters, OutputProperties}
+import uk.gov.nationalarchives.utils.PostingestUtils.{OutputQueueMessage, Queue}
 import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, DASQSClient}
 
@@ -131,15 +132,6 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
 object Lambda:
   given Decoder[DynamodbEvent] = deriveDecoder[DynamodbEvent]
-  given Decoder[Queue] = (c: HCursor) =>
-    for {
-      queueAlias <- c.downField("queueAlias").as[String]
-      queueOrder <- c.downField("queueOrder").as[Int]
-      queueUrl <- c.downField("queueUrl").as[String]
-    } yield queueAlias match
-      case "CC" => CCQueue(queueAlias, queueOrder, queueUrl)
-
-  given Encoder[OutputQueueMessage] = deriveEncoder[OutputQueueMessage]
 
   private def jsonToDynamoValue(json: JsonObject): DynamoValue = {
     json("S").flatMap(_.asString).map(DynamoValue.fromString) <+>
@@ -212,17 +204,3 @@ object Lambda:
   case class DynamodbStreamRecord(eventName: EventName, dynamodb: StreamRecord)
 
   case class StreamRecord(keys: Option[FilesTablePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: PostIngestStateTableItem)
-
-  sealed trait Queue extends Product {
-    def queueAlias: String
-    def queueOrder: Int
-    def queueUrl: String
-    def resultAttrName: String = s"result_$queueAlias"
-    def getResult: PostIngestStateTableItem => Option[String]
-  }
-
-  case class CCQueue(queueAlias: String, queueOrder: Int, queueUrl: String) extends Queue {
-    val getResult: PostIngestStateTableItem => Option[String] = tableItem => tableItem.potentialResultCC
-  }
-
-  case class OutputQueueMessage(assetId: UUID, batchId: String, resultAttrName: String, payload: String)

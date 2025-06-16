@@ -24,6 +24,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestValidateGenericIngestInputs,
     ingestWorkflowMonitor,
     postIngestStateChangeHandler,
+    postingestMessageResender,
     preingestTdrAggregator,
     preIngestTdrPackageBuilder,
     rotatePreservationSystemPassword,
@@ -322,8 +323,19 @@ lazy val ingestFailureNotifications = (project in file("ingest-failure-notificat
     )
   )
 
+lazy val postingestMessageResender = (project in file("postingest-message-resender"))
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      sqsClient
+    )
+  )
+
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)
+  .dependsOn(dynamoFormatters)
   .settings(
     libraryDependencies += scanamo,
     dependencyOverrides += awsDynamo

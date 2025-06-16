@@ -10,7 +10,6 @@ import java.net.URI
 import java.time.OffsetDateTime
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
-import java.time.Instant
 
 object DynamoFormatters {
 
