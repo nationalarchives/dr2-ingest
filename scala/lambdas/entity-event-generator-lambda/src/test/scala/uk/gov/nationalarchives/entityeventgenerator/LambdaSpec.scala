@@ -53,10 +53,10 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
     val entities = List(generateEntity)
     val eventActions = List(
-      EventAction(UUID.randomUUID,"event",ZonedDateTime.parse(eventActionTime)),
-      EventAction(UUID.randomUUID,"Download",ZonedDateTime.parse("2023-07-05T00:00:00.000000+01:00")),
-      EventAction(UUID.randomUUID,"Characterise",ZonedDateTime.parse("2023-08-05T00:00:00.000000+01:00")),
-      EventAction(UUID.randomUUID,"VirusCheck",ZonedDateTime.parse("2023-09-05T00:00:00.000000+01:00"))
+      EventAction(UUID.randomUUID, "event", ZonedDateTime.parse(eventActionTime)),
+      EventAction(UUID.randomUUID, "Download", ZonedDateTime.parse("2023-07-05T00:00:00.000000+01:00")),
+      EventAction(UUID.randomUUID, "Characterise", ZonedDateTime.parse("2023-08-05T00:00:00.000000+01:00")),
+      EventAction(UUID.randomUUID, "VirusCheck", ZonedDateTime.parse("2023-09-05T00:00:00.000000+01:00"))
     )
 
     val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entities, eventActions, dynamoResponse)
