@@ -84,6 +84,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         for {
           _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
           updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
+          // This is to cover the case where there are more than 1000 items with the same last event action date
           start = if entityLastEventActionDate.get.isEqual(OffsetDateTime.parse(updatedSinceResponse.datetime)) then currentStart + 1000 else 0
           startAttributeValue = AttributeValue.builder.n(start.toString).build()
           updateDateRequest = DADynamoDbRequest(
