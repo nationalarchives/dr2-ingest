@@ -37,7 +37,7 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     dynamoResult.head should equal("2023-06-05T00:00+01:00", 1000)
   }
 
-  "handler" should "write a start number of zero if the original start number was one and the event action time is after the update since time" in {
+  "handler" should "write a start number of 0 if the original start number was 1 and the event action time is after the update since time" in {
     val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
     val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
     val eventActionTime = "2023-06-05T00:00:00.000000+01:00"

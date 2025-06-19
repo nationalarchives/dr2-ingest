@@ -26,6 +26,9 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
   given Encoder[CompactEntity] =
     Encoder.forProduct2("id", "deleted")(entity => (entity.id, entity.deleted))
 
+  enum IgnoredEventTypes:
+    case Download, Characterise, VirusCheck
+
   private def publishUpdatedEntitiesAndUpdateDateTime(
       config: Config,
       entityClient: EntityClient[IO, Fs2Streams[IO]],
@@ -60,7 +63,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
       dASnsDBClient: DASNSClient[IO],
       eventTriggeredDatetime: OffsetDateTime
   ): IO[Int] = {
-    val ignoredEventTypes = List("Download", "Characterise", "VirusCheck")
+    val ignoredEventTypes = IgnoredEventTypes.values.map(_.toString)
     for {
       updatedSinceResponses <- dADynamoDBClient.getItems[GetItemsResponse, PartitionKey](
         List(PartitionKey("LastPolled")),
@@ -84,9 +87,9 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         for {
           _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
           updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
-          // This is to cover the case where there are more than 1000 items with the same last event action date
-          start = if entityLastEventActionDate.get.isEqual(OffsetDateTime.parse(updatedSinceResponse.datetime)) then currentStart + 1000 else 0
-          startAttributeValue = AttributeValue.builder.n(start.toString).build()
+          // This is to cover the case where there are more than 1000 entities with the same last event action date
+          nextStart = if entityLastEventActionDate.get.isEqual(OffsetDateTime.parse(updatedSinceResponse.datetime)) then currentStart + 1000 else 0
+          startAttributeValue = AttributeValue.builder.n(nextStart.toString).build()
           updateDateRequest = DADynamoDbRequest(
             config.lastEventActionTableName,
             dateItemPrimaryKeyAndValue,
