@@ -8,18 +8,17 @@ import pureconfig.ConfigReader
 import software.amazon.awssdk.services.dynamodb.model.*
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
-import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
-import uk.gov.nationalarchives.utils.EventCodecs.given
-import uk.gov.nationalarchives.utils.LambdaRunner
-import uk.gov.nationalarchives.entityeventgenerator.Lambda.*
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
+import uk.gov.nationalarchives.entityeventgenerator.Lambda.*
+import uk.gov.nationalarchives.utils.EventCodecs.given
+import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 
 import java.time.{Instant, OffsetDateTime}
 
 class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
-  private val maxEntitiesPerPage: Int = 1000
   private val dateItemPrimaryKeyAndValue =
     Map("id" -> AttributeValue.builder().s("LastPolled").build())
   private val datetimeField = "datetime"
@@ -27,12 +26,14 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
   given Encoder[CompactEntity] =
     Encoder.forProduct2("id", "deleted")(entity => (entity.id, entity.deleted))
 
+  enum IgnoredEventTypes:
+    case Download, Characterise, VirusCheck
+
   private def publishUpdatedEntitiesAndUpdateDateTime(
       config: Config,
       entityClient: EntityClient[IO, Fs2Streams[IO]],
       dADynamoDBClient: DADynamoDBClient[IO],
       dASnsDBClient: DASNSClient[IO],
-      startFrom: Int,
       eventTriggeredDatetime: OffsetDateTime
   ): IO[Int] =
     for {
@@ -41,7 +42,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         entityClient,
         dADynamoDBClient,
         dASnsDBClient,
-        startFrom,
         eventTriggeredDatetime
       )
       _ <-
@@ -51,7 +51,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
             entityClient,
             dADynamoDBClient,
             dASnsDBClient,
-            startFrom + maxEntitiesPerPage,
             eventTriggeredDatetime
           )
         else IO.pure(numOfRecentlyUpdatedEntities)
@@ -62,9 +61,9 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
       entitiesClient: EntityClient[IO, Fs2Streams[IO]],
       dADynamoDBClient: DADynamoDBClient[IO],
       dASnsDBClient: DASNSClient[IO],
-      startFrom: Int,
       eventTriggeredDatetime: OffsetDateTime
-  ): IO[Int] =
+  ): IO[Int] = {
+    val ignoredEventTypes = IgnoredEventTypes.values.map(_.toString)
     for {
       updatedSinceResponses <- dADynamoDBClient.getItems[GetItemsResponse, PartitionKey](
         List(PartitionKey("LastPolled")),
@@ -72,14 +71,15 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
       )
       updatedSinceResponse = updatedSinceResponses.head
       updatedSinceAsDate = OffsetDateTime.parse(updatedSinceResponse.datetime).toZonedDateTime
-      recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, startFrom)
+      currentStart = updatedSinceResponse.start
+      recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, currentStart)
       _ <- logger.info(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
 
       entityLastEventActionDate <-
         if (recentlyUpdatedEntities.nonEmpty) {
           val lastUpdatedEntity: Entity = recentlyUpdatedEntities.last
           entitiesClient.entityEventActions(lastUpdatedEntity).map { entityEventActions =>
-            Some(entityEventActions.head.dateOfEvent.toOffsetDateTime)
+            Some(entityEventActions.filterNot(ev => ignoredEventTypes.contains(ev.eventType)).head.dateOfEvent.toOffsetDateTime)
           }
         } else IO.pure(None)
 
@@ -87,16 +87,20 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         for {
           _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
           updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
+          // This is to cover the case where there are more than 1000 entities with the same last event action date
+          nextStart = if entityLastEventActionDate.get.isEqual(OffsetDateTime.parse(updatedSinceResponse.datetime)) then currentStart + 1000 else 0
+          startAttributeValue = AttributeValue.builder.n(nextStart.toString).build()
           updateDateRequest = DADynamoDbRequest(
             config.lastEventActionTableName,
             dateItemPrimaryKeyAndValue,
-            Map(datetimeField -> Some(updateDateAttributeValue))
+            Map(datetimeField -> Some(updateDateAttributeValue), "start" -> Some(startAttributeValue))
           )
           dynamoStatusCode <- dADynamoDBClient.updateAttributeValues(updateDateRequest)
           _ <- logger.info(s"Dynamo updateAttributeValues returned status code $dynamoStatusCode")
         } yield ()
       }
     } yield recentlyUpdatedEntities.length
+  }
 
   override def dependencies(config: Config): IO[Dependencies] = for {
     client <- Fs2Client.entityClient(config.secretName)
@@ -119,7 +123,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         dependencies.entityClient,
         dependencies.daDynamoDBClient,
         dependencies.daSNSClient,
-        0,
         eventTriggeredDatetime
       )
     } yield numOfEntitiesUpdated
@@ -130,8 +133,8 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
 object Lambda {
   case class Config(secretName: String, snsArn: String, lastEventActionTableName: String) derives ConfigReader
   case class CompactEntity(id: String, deleted: Boolean)
-  case class PartitionKey(id: String)
-  case class GetItemsResponse(datetime: String)
+  private case class PartitionKey(id: String)
+  case class GetItemsResponse(datetime: String, start: Int)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], daSNSClient: DASNSClient[IO], daDynamoDBClient: DADynamoDBClient[IO])
 }
