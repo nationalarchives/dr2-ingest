@@ -29,7 +29,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
     Dependencies(DADynamoDBClient[IO](), DASQSClient[IO](), () => Generators().generateInstant)
   )
 
-  override def handler: (ScheduledEvent, Config, Dependencies) => IO[Unit] = { (input, config, dependencies) =>
+  override def handler: (ScheduledEvent, Config, Dependencies) => IO[Unit] = { (triggerEvent, config, dependencies) =>
     val dynamoClient = dependencies.dynamoClient
     val sqsClient = dependencies.sqsClient
 
@@ -37,21 +37,22 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
       queues match {
         case Nil => IO.unit
         case _ =>
-          resendMessages(queues.head)
+          resendMessages(queues.head)  >>
           processQueues(queues.tail)
       }
     }
 
     def resendMessages(queue: Queue): IO[Unit] = {
       for {
-        queryAttributes <- dependencies.sqsClient.getQueueAttributes(queue.queueUrl, List(QueueAttributeName.MESSAGE_RETENTION_PERIOD))
-        messageRetentionPeriod: Long = queryAttributes.attributes().get(QueueAttributeName.MESSAGE_RETENTION_PERIOD).toLong
+        queueAttributes <- dependencies.sqsClient.getQueueAttributes(queue.queueUrl, List(QueueAttributeName.MESSAGE_RETENTION_PERIOD))
+        messageRetentionPeriod: Long = queueAttributes.attributes().get(QueueAttributeName.MESSAGE_RETENTION_PERIOD).toLong
         dateTimeNow = dependencies.instantGenerator()
         dateTimeCutOff = dateTimeNow.minusSeconds(messageRetentionPeriod)
 
         items <- dependencies.dynamoClient.queryItems[PostIngestStateTableItem](
           config.dynamoTableName,
-          AndCondition("queue" === queue.queueAlias, "lastQueued" < dateTimeCutOff.toString),
+          "queue" === queue.queueAlias, "lastQueued" < dateTimeCutOff.toString, //compiler error 
+          //AndCondition("queue" === queue.queueAlias, "lastQueued" < dateTimeCutOff.toString), //no compiler error, but mock implementation complained
           Some("QueueLastQueuedIdx")
         )
 
@@ -84,12 +85,12 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
 
     val lambdaResult = for {
       listOfQueues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
-      _ <- logger.info(s"Starting message resend for queues: ${listOfQueues.map(_.queueAlias).mkString(", ")}")
-      _ <- processQueues(listOfQueues)
+      _ <- logger.info(s"Starting message resend for queues: ${listOfQueues.map(_.queueAlias).mkString(", ")}") >>
+      processQueues(listOfQueues)
     } yield ()
 
     lambdaResult.handleErrorWith { error =>
-      logger.error(s"Error processing scheduled event: ${error.getMessage}")
+      logger.error(s"Error processing scheduled event: ${error.getMessage}") >>
       IO.raiseError(error)
     }
   }
