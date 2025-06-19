@@ -75,7 +75,7 @@ object ExternalServicesTestUtils {
 
       override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = notImplemented
 
-  def dynamoClient(ref: Ref[IO, List[String]], errors: Option[Errors]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
+  def dynamoClient(ref: Ref[IO, List[(String, Int)]], errors: Option[Errors]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
     override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
 
     override def writeItem(dynamoDbWriteRequest: DADynamoDBClient.DADynamoDbWriteItemRequest): IO[Int] = notImplemented
@@ -93,7 +93,10 @@ object ExternalServicesTestUtils {
       IO.raiseWhen(errors.exists(_.updateAttributeValuesError))(new Exception("Error updating Dynamo attribute values")) >>
         ref
           .update { _ =>
-            dynamoDbRequest.attributeNamesAndValuesToUpdate.getOrElse("datetime", None).map(_.s()).toList
+            (for {
+              dateTime <- dynamoDbRequest.attributeNamesAndValuesToUpdate.getOrElse("datetime", None).map(_.s())
+              start <- dynamoDbRequest.attributeNamesAndValuesToUpdate.getOrElse("start", None).map(_.n())
+            } yield (dateTime, start.toInt)).toList
           }
           .map(_ => 1)
 
@@ -113,10 +116,11 @@ object ExternalServicesTestUtils {
       entities: List[Entity],
       eventActions: List[EventAction],
       dateTimes: List[String],
-      errors: Option[Errors] = None
-  ): (List[String], List[CompactEntity], Either[Throwable, Int]) = (for {
+      errors: Option[Errors] = None,
+      startCount: Int = 0
+  ): (List[(String, Int)], List[CompactEntity], Either[Throwable, Int]) = (for {
     preservicaRef <- Ref.of[IO, List[Entity]](entities)
-    dynamoRef <- Ref.of[IO, List[String]](dateTimes)
+    dynamoRef <- Ref.of[IO, List[(String, Int)]](dateTimes.map(dt => dt -> startCount))
     snsRef <- Ref.of[IO, List[CompactEntity]](Nil)
     dependencies = Dependencies(preservicaClient(preservicaRef, eventActions, errors), snsClient(snsRef, errors), dynamoClient(dynamoRef, errors))
     res <- new Lambda().handler(event, config, dependencies).attempt
