@@ -15,4 +15,20 @@ We are only using the time portion of the event.
 }
 ```
 
+## Process
+* Get the start value and `LastPolled` date from DynamoDB.
+* Call the `/updated-since` API endpoint with the date and start value from DynamoDB as the parameters.
+* These parameters are ordered by ascending date, get the last entity in the list.
+* Get the event actions for this entity and get the action date from the response.
+* If the last action date is after the triggered date from the input json, do nothing.
+* If the last action date is before the triggered date from the input json:
+  * Send a message to SNS with the form `{"id":"io:3963e77c-ed9a-4ff7-8960-aa2ca48973af","deleted":false}`
+  * If the last action date is equal to the previous date from DynamoDB, this indicates there are more than 1000 entities with the same updated time. Increment the start count by 1.
+  * Store the start count and the last updated time in Dynamo DB and return the number of messages sent to SNS.
+  * If the number is more than zero, repeat the process from the second step.
+
+The lambda is only set to run for 60 seconds so will often time out if there have been a large number of entities updated.
+If this happens, the lambda will re-run again after 5 minutes and pick up the most recent `LastPolled` and `start` from DynamoDB.
+
+## Output
 The lambda has no output
