@@ -51,8 +51,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
 
         items <- dependencies.dynamoClient.queryItems[PostIngestStateTableItem](
           config.dynamoTableName,
-          "queue" === queue.queueAlias, "lastQueued" < dateTimeCutOff.toString, //compiler error 
-          //AndCondition("queue" === queue.queueAlias, "lastQueued" < dateTimeCutOff.toString), //no compiler error, but mock implementation complained
+          AndCondition("queue" === queue.queueAlias, "lastQueued" < dateTimeCutOff.toString), //no compiler error, but mock implementation complained
           Some("QueueLastQueuedIdx")
         )
 
