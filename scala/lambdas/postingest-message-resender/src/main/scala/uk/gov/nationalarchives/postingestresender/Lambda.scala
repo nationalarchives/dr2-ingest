@@ -33,6 +33,12 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
     val dynamoClient = dependencies.dynamoClient
     val sqsClient = dependencies.sqsClient
 
+    /** This function goes over the list of queues passed to it and refreshes the messages if any of them have expired. It does this by calling @resendMessages for each queue
+      * @param queues
+      *   List of queues to process
+      * @return
+      *   Unit
+      */
     def processQueues(queues: List[Queue]): IO[Unit] = {
       queues match {
         case Nil => IO.unit
@@ -42,6 +48,14 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
       }
     }
 
+    /** This function revceives a queue as a parameter. For the particular queue, it retrieves details from the post ingest table, it also retrieves 'Message Retention Period' for
+      * this queue. If any of the items in the post ingest table has a 'lastQueued' time before the message retention period, it resends the message to the queue and updates the
+      * 'lastQueued' value for this item in post ingest table with the current time.
+      * @param queue
+      *   The queue for which any expired messages to be resent
+      * @return
+      *   Unit
+      */
     def resendMessages(queue: Queue): IO[Unit] = {
       for {
         queueAttributes <- dependencies.sqsClient.getQueueAttributes(queue.queueUrl, List(QueueAttributeName.MESSAGE_RETENTION_PERIOD))
