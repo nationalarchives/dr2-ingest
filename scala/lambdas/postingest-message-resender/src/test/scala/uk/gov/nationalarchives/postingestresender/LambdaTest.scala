@@ -53,7 +53,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("correlationId"),
         Some("CC"),
         Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString),
-        Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString), //6 days old, cutoff time is 4 days
+        Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString), // 6 days old, cutoff time is 4 days
         Some("result_queue1")
       ),
       PostIngestStateTableItem(
@@ -63,10 +63,9 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("correlationId1"),
         Some("CC"),
         Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString),
-        Some(Instant.now().minus(java.time.Duration.ofDays(16)).toString), //16 days old, cutoff time is 4 days
+        Some(Instant.now().minus(java.time.Duration.ofDays(16)).toString), // 16 days old, cutoff time is 4 days
         Some("result_queue1")
       )
-
     )
     val placeholderInputEvent = new ScheduledEvent()
     val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "${testQueueUrl}"}]""")
@@ -101,7 +100,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("correlationId"),
         Some("CC"),
         Some(sixDaysOld),
-        Some(sixDaysOld), //6 days old, cutoff time is 4 days
+        Some(sixDaysOld), // 6 days old, cutoff time is 4 days
         Some("result_queue1")
       ),
       PostIngestStateTableItem(
@@ -109,12 +108,11 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         "batchId1",
         "input",
         Some("correlationId1"),
-        Some("NO_CC"), //different queue
+        Some("NO_CC"), // different queue
         Some(sixteenDaysOld),
-        Some(sixteenDaysOld), //16 days old, cutoff time is 4 days
+        Some(sixteenDaysOld), // 16 days old, cutoff time is 4 days
         Some("result_queue1")
       )
-
     )
     val placeholderInputEvent = new ScheduledEvent()
     val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$testQueueUrl"}]""")
@@ -132,4 +130,51 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     }
     messages.size should be(1)
     messages.find(_.assetId == uuidForUpdate).get.payload should be("this_message_to_be_resent")
+  }
+
+  "handler" should "report error when it cannot fetch queue attributes" in {
+    val lambdaRunResults = runLambdaWithStandardParameters(2, Option(Errors(getQueueAttributes = true)))
+
+    lambdaRunResults.result.isLeft should be(true)
+    lambdaRunResults.result.left.value.getMessage should equal("Unable to retrieve queue attributes")
+  }
+
+  "handler" should "report error when it cannot send a message to the queue" in {
+    val lambdaRunResults = runLambdaWithStandardParameters(6, Option(Errors(sendMessage = true)))
+
+    lambdaRunResults.result.isLeft should be(true)
+    lambdaRunResults.result.left.value.getMessage should equal("Unable to send message to queue")
+  }
+
+  "handler" should "report error when it cannot query items from dynamo table" in {
+    val lambdaRunResults = runLambdaWithStandardParameters(6, Option(Errors(queryItems = true)))
+    lambdaRunResults.result.isLeft should be(true)
+    lambdaRunResults.result.left.value.getMessage should equal("Unable to query items from the table")
+  }
+
+  "handler" should "report error when it cannot update attribute values in the table" in {
+    val lambdaRunResults = runLambdaWithStandardParameters(6, Option(Errors(updateAttributeValues = true)))
+    lambdaRunResults.result.isLeft should be(true)
+    lambdaRunResults.result.left.value.getMessage should equal("Unable to update attribute values in the table")
+  }
+
+  private def runLambdaWithStandardParameters(lastQueuedTime: Int, errors: Option[Errors]): LambdaRunResults = {
+    val lastQueued = Instant.now().minus(java.time.Duration.ofDays(lastQueuedTime)).toString
+    val initialDynamo = List(
+      PostIngestStateTableItem(
+        UUID.randomUUID(),
+        "batchId",
+        "input",
+        Some("correlationId"),
+        Some("CC"),
+        Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString),
+        Some(lastQueued),
+        Some("result_queue1")
+      )
+    )
+    val placeholderInputEvent = new ScheduledEvent()
+    val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "${testQueueUrl}"}]""")
+
+    // Call the handler method
+    runLambda(initialDynamo, placeholderInputEvent, config, () => Instant.now(), errors)
   }
