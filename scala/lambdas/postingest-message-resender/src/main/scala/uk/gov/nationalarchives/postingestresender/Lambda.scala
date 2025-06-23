@@ -43,7 +43,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
     }
 
     def resendMessages(queue: Queue): IO[Unit] = {
-      val execute = for {
+      for {
         queueAttributes <- dependencies.sqsClient.getQueueAttributes(queue.queueUrl, List(QueueAttributeName.MESSAGE_RETENTION_PERIOD))
         messageRetentionPeriod: Long = queueAttributes.attributes().get(QueueAttributeName.MESSAGE_RETENTION_PERIOD).toLong
         dateTimeNow = dependencies.instantGenerator()
@@ -80,9 +80,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
               }
             }.void
       } yield ()
-      execute.handleErrorWith { error =>
-        IO.raiseError(error)
-      }
     }
 
     val lambdaResult = for {

@@ -12,7 +12,7 @@ This lambda is triggered periodically by a scheduled event. On invocation, it pe
    * For each such item, it constructs a message and sends it to the corresponding SQS queue using the `sendMessage` method.
    * It updates the Post Ingest State DynamoDB table to mark the message as resent by updating the `lastQueued` timestamp.
 4. The lambda continues to process items for subsequent queues from the configuration.
-5. Once all queues have been processed, the lambda completes its execution.
+5. Once all queues have been processed, the lambda invocation terminates.
  
 
 ## Environment Variables
