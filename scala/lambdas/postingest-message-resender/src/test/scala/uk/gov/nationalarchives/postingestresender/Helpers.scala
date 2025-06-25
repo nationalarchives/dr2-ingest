@@ -69,7 +69,7 @@ object Helpers {
   def sqsClient(sqsMessageRef: Ref[IO, Map[String, List[SQSEvent.SQSMessage]]], errors: Option[Errors]): DASQSClient[IO] = new DASQSClient[IO]:
     override def receiveMessages[T](queueUrl: String, maxNumberOfMessages: Int)(using dec: Decoder[T]): IO[List[DASQSClient.MessageResponse[T]]] = notImplemented
     override def deleteMessage(queueUrl: String, receiptHandle: String): IO[DeleteMessageResponse] = notImplemented
-    override def getQueueAttributes(queueUrl: String, attributeNames: List[QueueAttributeName]): IO[GetQueueAttributesResponse] = {
+    override def getQueueAttributes(queueUrl: String, attributeNames: List[QueueAttributeName]): IO[GetQueueAttributesResponse] =
       errors.raise(_.getQueueAttributes, "Unable to retrieve queue attributes") >> {
         val retentionSeconds = if (queueUrl == testQueueUrl) then "345600" else "200"
         IO.pure(
@@ -79,23 +79,19 @@ object Helpers {
             .build()
         )
       }
-    }
 
     override def sendMessage[T <: Product](
         queueUrl: String
-    )(message: T, potentialFifoQueueConfiguration: Option[FifoQueueConfiguration], delaySeconds: Int)(using enc: Encoder[T]): IO[SendMessageResponse] = {
+    )(message: T, potentialFifoQueueConfiguration: Option[FifoQueueConfiguration], delaySeconds: Int)(using enc: Encoder[T]): IO[SendMessageResponse] =
       errors.raise(_.sendMessage, "Unable to send message to queue") >>
         sqsMessageRef
-          .update { messagesMap =>
+          .update: messagesMap =>
             val newMessage = new SQSMessage()
             newMessage.setBody(message.asJson.noSpaces)
-            messagesMap.map {
+            messagesMap.map:
               case (queue, messages) if queue == queueUrl => queue -> (newMessage :: messages)
               case (queue, messages)                      => queue -> messages
-            }
-          }
           .map(_ => SendMessageResponse.builder.build)
-    }
 
   def dynamoClient(ref: Ref[IO, List[PostIngestStateTableItem]], errors: Option[Errors]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
 
@@ -108,30 +104,24 @@ object Helpers {
         val newLastQueued = dynamoDbRequest.attributeNamesAndValuesToUpdate.get(lastQueued).flatMap(_.map(_.s()))
         val assetIdToUpdate = UUID.fromString(dynamoDbRequest.primaryKeyAndItsValue.get(assetId).map(_.s()).get)
         ref
-          .update { existingItems =>
-            existingItems.map { item =>
-              if (item.assetId.equals(assetIdToUpdate))
-                item.copy(potentialLastQueued = newLastQueued)
-              else
-                item
-            }
-          }
+          .update: existingItems =>
+            existingItems.map: item =>
+              if item.assetId.equals(assetIdToUpdate) then item.copy(potentialLastQueued = newLastQueued) else item
           .map(_ => 1)
       }
     }
 
     override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
       errors.raise(_.queryItems, "Unable to query items from the table") >>
-        ref.get.map { existingItems =>
-          (for {
+        ref.get.map: existingItems =>
+          (for
             values <- Option(requestCondition.attributes.values)
             queryConditionsMap <- values.toMap[String].toOption
-          } yield existingItems
-            .filter(i =>
-              i.potentialLastQueued.exists(_ < queryConditionsMap("conditionAttributeValue1")) && i.potentialQueue.contains(queryConditionsMap("conditionAttributeValue0"))
-            )
+          yield existingItems
+            .filter: i =>
+              i.potentialLastQueued.exists(_ < queryConditionsMap("conditionAttributeValue1")) &&
+                i.potentialQueue.contains(queryConditionsMap("conditionAttributeValue0"))
             .map(_.asInstanceOf[U]))
             .getOrElse(Nil)
-        }
 
 }

@@ -18,7 +18,12 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   given Decoder[QueueMessage] = deriveDecoder[QueueMessage]
 
   "handler" should "not send message and not update dynamo table when the message is within retention period" in {
-    val lastQueuedTime = Instant.now().minus(java.time.Duration.ofDays(2)).toString
+    val lastQueuedTime = Instant
+      .now()
+      .minus(java.time.Duration.ofDays(3))
+      .minus(java.time.Duration.ofHours(23))
+      .minus(java.time.Duration.ofMinutes(59))
+      .toString
     val initialDynamo = List(
       PostIngestStateTableItem(
         UUID.randomUUID(),
@@ -41,7 +46,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResults.finalItemsInTable.head.potentialLastQueued.get should be(lastQueuedTime)
   }
 
-  "handler" should "update the 'lastQueued' time for all items older than the message retention period" in {
+  "handler" should "update the 'lastQueued' datetime for all items older than the message retention period" in {
     val assetId1 = UUID.randomUUID()
     val assetId2 = UUID.randomUUID()
 
@@ -52,8 +57,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         "input_message_payload1",
         Some("correlationId"),
         Some("CC"),
-        Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString),
-        Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString), // 6 days old, cutoff time is 4 days
+        Some(Instant.now().minus(java.time.Duration.ofDays(10)).toString),
+        Some(Instant.now().minus(java.time.Duration.ofDays(5)).toString), // 5 days old, cutoff time is 4 days
         Some("result_queue1")
       ),
       PostIngestStateTableItem(
@@ -62,8 +67,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         "input_message_payload2",
         Some("correlationId1"),
         Some("CC"),
-        Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString),
-        Some(Instant.now().minus(java.time.Duration.ofDays(16)).toString), // 16 days old, cutoff time is 4 days
+        Some(Instant.now().minus(java.time.Duration.ofDays(16)).toString),
+        Some(predictableStartOfTheDay().minus(java.time.Duration.ofDays(4)).minus(java.time.Duration.ofMinutes(1)).toString), // 4 days and 1 minute old
         Some("result_queue1")
       )
     )
@@ -72,7 +77,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
     // Call the handler method
     val lambdaRunResults = runLambda(initialDynamo, placeholderInputEvent, config, predictableStartOfTheDay)
-    val expectedUpdatedTime = predictableStartOfTheDay().toString()
+    val expectedUpdatedTime = predictableStartOfTheDay().toString
 
     lambdaRunResults.finalItemsInTable.size should be(2)
     lambdaRunResults.finalItemsInTable.map(_.potentialLastQueued.get) should contain only expectedUpdatedTime
@@ -119,7 +124,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
     // Call the handler method
     val lambdaRunResults = runLambda(initialDynamo, placeholderInputEvent, config, predictableStartOfTheDay)
-    val expectedUpdatedTime = predictableStartOfTheDay().toString()
+    val expectedUpdatedTime = predictableStartOfTheDay().toString
 
     lambdaRunResults.finalItemsInTable.size should be(2)
     lambdaRunResults.finalItemsInTable.find(_.assetId.equals(uuidForUpdate)).get.potentialLastQueued.get should be(expectedUpdatedTime)
@@ -158,8 +163,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResults.result.left.value.getMessage should equal("Unable to update attribute values in the table")
   }
 
-  private def runLambdaWithStandardParameters(lastQueuedTime: Int, errors: Option[Errors]): LambdaRunResults = {
-    val lastQueued = Instant.now().minus(java.time.Duration.ofDays(lastQueuedTime)).toString
+  private def runLambdaWithStandardParameters(lastQueuedDays: Int, errors: Option[Errors]): LambdaRunResults = {
+    val lastQueued = Instant.now().minus(java.time.Duration.ofDays(lastQueuedDays)).toString
     val initialDynamo = List(
       PostIngestStateTableItem(
         UUID.randomUUID(),

@@ -33,73 +33,53 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
     val dynamoClient = dependencies.dynamoClient
     val sqsClient = dependencies.sqsClient
 
-    /** This function goes over the list of queues passed to it and refreshes the messages if any of them have expired. It does this by calling @resendMessages for each queue
-      * @param queues
-      *   List of queues to process
-      * @return
-      *   Unit
-      */
-    def processQueues(queues: List[Queue]): IO[Unit] = {
-      queues match {
-        case Nil => IO.unit
-        case _ =>
-          resendMessages(queues.head) >>
-            processQueues(queues.tail)
-      }
-    }
-
-    /** This function revceives a queue as a parameter. For the particular queue, it retrieves details from the post ingest table, it also retrieves 'Message Retention Period' for
-      * this queue. If any of the items in the post ingest table has a 'lastQueued' time before the message retention period, it resends the message to the queue and updates the
-      * 'lastQueued' value for this item in post ingest table with the current time.
+    /** This function receives a queue as a parameter. For the particular queue, it retrieves the details from the post ingest table, it also retrieves the 'Message Retention
+      * Period' for this queue. If any of the items in the post ingest table has a 'lastQueued' time before the message retention period, it resends the message to the queue and
+      * updates the 'lastQueued' value for this item in post ingest table with the current datetime.
       * @param queue
-      *   The queue for which any expired messages to be resent
+      *   The queue for which any expired messages are to be resent
       * @return
       *   Unit
       */
-    def resendMessages(queue: Queue): IO[Unit] = {
-      for {
-        queueAttributes <- dependencies.sqsClient.getQueueAttributes(queue.queueUrl, List(QueueAttributeName.MESSAGE_RETENTION_PERIOD))
-        messageRetentionPeriod: Long = queueAttributes.attributes().get(QueueAttributeName.MESSAGE_RETENTION_PERIOD).toLong
-        dateTimeNow = dependencies.instantGenerator()
-        dateTimeCutOff = dateTimeNow.minusSeconds(messageRetentionPeriod)
+    def resendExpiredMessages(queue: Queue): IO[Unit] = for {
+      queueAttributes <- dependencies.sqsClient.getQueueAttributes(queue.queueUrl, List(QueueAttributeName.MESSAGE_RETENTION_PERIOD))
+      messageRetentionPeriod: Long = queueAttributes.attributes().get(QueueAttributeName.MESSAGE_RETENTION_PERIOD).toLong
+      dateTimeNow = dependencies.instantGenerator()
+      dateTimeCutOff = dateTimeNow.minusSeconds(messageRetentionPeriod)
 
-        items <- dependencies.dynamoClient.queryItems[PostIngestStateTableItem](
-          config.dynamoTableName,
-          AndCondition("queue" === queue.queueAlias, "lastQueued" < dateTimeCutOff.toString), // no compiler error, but mock implementation complained
-          Some("QueueLastQueuedIdx")
-        )
+      expiredItems <- dependencies.dynamoClient.queryItems[PostIngestStateTableItem](
+        config.dynamoTableName,
+        AndCondition("queue" === queue.queueAlias, "lastQueued" < dateTimeCutOff.toString),
+        Some("QueueLastQueuedIdx")
+      )
 
-        _ <-
-          if (items.isEmpty) IO.unit
-          else
-            {
-              logger.info(s"Resending ${items.size} items to queue ${queue.queueAlias}")
-              items.parTraverse { item =>
-                dependencies.sqsClient.sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input)).handleErrorWith { error =>
-                  logger.error(s"Failed to send message for assetId ${item.assetId} to queue ${queue.queueAlias}: ${error.getMessage}")
-                  IO.raiseError(error)
-                } >>
-                  dependencies.dynamoClient
-                    .updateAttributeValues(
-                      DADynamoDbRequest(
-                        config.dynamoTableName,
-                        Map(assetId -> AttributeValue.builder().s(item.assetId.toString).build()),
-                        Map(lastQueued -> Some(AttributeValue.builder().s(dateTimeNow.toString).build()))
-                      )
-                    )
-                    .handleErrorWith { error =>
-                      logger.error(s"Failed to update lastQueued for assetId ${item.assetId} and queue ${queue.queueAlias}: ${error.getMessage}")
-                      IO.raiseError(error)
-                    }
-              }
-            }.void
-      } yield ()
-    }
+      _ <- if (expiredItems.isEmpty) then IO.unit else logger.info(s"Resending ${expiredItems.size} items to ${queue.queueAlias} queue")
+      _ <- expiredItems.parTraverse { item =>
+        dependencies.sqsClient.sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input)).handleErrorWith { error =>
+          logger.error(s"""Failed to send message for assetId ${item.assetId} to ${queue.queueAlias} queue:
+               |${error.getMessage}""".stripMargin)
+          IO.raiseError(error)
+        } >>
+          dependencies.dynamoClient
+            .updateAttributeValues(
+              DADynamoDbRequest(
+                config.dynamoTableName,
+                Map(assetId -> AttributeValue.builder().s(item.assetId.toString).build()),
+                Map(lastQueued -> Some(AttributeValue.builder().s(dateTimeNow.toString).build()))
+              )
+            )
+            .handleErrorWith { error =>
+              logger.error(s"""Failed to update 'lastQueued' for assetId ${item.assetId} and ${queue.queueAlias} queue:
+                   |${error.getMessage}""".stripMargin)
+              IO.raiseError(error)
+            }
+      }.void
+    } yield ()
 
     val lambdaResult = for {
-      listOfQueues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
-      _ <- logger.info(s"Starting message resend for queues: ${listOfQueues.map(_.queueAlias).mkString(", ")}") >>
-        processQueues(listOfQueues)
+      orderedQueues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
+      _ <- logger.info(s"Starting message resender for queues: ${orderedQueues.map(_.queueAlias).mkString(", ")}")
+      _ <- orderedQueues.traverse(queue => resendExpiredMessages(queue))
     } yield ()
 
     lambdaResult.handleErrorWith { error =>
