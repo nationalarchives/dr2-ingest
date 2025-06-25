@@ -53,7 +53,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
         Some("QueueLastQueuedIdx")
       )
 
-      _ <- if (expiredItems.isEmpty) then IO.unit else logger.info(s"Resending ${expiredItems.size} items to ${queue.queueAlias} queue")
+      _ <- if expiredItems.isEmpty then IO.unit else logger.info(s"Resending ${expiredItems.size} items to ${queue.queueAlias} queue")
       _ <- expiredItems.parTraverse { item =>
         dependencies.sqsClient.sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input)).handleErrorWith { error =>
           logger.error(s"""Failed to send message for assetId ${item.assetId} to ${queue.queueAlias} queue:

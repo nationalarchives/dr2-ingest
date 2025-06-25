@@ -37,7 +37,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
-    val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "${testQueueUrl}"}]""")
+    val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$testQueueUrl"}]""")
 
     // Call the handler method
     val lambdaRunResults = runLambda(initialDynamo, placeholderInputEvent, config)
@@ -73,7 +73,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
-    val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "${testQueueUrl}"}]""")
+    val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$testQueueUrl"}]""")
 
     // Call the handler method
     val lambdaRunResults = runLambda(initialDynamo, placeholderInputEvent, config, predictableStartOfTheDay)
@@ -82,7 +82,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResults.finalItemsInTable.size should be(2)
     lambdaRunResults.finalItemsInTable.map(_.potentialLastQueued.get) should contain only expectedUpdatedTime
 
-    val messages = lambdaRunResults.sentSqsMessages.get(testQueueUrl).get.map { message =>
+    val messages = lambdaRunResults.sentSqsMessages(testQueueUrl).map { message =>
       decode[QueueMessage](message.getBody).getOrElse(throw new RuntimeException("could not decode messages"))
     }
     messages.size should be(2)
@@ -130,7 +130,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     lambdaRunResults.finalItemsInTable.find(_.assetId.equals(uuidForUpdate)).get.potentialLastQueued.get should be(expectedUpdatedTime)
     lambdaRunResults.finalItemsInTable.find(_.assetId.equals(uuidForNoUpdate)).get.potentialLastQueued.get should be(sixteenDaysOld)
 
-    val messages = lambdaRunResults.sentSqsMessages.get(testQueueUrl).get.map { message =>
+    val messages = lambdaRunResults.sentSqsMessages(testQueueUrl).map { message =>
       decode[QueueMessage](message.getBody).getOrElse(throw new RuntimeException("could not decode messages"))
     }
     messages.size should be(1)

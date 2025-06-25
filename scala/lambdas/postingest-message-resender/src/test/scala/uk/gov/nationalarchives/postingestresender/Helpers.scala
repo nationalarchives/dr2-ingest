@@ -71,7 +71,7 @@ object Helpers {
     override def deleteMessage(queueUrl: String, receiptHandle: String): IO[DeleteMessageResponse] = notImplemented
     override def getQueueAttributes(queueUrl: String, attributeNames: List[QueueAttributeName]): IO[GetQueueAttributesResponse] =
       errors.raise(_.getQueueAttributes, "Unable to retrieve queue attributes") >> {
-        val retentionSeconds = if (queueUrl == testQueueUrl) then "345600" else "200"
+        val retentionSeconds = if queueUrl == testQueueUrl then "345600" else "200"
         IO.pure(
           GetQueueAttributesResponse
             .builder()
