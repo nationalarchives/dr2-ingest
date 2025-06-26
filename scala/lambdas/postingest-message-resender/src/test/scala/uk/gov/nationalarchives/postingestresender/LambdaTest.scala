@@ -15,6 +15,9 @@ import java.time.Instant
 import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with EitherValues:
+
+  val defaultConfig = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$testQueueUrl"}]""")
+
   given Decoder[QueueMessage] = deriveDecoder[QueueMessage]
 
   "handler" should "not send message and not update dynamo table when the message is within retention period" in {
@@ -37,7 +40,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
-    val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$testQueueUrl"}]""")
+    val config = defaultConfig
 
     // Call the handler method
     val lambdaRunResults = runLambda(initialDynamo, placeholderInputEvent, config)
@@ -73,7 +76,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
-    val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$testQueueUrl"}]""")
+    val config = defaultConfig
 
     // Call the handler method
     val lambdaRunResults = runLambda(initialDynamo, placeholderInputEvent, config, predictableStartOfTheDay)
@@ -120,7 +123,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
-    val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$testQueueUrl"}]""")
+    val config = defaultConfig
 
     // Call the handler method
     val lambdaRunResults = runLambda(initialDynamo, placeholderInputEvent, config, predictableStartOfTheDay)
@@ -177,9 +180,5 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("result_queue1")
       )
     )
-    val placeholderInputEvent = new ScheduledEvent()
-    val config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "${testQueueUrl}"}]""")
-
-    // Call the handler method
-    runLambda(initialDynamo, placeholderInputEvent, config, () => Instant.now(), errors)
+    runLambda(initialDynamo, new ScheduledEvent(), defaultConfig, () => Instant.now(), errors)
   }

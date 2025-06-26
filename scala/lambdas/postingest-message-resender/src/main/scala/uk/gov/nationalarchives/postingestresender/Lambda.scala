@@ -30,8 +30,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
   )
 
   override def handler: (ScheduledEvent, Config, Dependencies) => IO[Unit] = { (triggerEvent, config, dependencies) =>
-    val dynamoClient = dependencies.dynamoClient
-    val sqsClient = dependencies.sqsClient
 
     /** This function receives a queue as a parameter. For the particular queue, it retrieves the details from the post ingest table, it also retrieves the 'Message Retention
       * Period' for this queue. If any of the items in the post ingest table has a 'lastQueued' time before the message retention period, it resends the message to the queue and
@@ -44,8 +42,8 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
     def resendExpiredMessages(queue: Queue): IO[Unit] = for {
       queueAttributes <- dependencies.sqsClient.getQueueAttributes(queue.queueUrl, List(QueueAttributeName.MESSAGE_RETENTION_PERIOD))
       messageRetentionPeriod: Long = queueAttributes.attributes().get(QueueAttributeName.MESSAGE_RETENTION_PERIOD).toLong
-      dateTimeNow = dependencies.instantGenerator()
-      dateTimeCutOff = dateTimeNow.minusSeconds(messageRetentionPeriod)
+      dateTimeNow: Instant = dependencies.instantGenerator()
+      dateTimeCutOff: Instant = dateTimeNow.minusSeconds(messageRetentionPeriod)
 
       expiredItems <- dependencies.dynamoClient.queryItems[PostIngestStateTableItem](
         config.dynamoTableName,
@@ -53,10 +51,10 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
         Some("QueueLastQueuedIdx")
       )
 
-      _ <- if expiredItems.isEmpty then IO.unit else logger.info(s"Resending ${expiredItems.size} items to ${queue.queueAlias} queue")
+      _ <- if expiredItems.isEmpty then IO.unit else logger.info(s"Resending ${expiredItems.size} items to '${queue.queueAlias}' queue")
       _ <- expiredItems.parTraverse { item =>
         dependencies.sqsClient.sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input)).handleErrorWith { error =>
-          logger.error(s"""Failed to send message for assetId ${item.assetId} to ${queue.queueAlias} queue:
+          logger.error(s"""Failed to send message for assetId '${item.assetId}' to '${queue.queueAlias}' queue:
                |${error.getMessage}""".stripMargin)
           IO.raiseError(error)
         } >>
@@ -69,20 +67,18 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
               )
             )
             .handleErrorWith { error =>
-              logger.error(s"""Failed to update 'lastQueued' for assetId ${item.assetId} and ${queue.queueAlias} queue:
+              logger.error(s"""Failed to update 'lastQueued' timestamp for assetId '${item.assetId}' of '${queue.queueAlias}' queue:
                    |${error.getMessage}""".stripMargin)
               IO.raiseError(error)
             }
       }.void
     } yield ()
 
-    val lambdaResult = for {
+    (for {
       orderedQueues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
       _ <- logger.info(s"Starting message resender for queues: ${orderedQueues.map(_.queueAlias).mkString(", ")}")
       _ <- orderedQueues.traverse(queue => resendExpiredMessages(queue))
-    } yield ()
-
-    lambdaResult.handleErrorWith { error =>
+    } yield ()).handleErrorWith { error =>
       logger.error(s"Error processing scheduled event: ${error.getMessage}") >>
         IO.raiseError(error)
     }
