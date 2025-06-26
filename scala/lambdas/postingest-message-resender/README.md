@@ -8,7 +8,7 @@ This lambda is triggered periodically by a scheduled event. On invocation, it pe
 2. It traverses the configured queues.
 3. For each queue,
    * It retrieves the message retention period for that queue using the `getQueueAttributes` method.
-   * It retrieves all items from in the dr2-postingest-state table that match the queue's alias and are older than the message retention period.
+   * It retrieves all items from the dr2-postingest-state table that match the queue's alias and are older than the message retention period.
    * For each such item, it constructs a message and sends it to the corresponding SQS queue using the `sendMessage` method.
    * It updates the dr2-postingest-state table and sets the `lastQueued` timestamp to be current datetime.
 4. Once all queues have been traversed, the lambda terminates.
