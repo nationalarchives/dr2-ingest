@@ -2,6 +2,7 @@ package uk.gov.nationalarchives.postingestresender
 
 import cats.effect.IO
 import cats.syntax.all.*
+import cats.effect.implicits.concurrentParTraverseOps
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
@@ -12,6 +13,7 @@ import pureconfig.ConfigReader
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.services.sqs.model.QueueAttributeName
 import uk.gov.nationalarchives.DADynamoDBClient.{DADynamoDbRequest, given}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.postingestresender.Lambda.{Config, Dependencies, QueueMessage}
 import uk.gov.nationalarchives.utils.EventCodecs.given
@@ -47,32 +49,42 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
 
       expiredItems <- dependencies.dynamoClient.queryItems[PostIngestStateTableItem](
         config.dynamoTableName,
-        AndCondition("queue" === queue.queueAlias, "lastQueued" < dateTimeCutOff.toString),
+        AndCondition(DynamoFormatters.queue === queue.queueAlias, lastQueued < dateTimeCutOff.toString),
         Some("QueueLastQueuedIdx")
       )
 
       _ <- if expiredItems.isEmpty then IO.unit else logger.info(s"Resending ${expiredItems.size} items to '${queue.queueAlias}' queue")
-      _ <- expiredItems.parTraverse { item =>
-        dependencies.sqsClient.sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input)).handleErrorWith { error =>
-          logger.error(s"""Failed to send message for assetId '${item.assetId}' to '${queue.queueAlias}' queue:
-               |${error.getMessage}""".stripMargin)
-          IO.raiseError(error)
-        } >>
-          dependencies.dynamoClient
-            .updateAttributeValues(
-              DADynamoDbRequest(
-                config.dynamoTableName,
-                Map(assetId -> AttributeValue.builder().s(item.assetId.toString).build()),
-                Map(lastQueued -> Some(AttributeValue.builder().s(dateTimeNow.toString).build()))
-              )
-            )
-            .handleErrorWith { error =>
-              logger.error(s"""Failed to update 'lastQueued' timestamp for assetId '${item.assetId}' of '${queue.queueAlias}' queue:
-                   |${error.getMessage}""".stripMargin)
-              IO.raiseError(error)
-            }
+      _ <- expiredItems.parTraverseN(25) { item =>
+        sendToQueue(item, queue) >>
+          updateLastQueued(item, queue, dateTimeNow)
       }.void
     } yield ()
+
+    def sendToQueue(item: PostIngestStateTableItem, queue: Queue): IO[Unit] =
+      dependencies.sqsClient
+        .sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input))
+        .handleErrorWith { error =>
+          logger.error(s"""Failed to send message for assetId '${item.assetId}' to '${queue.queueAlias}' queue:
+                      |${error.getMessage}""".stripMargin)
+          IO.raiseError(error)
+        }
+        .void
+
+    def updateLastQueued(item: PostIngestStateTableItem, queue: Queue, newDateTime: Instant): IO[Unit] =
+      dependencies.dynamoClient
+        .updateAttributeValues(
+          DADynamoDbRequest(
+            config.dynamoTableName,
+            Map(assetId -> AttributeValue.builder().s(item.assetId.toString).build()),
+            Map(lastQueued -> Some(AttributeValue.builder().s(newDateTime.toString).build()))
+          )
+        )
+        .handleErrorWith { error =>
+          logger.error(s"""Failed to update 'lastQueued' timestamp for assetId '${item.assetId}' of '${queue.queueAlias}' queue:
+                          |${error.getMessage}""".stripMargin)
+          IO.raiseError(error)
+        }
+        .void
 
     (for {
       orderedQueues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
