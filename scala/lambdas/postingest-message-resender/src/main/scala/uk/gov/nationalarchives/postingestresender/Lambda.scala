@@ -51,10 +51,12 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
       )
 
       _ <- if expiredItems.isEmpty then IO.unit else logger.info(s"Resending ${expiredItems.size} items to '${queue.queueAlias}' queue")
-      _ <- expiredItems.parTraverseN(25) { item =>
-        sendToQueue(item, queue) >>
-          updateLastQueued(item, queue, dateTimeNow)
-      }.void
+      _ <- expiredItems
+        .parTraverseN(25) { item =>
+          sendToQueue(item, queue) >>
+            updateLastQueued(item, queue, dateTimeNow)
+        }
+        .void
     } yield ()
 
     def sendToQueue(item: PostIngestStateTableItem, queue: Queue): IO[Unit] =
