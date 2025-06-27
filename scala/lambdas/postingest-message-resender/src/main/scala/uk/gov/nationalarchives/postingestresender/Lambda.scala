@@ -36,11 +36,8 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
     /** This function receives a queue as a parameter. For the particular queue, it retrieves the details from the post ingest table, it also retrieves the 'Message Retention
       * Period' for this queue. If any of the items in the post ingest table has a 'lastQueued' time before the message retention period, it resends the message to the queue and
       * updates the 'lastQueued' value for this item in post ingest table with the current datetime.
-      * @param queue
-      *   The queue for which any expired messages are to be resent
-      * @return
-      *   Unit
       */
+
     def resendExpiredMessages(queue: Queue): IO[Unit] = for {
       queueAttributes <- dependencies.sqsClient.getQueueAttributes(queue.queueUrl, List(QueueAttributeName.MESSAGE_RETENTION_PERIOD))
       messageRetentionPeriod: Long = queueAttributes.attributes().get(QueueAttributeName.MESSAGE_RETENTION_PERIOD).toLong

@@ -16,7 +16,7 @@ import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with EitherValues:
 
-  val defaultConfig = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$testQueueUrl"}]""")
+  val defaultConfig: Config = Config("testPostIngestTable", "dynamoGsi", s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$testQueueUrl"}]""")
 
   given Decoder[QueueMessage] = deriveDecoder[QueueMessage]
 
