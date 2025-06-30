@@ -1,6 +1,6 @@
 # Postingest
 
-Postingest is the process by which we send messages to the external notifications topic when certain parts of the ingest
+Postingest is the process by which we send messages to the external notifications topic when certain steps of the ingest
 process have completed.
 
 ## Infrastructure diagram
@@ -14,15 +14,13 @@ process have completed.
 When an asset has been reconciled in the ingest step function, an entry is added to the dr2-postingest-state
 table.
 
-The "input" field is the text that will be sent to the next stage in the process.
-
-When this Dynamo item is inserted:
-
 | assetId                              | batchId                                  | input                                                           |
 |--------------------------------------|------------------------------------------|-----------------------------------------------------------------|
 | e2715719-c313-4e95-b5e6-f8759dcc6aed | TDR_0cae3480-2b84-42a7-b899-dcce25aee98b | {"preservationSystemId":"9a83532d-dd26-442d-b259-b1823f668649"} |
 
-The postingest-state-change lambda is triggered.
+The "input" field is the text that will be sent to the next stage in the process.
+
+When this Dynamo item is inserted, the postingest-state-change lambda is triggered.
 
 ### State change lambda - first run
 
@@ -62,7 +60,7 @@ The current config for this lambda is:
 ]
 ```
 
-The lambda checks to see if there is a attribute set on this item called ingested_CC.
+The lambda checks to see if there is an attribute set on this item called ingested_CC.
 
 There isn't yet and so it sends the message stored in the input item in the Dynamo table to the
 custodial-copy-confirmer-queue.
@@ -138,7 +136,7 @@ so it sends this message.
 }
 ```
 
-It has no more queues to process. It deletes the row from the postingest table.
+It has no more queues to process. It deletes the item from the postingest table.
 
 ## Unprocessed messages after two weeks
 
@@ -166,8 +164,7 @@ This Dynamo table. Some fields are omitted for clarity.
 | assetId                              | batchId                                  | input                                                           | lastQueued       | queue |
 |--------------------------------------|------------------------------------------|-----------------------------------------------------------------|------------------|-------|
 | e2715719-c313-4e95-b5e6-f8759dcc6aed | TDR_0cae3480-2b84-42a7-b899-dcce25aee98b | {"preservationSystemId":"9a83532d-dd26-442d-b259-b1823f668649"} | 2025-06-05T10:00 | CC    |
-| ca3bb9d5-c5bf-4da8-9ad7-a937f163b006 | TDR_5d29749b-4891-4ae4-abdd-d57c9bab00ee | {"preservationSystemId":"f6c52bdd-c245-4439-992e-7a3358407b36"} | 2025-06-05T10:00 | CC    |                |
- give
+| ca3bb9d5-c5bf-4da8-9ad7-a937f163b006 | TDR_5d29749b-4891-4ae4-abdd-d57c9bab00ee | {"preservationSystemId":"f6c52bdd-c245-4439-992e-7a3358407b36"} | 2025-06-15T10:00 | CC    |                |
 
 The query will find everything that was sent to the CC queue but hasn't been processed for more than two weeks, let's assume in this example that the date that this lambda ran was 2025-06-19T16:24, it will find the first row. 
 
