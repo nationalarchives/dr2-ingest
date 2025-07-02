@@ -1,8 +1,8 @@
 package uk.gov.nationalarchives.postingestresender
 
 import cats.effect.IO
-import cats.syntax.all.*
 import cats.effect.implicits.concurrentParTraverseOps
+import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
@@ -50,13 +50,12 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
         Some("QueueLastQueuedIdx")
       )
 
-      _ <- if expiredItems.isEmpty then IO.unit else logger.info(s"Resending ${expiredItems.size} items to '${queue.queueAlias}' queue")
+      _ <- IO.whenA(expiredItems.nonEmpty) { logger.info(s"Resending ${expiredItems.size} items to '${queue.queueAlias}' queue") }
       _ <- expiredItems
         .parTraverseN(25) { item =>
           sendToQueue(item, queue) >>
             updateLastQueued(item, queue, dateTimeNow)
         }
-        .void
     } yield ()
 
     def sendToQueue(item: PostIngestStateTableItem, queue: Queue): IO[Unit] =
@@ -64,8 +63,8 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
         .sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input))
         .handleErrorWith { error =>
           logger.error(s"""Failed to send message for assetId '${item.assetId}' to '${queue.queueAlias}' queue:
-                      |${error.getMessage}""".stripMargin)
-          IO.raiseError(error)
+                      |${error.getMessage}""".stripMargin) >>
+            IO.raiseError(error)
         }
         .void
 
@@ -80,15 +79,15 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
         )
         .handleErrorWith { error =>
           logger.error(s"""Failed to update 'lastQueued' timestamp for assetId '${item.assetId}' of '${queue.queueAlias}' queue:
-                          |${error.getMessage}""".stripMargin)
-          IO.raiseError(error)
+                          |${error.getMessage}""".stripMargin) >>
+            IO.raiseError(error)
         }
         .void
 
     (for {
       orderedQueues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
       _ <- logger.info(s"Starting message resender for queues: ${orderedQueues.map(_.queueAlias).mkString(", ")}")
-      _ <- orderedQueues.traverse(queue => resendExpiredMessages(queue))
+      _ <- orderedQueues.traverse(resendExpiredMessages)
     } yield ()).handleErrorWith { error =>
       logger.error(s"Error processing scheduled event: ${error.getMessage}") >>
         IO.raiseError(error)
