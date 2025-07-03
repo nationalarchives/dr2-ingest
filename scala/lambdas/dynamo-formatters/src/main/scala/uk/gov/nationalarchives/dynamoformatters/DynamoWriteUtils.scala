@@ -74,7 +74,8 @@ object DynamoWriteUtils {
         assetId -> DynamoValue.fromString(lockTableItem.assetId.toString),
         groupId -> DynamoValue.fromString(lockTableItem.groupId),
         message -> DynamoValue.fromString(lockTableItem.message)
-      )
+      ) ++
+        lockTableItem.potentialCreatedAt.map(createdAtAttrVal => Map(createdAt -> DynamoValue.fromString(createdAtAttrVal))).getOrElse(Map())
     }.toDynamoValue
 
   def writeIngestQueueTableItem(ingestQueueTableItem: IngestQueueTableItem): DynamoValue =
