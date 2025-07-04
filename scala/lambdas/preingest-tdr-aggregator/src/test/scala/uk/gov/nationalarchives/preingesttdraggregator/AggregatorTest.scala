@@ -78,6 +78,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     attributes("assetId").s() should equal(assetId.toString)
     attributes("groupId").s() should equal(groupId.groupValue)
     attributes("message").s() should equal(s"""{"id":"$assetId","location":"s3://bucket/key","messageId":"message-id"}""")
+    attributes("createdAt").s() should equal("2024-08-13T14:39:07Z")
   }
 
   def generators(instant: Instant): Generators = new Generators:

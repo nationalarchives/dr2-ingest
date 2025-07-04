@@ -27,7 +27,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
-import java.time.OffsetDateTime
+import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
@@ -127,7 +127,8 @@ object TestUtils:
   def runLambda(
       initialS3State: List[S3Object],
       event: SQSEvent,
-      errors: Option[Errors] = None
+      errors: Option[Errors] = None,
+      instantGenerator: () => Instant = () => Instant.now()
   ): (Either[Throwable, Unit], List[S3Object], List[DADynamoDbWriteItemRequest], List[SFNExecutions]) =
     val uuidIterator = uuids.iterator
     (for {
@@ -135,7 +136,7 @@ object TestUtils:
       dynamoRef <- Ref.of[IO, List[DADynamoDbWriteItemRequest]](Nil)
       sfnRef <- Ref.of[IO, List[SFNExecutions]](Nil)
       seriesMapper = new SeriesMapper(Set(Court("COURT", "TEST", "TEST SERIES")))
-      dependencies = Dependencies(s3Client(s3Ref, errors), sfnClient(sfnRef), dynamoClient(dynamoRef, errors), () => uuidIterator.next(), seriesMapper)
+      dependencies = Dependencies(s3Client(s3Ref, errors), sfnClient(sfnRef), dynamoClient(dynamoRef, errors), () => uuidIterator.next(), seriesMapper, instantGenerator)
       res <- new Lambda().handler(event, config, dependencies).attempt
       s3FinalState <- s3Ref.get
       dynamoFinalState <- dynamoRef.get

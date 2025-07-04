@@ -6,18 +6,20 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import io.circe.Decoder
 import io.circe.generic.auto.*
 import io.circe.parser.decode
+import org.scanamo.DynamoValue
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
-import uk.gov.nationalarchives.utils.EventCodecs.given
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{IngestLockTableItem, assetId}
+import uk.gov.nationalarchives.dynamoformatters.DynamoWriteUtils
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.{Dependencies, Output}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{assetId, groupId, message}
-import uk.gov.nationalarchives.utils.Generators
+import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.utils.ExternalUtils.StepFunctionInput
-import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 
 import java.net.URI
+import java.time.Instant
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
@@ -65,7 +67,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           treInput.parameters.skipSeriesLookup
         )
         fileInfoWithUpdatedChecksum = fileInfo.copy(sha256Checksum = treMetadata.parameters.TDR.`Document-Checksum-sha256`)
-        tdrUuid = treMetadata.parameters.TDR.`UUID`.toString
+        tdrUuid = treMetadata.parameters.TDR.`UUID`
         metadata = fileProcessor.createMetadata(
           fileInfoWithUpdatedChecksum,
           metadataFileInfo,
@@ -77,7 +79,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           fileReference,
           departmentAndSeries.potentialDepartment,
           departmentAndSeries.potentialSeries,
-          tdrUuid,
+          tdrUuid.toString,
           treInput.properties.flatMap(_.messageId)
         )
         _ <- fileProcessor.createMetadataJson(metadata, metadataPackage)
@@ -89,14 +91,13 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           dependencies.s3.deleteObjects(outputBucket, irrelevantFilesFromTre) >> logWithFileRef("Deleted unused TRE objects from the root of S3")
         }
 
+        dynamoLockTableItem: DynamoValue =  DynamoWriteUtils.writeLockTableItem(
+          IngestLockTableItem(tdrUuid, batchRef, s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""", Some(dependencies.instantGenerator().toString)))
+
         _ <- dependencies.dynamo.writeItem(
           DADynamoDbWriteItemRequest(
             config.dynamoLockTableName,
-            Map(
-              assetId -> toDynamoString(tdrUuid),
-              groupId -> toDynamoString(batchRef),
-              message -> toDynamoString(s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""")
-            ),
+            dynamoLockTableItem.toAttributeValue.m().asScala.toMap,
             Some(s"attribute_not_exists($assetId)")
           )
         )
@@ -118,12 +119,12 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
     val dynamo: DADynamoDBClient[IO] = DADynamoDBClient[IO]()
     val randomUuidGenerator: () => UUID = () => Generators().generateRandomUuid
     val seriesMapper: SeriesMapper = SeriesMapper()
-    Dependencies(s3, sfn, dynamo, randomUuidGenerator, seriesMapper)
+    Dependencies(s3, sfn, dynamo, randomUuidGenerator, seriesMapper, () => Generators().generateInstant)
   }
 }
 
 object Lambda {
-  case class Dependencies(s3: DAS3Client[IO], sfn: DASFNClient[IO], dynamo: DADynamoDBClient[IO], randomUuidGenerator: () => UUID, seriesMapper: SeriesMapper)
+  case class Dependencies(s3: DAS3Client[IO], sfn: DASFNClient[IO], dynamo: DADynamoDBClient[IO], randomUuidGenerator: () => UUID, seriesMapper: SeriesMapper, instantGenerator: () => Instant = () => Instant.now())
 
   type Output = StepFunctionInput
 }
