@@ -39,7 +39,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
   case class StartExecutionArgs(stateMachineArn: String, sfnArguments: SFNArguments, name: Option[String])
 
   def dynamoClient(ref: Ref[IO, List[DADynamoDbWriteItemRequest]], dynamoErrors: Map[UUID, Boolean]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
-    override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = IO.pure(Nil)
+    override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
 
     override def writeItem(dynamoDbWriteRequest: DADynamoDbWriteItemRequest): IO[Int] = {
       val assetId = UUID.fromString(dynamoDbWriteRequest.attributeNamesAndValuesToWrite("assetId").s())
@@ -47,12 +47,12 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
       else ref.update(args => dynamoDbWriteRequest :: args).map(_ => 2)
     }
 
-    override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = IO.pure(Nil)
+    override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
 
     override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String])(using returnTypeFormat: DynamoFormat[U]): IO[List[U]] =
-      IO.pure(Nil)
+      notImplemented
 
-    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] = IO.pure(Nil)
+    override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] = notImplemented
 
     override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = IO.pure(1)
 
