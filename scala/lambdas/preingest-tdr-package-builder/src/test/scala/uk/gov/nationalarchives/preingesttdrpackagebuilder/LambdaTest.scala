@@ -21,7 +21,7 @@ import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   val config: Config = Config("", "", "cacheBucket", 1)
-  val dateTimeNow = Instant.now()
+  private val dateTimeNow: Instant = Instant.now()
   case class FileName(prefix: String, suffix: String) {
     def fileString: String = s"$prefix.$suffix"
   }
