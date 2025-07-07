@@ -91,8 +91,9 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           dependencies.s3.deleteObjects(outputBucket, irrelevantFilesFromTre) >> logWithFileRef("Deleted unused TRE objects from the root of S3")
         }
 
-        dynamoLockTableItem: DynamoValue =  DynamoWriteUtils.writeLockTableItem(
-          IngestLockTableItem(tdrUuid, batchRef, s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""", Some(dependencies.instantGenerator().toString)))
+        dynamoLockTableItem: DynamoValue = DynamoWriteUtils.writeLockTableItem(
+          IngestLockTableItem(tdrUuid, batchRef, s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""", Some(dependencies.instantGenerator().toString))
+        )
 
         _ <- dependencies.dynamo.writeItem(
           DADynamoDbWriteItemRequest(
@@ -124,7 +125,14 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 }
 
 object Lambda {
-  case class Dependencies(s3: DAS3Client[IO], sfn: DASFNClient[IO], dynamo: DADynamoDBClient[IO], randomUuidGenerator: () => UUID, seriesMapper: SeriesMapper, instantGenerator: () => Instant = () => Instant.now())
+  case class Dependencies(
+      s3: DAS3Client[IO],
+      sfn: DASFNClient[IO],
+      dynamo: DADynamoDBClient[IO],
+      randomUuidGenerator: () => UUID,
+      seriesMapper: SeriesMapper,
+      instantGenerator: () => Instant = () => Instant.now()
+  )
 
   type Output = StepFunctionInput
 }
