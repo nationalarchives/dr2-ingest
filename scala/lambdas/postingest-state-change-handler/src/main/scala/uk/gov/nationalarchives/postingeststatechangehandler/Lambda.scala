@@ -184,7 +184,7 @@ object Lambda:
   private def imageOrError(potentialImage: Option[DynamoObject]) = {
     potentialImage match {
       case Some(image) => postIngestStatusTableItemFormat.read(image.toDynamoValue).toCirceError.map(Option.apply)
-      case None => Right(None)
+      case None        => Right(None)
     }
   }
 
