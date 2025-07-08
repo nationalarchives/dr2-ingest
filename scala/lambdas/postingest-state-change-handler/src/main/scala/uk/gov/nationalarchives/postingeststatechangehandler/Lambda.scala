@@ -76,7 +76,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       .filter(_.eventName == EventName.INSERT)
       .parTraverse { record =>
         val queue1 = queues.find(_.queueOrder == 1).get
-        val processInsertRecord = updateTableAndSendToSqs(record.dynamodb.newImage, queue1) >> sendOutputMessage(record.dynamodb.newImage, Some(queue1.queueAlias))
+        val newImage = record.dynamodb.newImage.get
+        val processInsertRecord = updateTableAndSendToSqs(newImage, queue1) >> sendOutputMessage(newImage, Some(queue1.queueAlias))
         processInsertRecord.start
       }
 
@@ -89,7 +90,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         .parTraverse { record =>
           val processModifyRecord =
             (record.dynamodb.oldImage, record.dynamodb.newImage) match
-              case (Some(oldItem), newItem) =>
+              case (Some(oldItem), Some(newItem)) =>
                 val potentialQueue = queues.find(queue => queue.getResult(newItem) != queue.getResult(oldItem))
 
                 potentialQueue match {
@@ -174,12 +175,15 @@ object Lambda:
   given Decoder[StreamRecord] = (c: HCursor) =>
     for {
       potentialOldImage <- c.downField("OldImage").as[Option[DynamoObject]]
-      newImage <- c.downField("NewImage").as[DynamoObject]
+      potentialNewImage <- c.downField("NewImage").as[Option[DynamoObject]]
       oldItem <- potentialOldImage match {
-        case Some(oldImage) => postIngestStatusTableItemFormat.read(oldImage.toDynamoValue).toCirceError.map(table => Option(table))
+        case Some(oldImage) => postIngestStatusTableItemFormat.read(oldImage.toDynamoValue).toCirceError.map(Option.apply)
         case None           => Right(None)
       }
-      newItem <- postIngestStatusTableItemFormat.read(newImage.toDynamoValue).toCirceError
+      newItem <- potentialNewImage match {
+        case Some(newImage) => postIngestStatusTableItemFormat.read(newImage.toDynamoValue).toCirceError.map(Option.apply)
+        case None           => Right(None)
+      }
       key <- c.downField("Keys").as[DynamoObject]
       key <- postIngestStatePkFormat.read(key.toDynamoValue).toCirceError
     } yield StreamRecord(key.some, oldItem, newItem)
@@ -207,4 +211,4 @@ object Lambda:
 
   case class DynamodbStreamRecord(eventName: EventName, dynamodb: StreamRecord)
 
-  case class StreamRecord(keys: Option[PostIngestStatePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: PostIngestStateTableItem)
+  case class StreamRecord(keys: Option[PostIngestStatePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: Option[PostIngestStateTableItem])

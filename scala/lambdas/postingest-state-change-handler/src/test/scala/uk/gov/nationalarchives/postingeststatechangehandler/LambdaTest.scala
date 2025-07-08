@@ -62,7 +62,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   "handler" should "queue the item and send an SQS message to the correct queue if the event is an 'INSERT' one and NewImage exists" in {
     val oldDynamoItem = None
     val newDynamoItem = fullyPostIngestedAsset
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem))))
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some))))
     val refs = runLambda(Nil, event).unsafeRunSync()
 
     refs.itemsRemainingInTable.size should equal(0)
@@ -100,7 +100,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val newImage = fullyPostIngestedAsset
     val additionalItemInTable =
       PostIngestStateTableItem(UUID.fromString("e5c55836-3917-405d-8bde-a1d970136c1d"), "batchId2", "input2", Some("correlationId2"), None, None, None, None)
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage, newImage))))
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage, newImage.some))))
     val refs = runLambda(List(newImage, additionalItemInTable), event).unsafeRunSync()
 
     refs.itemsRemainingInTable.size should equal(1)
@@ -130,7 +130,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   "handler" should s"throw an error if the queues share any of the same values for their properties" in {
     val oldDynamoItem = Some(fullyPostIngestedAsset)
     val newDynamoItem = fullyPostIngestedAsset
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem))))
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some))))
 
     val duplicatedQueues =
       s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
@@ -151,7 +151,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   "handler" should s"throw an error if a queue alias could not be found in the 'queueAliasAndResultAttr' map" in {
     val oldDynamoItem = Some(fullyPostIngestedAsset)
     val newDynamoItem = fullyPostIngestedAsset
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem))))
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some))))
     val ex = intercept[MatchError] {
       runLambda(Nil, event, getConfig("UnexpectedQueueAlias")).unsafeRunSync()
     }
@@ -161,7 +161,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   "handler" should s"throw an error if the event is a 'MODIFY' one, NewImage is present but no OldImage" in {
     val oldDynamoItem = None
     val newDynamoItem = fullyPostIngestedAsset
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem))))
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some))))
     val ex = intercept[Exception] {
       runLambda(Nil, event).unsafeRunSync()
     }
