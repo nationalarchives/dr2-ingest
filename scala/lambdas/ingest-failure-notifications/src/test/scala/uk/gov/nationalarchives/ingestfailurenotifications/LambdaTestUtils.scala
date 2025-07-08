@@ -69,7 +69,7 @@ object LambdaTestUtils:
   }
 
   def generateItems(): List[IngestLockTableItem] = List.fill(100)(UUID.randomUUID).map { id =>
-    IngestLockTableItem(id, "groupId", "", Some(Instant.now().toString))
+    IngestLockTableItem(id, "groupId", "", Instant.now().toString)
   }
 
   def runLambda(lockTableItems: List[IngestLockTableItem], input: SfnInput, dynamoError: Boolean = false, snsError: Boolean = false): List[OutputMessage] = (for {

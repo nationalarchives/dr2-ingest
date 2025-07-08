@@ -205,7 +205,7 @@ object DynamoFormatters {
       assetId: ValidatedAttribute[UUID],
       groupId: ValidatedAttribute[String],
       message: ValidatedAttribute[String],
-      potentialCreatedAt: Option[String]
+      CreatedAt: ValidatedAttribute[String]
   )
 
   case class FilesTableValidatedAttributes(
@@ -314,7 +314,7 @@ object DynamoFormatters {
   case class FilesTablePrimaryKey(partitionKey: FilesTablePartitionKey, sortKey: FilesTableSortKey)
   case class LockTablePartitionKey(assetId: UUID)
 
-  case class IngestLockTableItem(assetId: UUID, groupId: String, message: String, potentialCreatedAt: Option[String])
+  case class IngestLockTableItem(assetId: UUID, groupId: String, message: String, createdAt: String)
 
   case class PostIngestStateTableItem(
       assetId: UUID,

@@ -648,7 +648,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     res.assetId should equal(assetId)
     res.groupId should equal(groupId)
     res.message should equal(res.message)
-    res.potentialCreatedAt should equal(Some(createdAt))
+    res.createdAt should equal(createdAt)
   }
 
   "ingestLockTableItemFormat read" should "error if the field is missing" in {
@@ -665,10 +665,10 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val assetId = UUID.randomUUID()
     val groupId = "groupId"
     val message = "{}"
-    val potentialCreatedAt = Some("2025-07-03T19:29:00.000Z")
+    val createdAt = "2025-07-03T19:29:00.000Z"
 
     val attributeValueMap =
-      ingestLockTableItemFormat.write(IngestLockTableItem(assetId, groupId, message, potentialCreatedAt)).toAttributeValue.m().asScala
+      ingestLockTableItemFormat.write(IngestLockTableItem(assetId, groupId, message, createdAt)).toAttributeValue.m().asScala
     UUID.fromString(attributeValueMap("assetId").s()) should equal(assetId)
     attributeValueMap("groupId").s() should equal("groupId")
     attributeValueMap("message").s() should equal("{}")

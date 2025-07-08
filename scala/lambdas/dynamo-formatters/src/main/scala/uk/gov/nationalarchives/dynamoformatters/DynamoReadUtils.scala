@@ -54,7 +54,7 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     ),
     getValidatedMandatoryAttributeAsString(groupId),
     getValidatedMandatoryAttributeAsString(message),
-    getPotentialStringValue(createdAt)
+    getValidatedMandatoryAttributeAsString(createdAt)
   )
 
   private val allValidatedFileTableAttributes: FilesTableValidatedAttributes = FilesTableValidatedAttributes(
@@ -238,9 +238,10 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     (
       allValidatedLockTableAttributes.assetId,
       allValidatedLockTableAttributes.groupId,
-      allValidatedLockTableAttributes.message
-    ).mapN { (assetId, groupId, message) =>
-      IngestLockTableItem(assetId, groupId, message, allValidatedLockTableAttributes.potentialCreatedAt)
+      allValidatedLockTableAttributes.message,
+      allValidatedLockTableAttributes.CreatedAt
+    ).mapN { (assetId, groupId, message, createdAt) =>
+      IngestLockTableItem(assetId, groupId, message, createdAt)
     }.toEither
       .left
       .map(InvalidPropertiesError.apply)

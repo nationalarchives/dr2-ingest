@@ -92,7 +92,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
         }
 
         dynamoLockTableItem: DynamoValue = DynamoWriteUtils.writeLockTableItem(
-          IngestLockTableItem(tdrUuid, batchRef, s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""", Some(dependencies.instantGenerator().toString))
+          IngestLockTableItem(tdrUuid, batchRef, s"""{"messageId":"${dependencies.randomUuidGenerator()}"}""", dependencies.instantGenerator().toString)
         )
 
         _ <- dependencies.dynamo.writeItem(

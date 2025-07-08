@@ -69,7 +69,7 @@ object Aggregator:
 
     def writeToLockTable(input: Input, config: Config, groupId: GroupId): F[Int] = {
       val dynamoLockTableItem: DynamoValue = DynamoWriteUtils.writeLockTableItem(
-        IngestLockTableItem(input.id, groupId.groupValue, input.asJson.printWith(Printer.noSpaces), Some(Generators().generateInstant.toString))
+        IngestLockTableItem(input.id, groupId.groupValue, input.asJson.printWith(Printer.noSpaces), Generators().generateInstant.toString)
       )
 
       dynamoClient.writeItem(
