@@ -37,12 +37,6 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     (Some(nonPostIngestedAsset), fullyPostIngestedAsset, "OldImage hasn't gone through any post Ingest steps and NewImage has a result for the CC step")
   )
 
-  private val oldAndNewImageErrorScenarios = Table(
-    ("OldItem", "NewItem", "Description"),
-    (nonPostIngestedAsset, nonPostIngestedAsset, "NewImage is same as OldImage"),
-    (fullyPostIngestedAsset, fullyPostIngestedAsset, "NewImage is same as OldImage even if the OldImage has all the checks met")
-  )
-
   private def runLambda(
       itemsInTable: List[PostIngestStateTableItem],
       event: DynamodbEvent,
@@ -131,16 +125,6 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
 
     sentSnsMessage.parameters.assetId should equal(fullyPostIngestedAsset.assetId)
     sentSnsMessage.parameters.status should equal(IngestedCCDisk)
-  }
-
-  forAll(oldAndNewImageErrorScenarios) { (oldImage, newImage, description) =>
-    "handler" should s"throw an error if a $description" in {
-      val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage.some, newImage))))
-      val ex = intercept[Exception] {
-        runLambda(Nil, event).unsafeRunSync()
-      }
-      ex.getMessage should equal("Unexpected error: NewImage event either matches OldImage or NewImage has fewer checks than OldImage")
-    }
   }
 
   "handler" should s"throw an error if the queues share any of the same values for their properties" in {

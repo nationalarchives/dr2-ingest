@@ -97,7 +97,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
                     println(queue)
                     if queue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem) // new item has met final check; time to delete it from queue
                     else updateTableAndSendToSqs(newItem, queue) >> sendOutputMessage(newItem, Some(queue.queueAlias))
-                  case _ => IO.raiseError(new Exception("Unexpected error: NewImage event either matches OldImage or NewImage has fewer checks than OldImage"))
+                  case _ => IO.unit
                 }
 
               case _ => IO.raiseError(new Exception("MODIFY Event was triggered but either an OldImage, NewImage or both don't exist"))
