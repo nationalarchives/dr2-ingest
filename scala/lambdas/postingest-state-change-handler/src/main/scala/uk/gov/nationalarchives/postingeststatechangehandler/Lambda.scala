@@ -38,7 +38,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       dependencies.daDynamoDbClient
         .updateAttributeValues(
           DADynamoDbRequest(
-            config.dynamoTableName,
+            config.stateTableName,
             Map(assetId -> AttributeValue.builder().s(item.assetId.toString).build()),
             Map(queue -> Some(postIngestQueue), firstQueued -> Some(dateTimeNowIso), lastQueued -> Some(dateTimeNowIso))
           )
@@ -47,7 +47,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     }
 
     def deleteItemFromTable(item: PostIngestStateTableItem) =
-      dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, List(getPrimaryKey(item))).void
+      dependencies.daDynamoDbClient.deleteItems(config.stateTableName, List(getPrimaryKey(item))).void
 
     def sendMessageToQueue(queueUrl: String, message: OutputQueueMessage): IO[Unit] =
       dependencies.daSqsClient.sendMessage(queueUrl)(message).void
@@ -197,7 +197,7 @@ object Lambda:
       uuidGenerator: () => UUID
   )
 
-  case class Config(dynamoTableName: String, dynamoGsiName: String, topicArn: String, queues: String) derives ConfigReader
+  case class Config(stateTableName: String, stateGsiName: String, topicArn: String, queues: String) derives ConfigReader
 
   case class DynamodbEvent(Records: List[DynamodbStreamRecord])
 
