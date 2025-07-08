@@ -19,7 +19,7 @@ import uk.gov.nationalarchives.utils.ExternalUtils.{OutputMessage, OutputParamet
 import uk.gov.nationalarchives.utils.PostingestUtils.{OutputQueueMessage, Queue}
 import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, DASQSClient}
-
+import scala.jdk.CollectionConverters.*
 import java.time.Instant
 import java.util.UUID
 
@@ -27,7 +27,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
   override def handler: (DynamodbEvent, Config, Dependencies) => IO[Unit] = (event, config, dependencies) => {
     def getPrimaryKey(item: PostIngestStateTableItem) =
-      FilesTablePrimaryKey(FilesTablePartitionKey(item.assetId), FilesTableSortKey(item.batchId))
+      PostIngestStatePrimaryKey(PostIngestStatePartitionKey(item.assetId), PostIngestStateSortKey(item.batchId))
 
     def addOrUpdateItem(item: PostIngestStateTableItem, queueAlias: String): IO[Unit] = {
       val batchId = AttributeValue.builder().s(item.batchId).build()
@@ -39,7 +39,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         .updateAttributeValues(
           DADynamoDbRequest(
             config.stateTableName,
-            Map(assetId -> AttributeValue.builder().s(item.assetId.toString).build()),
+            postIngestStatePkFormat.write(getPrimaryKey(item)).toAttributeValue.m().asScala.toMap,
             Map(queue -> Some(postIngestQueue), firstQueued -> Some(dateTimeNowIso), lastQueued -> Some(dateTimeNowIso))
           )
         )
@@ -94,6 +94,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
                 potentialQueue match {
                   case Some(queue) =>
+                    println(queue)
                     if queue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem) // new item has met final check; time to delete it from queue
                     else updateTableAndSendToSqs(newItem, queue) >> sendOutputMessage(newItem, Some(queue.queueAlias))
                   case _ => IO.raiseError(new Exception("Unexpected error: NewImage event either matches OldImage or NewImage has fewer checks than OldImage"))
@@ -172,13 +173,16 @@ object Lambda:
 
   given Decoder[StreamRecord] = (c: HCursor) =>
     for {
-      oldImageAsDdbObject <- c.downField("OldImage").as[DynamoObject]
-      newImageAsDdbObject <- c.downField("NewImage").as[DynamoObject]
-      oldItem <- postIngestStatusTableItemFormat.read(oldImageAsDdbObject.toDynamoValue).toCirceError
-      newItem <- postIngestStatusTableItemFormat.read(newImageAsDdbObject.toDynamoValue).toCirceError
+      potentialOldImage <- c.downField("OldImage").as[Option[DynamoObject]]
+      newImage <- c.downField("NewImage").as[DynamoObject]
+      oldItem <- potentialOldImage match {
+        case Some(oldImage) => postIngestStatusTableItemFormat.read(oldImage.toDynamoValue).toCirceError.map(table => Option(table))
+        case None           => Right(None)
+      }
+      newItem <- postIngestStatusTableItemFormat.read(newImage.toDynamoValue).toCirceError
       key <- c.downField("Keys").as[DynamoObject]
-      key <- filesTablePkFormat.read(key.toDynamoValue).toCirceError
-    } yield StreamRecord(key.some, oldItem.some, newItem)
+      key <- postIngestStatePkFormat.read(key.toDynamoValue).toCirceError
+    } yield StreamRecord(key.some, oldItem, newItem)
 
   given Decoder[DynamodbStreamRecord] = (c: HCursor) =>
     for {
@@ -203,4 +207,4 @@ object Lambda:
 
   case class DynamodbStreamRecord(eventName: EventName, dynamodb: StreamRecord)
 
-  case class StreamRecord(keys: Option[FilesTablePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: PostIngestStateTableItem)
+  case class StreamRecord(keys: Option[PostIngestStatePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: PostIngestStateTableItem)
