@@ -4,7 +4,6 @@ import cats.implicits.*
 import cats.data.*
 import org.scanamo.*
 import org.scanamo.generic.semiauto.{FieldName, Typeclass, deriveDynamoFormat}
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.dynamoformatters.DynamoWriteUtils.*
 
 import java.net.URI
