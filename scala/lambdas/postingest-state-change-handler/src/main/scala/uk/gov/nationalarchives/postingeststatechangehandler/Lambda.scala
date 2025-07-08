@@ -95,7 +95,6 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
                 potentialQueue match {
                   case Some(queue) =>
-                    println(queue)
                     if queue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem) // new item has met final check; time to delete it from queue
                     else updateTableAndSendToSqs(newItem, queue) >> sendOutputMessage(newItem, Some(queue.queueAlias))
                   case _ => IO.unit
@@ -170,23 +169,24 @@ object Lambda:
 
   extension [T](dynamoResponse: Either[DynamoReadError, T])
     private def toCirceError: Result[T] =
-      dynamoResponse.left.map(_ => DecodingFailure.fromThrowable(new Exception("Can't format case classes"), Nil))
+      dynamoResponse.left.map(err => DecodingFailure.fromThrowable(new Exception(err.show), Nil))
 
   given Decoder[StreamRecord] = (c: HCursor) =>
     for {
       potentialOldImage <- c.downField("OldImage").as[Option[DynamoObject]]
       potentialNewImage <- c.downField("NewImage").as[Option[DynamoObject]]
-      oldItem <- potentialOldImage match {
-        case Some(oldImage) => postIngestStatusTableItemFormat.read(oldImage.toDynamoValue).toCirceError.map(Option.apply)
-        case None           => Right(None)
-      }
-      newItem <- potentialNewImage match {
-        case Some(newImage) => postIngestStatusTableItemFormat.read(newImage.toDynamoValue).toCirceError.map(Option.apply)
-        case None           => Right(None)
-      }
+      oldItem <- imageOrError(potentialOldImage)
+      newItem <- imageOrError(potentialNewImage)
       key <- c.downField("Keys").as[DynamoObject]
       key <- postIngestStatePkFormat.read(key.toDynamoValue).toCirceError
     } yield StreamRecord(key.some, oldItem, newItem)
+
+  private def imageOrError(potentialImage: Option[DynamoObject]) = {
+    potentialImage match {
+      case Some(image) => postIngestStatusTableItemFormat.read(image.toDynamoValue).toCirceError.map(Option.apply)
+      case None => Right(None)
+    }
+  }
 
   given Decoder[DynamodbStreamRecord] = (c: HCursor) =>
     for {
