@@ -605,6 +605,32 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     attributeValueMap(batchId).s() should equal(batchId)
   }
 
+  "postIngestStateTablePkFormat read" should "read the correct fields" in {
+    val uuid = UUID.randomUUID()
+    val batchId = "batchId"
+    val input = fromM(Map(assetId -> fromS(uuid.toString), batchId -> fromS(batchId)).asJava)
+    val res = postIngestStatePkFormat.read(input).value
+    res.partitionKey.assetId should equal(uuid)
+    res.sortKey.batchId should equal(batchId)
+  }
+
+  "postIngestStateTablePkFormat read" should "error if the field is missing" in {
+    val uuid = UUID.randomUUID()
+    val input = fromM(Map("invalid" -> fromS(uuid.toString)).asJava) //
+    val res = postIngestStatePkFormat.read(input)
+
+    val dynamoReadError = res.left.value.asInstanceOf[InvalidPropertiesError].errors.head._2
+    dynamoReadError should be(MissingProperty)
+  }
+
+  "postIngestStateTablePkFormat write" should "write the correct fields" in {
+    val uuid = UUID.randomUUID()
+    val attributeValueMap =
+      postIngestStatePkFormat.write(PostIngestStatePrimaryKey(PostIngestStatePartitionKey(uuid), PostIngestStateSortKey(batchId))).toAttributeValue.m().asScala
+    UUID.fromString(attributeValueMap(assetId).s()) should equal(uuid)
+    attributeValueMap(batchId).s() should equal(batchId)
+  }
+
   "queueTablePkFormat write" should "write the correct fields" in {
     val uuid = UUID.randomUUID()
     val attributeValueMap = queueTablePkFormat
