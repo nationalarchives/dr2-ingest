@@ -138,6 +138,19 @@ object DynamoFormatters {
       DynamoValue.fromMap(Map(id -> DynamoValue.fromString(t.partitionKey.id.toString), batchId -> DynamoValue.fromString(t.sortKey.batchId)))
     }
 
+  given postIngestStatePkFormat: Typeclass[PostIngestStatePrimaryKey] = new DynamoFormat[PostIngestStatePrimaryKey]:
+    override def read(av: DynamoValue): Either[DynamoReadError, PostIngestStatePrimaryKey] =
+      (validateProperty(av, assetId), validateProperty(av, batchId))
+        .mapN { (assetId, batchId) =>
+          PostIngestStatePrimaryKey(PostIngestStatePartitionKey(UUID.fromString(assetId)), PostIngestStateSortKey(batchId))
+        }
+        .toEither
+        .left
+        .map(InvalidPropertiesError.apply)
+
+    override def write(t: PostIngestStatePrimaryKey): DynamoValue =
+      DynamoValue.fromMap(Map(assetId -> DynamoValue.fromString(t.partitionKey.assetId.toString), batchId -> DynamoValue.fromString(t.sortKey.batchId)))
+
   given queueTablePkFormat: Typeclass[IngestQueuePrimaryKey] = new DynamoFormat[IngestQueuePrimaryKey]:
     override def read(av: DynamoValue): Either[DynamoReadError, IngestQueuePrimaryKey] = {
 
@@ -309,7 +322,12 @@ object DynamoFormatters {
 
   case class FilesTableSortKey(batchId: String)
 
+  case class PostIngestStatePartitionKey(assetId: UUID)
+  case class PostIngestStateSortKey(batchId: String)
+
   case class FilesTablePrimaryKey(partitionKey: FilesTablePartitionKey, sortKey: FilesTableSortKey)
+
+  case class PostIngestStatePrimaryKey(partitionKey: PostIngestStatePartitionKey, sortKey: PostIngestStateSortKey)
   case class LockTablePartitionKey(assetId: UUID)
 
   case class IngestLockTableItem(assetId: UUID, groupId: String, message: String)
