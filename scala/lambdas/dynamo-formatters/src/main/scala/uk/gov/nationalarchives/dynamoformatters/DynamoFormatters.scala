@@ -109,6 +109,7 @@ object DynamoFormatters {
   val assetId = "assetId"
   val groupId = "groupId"
   val message = "message"
+  val createdAt = "createdAt"
 
   // Attribute names as defined in the dynamodb post-ingest state table
   val input = "input"
@@ -216,7 +217,8 @@ object DynamoFormatters {
   case class LockTableValidatedAttributes(
       assetId: ValidatedAttribute[UUID],
       groupId: ValidatedAttribute[String],
-      message: ValidatedAttribute[String]
+      message: ValidatedAttribute[String],
+      createdAt: ValidatedAttribute[String]
   )
 
   case class FilesTableValidatedAttributes(
@@ -330,7 +332,7 @@ object DynamoFormatters {
   case class PostIngestStatePrimaryKey(partitionKey: PostIngestStatePartitionKey, sortKey: PostIngestStateSortKey)
   case class LockTablePartitionKey(assetId: UUID)
 
-  case class IngestLockTableItem(assetId: UUID, groupId: String, message: String)
+  case class IngestLockTableItem(assetId: UUID, groupId: String, message: String, createdAt: String)
 
   case class PostIngestStateTableItem(
       assetId: UUID,

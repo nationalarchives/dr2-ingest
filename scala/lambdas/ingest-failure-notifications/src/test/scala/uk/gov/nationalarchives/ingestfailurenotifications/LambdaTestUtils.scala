@@ -12,6 +12,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTable
 import uk.gov.nationalarchives.ingestfailurenotifications.Lambda.{Config, Dependencies, SfnDetail, SfnEvent, SfnInput}
 import uk.gov.nationalarchives.utils.ExternalUtils.OutputMessage
 
+import java.time.Instant
 import java.util.UUID
 
 object LambdaTestUtils:
@@ -68,7 +69,7 @@ object LambdaTestUtils:
   }
 
   def generateItems(): List[IngestLockTableItem] = List.fill(100)(UUID.randomUUID).map { id =>
-    IngestLockTableItem(id, "groupId", "")
+    IngestLockTableItem(id, "groupId", "", Instant.now().toString)
   }
 
   def runLambda(lockTableItems: List[IngestLockTableItem], input: SfnInput, dynamoError: Boolean = false, snsError: Boolean = false): List[OutputMessage] = (for {
