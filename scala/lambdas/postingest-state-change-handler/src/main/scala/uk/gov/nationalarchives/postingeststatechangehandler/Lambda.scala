@@ -19,7 +19,7 @@ import uk.gov.nationalarchives.utils.ExternalUtils.{OutputMessage, OutputParamet
 import uk.gov.nationalarchives.utils.PostingestUtils.{OutputQueueMessage, Queue}
 import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, DASQSClient}
-
+import scala.jdk.CollectionConverters.*
 import java.time.Instant
 import java.util.UUID
 
@@ -27,7 +27,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
   override def handler: (DynamodbEvent, Config, Dependencies) => IO[Unit] = (event, config, dependencies) => {
     def getPrimaryKey(item: PostIngestStateTableItem) =
-      FilesTablePrimaryKey(FilesTablePartitionKey(item.assetId), FilesTableSortKey(item.batchId))
+      PostIngestStatePrimaryKey(PostIngestStatePartitionKey(item.assetId), PostIngestStateSortKey(item.batchId))
 
     def addOrUpdateItem(item: PostIngestStateTableItem, queueAlias: String): IO[Unit] = {
       val batchId = AttributeValue.builder().s(item.batchId).build()
@@ -38,8 +38,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       dependencies.daDynamoDbClient
         .updateAttributeValues(
           DADynamoDbRequest(
-            config.dynamoTableName,
-            Map(assetId -> AttributeValue.builder().s(item.assetId.toString).build()),
+            config.stateTableName,
+            postIngestStatePkFormat.write(getPrimaryKey(item)).toAttributeValue.m().asScala.toMap,
             Map(queue -> Some(postIngestQueue), firstQueued -> Some(dateTimeNowIso), lastQueued -> Some(dateTimeNowIso))
           )
         )
@@ -47,7 +47,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     }
 
     def deleteItemFromTable(item: PostIngestStateTableItem) =
-      dependencies.daDynamoDbClient.deleteItems(config.dynamoTableName, List(getPrimaryKey(item))).void
+      dependencies.daDynamoDbClient.deleteItems(config.stateTableName, List(getPrimaryKey(item))).void
 
     def sendMessageToQueue(queueUrl: String, message: OutputQueueMessage): IO[Unit] =
       dependencies.daSqsClient.sendMessage(queueUrl)(message).void
@@ -76,7 +76,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       .filter(_.eventName == EventName.INSERT)
       .parTraverse { record =>
         val queue1 = queues.find(_.queueOrder == 1).get
-        val processInsertRecord = updateTableAndSendToSqs(record.dynamodb.newImage, queue1) >> sendOutputMessage(record.dynamodb.newImage, Some(queue1.queueAlias))
+        val newImage = record.dynamodb.newImage.get
+        val processInsertRecord = updateTableAndSendToSqs(newImage, queue1) >> sendOutputMessage(newImage, Some(queue1.queueAlias))
         processInsertRecord.start
       }
 
@@ -89,14 +90,14 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         .parTraverse { record =>
           val processModifyRecord =
             (record.dynamodb.oldImage, record.dynamodb.newImage) match
-              case (Some(oldItem), newItem) =>
+              case (Some(oldItem), Some(newItem)) =>
                 val potentialQueue = queues.find(queue => queue.getResult(newItem) != queue.getResult(oldItem))
 
                 potentialQueue match {
                   case Some(queue) =>
                     if queue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem) // new item has met final check; time to delete it from queue
                     else updateTableAndSendToSqs(newItem, queue) >> sendOutputMessage(newItem, Some(queue.queueAlias))
-                  case _ => IO.raiseError(new Exception("Unexpected error: NewImage event either matches OldImage or NewImage has fewer checks than OldImage"))
+                  case _ => IO.unit
                 }
 
               case _ => IO.raiseError(new Exception("MODIFY Event was triggered but either an OldImage, NewImage or both don't exist"))
@@ -168,17 +169,24 @@ object Lambda:
 
   extension [T](dynamoResponse: Either[DynamoReadError, T])
     private def toCirceError: Result[T] =
-      dynamoResponse.left.map(_ => DecodingFailure.fromThrowable(new Exception("Can't format case classes"), Nil))
+      dynamoResponse.left.map(err => DecodingFailure.fromThrowable(new Exception(err.show), Nil))
 
   given Decoder[StreamRecord] = (c: HCursor) =>
     for {
-      oldImageAsDdbObject <- c.downField("OldImage").as[DynamoObject]
-      newImageAsDdbObject <- c.downField("NewImage").as[DynamoObject]
-      oldItem <- postIngestStatusTableItemFormat.read(oldImageAsDdbObject.toDynamoValue).toCirceError
-      newItem <- postIngestStatusTableItemFormat.read(newImageAsDdbObject.toDynamoValue).toCirceError
+      potentialOldImage <- c.downField("OldImage").as[Option[DynamoObject]]
+      potentialNewImage <- c.downField("NewImage").as[Option[DynamoObject]]
+      oldItem <- imageOrError(potentialOldImage)
+      newItem <- imageOrError(potentialNewImage)
       key <- c.downField("Keys").as[DynamoObject]
-      key <- filesTablePkFormat.read(key.toDynamoValue).toCirceError
-    } yield StreamRecord(key.some, oldItem.some, newItem)
+      key <- postIngestStatePkFormat.read(key.toDynamoValue).toCirceError
+    } yield StreamRecord(key.some, oldItem, newItem)
+
+  private def imageOrError(potentialImage: Option[DynamoObject]) = {
+    potentialImage match {
+      case Some(image) => postIngestStatusTableItemFormat.read(image.toDynamoValue).toCirceError.map(Option.apply)
+      case None        => Right(None)
+    }
+  }
 
   given Decoder[DynamodbStreamRecord] = (c: HCursor) =>
     for {
@@ -197,10 +205,10 @@ object Lambda:
       uuidGenerator: () => UUID
   )
 
-  case class Config(dynamoTableName: String, dynamoGsiName: String, topicArn: String, queues: String) derives ConfigReader
+  case class Config(stateTableName: String, stateGsiName: String, topicArn: String, queues: String) derives ConfigReader
 
   case class DynamodbEvent(Records: List[DynamodbStreamRecord])
 
   case class DynamodbStreamRecord(eventName: EventName, dynamodb: StreamRecord)
 
-  case class StreamRecord(keys: Option[FilesTablePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: PostIngestStateTableItem)
+  case class StreamRecord(keys: Option[PostIngestStatePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: Option[PostIngestStateTableItem])

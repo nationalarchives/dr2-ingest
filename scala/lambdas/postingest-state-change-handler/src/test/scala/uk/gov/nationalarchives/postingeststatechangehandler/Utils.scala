@@ -11,14 +11,14 @@ import software.amazon.awssdk.services.sns.model.PublishBatchResponse
 import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import uk.gov.nationalarchives.DADynamoDBClient.{DADynamoDbRequest, DADynamoDbWriteItemRequest}
 import uk.gov.nationalarchives.DASQSClient.FifoQueueConfiguration
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{FilesTablePartitionKey, FilesTablePrimaryKey, FilesTableSortKey, PostIngestStateTableItem}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{PostIngestStatePartitionKey, PostIngestStatePrimaryKey, PostIngestStateSortKey, PostIngestStateTableItem}
 import uk.gov.nationalarchives.utils.ExternalUtils.OutputMessage
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, DASQSClient}
 
 object Utils {
 
-  def getPrimaryKey(item: PostIngestStateTableItem): FilesTablePrimaryKey =
-    FilesTablePrimaryKey(FilesTablePartitionKey(item.assetId), FilesTableSortKey(item.batchId))
+  def getPrimaryKey(item: PostIngestStateTableItem): PostIngestStatePrimaryKey =
+    PostIngestStatePrimaryKey(PostIngestStatePartitionKey(item.assetId), PostIngestStateSortKey(item.batchId))
 
   def createSnsClient(ref: Ref[IO, List[OutputMessage]]): DASNSClient[IO] = new DASNSClient[IO]() {
     override def publish[T <: Product](topicArn: String)(messages: List[T])(using enc: Encoder[T]): IO[List[PublishBatchResponse]] = ref
