@@ -12,10 +12,13 @@ import io.circe.*
 import io.circe.generic.auto.*
 import io.circe.parser.decode
 import io.circe.syntax.*
+import org.scanamo.DynamoValue
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
+import uk.gov.nationalarchives.dynamoformatters.DynamoWriteUtils
 import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.NewGroupReason.*
 import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{Input, SFNArguments}
 import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
@@ -26,6 +29,7 @@ import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 
 import java.time.Instant
+import scala.jdk.CollectionConverters.*
 
 trait Aggregator[F[_]]:
 
@@ -64,14 +68,14 @@ object Aggregator:
     private def toDynamoString(value: String): AttributeValue = AttributeValue.builder.s(value).build
 
     def writeToLockTable(input: Input, config: Config, groupId: GroupId): F[Int] = {
+      val dynamoLockTableItem: DynamoValue = DynamoWriteUtils.writeLockTableItem(
+        IngestLockTableItem(input.id, groupId.groupValue, input.asJson.printWith(Printer.noSpaces), Generators().generateInstant.toString)
+      )
+
       dynamoClient.writeItem(
         DADynamoDbWriteItemRequest(
           config.lockTable,
-          Map(
-            "assetId" -> toDynamoString(input.id.toString),
-            "groupId" -> toDynamoString(groupId.groupValue),
-            "message" -> toDynamoString(input.asJson.printWith(Printer.noSpaces))
-          ),
+          dynamoLockTableItem.toAttributeValue.m().asScala.toMap,
           Some(s"attribute_not_exists(assetId)")
         )
       )

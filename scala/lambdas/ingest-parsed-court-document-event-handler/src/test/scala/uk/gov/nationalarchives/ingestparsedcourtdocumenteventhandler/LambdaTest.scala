@@ -14,7 +14,7 @@ import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.TestUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 
 import java.net.URI
-import java.time.OffsetDateTime
+import java.time.{Instant, LocalDate, OffsetDateTime, ZoneOffset}
 import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherValues {
@@ -116,7 +116,9 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val tdrUuid = UUID.randomUUID
     val fileName = "test.tar.gz"
     val initialS3State = List(S3Object("inputBucket", fileName, fileBytes(inputMetadata(tdrUuid))))
-    val (res, _, dynamoState, _) = runLambda(initialS3State, event())
+    val predictableStartOfTheDay: () => Instant = () => LocalDate.now(ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant
+
+    val (res, _, dynamoState, _) = runLambda(initialS3State, event(), None, predictableStartOfTheDay)
 
     val ddbRequest = dynamoState.head
 
@@ -126,6 +128,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     attributeNamesValues("assetId").s() should equal(tdrUuid.toString)
     attributeNamesValues("groupId").s() should equal("TEST-REFERENCE")
     attributeNamesValues("message").s() should equal("""{"messageId":"fd1557f5-8f98-4152-a2a8-726c4a484447"}""")
+    attributeNamesValues("createdAt").s() should equal(predictableStartOfTheDay().toString)
     ddbRequest.conditionalExpression.get should equal("attribute_not_exists(assetId)")
   }
 
