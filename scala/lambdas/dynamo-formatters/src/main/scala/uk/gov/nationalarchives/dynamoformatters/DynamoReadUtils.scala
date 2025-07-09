@@ -239,7 +239,7 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       allValidatedLockTableAttributes.assetId,
       allValidatedLockTableAttributes.groupId,
       allValidatedLockTableAttributes.message,
-      allValidatedLockTableAttributes.CreatedAt
+      allValidatedLockTableAttributes.createdAt
     ).mapN { (assetId, groupId, message, createdAt) =>
       IngestLockTableItem(assetId, groupId, message, createdAt)
     }.toEither

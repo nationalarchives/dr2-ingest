@@ -205,7 +205,7 @@ object DynamoFormatters {
       assetId: ValidatedAttribute[UUID],
       groupId: ValidatedAttribute[String],
       message: ValidatedAttribute[String],
-      CreatedAt: ValidatedAttribute[String]
+      createdAt: ValidatedAttribute[String]
   )
 
   case class FilesTableValidatedAttributes(
