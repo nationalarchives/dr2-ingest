@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.services.sqs.model.QueueAttributeName
 import uk.gov.nationalarchives.DADynamoDBClient.{DADynamoDbRequest, given}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{postIngestStatePkFormat, *}
 import uk.gov.nationalarchives.postingestresender.Lambda.{Config, Dependencies, QueueMessage}
 import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.utils.PostingestUtils.Queue
@@ -23,6 +23,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DASQSClient}
 
 import java.time.Instant
 import java.util.UUID
+import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
   given Encoder[QueueMessage] = deriveEncoder[QueueMessage]
@@ -45,9 +46,9 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
       dateTimeCutOff: Instant = dateTimeNow.minusSeconds(messageRetentionPeriod)
 
       expiredItems <- dependencies.dynamoClient.queryItems[PostIngestStateTableItem](
-        config.dynamoTableName,
+        config.stateTableName,
         AndCondition(DynamoFormatters.queue === queue.queueAlias, lastQueued < dateTimeCutOff.toString),
-        Some("QueueLastQueuedIdx")
+        Some(config.stateGsiName)
       )
 
       _ <- IO.whenA(expiredItems.nonEmpty) { logger.info(s"Resending ${expiredItems.size} items to '${queue.queueAlias}' queue") }
@@ -68,12 +69,13 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
         }
         .void
 
-    def updateLastQueued(item: PostIngestStateTableItem, queue: Queue, newDateTime: Instant): IO[Unit] =
+    def updateLastQueued(item: PostIngestStateTableItem, queue: Queue, newDateTime: Instant): IO[Unit] = {
+      val postIngestPk = PostIngestStatePrimaryKey(PostIngestStatePartitionKey(item.assetId), PostIngestStateSortKey(item.batchId))
       dependencies.dynamoClient
         .updateAttributeValues(
           DADynamoDbRequest(
-            config.dynamoTableName,
-            Map(assetId -> AttributeValue.builder().s(item.assetId.toString).build()),
+            config.stateTableName,
+            postIngestStatePkFormat.write(postIngestPk).toAttributeValue.m().asScala.toMap,
             Map(lastQueued -> Some(AttributeValue.builder().s(newDateTime.toString).build()))
           )
         )
@@ -83,6 +85,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
             IO.raiseError(error)
         }
         .void
+    }
 
     (for {
       orderedQueues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
@@ -96,7 +99,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
 }
 
 object Lambda {
-  case class Config(dynamoTableName: String, dynamoGsiName: String, queues: String) derives ConfigReader
+  case class Config(stateTableName: String, stateGsiName: String, queues: String) derives ConfigReader
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], sqsClient: DASQSClient[IO], instantGenerator: () => Instant)
   case class QueueMessage(assetId: UUID, batchId: String, resultAttributeName: String, payload: String)
 }
