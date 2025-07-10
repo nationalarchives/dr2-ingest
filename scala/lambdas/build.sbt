@@ -13,7 +13,6 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestAssetOpexCreator,
     ingestAssetReconciler,
     ingestFailureNotifications,
-    ingestFilesChangeHandler,
     ingestFindExistingAsset,
     ingestFlowControl,
     ingestFolderOpexCreator,
@@ -90,16 +89,6 @@ lazy val ingestFlowControl = (project in file("ingest-flow-control"))
       dynamoClient,
       sfnClient,
       ssmClient
-    )
-  )
-
-lazy val ingestFilesChangeHandler = (project in file("ingest-files-change-handler"))
-  .settings(commonSettings)
-  .dependsOn(utils, dynamoFormatters)
-  .settings(
-    libraryDependencies ++= Seq(
-      dynamoClient,
-      snsClient
     )
   )
 
