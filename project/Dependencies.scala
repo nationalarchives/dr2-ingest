@@ -12,14 +12,14 @@ object Dependencies {
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.38.5"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.1"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.2"
   lazy val circeCore = "io.circe" %% "circe-core" % circeVersion
   lazy val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
   lazy val circeFs2 = "io.circe" %% "circe-fs2" % "0.14.1"
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.27.1"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.5"
-  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.31.77"
+  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.31.78"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
@@ -36,7 +36,7 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % s"$scalaTestVersion.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.136"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.138"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.7.7"
@@ -55,7 +55,7 @@ object Dependencies {
   lazy val sttpClient = "com.softwaremill.sttp.client3" %% "core" % sttpVersion
   lazy val sttpClientFs2 = "com.softwaremill.sttp.client3" %% "fs2" % sttpVersion
   lazy val sttpCirce = "com.softwaremill.sttp.client3" %% "circe" % sttpVersion
-  lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.3"
+  lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.4"
   lazy val upickle = "com.lihaoyi" %% "upickle" % "4.2.1"
   lazy val wiremock = "org.wiremock" % "wiremock" % "3.13.1"
 }
