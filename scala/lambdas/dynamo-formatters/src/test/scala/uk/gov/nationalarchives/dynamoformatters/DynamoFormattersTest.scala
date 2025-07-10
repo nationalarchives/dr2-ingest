@@ -666,13 +666,15 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val assetId = UUID.randomUUID()
     val groupId = "groupId"
     val message = "{}"
+    val createdAt = "2025-07-03T19:29:00.000Z"
 
     val input =
-      fromM(Map("assetId" -> fromS(assetId.toString), "groupId" -> fromS(groupId), "message" -> fromS(message)).asJava)
+      fromM(Map("assetId" -> fromS(assetId.toString), "groupId" -> fromS(groupId), "message" -> fromS(message), "createdAt" -> fromS(createdAt)).asJava)
     val res = ingestLockTableItemFormat.read(input).value
     res.assetId should equal(assetId)
     res.groupId should equal(groupId)
     res.message should equal(res.message)
+    res.createdAt should equal(createdAt)
   }
 
   "ingestLockTableItemFormat read" should "error if the field is missing" in {
@@ -689,12 +691,14 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val assetId = UUID.randomUUID()
     val groupId = "groupId"
     val message = "{}"
+    val createdAt = "2025-07-03T19:29:00.000Z"
 
     val attributeValueMap =
-      ingestLockTableItemFormat.write(IngestLockTableItem(assetId, groupId, message)).toAttributeValue.m().asScala
+      ingestLockTableItemFormat.write(IngestLockTableItem(assetId, groupId, message, createdAt)).toAttributeValue.m().asScala
     UUID.fromString(attributeValueMap("assetId").s()) should equal(assetId)
     attributeValueMap("groupId").s() should equal("groupId")
     attributeValueMap("message").s() should equal("{}")
+    attributeValueMap("createdAt").s() should equal("2025-07-03T19:29:00.000Z")
   }
 
   "postIngestStatusTableItemFormat read" should "read the correct fields" in {

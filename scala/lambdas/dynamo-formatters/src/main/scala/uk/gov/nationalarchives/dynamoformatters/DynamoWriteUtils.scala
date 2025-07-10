@@ -73,7 +73,8 @@ object DynamoWriteUtils {
       Map(
         assetId -> DynamoValue.fromString(lockTableItem.assetId.toString),
         groupId -> DynamoValue.fromString(lockTableItem.groupId),
-        message -> DynamoValue.fromString(lockTableItem.message)
+        message -> DynamoValue.fromString(lockTableItem.message),
+        createdAt -> DynamoValue.fromString(lockTableItem.createdAt)
       )
     }.toDynamoValue
 

@@ -213,10 +213,10 @@ entries in Dynamo.
 
 | Name                                       | Description                                                               |
 |--------------------------------------------|---------------------------------------------------------------------------|
-| POST_INGEST_STATE_DDB_TABLE                | The name of the post ingest state dynamo table                            |
-| POST_INGEST_DDB_TABLE_BATCHPARENT_GSI_NAME | The global secondary index name. Used to search by batchId and parentPath |
+| POSTINGEST_STATE_DDB_TABLE                 | The name of the post ingest state dynamo table                            |
+| POSTINGEST_DDB_TABLE_BATCHPARENT_GSI_NAME  | The global secondary index name. Used to search by batchId and parentPath |
 | OUTPUT_TOPIC_ARN                           | The output SNS topic arn                                                  |
-| POST_INGEST_QUEUES                         | The config for the queues                                                 |
+| POSTINGEST_QUEUES                          | The config for the queues                                                 |
 
 
 In the future as we add more locations to store the files, we will update the queues as well as the attributes of the DDB
