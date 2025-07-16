@@ -5,14 +5,14 @@
     }
   ],
   "expectedErrors": [
-    "DecodingFailure at .checksum_sha256: Missing required field",
-    "DecodingFailure at .fileSize: Missing required field",
-    "DecodingFailure at .id: Missing required field",
-    "DecodingFailure at .location: Missing required field",
-    "DecodingFailure at .name: Missing required field",
-    "DecodingFailure at .representationSuffix: Missing required field",
-    "DecodingFailure at .representationType: Missing required field",
-    "DecodingFailure at .sortOrder: Missing required field",
-    "DecodingFailure at .title: Missing required field"
+    "Attempt to decode value on failed cursor: DownField(checksum_sha256)",
+    "Attempt to decode value on failed cursor: DownField(fileSize)",
+    "Attempt to decode value on failed cursor: DownField(id)",
+    "Attempt to decode value on failed cursor: DownField(location)",
+    "Attempt to decode value on failed cursor: DownField(name)",
+    "Attempt to decode value on failed cursor: DownField(representationSuffix)",
+    "Attempt to decode value on failed cursor: DownField(representationType)",
+    "Attempt to decode value on failed cursor: DownField(sortOrder)",
+    "Attempt to decode value on failed cursor: DownField(title)"
   ]
 }

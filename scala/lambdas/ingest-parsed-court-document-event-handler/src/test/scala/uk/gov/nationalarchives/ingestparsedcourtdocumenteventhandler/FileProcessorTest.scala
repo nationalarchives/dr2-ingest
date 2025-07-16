@@ -167,9 +167,7 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
         fileProcessor.readJsonFromPackage(metadataId).unsafeRunSync()
       }
 
-      ex.getMessage should equal(
-        s"""DecodingFailure at .parameters.TDR.$paramNameToMakeNull: Got value 'null' with wrong type, expecting string""".stripMargin
-      )
+      ex.getMessage.contains(s"""DownField($paramNameToMakeNull)""".stripMargin) should equal(true)
     }
   }
 
@@ -189,9 +187,7 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
         fileProcessor.readJsonFromPackage(metadataId).unsafeRunSync()
       }
 
-      ex.getMessage should equal(
-        s"""DecodingFailure at .parameters.TDR.$paramNameToExclude: Missing required field""".stripMargin
-      )
+      ex.getMessage.contains(s"DownField($paramNameToExclude)") should equal(true)
     }
   }
 

@@ -9,6 +9,7 @@ import io.circe.Encoder
 import org.scalatest.flatspec.AnyFlatSpec
 import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{*, given}
 import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
+import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, utils}
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
 import io.circe.generic.auto.*
