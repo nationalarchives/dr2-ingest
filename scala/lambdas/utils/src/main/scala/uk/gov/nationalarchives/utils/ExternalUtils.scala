@@ -12,6 +12,7 @@ import cats.implicits.*
 import java.net.URI
 import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
+import scala.util.Try
 
 object ExternalUtils {
   enum DetailType:
@@ -200,6 +201,10 @@ object ExternalUtils {
           IdField(key.drop(3), value)
         }
       }
+  }
+
+  given Decoder[URI] = Decoder.decodeString.emap { str =>
+    Try(URI.create(str)).toEither.left.map(_.getMessage)
   }
 
   given Decoder[FileMetadataObject] = new Decoder[FileMetadataObject]:
