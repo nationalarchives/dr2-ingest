@@ -4,12 +4,13 @@ import com.networknt.schema.JsonSchemaFactory
 import com.networknt.schema.SpecVersion.VersionFlag
 import com.networknt.schema.InputFormat.JSON
 import org.scalatest.flatspec.AnyFlatSpec
-import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.TDRMetadata
+import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.PackageMetadata
 
 import java.io.{File, FileInputStream}
 import io.circe.syntax.*
 import io.circe.generic.auto.*
 import org.scalatest.matchers.should.Matchers.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
 
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime, ZoneId}
@@ -27,16 +28,19 @@ class MetadataSchemaTest extends AnyFlatSpec {
       .ofPattern("yyyy-MM-dd HH:mm:ss")
       .format(LocalDateTime.ofInstant(Instant.EPOCH, ZoneId.of("UTC")))
 
-    def tdrMetadata(description: Option[String]) = TDRMetadata(
+    def tdrMetadata(description: Option[String]) = PackageMetadata(
       "Series",
       UUID.randomUUID,
+      None,
       description,
-      "Body",
+      Option("Body"),
       transferDateTime,
       "ConsignmentRef",
       "File",
-      "checksum",
-      "FileRef"
+      List(Checksum("sha256", "checksum")),
+      "FileRef",
+      "/path/to/file",
+      None
     ).asJson.noSpaces
 
     List(None, Option("description")).foreach { description =>

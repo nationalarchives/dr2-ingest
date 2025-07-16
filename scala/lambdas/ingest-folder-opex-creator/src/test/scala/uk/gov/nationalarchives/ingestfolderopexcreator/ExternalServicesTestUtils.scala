@@ -129,7 +129,8 @@ object ExternalServicesTestUtils:
     List(Identifier("UpstreamSystemReference", "upstreamSystemReference")),
     1,
     false,
-    None
+    None,
+    "/a/file/path"
   )
 
   def generateFolder: ArchiveFolderDynamoItem = ArchiveFolderDynamoItem(
