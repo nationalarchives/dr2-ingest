@@ -206,8 +206,11 @@ object ExternalUtils {
   given Decoder[URI] = Decoder.decodeString.emap { str =>
     Try(URI.create(str)).toEither.left.map(_.getMessage)
   }
+  
+  given Encoder[URI] = Encoder.encodeString.contramap(_.toString)
 
   given Decoder[FileMetadataObject] = new Decoder[FileMetadataObject]:
+
     override def apply(c: HCursor): Result[FileMetadataObject] = convertToFailFast(decodeAccumulating(c))
 
     override def decodeAccumulating(c: HCursor): AccumulatingResult[FileMetadataObject] = (
