@@ -92,7 +92,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     getNumber(childCount, _.toInt),
     getBoolean(skipIngest),
     stringToScalaType[URI](location, getPotentialStringValue(location), URI.create),
-    getPotentialStringValue(correlationId)
+    getPotentialStringValue(correlationId),
+    getValidatedMandatoryAttributeAsString(filePath)
   )
 
   private def stringToType(potentialTypeString: Option[String]): ValidatedNel[InvalidProperty, Type] =
@@ -312,7 +313,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableAttributes.originalMetadataFiles,
       allValidatedFileTableAttributes.`type`,
       allValidatedFileTableAttributes.childCount,
-      allValidatedFileTableAttributes.skipIngest
+      allValidatedFileTableAttributes.skipIngest,
+      allValidatedFileTableAttributes.filePath
     ).mapN {
       (
           batchId,
@@ -325,7 +327,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
           originalMetadataFiles,
           rowType,
           childCount,
-          skipIngest
+          skipIngest,
+          filePath
       ) =>
         AssetDynamoItem(
           batchId,
@@ -346,7 +349,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
           allValidatedFileTableAttributes.identifiers,
           childCount,
           skipIngest,
-          allValidatedFileTableAttributes.correlationId
+          allValidatedFileTableAttributes.correlationId,
+          filePath
         )
     }.toEither
       .left

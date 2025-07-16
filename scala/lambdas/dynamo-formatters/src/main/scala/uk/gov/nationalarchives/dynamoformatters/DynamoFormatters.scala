@@ -104,6 +104,7 @@ object DynamoFormatters {
   val sourceSystem = "sourceSystem"
   val taskToken = "taskToken"
   val executionName = "executionName"
+  val filePath = "filePath"
 
   // Attribute names as defined in the dynamodb lock table
   val assetId = "assetId"
@@ -248,7 +249,8 @@ object DynamoFormatters {
       childCount: ValidatedAttribute[Int],
       skipIngest: ValidatedAttribute[Boolean],
       location: ValidatedAttribute[URI],
-      correlationId: Option[String]
+      correlationId: Option[String],
+      filePath: ValidatedAttribute[String]
   )
 
   case class ArchiveFolderDynamoItem(
@@ -294,7 +296,8 @@ object DynamoFormatters {
       identifiers: List[Identifier],
       childCount: Int,
       skipIngest: Boolean,
-      correlationId: Option[String]
+      correlationId: Option[String],
+      filePath: String
   ) extends DynamoItem
 
   case class FileDynamoItem(

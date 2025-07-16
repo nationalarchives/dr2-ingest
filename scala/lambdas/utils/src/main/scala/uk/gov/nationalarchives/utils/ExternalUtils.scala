@@ -8,6 +8,7 @@ import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
 import io.circe.syntax.*
 import uk.gov.nationalarchives.utils.ExternalUtils.Type.*
 import cats.implicits.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Checksum, checksumPrefix}
 
 import java.net.URI
 import java.time.{Instant, OffsetDateTime}
@@ -104,6 +105,7 @@ object ExternalUtils {
           upstreamSystem,
           digitalAssetSource,
           digitalAssetSubtype,
+          filePath,
           correlationId,
           assetMetadataIdFields
         ) =>
@@ -123,20 +125,21 @@ object ExternalUtils {
               ("upstreamSystem", Json.fromString(upstreamSystem)),
               ("digitalAssetSource", Json.fromString(digitalAssetSource)),
               ("digitalAssetSubtype", digitalAssetSubtype.map(Json.fromString).getOrElse(Null)),
-              ("correlationId", correlationId.map(Json.fromString).getOrElse(Null))
+              ("correlationId", correlationId.map(Json.fromString).getOrElse(Null)),
+              ("filePath", Json.fromString(filePath))
             )
             .deepDropNullValues
         }
-    case FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksumSha256) =>
+    case FileMetadataObject(id, parentId, title, sortOrder, name, fileSize, representationType, representationSuffix, location, checksums) =>
+      val fileObjects: List[(String, Json)] = List(
+        ("sortOrder", Json.fromInt(sortOrder)),
+        ("fileSize", Json.fromLong(fileSize)),
+        ("representationType", Json.fromString(representationType.toString)),
+        ("representationSuffix", Json.fromInt(representationSuffix)),
+        ("location", Json.fromString(location.toString))
+      ) ++ checksums.map(checksum => (s"checksum_${checksum.algorithm}", Json.fromString(checksum.fingerprint)))
       Json
-        .obj(
-          ("sortOrder", Json.fromInt(sortOrder)),
-          ("fileSize", Json.fromLong(fileSize)),
-          ("representationType", Json.fromString(representationType.toString)),
-          ("representationSuffix", Json.fromInt(representationSuffix)),
-          ("location", Json.fromString(location.toString)),
-          ("checksum_sha256", Json.fromString(checksumSha256))
-        )
+        .obj(fileObjects*)
         .deepMerge(jsonFromMetadataObject(id, parentId, Option(title), Type.File, name))
   }
 
@@ -186,6 +189,7 @@ object ExternalUtils {
         c.downField("upstreamSystem").as[String].toValidatedNel,
         c.downField("digitalAssetSource").as[String].toValidatedNel,
         c.downField("digitalAssetSubtype").as[Option[String]].toValidatedNel,
+        c.downField("filePath").as[String].toValidatedNel,
         c.downField("correlationId").as[Option[String]].toValidatedNel,
         getIdFields(c).toValidatedNel
       ).mapN(AssetMetadataObject.apply)
@@ -203,11 +207,27 @@ object ExternalUtils {
       }
   }
 
+
   given Decoder[URI] = Decoder.decodeString.emap { str =>
     Try(URI.create(str)).toEither.left.map(_.getMessage)
   }
   
   given Encoder[URI] = Encoder.encodeString.contramap(_.toString)
+
+  def getChecksums(c: HCursor): Result[List[Checksum]] =
+    val keys = c.keys.toList.flatten
+    val checksumKeys = keys.filter(_.startsWith(checksumPrefix))
+    if keys.contains("SHA256ServerSideChecksum") then
+      c.downField("SHA256ServerSideChecksum").as[String].map { sha256Checksum =>
+        List(Checksum("sha256", sha256Checksum))
+      }
+    else if checksumKeys.nonEmpty then
+      checksumKeys.traverse { key =>
+        val algorithm = key.replace(checksumPrefix, "")
+        c.downField(key).as[String].map(fingerprint => Checksum(algorithm, fingerprint))
+      }
+    else
+      Right(Nil)
 
   given Decoder[FileMetadataObject] = new Decoder[FileMetadataObject]:
 
@@ -223,7 +243,7 @@ object ExternalUtils {
       c.downField("representationType").as[RepresentationType].toValidatedNel,
       c.downField("representationSuffix").as[Int].toValidatedNel,
       c.downField("location").as[URI].toValidatedNel,
-      c.downField("checksum_sha256").as[String].toValidatedNel
+      getChecksums(c).toValidatedNel
     ).mapN(FileMetadataObject.apply)
 
   given Decoder[MetadataObject] =
@@ -255,20 +275,21 @@ object ExternalUtils {
   ) extends MetadataObject
 
   case class AssetMetadataObject(
-      id: UUID,
-      parentId: Option[UUID],
-      title: String,
-      name: String,
-      originalFiles: List[UUID],
-      originalMetadataFiles: List[UUID],
-      description: Option[String],
-      transferringBody: String,
-      transferCompleteDatetime: OffsetDateTime,
-      upstreamSystem: String,
-      digitalAssetSource: String,
-      digitalAssetSubtype: Option[String],
-      correlationId: Option[String],
-      idFields: List[IdField] = Nil
+                                  id: UUID,
+                                  parentId: Option[UUID],
+                                  title: String,
+                                  name: String,
+                                  originalFiles: List[UUID],
+                                  originalMetadataFiles: List[UUID],
+                                  description: Option[String],
+                                  transferringBody: String,
+                                  transferCompleteDatetime: OffsetDateTime,
+                                  upstreamSystem: String,
+                                  digitalAssetSource: String,
+                                  digitalAssetSubtype: Option[String],
+                                  filePath: String,
+                                  correlationId: Option[String],
+                                  idFields: List[IdField] = Nil
   ) extends MetadataObject
 
   case class FileMetadataObject(
@@ -281,7 +302,7 @@ object ExternalUtils {
       representationType: RepresentationType,
       representationSuffix: Int,
       location: URI,
-      checksumSha256: String
+      checksums: List[Checksum]
   ) extends MetadataObject
 
   enum MessageType:

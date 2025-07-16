@@ -25,13 +25,14 @@ lazy val ingestLambdasRoot = (project in file("."))
     postIngestStateChangeHandler,
     postingestMessageResender,
     preingestTdrAggregator,
+    preingestDriAggregator,
     preIngestTdrPackageBuilder,
+    preingestDriPackageBuilder,
     rotatePreservationSystemPassword,
     startWorkflow
   )
 
 lazy val commonSettings = Seq(
-  name := baseDirectory.value.getName,
   libraryDependencies ++= Seq(
     circeCore,
     circeParser,
@@ -65,6 +66,7 @@ lazy val commonSettings = Seq(
 )
 
 lazy val ingestMapper = (project in file("ingest-mapper"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(
@@ -82,6 +84,7 @@ lazy val ingestMapper = (project in file("ingest-mapper"))
   )
 
 lazy val ingestFlowControl = (project in file("ingest-flow-control"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -93,6 +96,7 @@ lazy val ingestFlowControl = (project in file("ingest-flow-control"))
   )
 
 lazy val ingestParentFolderOpexCreator = (project in file("ingest-parent-folder-opex-creator"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(
@@ -105,6 +109,7 @@ lazy val ingestParentFolderOpexCreator = (project in file("ingest-parent-folder-
   )
 
 lazy val ingestUpsertArchiveFolders = (project in file("ingest-upsert-archive-folders"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -116,6 +121,7 @@ lazy val ingestUpsertArchiveFolders = (project in file("ingest-upsert-archive-fo
   )
 
 lazy val ingestWorkflowMonitor = (project in file("ingest-workflow-monitor"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(
@@ -123,6 +129,7 @@ lazy val ingestWorkflowMonitor = (project in file("ingest-workflow-monitor"))
   )
 
 lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -137,6 +144,7 @@ lazy val ingestFolderOpexCreator = (project in file("ingest-folder-opex-creator"
   )
 
 lazy val startWorkflow = (project in file("ingest-start-workflow"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(
@@ -144,6 +152,7 @@ lazy val startWorkflow = (project in file("ingest-start-workflow"))
   )
 
 lazy val entityEventGenerator = (project in file("entity-event-generator-lambda"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(
@@ -158,6 +167,7 @@ lazy val entityEventGenerator = (project in file("entity-event-generator-lambda"
   )
 
 lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-version-lambda"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -169,6 +179,7 @@ lazy val getLatestPreservicaVersion = (project in file("get-latest-preservica-ve
   )
 
 lazy val ingestFindExistingAsset = (project in file("ingest-find-existing-asset"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -179,6 +190,7 @@ lazy val ingestFindExistingAsset = (project in file("ingest-find-existing-asset"
   )
 
 lazy val rotatePreservationSystemPassword = (project in file("rotate-preservation-system-password"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(
@@ -189,6 +201,7 @@ lazy val rotatePreservationSystemPassword = (project in file("rotate-preservatio
   )
 
 lazy val ingestAssetReconciler = (project in file("ingest-asset-reconciler"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -199,6 +212,7 @@ lazy val ingestAssetReconciler = (project in file("ingest-asset-reconciler"))
   )
 
 lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -213,6 +227,7 @@ lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
   )
 
 lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed-court-document-event-handler"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -229,6 +244,7 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
   )
 
 lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-generic-ingest-inputs"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -250,6 +266,7 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
   )
 
 lazy val postIngestStateChangeHandler = (project in file("postingest-state-change-handler"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -267,33 +284,56 @@ lazy val postIngestStateChangeHandler = (project in file("postingest-state-chang
     )
   )
 
+lazy val packageBuilderSettings = libraryDependencies ++= Seq(
+  circeFs2,
+  dynamoClient,
+  fs2Reactive,
+  jsonSchemaValidator % Test,
+  s3Client,
+  reactorTest % Test,
+  scalaCheck % Test,
+  scalaCheckPlus % Test
+)
+
 lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
+  .settings(packageBuilderSettings)
+
+lazy val preingestDriPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(
-    libraryDependencies ++= Seq(
-      circeFs2,
-      dynamoClient,
-      fs2Reactive,
-      jsonSchemaValidator % Test,
-      s3Client,
-      reactorTest % Test,
-      scalaCheck % Test,
-      scalaCheckPlus % Test
-    )
+    name := "preingest-dri-package-builder",
+    target := (preingestTdrAggregator/baseDirectory).value / "target" / "preingest-dri-package-builder"
   )
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(packageBuilderSettings)
+
+lazy val aggregatorSettings = libraryDependencies ++= Seq(
+  dynamoClient,
+  sfnClient
+)
 
 lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils)
+  .settings(aggregatorSettings)
+
+lazy val preingestDriAggregator = (project in file("preingest-tdr-aggregator"))
   .settings(
-    libraryDependencies ++= Seq(
-      dynamoClient,
-      sfnClient
-    )
+    name := "preingest-dri-aggregator",
+    target := (preingestTdrAggregator/baseDirectory).value / "target" / "preingest-dri-aggregator",
   )
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(aggregatorSettings)
+
+
 
 lazy val custodialCopyQueueCreator = (project in file("custodial-copy-queue-creator"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(
@@ -304,6 +344,7 @@ lazy val custodialCopyQueueCreator = (project in file("custodial-copy-queue-crea
   )
 
 lazy val ingestFailureNotifications = (project in file("ingest-failure-notifications"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(
@@ -314,6 +355,7 @@ lazy val ingestFailureNotifications = (project in file("ingest-failure-notificat
   )
 
 lazy val postingestMessageResender = (project in file("postingest-message-resender"))
+  .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(

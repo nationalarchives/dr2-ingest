@@ -29,7 +29,8 @@
       "upstreamSystem": "upstreamSystem",
       "id_RecordID": "record",
       "id_BornDigitalRef": "bornDigitalRef",
-      "id_ConsignmentReference": "consignmentReference"
+      "id_ConsignmentReference": "consignmentReference",
+      "filePath": "filePath"
     },
     {
       "type": "Asset",
@@ -45,7 +46,8 @@
       "upstreamSystem": "upstreamSystem",
       "id_RecordID": "record",
       "id_BornDigitalRef": "bornDigitalRef",
-      "id_ConsignmentReference": "consignmentReference"
+      "id_ConsignmentReference": "consignmentReference",
+      "filePath": "filePath"
     },
     {
       "type": "File",

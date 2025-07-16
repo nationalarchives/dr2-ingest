@@ -6,6 +6,7 @@
   ],
   "expectedErrors": [
     "Attempt to decode value on failed cursor: DownField(digitalAssetSource)",
+    "Attempt to decode value on failed cursor: DownField(filePath)",
     "Attempt to decode value on failed cursor: DownField(id)",
     "Attempt to decode value on failed cursor: DownField(name)",
     "Attempt to decode value on failed cursor: DownField(originalFiles)",

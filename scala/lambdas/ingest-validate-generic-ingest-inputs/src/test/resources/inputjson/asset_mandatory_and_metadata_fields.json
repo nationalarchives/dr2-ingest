@@ -18,7 +18,8 @@
       "upstreamSystem": "upstreamSystem",
       "id_BornDigitalRef": "bornDigitalRef",
       "id_ConsignmentReference": "consignmentReference",
-      "id_RecordID": "recordId"
+      "id_RecordID": "recordId",
+      "filePath": "filePath"
     }
   ],
   "expectedErrors": [

@@ -9,6 +9,7 @@ import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.TestUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
@@ -71,6 +72,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         "TRE: FCL Parser workflow",
         "Born Digital",
         Option("FCL"),
+        "/a/path/to/file",
         None,
         List(
           Option(IdField("UpstreamSystemReference", reference)),
@@ -82,7 +84,18 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         ).flatten
       )
       val expectedFileMetadata = List(
-        FileMetadataObject(fileId, Option(tdrUuid), "Test", 1, "Test.docx", 15684, RepresentationType.Preservation, 1, URI.create(s"s3://$testOutputBucket/$fileId"), "abcde"),
+        FileMetadataObject(
+          fileId,
+          Option(tdrUuid),
+          "Test",
+          1,
+          "Test.docx",
+          15684,
+          RepresentationType.Preservation,
+          1,
+          URI.create(s"s3://$testOutputBucket/$fileId"),
+          List(Checksum("sha256", "abcde"))
+        ),
         FileMetadataObject(
           metadataFileId,
           Option(tdrUuid),
@@ -93,7 +106,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
           RepresentationType.Preservation,
           1,
           URI.create(s"s3://$testOutputBucket/$metadataFileId"),
-          "78380a854ce3af9caa6448e25190a8867242adf82af6f7e3909a2242c66b3487"
+          List(Checksum("sha256", "78380a854ce3af9caa6448e25190a8867242adf82af6f7e3909a2242c66b3487"))
         )
       )
 
