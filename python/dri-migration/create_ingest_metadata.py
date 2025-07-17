@@ -117,7 +117,7 @@ while True:
             "TransferInitiatedDatetime": str(row[key_indexes["TRANSFERINITIATEDDATETIME"]]),
             "ConsignmentReference": row[key_indexes["CONSIGNMENTREFERENCE"]],
             "Filename": row[key_indexes["FILENAME"]],
-            "fileReference": row[key_indexes["FILEREFERENCE"]],
+            "FileReference": row[key_indexes["FILEREFERENCE"]],
             "metadata": str(row[key_indexes["METADATA"]]),
             "originalPath": full_path
         }
