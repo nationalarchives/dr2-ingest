@@ -10,6 +10,7 @@ import java.io.{File, FileInputStream}
 import io.circe.syntax.*
 import io.circe.generic.auto.*
 import org.scalatest.matchers.should.Matchers.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
 
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime, ZoneId}
@@ -30,12 +31,13 @@ class MetadataSchemaTest extends AnyFlatSpec {
     def tdrMetadata(description: Option[String]) = TDRMetadata(
       "Series",
       UUID.randomUUID,
+      None,
       description,
-      "Body",
+      Option("Body"),
       transferDateTime,
       "ConsignmentRef",
       "File",
-      "checksum",
+      List(Checksum("sha256", "checksum")),
       "FileRef"
     ).asJson.noSpaces
 

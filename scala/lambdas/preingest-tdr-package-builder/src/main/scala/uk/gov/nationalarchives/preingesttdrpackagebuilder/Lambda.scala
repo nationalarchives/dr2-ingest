@@ -7,15 +7,16 @@ import fs2.hashing.{HashAlgorithm, Hashing}
 import fs2.interop.reactivestreams.*
 import fs2.{Chunk, Stream}
 import io.circe
-import io.circe.Json
+import io.circe.{Decoder, HCursor, Json}
 import io.circe.fs2.{decoder as fs2Decoder, *}
+import io.circe.parser.decode
 import io.circe.generic.auto.*
 import io.circe.syntax.*
 import org.reactivestreams.FlowAdapters
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
 import uk.gov.nationalarchives.DADynamoDBClient.given
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Checksum, IngestLockTableItem}
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.RepresentationType.Preservation
@@ -33,17 +34,17 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
     def processNonMetadataObjects(
-        tdrMetadataJsonStream: Stream[IO, Json],
+        metadataArr: Array[Byte],
         fileLocation: URI,
         metadataId: UUID,
-        potentialMessageId: Option[String],
-        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
+        potentialMessageId: Option[String]
     ): Stream[IO, MetadataObject] = {
-      tdrMetadataJsonStream
-        .through(fs2Decoder[IO, TDRMetadata])
+      val jsonString = new String(metadataArr, "utf-8")
+      
+      IO.fromEither(decode[TDRMetadata](jsonString))
         .flatMap { tdrMetadata =>
           val assetId = tdrMetadata.UUID
-          val fileId = dependencies.uuidGenerator()
+          val fileId = tdrMetadata.fileId.getOrElse(dependencies.uuidGenerator())
           val assetMetadata = AssetMetadataObject(
             assetId,
             None,
@@ -52,7 +53,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             List(fileId),
             List(metadataId),
             tdrMetadata.description,
-            tdrMetadata.TransferringBody,
+            tdrMetadata.TransferringBody.getOrElse(""),
             LocalDateTime.parse(tdrMetadata.TransferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
             "TDR",
             "Born Digital",
@@ -66,38 +67,36 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               IdField("RecordID", assetId.toString)
             )
           )
-          Stream.evals {
-            for {
-              headObjectResponse <- dependencies.s3Client
-                .headObject(fileLocation.getHost, fileLocation.getPath.drop(1))
-              res <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
-                val fileMetadata = FileMetadataObject(
-                  fileId,
-                  Option(assetId),
-                  tdrMetadata.Filename,
-                  1,
-                  tdrMetadata.Filename,
-                  headObjectResponse.contentLength(),
-                  Preservation,
-                  1,
-                  fileLocation,
-                  tdrMetadata.SHA256ServerSideChecksum
-                )
-                val contentFolder = contentFolderMap.get(tdrMetadata.ConsignmentReference)
-                if contentFolder.isDefined then (contentFolderMap, List(assetMetadata.copy(parentId = contentFolder.map(_.id)), fileMetadata))
-                else
-                  val contentFolderId = dependencies.uuidGenerator()
-                  val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, Option(tdrMetadata.Series), Nil)
-                  val updatedMap = contentFolderMap + (tdrMetadata.ConsignmentReference -> contentFolderMetadata)
-                  val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id)), fileMetadata)
-                  (updatedMap, allMetadata)
-              }
-            } yield res
-          }
+          for {
+            headObjectResponse <- dependencies.s3Client
+              .headObject(fileLocation.getHost, fileLocation.getPath.drop(1))
+            res <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
+              val fileMetadata = FileMetadataObject(
+                fileId,
+                Option(assetId),
+                tdrMetadata.Filename,
+                1,
+                tdrMetadata.Filename,
+                headObjectResponse.contentLength(),
+                Preservation,
+                1,
+                fileLocation,
+                tdrMetadata.checksums
+              )
+              val contentFolder = contentFolderMap.get(tdrMetadata.ConsignmentReference)
+              if contentFolder.isDefined then (contentFolderMap, List(assetMetadata.copy(parentId = contentFolder.map(_.id)), fileMetadata))
+              else
+                val contentFolderId = dependencies.uuidGenerator()
+                val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, tdrMetadata.ConsignmentReference, Option(tdrMetadata.Series), Nil)
+                val updatedMap = contentFolderMap + (tdrMetadata.ConsignmentReference -> contentFolderMetadata)
+                val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id)), fileMetadata)
+                (updatedMap, allMetadata)
+            }
+          } yield res
         }
     }
 
-    def metadataChecksum(metadataFileBytes: Array[Byte]) = Stream
+    def metadataSha256Fingerprint(metadataFileBytes: Array[Byte]) = Stream
       .emits(metadataFileBytes)
       .through(fs2.hashing.Hashing[IO].hash(HashAlgorithm.SHA256))
       .flatMap(hash => Stream.emits(hash.bytes.toList))
@@ -112,7 +111,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             val fileBytes = tdrMetadataJson.noSpaces.getBytes
             for {
               tdrMetadata <- IO.fromEither(tdrMetadataJson.as[TDRMetadata])
-              checksum <- metadataChecksum(fileBytes)
+              sha256Fingerprint <- metadataSha256Fingerprint(fileBytes)
             } yield {
               val metadataFileSize = fileBytes.length
               val metadata = FileMetadataObject(
@@ -125,7 +124,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                 Preservation,
                 1,
                 getMetadataUri(fileLocation),
-                checksum
+                List(Checksum("sha256", sha256Fingerprint))
               )
               List(metadata)
             }
@@ -134,31 +133,36 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     }
 
     def processTdrMetadata(
-        tdrMetadataJsonStream: Stream[IO, Json],
+        metadataArr: Array[Byte],
         fileLocation: URI,
-        potentialMessageId: Option[String],
-        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
+        potentialMessageId: Option[String]
     ): Stream[IO, MetadataObject] = {
       val metadataId = dependencies.uuidGenerator()
-      tdrMetadataJsonStream.broadcastThrough(
-        jsonStream => processNonMetadataObjects(jsonStream, fileLocation, metadataId, potentialMessageId, contentFolderCell),
-        jsonStream => processMetadataFiles(jsonStream, fileLocation, metadataId)
-      )
+      processNonMetadataObjects(metadataArr, fileLocation, metadataId, potentialMessageId)
+      processMetadataFiles(metadataArr, fileLocation, metadataId)
     }
 
     def downloadMetadataFile(lockTableMessage: LockTableMessage, contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]): IO[Stream[IO, MetadataObject]] = {
       val fileLocation = lockTableMessage.location
       val metadataUri = getMetadataUri(fileLocation)
       val potentialMessageId = lockTableMessage.messageId
-      dependencies.s3Client
-        .download(metadataUri.getHost, metadataUri.getPath.drop(1))
-        .map { pub =>
-          pub
-            .toStreamBuffered[IO](bufferSize)
-            .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
-            .through(byteStreamParser[IO])
-            .through(metadataJsonStream => processTdrMetadata(metadataJsonStream, fileLocation, potentialMessageId, contentFolderCell))
+      val d = dependencies.s3Client.download(metadataUri.getHost, metadataUri.getPath.drop(1)).map(_.toStreamBuffered[IO](bufferSize))
+        .flatMap(_.compile.toList)
+        .map(_.toArray.flatMap(_.array()))
+        .map { metadataArr =>
+          processTdrMetadata(metadataArr, fileLocation, potentialMessageId))    
         }
+
+      
+//      dependencies.s3Client
+//        .download(metadataUri.getHost, metadataUri.getPath.drop(1))
+//        .map { pub =>
+//          pub
+//            .toStreamBuffered[IO](bufferSize)
+//            .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
+//            .through(byteStreamParser[IO])
+//            .through(metadataJsonStream => processTdrMetadata(metadataJsonStream, fileLocation, potentialMessageId, contentFolderCell))
+//        }
     }
 
     def processLockTableItems(lockTableItems: List[IngestLockTableItem]): IO[Unit] = {
@@ -201,15 +205,31 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
 end Lambda
 
 object Lambda:
+
+  given Decoder[TDRMetadata] = (c: HCursor) =>
+    for {
+      series <- c.downField("Series").as[String]
+      uuid <- c.downField("UUID").as[UUID]
+      fileId <- c.downField("fileId").as[Option[UUID]]
+      description <- c.downField("description").as[Option[String]]
+      transferringBody <- c.downField("TransferringBody").as[Option[String]]
+      transferInitiatedDatetime <- c.downField("TransferInitiatedDatetime").as[String]
+      consignmentReference <- c.downField("ConsignmentReference").as[String]
+      fileName <- c.downField("Filename").as[String]
+      checksums <- getChecksums(c)
+      fileReference <- c.downField("FileReference").as[String]
+    } yield TDRMetadata(series, uuid, fileId, description, transferringBody, transferInitiatedDatetime, consignmentReference, fileName, checksums, fileReference)
+
   case class TDRMetadata(
       Series: String,
       UUID: UUID,
+      fileId: Option[UUID],
       description: Option[String],
-      TransferringBody: String,
+      TransferringBody: Option[String],
       TransferInitiatedDatetime: String,
       ConsignmentReference: String,
       Filename: String,
-      SHA256ServerSideChecksum: String,
+      checksums: List[Checksum],
       FileReference: String
   )
 

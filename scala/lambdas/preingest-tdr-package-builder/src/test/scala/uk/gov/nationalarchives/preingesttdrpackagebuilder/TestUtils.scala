@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives.preingesttdrpackagebuilder
 
 import cats.effect.{IO, Ref}
+import cats.syntax.all.*
 import fs2.interop.reactivestreams.*
 import io.circe.generic.semiauto.deriveEncoder
 import io.circe.parser.decode
@@ -14,7 +15,7 @@ import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{IngestLockTableItem, checksumPrefix}
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
@@ -25,7 +26,23 @@ object TestUtils:
 
   given Encoder[LockTableMessage] = deriveEncoder[LockTableMessage]
 
-  given Encoder[TDRMetadata] = deriveEncoder[TDRMetadata]
+  given Encoder[TDRMetadata] = (m: TDRMetadata) => {
+    val checksums = m.checksums.map { checksum =>
+      (s"$checksumPrefix${checksum.algorithm}", Json.fromString(checksum.fingerprint))
+    }
+    val metadataObjectFields = List(
+      ("Series", Json.fromString(m.Series)).some,
+      ("UUID", Json.fromString(m.UUID.toString)).some,
+      m.fileId.map(f => ("fileId", Json.fromString(f.toString))),
+      m.description.map(d => ("description", Json.fromString(d))),
+      m.TransferringBody.map(t => ("TransferringBody", Json.fromString(t))),
+      ("TransferInitiatedDatetime", Json.fromString(m.TransferInitiatedDatetime)).some,
+      ("ConsignmentReference", Json.fromString(m.ConsignmentReference)).some,
+      ("Filename", Json.fromString(m.Filename)).some,
+      ("FileReference", Json.fromString(m.FileReference)).some
+    ).flatten ++ checksums
+    Json.obj(metadataObjectFields *)
+  }
 
   case class MockTdrFile(fileSize: Long)
 
@@ -58,7 +75,6 @@ object TestUtils:
       override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = IO.pure(DeleteObjectsResponse.builder.build)
 
       override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] =
-        given Encoder[TDRMetadata] = deriveEncoder[TDRMetadata]
         if downloadError then IO.raiseError(new Exception(s"Error downloading $key from S3 $bucket"))
         else
           for {
@@ -81,6 +97,7 @@ object TestUtils:
           for {
             jsonString <- publisher.toStreamBuffered[IO](1024).map(_.array().map(_.toChar).mkString).compile.string
             json <- IO.fromEither(decode[List[MetadataObject]](jsonString))
+            _ <- IO.println(jsonString)
             _ <- ref.update(currentMap => currentMap + (key -> json))
           } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build
 

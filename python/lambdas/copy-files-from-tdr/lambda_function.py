@@ -1,6 +1,5 @@
 import json
 import os
-import re
 import uuid
 
 import boto3
@@ -74,11 +73,6 @@ def validate_formats(json_metadata, bucket, s3_key):
     series = json_metadata["Series"]
     if not series.strip():
         raise Exception(f"Empty Series value in file '{s3_key}' in bucket '{bucket}'. Unable to proceed")
-
-    pattern = "^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown|MOCK1 123)$"
-    match = re.match(pattern, series)
-    if not match:
-        raise Exception(f"Invalid Series value, '{series}' in file '{s3_key}' in bucket '{bucket}'. Unable to proceed")
 
     return True
 

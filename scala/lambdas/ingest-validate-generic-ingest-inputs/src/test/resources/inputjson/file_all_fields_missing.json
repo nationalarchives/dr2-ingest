@@ -5,7 +5,6 @@
     }
   ],
   "expectedErrors": [
-    "DecodingFailure at .checksum_sha256: Missing required field",
     "DecodingFailure at .fileSize: Missing required field",
     "DecodingFailure at .id: Missing required field",
     "DecodingFailure at .location: Missing required field",

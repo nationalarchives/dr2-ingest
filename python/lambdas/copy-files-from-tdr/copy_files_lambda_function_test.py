@@ -209,12 +209,10 @@ class TestLambdaFunction(unittest.TestCase):
             metadata_schema = json.load(metadata_schema_file)
         required_fields = metadata_schema["required"]
         for field in required_fields:
-
             invalid_metadata = self.valid_metadata().copy()
             invalid_metadata.pop(field)
 
             with self.assertRaises(Exception) as ex:
-
                 lambda_function.validate_mandatory_fields_exist(schema_location, invalid_metadata)
             self.assertEqual(f"'{field}' is a required property", str(ex.exception))
 
@@ -231,7 +229,8 @@ class TestLambdaFunction(unittest.TestCase):
                 test_values = [1, False, None, ["test"], {"test": "value"}]
             elif property_value.get("format") == "uuid":
                 test_values = ["test", 1, None, False, ["test"], {"test": "value"}]
-            elif type(property_value_type) is list and "string" in property_value_type and "null" in property_value_type:
+            elif type(
+                    property_value_type) is list and "string" in property_value_type and "null" in property_value_type:
                 test_values = [1, False, ["test"], {"test": "value"}]
             else:
                 raise "Unexpected property value"
@@ -268,18 +267,6 @@ class TestLambdaFunction(unittest.TestCase):
         self.assertEqual(
             "Empty Series value in file 'any_key_patched' in bucket 'any_bucket_patched'. Unable to proceed",
             str(ex.exception))
-
-    def test_should_raise_an_exception_when_series_format_is_invalid(self):
-        invalid_series_names = ["MOCK1 12345", "1LEV 12", "abc 12", "MOCKT 1", "UNKNOWN", "LEV 2   ", "FLM 012",
-                                "SDF 12345", " WER 12"]
-        for invalid_series in invalid_series_names:
-            mock_response_body = f"""{{"ConsignmentReference": "TDR-2024-PQXN", "FileReference": "ZDSCFC", "Series": "{invalid_series}", "TransferInitiatedDatetime": "2024-09-19 07:21:57", "UUID": "bb7bb923-b82c-4203-a3c1-ea3f362ef4da"}}"""
-            with self.assertRaises(Exception) as ex:
-                lambda_function.validate_formats(json.loads(mock_response_body), 'any_bucket_patched',
-                                                 'any_key_patched')
-            self.assertEqual(
-                f"Invalid Series value, '{invalid_series}' in file 'any_key_patched' in bucket 'any_bucket_patched'. Unable to proceed",
-                str(ex.exception))
 
     def test_should_successfully_validate_various_allowed_formats_of_series_name(self):
         valid_series_names = ["MOCK1 123", "Unknown", "UKSC 1", "LEV 2", "PRO 234", "A 7"]

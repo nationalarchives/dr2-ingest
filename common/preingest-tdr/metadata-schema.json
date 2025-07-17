@@ -14,11 +14,9 @@
     "required": [
         "Series",
         "UUID",
-        "TransferringBody",
         "TransferInitiatedDatetime",
         "ConsignmentReference",
         "Filename",
-        "SHA256ServerSideChecksum",
         "FileReference"
     ]
 }
