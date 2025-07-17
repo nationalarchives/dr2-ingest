@@ -1,7 +1,6 @@
 import io
 import json
 import re
-import requests
 from os import listdir
 import oracledb
 import os
@@ -12,6 +11,7 @@ conn = oracledb.connect(dsn='localhost/SDB4', user="STORE", password=os.environ[
 cur = conn.cursor()
 
 puid_lookup = {}
+
 
 def create_skeleton_suite_lookup(prefix):
     path = f"{os.environ['DROID_PATH']}\\{prefix}"
@@ -32,61 +32,61 @@ create_skeleton_suite_lookup('x-fmt')
 
 sql = r"""WITH FIXITIES AS (
 SELECT
-	d.FILEREF,
-	'[' || LISTAGG('{"' || f.ALGORITHMNAME || '":"' || d.FIXITYVALUE || '"}', ',') WITHIN GROUP (ORDER BY f.ALGORITHMNAME) || ']' AS fixities
+    d.FILEREF,
+    '[' || LISTAGG('{"' || f.ALGORITHMNAME || '":"' || d.FIXITYVALUE || '"}', ',') WITHIN GROUP (ORDER BY f.ALGORITHMNAME) || ']' AS fixities
 FROM
-	DIGITALFILEFIXITYINFO d
+    DIGITALFILEFIXITYINFO d
 JOIN FIXITYALGORITHM f ON
-	f.FIXITYALGORITHMREF = d.FIXITYALGORITHMREF
+    f.FIXITYALGORITHMREF = d.FIXITYALGORITHMREF
 GROUP BY
-	d.FILEREF
+    d.FILEREF
 HAVING
-	COUNT(*) > 1
+    COUNT(*) > 1
 ),
 FIRSTPUID AS (
-	SELECT FILEREF, MAX(FORMATPUID) AS PUID FROM DIGITALFILEFORMAT GROUP BY FILEREF
+    SELECT FILEREF, MAX(FORMATPUID) AS PUID FROM DIGITALFILEFORMAT GROUP BY FILEREF
 )
 SELECT
-	REGEXP_SUBSTR(du.CATALOGUEREFERENCE, '^([A-Z]{1,}\/[0-9]{1,}|HGD[0-9]{1,}_FX)') series,
-	df.FILEREF AS FILEID,
-	du.DELIVERABLEUNITREF AS UUID,
-	du.DESCRIPTION,
-	a.DATE_ transferInitiatedDateTime,
-	duParent.CATALOGUEREFERENCE consignmentReference,
-	df.NAME fileName,
-	f.FIXITIES,
-	du.CATALOGUEREFERENCE AS fileReference,
-	'/dri/' || fs_location.path || '/' || file_location.file_path AS fullPath,
-	x.XMLCLOB AS METADATA,
-	fp.PUID AS PUID,
-	COALESCE(
+    REGEXP_SUBSTR(du.CATALOGUEREFERENCE, '^([A-Z]{1,}\/[0-9]{1,}|HGD[0-9]{1,}_FX)') series,
+    df.FILEREF AS FILEID,
+    du.DELIVERABLEUNITREF AS UUID,
+    du.DESCRIPTION,
+    a.DATE_ transferInitiatedDateTime,
+    duParent.CATALOGUEREFERENCE consignmentReference,
+    df.NAME fileName,
+    f.FIXITIES,
+    du.CATALOGUEREFERENCE AS fileReference,
+    '/dri/' || fs_location.path || '/' || file_location.file_path AS fullPath,
+    x.XMLCLOB AS METADATA,
+    fp.PUID AS PUID,
+    COALESCE(
 CAST( REGEXP_SUBSTR(x.XMLCLOB, 'xsi:type="tnacdc:batchIdentifier">(.*?)</dc:isPartOf>', 1 , 1, NULL, 1) AS VARCHAR(200) ),
 CAST(REGEXP_SUBSTR(x.XMLCLOB, '<tna:tdrConsignmentRef rdf:datatype="xs:string">(.*?)</tna:tdrConsignmentRef>', 1, 1, NULL, 1) AS VARCHAR(200))
 ) AS CONSIGNMENTREFERENCE
 FROM
-	DIGITALFILE df
+    DIGITALFILE df
 JOIN file_location ON
-	file_location.file_ref = df.FILEREF
+    file_location.file_ref = df.FILEREF
 JOIN fs_location_file_locations ON
-	file_location.file_location_id = fs_location_file_locations.file_locations
+    file_location.file_location_id = fs_location_file_locations.file_locations
 JOIN FIXITIES f ON f.FILEREF = df.FILEREF
 JOIN fs_location ON
-	fs_location_file_locations.stored_file_set_locations = fs_location.ID
+    fs_location_file_locations.stored_file_set_locations = fs_location.ID
 JOIN INGESTEDFILESET ifs ON
-	ifs.INGESTEDFILESETREF = df.INGESTEDFILESETREF
+    ifs.INGESTEDFILESETREF = df.INGESTEDFILESETREF
 JOIN ACCESSION a ON
-	a.ACCESSIONREF = ifs.ACCESSIONREF
+    a.ACCESSIONREF = ifs.ACCESSIONREF
 JOIN XMLMETADATA x ON
-	x.METADATAREF = df.METADATAREF
+    x.METADATAREF = df.METADATAREF
 LEFT JOIN MANIFESTATIONFILE mf ON
-	df.FILEREF = mf.FILEREF
+    df.FILEREF = mf.FILEREF
 LEFT JOIN DELIVERABLEUNITMANIFESTATION dum ON
-	mf.MANIFESTATIONREF = dum.MANIFESTATIONREF
+    mf.MANIFESTATIONREF = dum.MANIFESTATIONREF
 LEFT JOIN DELIVERABLEUNIT du ON
-	dum.DELIVERABLEUNITREF = du.DELIVERABLEUNITREF
+    dum.DELIVERABLEUNITREF = du.DELIVERABLEUNITREF
 LEFT JOIN DELIVERABLEUNIT duParent ON
-	duParent.DELIVERABLEUNITREF = du.TOPLEVELREF
-	LEFT JOIN FIRSTPUID fp ON fp.FILEREF = df.FILEREF
+    duParent.DELIVERABLEUNITREF = du.TOPLEVELREF
+    LEFT JOIN FIRSTPUID fp ON fp.FILEREF = df.FILEREF
 WHERE du.CATALOGUEREFERENCE LIKE 'RG/140%'"""
 cur.execute(sql)
 
@@ -109,7 +109,6 @@ while True:
         asset_uuid = row[key_indexes["UUID"]]
         full_path = row[key_indexes["FULLPATH"]]
         checksum_data = json.loads(row[key_indexes["FIXITIES"]])
-        checksums = transformed = [{'algorithm': k, 'fingerprint': v} for d in checksum_data for k, v in d.items()]
         metadata = {
             "Series": row[key_indexes["SERIES"]],
             "UUID": asset_uuid,
@@ -118,11 +117,13 @@ while True:
             "TransferInitiatedDatetime": str(row[key_indexes["TRANSFERINITIATEDDATETIME"]]),
             "ConsignmentReference": row[key_indexes["CONSIGNMENTREFERENCE"]],
             "Filename": row[key_indexes["FILENAME"]],
-            "checksums": checksums,
             "fileReference": row[key_indexes["FILEREFERENCE"]],
             "metadata": str(row[key_indexes["METADATA"]]),
             "originalPath": full_path
         }
+        for each_checksum in checksum_data:
+            for algorithm, fingerprint in each_checksum.items():
+                metadata[f"checksum_{algorithm.lower().replace("-", "")}"] = fingerprint
         # client.upload_file(full_path, bucket, file_uuid) # This won't work but you get the idea.
         client.upload_file(puid_lookup[puid]['file_path'], bucket, asset_uuid)
 
