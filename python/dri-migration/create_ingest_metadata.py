@@ -108,6 +108,8 @@ while True:
         puid = row[key_indexes["PUID"]]
         asset_uuid = row[key_indexes["UUID"]]
         full_path = row[key_indexes["FULLPATH"]]
+        checksum_data = json.loads(row[key_indexes["FIXITIES"]])
+        checksums = transformed = [{'algorithm': k, 'fingerprint': v} for d in checksum_data for k, v in d.items()]
         metadata = {
             "Series": row[key_indexes["SERIES"]],
             "UUID": asset_uuid,
@@ -116,7 +118,7 @@ while True:
             "TransferInitiatedDatetime": str(row[key_indexes["TRANSFERINITIATEDDATETIME"]]),
             "ConsignmentReference": row[key_indexes["CONSIGNMENTREFERENCE"]],
             "Filename": row[key_indexes["FILENAME"]],
-            "fixities": json.loads(row[key_indexes["FIXITIES"]]),
+            "checksums": checksums,
             "fileReference": row[key_indexes["FILEREFERENCE"]],
             "metadata": str(row[key_indexes["METADATA"]]),
             "originalPath": full_path
