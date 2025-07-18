@@ -140,7 +140,7 @@ while True:
             for algorithm in each_checksum:
                 file_path = puid_lookup[puid]['file_path']
                 algorithm_lower = algorithm.lower().replace("-", "")
-                fingerprint = calculate_checksum(file_path, algorithm)
+                fingerprint = calculate_checksum(file_path, algorithm_lower)
                 metadata[f"checksum_{algorithm_lower}"] = fingerprint
         # client.upload_file(full_path, bucket, file_uuid) # This won't work but you get the idea.
         client.upload_file(puid_lookup[puid]['file_path'], bucket, asset_uuid)
