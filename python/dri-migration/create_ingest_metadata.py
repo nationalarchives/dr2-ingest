@@ -5,6 +5,7 @@ from os import listdir
 import oracledb
 import os
 import boto3
+import hashlib
 
 oracledb.init_oracle_client(lib_dir=os.environ['CLIENT_LOCATION'])
 conn = oracledb.connect(dsn='localhost/SDB4', user="STORE", password=os.environ['STORE_PASSWORD'])
@@ -96,6 +97,20 @@ page_size = 100
 
 client = boto3.client("s3")
 
+
+def calculate_checksum(file_path: str, algorithm: str) -> str:
+    try:
+        hasher = getattr(hashlib, algorithm)()
+    except AttributeError:
+        raise ValueError(f"Unsupported hash algorithm: {algorithm}")
+
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(4096), b''):
+            hasher.update(chunk)
+
+    return hasher.hexdigest()
+
+
 key_indexes = {}
 for idx, keys in enumerate(cur.description):
     key_indexes[keys[0]] = idx
@@ -122,8 +137,11 @@ while True:
             "originalPath": full_path
         }
         for each_checksum in checksum_data:
-            for algorithm, fingerprint in each_checksum.items():
-                metadata[f"checksum_{algorithm.lower().replace("-", "")}"] = fingerprint
+            for algorithm in each_checksum:
+                file_path = puid_lookup[puid]['file_path']
+                algorithm_lower = algorithm.lower().replace("-", "")
+                fingerprint = calculate_checksum(file_path, algorithm)
+                metadata[f"checksum_{algorithm_lower}"] = fingerprint
         # client.upload_file(full_path, bucket, file_uuid) # This won't work but you get the idea.
         client.upload_file(puid_lookup[puid]['file_path'], bucket, asset_uuid)
 
