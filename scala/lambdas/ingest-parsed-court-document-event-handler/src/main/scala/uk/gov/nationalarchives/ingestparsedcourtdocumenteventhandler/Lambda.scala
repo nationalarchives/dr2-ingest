@@ -15,6 +15,7 @@ import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcess
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.{Dependencies, Output}
 import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.utils.ExternalUtils.StepFunctionInput
+import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 

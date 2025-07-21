@@ -168,7 +168,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
 
     val (res, _, _, _) = runLambda(initialS3State, eventWithInvalidJson)
 
-    res.left.value.getMessage should equal("DecodingFailure at .parameters: Missing required field")
+    res.left.value.getMessage.contains("DownField(parameters)") should equal(true)
   }
 
   "the lambda" should "error if the json in the metadata file is invalid" in {
@@ -185,7 +185,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
 
     val (res, _, _, _) = runLambda(initialS3State, event())
 
-    res.left.value.getMessage should equal("""DecodingFailure at .parameters: Missing required field""".stripMargin)
+    res.left.value.getMessage should equal("""Attempt to decode value on failed cursor: DownField(parameters)""".stripMargin)
   }
 
   "the lambda" should "error if the json in the metadata file has a field with a non-optional value that is null" in {
@@ -195,9 +195,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
 
     val (res, _, _, _) = runLambda(initialS3State, event())
 
-    res.left.value.getMessage should equal(
-      """DecodingFailure at .parameters.TDR.Document-Checksum-sha256: Got value 'null' with wrong type, expecting string""".stripMargin
-    )
+    res.left.value.getMessage.contains("DownField(Document-Checksum-sha256)") should equal(true)
   }
 
   "the lambda" should "error if the tar file contains a zero-byte file" in {

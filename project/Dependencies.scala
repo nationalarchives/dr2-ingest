@@ -5,7 +5,7 @@ object Dependencies {
   lazy val daAwsClientsVersion = "0.1.123"
   private val fs2Version = "3.12.0"
   private val sttpVersion = "3.11.0"
-  private val circeVersion = "0.14.14"
+  private val circeVersion = "0.15.0-M1"
   private val log4CatsVersion = "2.7.1"
   private val awsLibraryVersion = "1.12.782"
   private lazy val scalaTestVersion = "3.2.18"
@@ -19,6 +19,7 @@ object Dependencies {
   lazy val circeFs2 = "io.circe" %% "circe-fs2" % "0.14.1"
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.27.1"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.5"
+  lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.18.0"
   lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.31.78"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion

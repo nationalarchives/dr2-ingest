@@ -11,8 +11,8 @@
     }
   ],
   "expectedErrors": [
-    "DecodingFailure at .checksum_sha256: Missing required field",
-    "DecodingFailure at .fileSize: Missing required field",
-    "DecodingFailure at .title: Missing required field"
+    "Attempt to decode value on failed cursor: DownField(checksum_sha256)",
+    "Attempt to decode value on failed cursor: DownField(fileSize)",
+    "Attempt to decode value on failed cursor: DownField(title)"
   ]
 }
