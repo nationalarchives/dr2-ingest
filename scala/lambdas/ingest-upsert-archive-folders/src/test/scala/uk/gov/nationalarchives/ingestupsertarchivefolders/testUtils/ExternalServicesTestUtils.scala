@@ -15,7 +15,7 @@ import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, Identifier, UpdateEntityRequest, Identifier as PreservicaIdentifier}
-import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, EntityClient}
+import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoItem, Identifier as DynamoIdentifier}
 import uk.gov.nationalarchives.ingestupsertarchivefolders.Lambda
@@ -65,6 +65,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       override def getEntityIdentifiers(entity: Entity): IO[Seq[IdentifierResponse]] = ref.get.map { existing =>
         identifierResponses(entity, existing)
       }
+
+      override def streamAllEntityRefs(repTypeFilter: Option[EntityClient.RepresentationType]): fs2.Stream[IO, Entities.EntityRef] = fs2.Stream.empty[IO]
 
       override def getUrlsToIoRepresentations(ioEntityRef: UUID, representationType: Option[EntityClient.RepresentationType]): IO[Seq[String]] = notImplemented
 
