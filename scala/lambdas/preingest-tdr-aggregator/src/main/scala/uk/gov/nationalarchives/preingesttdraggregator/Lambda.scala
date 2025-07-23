@@ -13,13 +13,13 @@ import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.*
+import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.utils.Generators.given
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 
 import java.time.Instant
 import scala.jdk.CollectionConverters.*
 class Lambda extends RequestHandler[SQSEvent, SQSBatchResponse]:
-
   given Monoid[Map[String, Group]] = Monoid.instance(Map.empty, _ ++ _)
 
   private val groupCacheAtomicCell: AtomicCell[IO, Map[String, Group]] =

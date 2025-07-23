@@ -1,9 +1,8 @@
 package uk.gov.nationalarchives.ingestfailurenotifications
 
 import cats.effect.IO
-import io.circe.DecodingFailure.Reason.CustomReason
-import io.circe.generic.semiauto.deriveDecoder
 import io.circe.{Decoder, DecodingFailure, HCursor}
+import io.circe.generic.semiauto.deriveDecoder
 import io.circe.parser.decode
 import pureconfig.ConfigReader
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
@@ -44,7 +43,7 @@ object Lambda:
   given Decoder[SfnDetail] = (c: HCursor) =>
     for {
       inputString <- c.downField("input").as[String]
-      input <- decode[SfnInput](inputString).left.map(err => DecodingFailure(CustomReason(err.getMessage), c))
+      input <- decode[SfnInput](inputString).left.map(err => DecodingFailure.fromThrowable(err, Nil))
     } yield SfnDetail(input)
 
   given Decoder[SfnEvent] = (c: HCursor) =>

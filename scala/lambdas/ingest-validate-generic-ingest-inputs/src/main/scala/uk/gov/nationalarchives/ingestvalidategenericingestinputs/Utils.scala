@@ -11,6 +11,7 @@ import org.reactivestreams.Publisher
 import pureconfig.ConfigReader
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.utils.ExternalUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.given
 
 import java.net.URI
 import java.nio.ByteBuffer

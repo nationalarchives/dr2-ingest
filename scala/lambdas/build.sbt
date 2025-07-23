@@ -224,7 +224,8 @@ lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed
       s3Client,
       sfnClient,
       reactorTest % Test
-    )
+    ),
+    dependencyOverrides += commonsLang
   )
 
 lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-generic-ingest-inputs"))

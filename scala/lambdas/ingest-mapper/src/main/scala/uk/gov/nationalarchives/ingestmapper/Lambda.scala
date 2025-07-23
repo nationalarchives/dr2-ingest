@@ -18,6 +18,7 @@ import java.util.UUID
 import io.circe.*
 import org.reactivestreams.FlowAdapters
 import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import uk.gov.nationalarchives.utils.Generators
 

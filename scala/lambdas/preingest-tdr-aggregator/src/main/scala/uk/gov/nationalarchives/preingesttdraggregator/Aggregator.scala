@@ -25,6 +25,7 @@ import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.*
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
 import uk.gov.nationalarchives.utils.ExternalUtils.NotificationMessage
+import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 
