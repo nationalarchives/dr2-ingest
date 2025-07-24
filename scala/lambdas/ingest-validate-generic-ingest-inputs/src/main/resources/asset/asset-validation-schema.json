@@ -18,8 +18,7 @@
       }
     },
     "transferringBody": {
-      "type": "string",
-      "minLength": 1
+      "type": "string"
     },
     "transferCompleteDatetime": {
       "type": "string",
