@@ -1,7 +1,6 @@
 package uk.gov.nationalarchives.ingestassetreconciler.testUtils
 
 import cats.effect.unsafe.implicits.global
-
 import cats.effect.{IO, Ref}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -16,7 +15,7 @@ import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.InformationObject
 import uk.gov.nationalarchives.dp.client.EntityClient.GenerationType.Original
 import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, UpdateEntityRequest, Identifier as PreservicaIdentifier}
-import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, EntityClient}
+import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Identifier as DynamoIdentifier, *}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.*
@@ -77,6 +76,8 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
       override def getBitstreamInfo(contentRef: UUID): IO[Seq[Client.BitStreamInfo]] = ref.get.map { existing =>
         existing.flatMap(_.contentObjects).filter(_.entity.ref == contentRef).flatMap(_.bitstreams)
       }
+
+      override def streamAllEntityRefs(repTypeFilter: Option[EntityClient.RepresentationType]): fs2.Stream[IO, Entities.EntityRef] = fs2.Stream.empty[IO]
 
       override def getEntity(entityRef: UUID, entityType: EntityType): IO[Entity] = notImplemented
 

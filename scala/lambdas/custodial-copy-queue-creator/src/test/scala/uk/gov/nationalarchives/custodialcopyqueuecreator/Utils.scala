@@ -84,6 +84,8 @@ object Utils:
     override def getContentObjectsFromRepresentation(ioEntityRef: UUID, representationType: EntityClient.RepresentationType, repTypeIndex: Int): IO[Seq[Entities.Entity]] =
       IO.pure(Nil)
 
+    override def streamAllEntityRefs(repTypeFilter: Option[EntityClient.RepresentationType]): fs2.Stream[IO, Entities.EntityRef] = fs2.Stream.empty[IO]
+
     override def addEntity(addEntityRequest: EntityClient.AddEntityRequest): IO[UUID] = IO.pure(UUID.randomUUID)
 
     override def updateEntity(updateEntityRequest: EntityClient.UpdateEntityRequest): IO[String] = IO.pure("")
