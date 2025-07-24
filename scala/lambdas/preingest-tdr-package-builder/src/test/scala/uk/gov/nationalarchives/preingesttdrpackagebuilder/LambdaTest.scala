@@ -13,6 +13,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Checksum, Inge
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.TestUtils.{*, given}
 import uk.gov.nationalarchives.utils.ExternalUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.TDR
 
 import java.net.URI
 import java.time.{Instant, LocalDateTime, ZoneOffset}
@@ -20,7 +21,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
-  val config: Config = Config("", "", "cacheBucket", 1, "TDR")
+  val config: Config = Config("", "", "cacheBucket", 1, TDR)
   private val dateTimeNow: Instant = Instant.now()
   case class FileName(prefix: String, suffix: String) {
     def fileString: String = s"$prefix.$suffix"
@@ -141,7 +142,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       assetMetadataObject.description should equal(None)
       assetMetadataObject.transferringBody should equal(testData.body)
       assetMetadataObject.transferCompleteDatetime should equal(LocalDateTime.parse(testData.date.replace(" ", "T")).atOffset(ZoneOffset.UTC))
-      assetMetadataObject.upstreamSystem should equal("TDR")
+      assetMetadataObject.upstreamSystem should equal(TDR)
       assetMetadataObject.digitalAssetSource should equal("Born Digital")
       assetMetadataObject.digitalAssetSubtype should equal(None)
       assetMetadataObject.correlationId should equal(potentialLockTableMessageId)
@@ -203,7 +204,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       None
     )
 
-    val tdrMetadataTwo = tdrMetadataOne.copy(ConsignmentReference = "TDR-EFGH")
+    val tdrMetadataTwo = tdrMetadataOne.copy(consignmentReference = "TDR-EFGH")
 
     val groupId = UUID.randomUUID.toString
     val batchId = s"${groupId}_0"

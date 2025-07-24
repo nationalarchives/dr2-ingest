@@ -8,6 +8,8 @@ import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
 import io.circe.syntax.*
 import uk.gov.nationalarchives.utils.ExternalUtils.Type.*
 import cats.implicits.*
+import pureconfig.ConfigReader
+import pureconfig.error.KeyNotFound
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Checksum, checksumPrefix}
 
 import java.net.URI
@@ -122,7 +124,7 @@ object ExternalUtils {
               ("description", description.map(Json.fromString).getOrElse(Null)),
               ("transferringBody", Json.fromString(transferringBody)),
               ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
-              ("upstreamSystem", Json.fromString(upstreamSystem)),
+              ("upstreamSystem", Json.fromString(upstreamSystem.toString)),
               ("digitalAssetSource", Json.fromString(digitalAssetSource)),
               ("digitalAssetSubtype", digitalAssetSubtype.map(Json.fromString).getOrElse(Null)),
               ("correlationId", correlationId.map(Json.fromString).getOrElse(Null)),
@@ -175,6 +177,9 @@ object ExternalUtils {
   given Decoder[AssetMetadataObject] = new Decoder[AssetMetadataObject]:
     override def apply(c: HCursor): Result[AssetMetadataObject] = convertToFailFast(decodeAccumulating(c))
 
+    def toSourceSystem(c: HCursor, sourceSystem: String): Either[DecodingFailure, SourceSystem] =
+      Try(SourceSystem.valueOf(sourceSystem)).toEither.left.map(err => DecodingFailure(err.getMessage, c.history))
+
     override def decodeAccumulating(c: HCursor): AccumulatingResult[AssetMetadataObject] = {
       (
         c.downField("id").as[UUID].toValidatedNel,
@@ -186,7 +191,7 @@ object ExternalUtils {
         c.downField("description").as[Option[String]].toValidatedNel,
         c.downField("transferringBody").as[String].toValidatedNel,
         c.downField("transferCompleteDatetime").as[String].toValidatedNel.map(OffsetDateTime.parse),
-        c.downField("upstreamSystem").as[String].toValidatedNel,
+        c.downField("upstreamSystem").as[String].flatMap(str => toSourceSystem(c, str)).toValidatedNel,
         c.downField("digitalAssetSource").as[String].toValidatedNel,
         c.downField("digitalAssetSubtype").as[Option[String]].toValidatedNel,
         c.downField("filePath").as[String].toValidatedNel,
@@ -221,13 +226,11 @@ object ExternalUtils {
       c.downField("SHA256ServerSideChecksum").as[String].map { sha256Checksum =>
         List(Checksum("sha256", sha256Checksum))
       }
-    else if checksumKeys.nonEmpty then
-      checksumKeys.traverse { key =>
-        val algorithm = key.replace(checksumPrefix, "")
-        c.downField(key).as[String].map(fingerprint => Checksum(algorithm, fingerprint))
-      }
     else
-      Right(Nil)
+      checksumKeys.traverse { key =>
+      val algorithm = key.replace(checksumPrefix, "")
+      c.downField(key).as[String].map(fingerprint => Checksum(algorithm, fingerprint))
+    }
 
   given Decoder[FileMetadataObject] = new Decoder[FileMetadataObject]:
 
@@ -284,7 +287,7 @@ object ExternalUtils {
                                   description: Option[String],
                                   transferringBody: String,
                                   transferCompleteDatetime: OffsetDateTime,
-                                  upstreamSystem: String,
+                                  upstreamSystem: SourceSystem,
                                   digitalAssetSource: String,
                                   digitalAssetSubtype: Option[String],
                                   filePath: String,
@@ -304,6 +307,15 @@ object ExternalUtils {
       location: URI,
       checksums: List[Checksum]
   ) extends MetadataObject
+
+  given ConfigReader[SourceSystem] = ConfigReader.fromString[SourceSystem] { str =>
+    Try(SourceSystem.valueOf(str)).toEither.left.map { e =>
+      KeyNotFound(str, SourceSystem.values.map(_.toString).toSet)
+    }
+  }
+
+  enum SourceSystem:
+    case TDR, DRI, `TRE: FCL Parser workflow`
 
   enum MessageType:
     override def toString: String = this match

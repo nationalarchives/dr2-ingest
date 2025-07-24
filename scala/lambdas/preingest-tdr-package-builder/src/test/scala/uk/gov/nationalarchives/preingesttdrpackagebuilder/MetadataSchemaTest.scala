@@ -5,10 +5,10 @@ import com.networknt.schema.SpecVersion.VersionFlag
 import com.networknt.schema.InputFormat.JSON
 import org.scalatest.flatspec.AnyFlatSpec
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.PackageMetadata
+import uk.gov.nationalarchives.preingesttdrpackagebuilder.TestUtils.given
 
 import java.io.{File, FileInputStream}
 import io.circe.syntax.*
-import io.circe.generic.auto.*
 import org.scalatest.matchers.should.Matchers.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
 
@@ -28,7 +28,7 @@ class MetadataSchemaTest extends AnyFlatSpec {
       .ofPattern("yyyy-MM-dd HH:mm:ss")
       .format(LocalDateTime.ofInstant(Instant.EPOCH, ZoneId.of("UTC")))
 
-    def tdrMetadata(description: Option[String]) = PackageMetadata(
+    def packageMetadata(description: Option[String]) = PackageMetadata(
       "Series",
       UUID.randomUUID,
       None,
@@ -47,7 +47,7 @@ class MetadataSchemaTest extends AnyFlatSpec {
 
       val fileStream = new FileInputStream(schemaPath)
       val factory = JsonSchemaFactory.getInstance(VersionFlag.V202012)
-      factory.getSchema(fileStream).validate(tdrMetadata(description), JSON).isEmpty should equal(true)
+      factory.getSchema(fileStream).validate(packageMetadata(description), JSON).isEmpty should equal(true)
       fileStream.close()
     }
   }

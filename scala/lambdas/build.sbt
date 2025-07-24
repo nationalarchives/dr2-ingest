@@ -304,7 +304,7 @@ lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-bu
 lazy val preingestDriPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(
     name := "preingest-dri-package-builder",
-    target := (preingestTdrAggregator/baseDirectory).value / "target" / "preingest-dri-package-builder"
+    target := (preIngestTdrPackageBuilder/baseDirectory).value / "target" / "preingest-dri-package-builder"
   )
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)

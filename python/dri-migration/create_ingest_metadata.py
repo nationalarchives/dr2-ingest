@@ -25,7 +25,7 @@ def create_skeleton_suite_lookup(prefix):
     for name in directory_list:
         match = pattern.search(name)
         if match:
-            puid = match.group(1).replace('fmt-', 'fmt/')
+            puid = match.group(1).replace(f'{prefix}-', f'{prefix}/')
             puid_lookup[puid] = {'file_path': f"{path}\\{name}"}
 
 
@@ -67,42 +67,39 @@ def if_none_empty(value):
     return value if value else ''
 
 
-key_indexes = {}
-for idx, keys in enumerate(cur.description):
-    key_indexes[keys[0]] = idx
+column_indexes = {keys[0] : idx for idx, keys in enumerate(cur.description)}
 
 while True:
     rows = cur.fetchmany(page_size)
     if not rows:
         break
     for row in rows:
-        puid = row[key_indexes["PUID"]]
-        asset_uuid = row[key_indexes["UUID"]]
-        file_id = row[key_indexes["FILEID"]]
-        file_path = row[key_indexes["FILE_PATH"]]
-        full_path = row[key_indexes["FULLPATH"]]
-        checksum_data = json.loads(row[key_indexes["FIXITIES"]])
+        puid = row[column_indexes["PUID"]]
+        asset_uuid = row[column_indexes["UUID"]]
+        file_id = row[column_indexes["FILEID"]]
+        file_path = row[column_indexes["FILE_PATH"]]
+        checksum_data = json.loads(row[column_indexes["FIXITIES"]])
         metadata = {
-            "Series": row[key_indexes["SERIES"]],
+            "Series": row[column_indexes["SERIES"]],
             "UUID": asset_uuid,
             "fileId": file_id,
-            "description": row[key_indexes["DESCRIPTION"]],
-            "TransferInitiatedDatetime": str(row[key_indexes["TRANSFERINITIATEDDATETIME"]]),
-            "ConsignmentReference": if_none_empty(row[key_indexes["CONSIGNMENTREFERENCE"]]),
-            "driBatchReference": if_none_empty(row[key_indexes["DRIBATCHREFERENCE"]]),
-            "Filename": row[key_indexes["FILENAME"]],
-            "FileReference": row[key_indexes["FILEREFERENCE"]],
-            "metadata": str(row[key_indexes["METADATA"]]),
+            "description": row[column_indexes["DESCRIPTION"]],
+            "TransferInitiatedDatetime": str(row[column_indexes["TRANSFERINITIATEDDATETIME"]]),
+            "ConsignmentReference": if_none_empty(row[column_indexes["CONSIGNMENTREFERENCE"]]),
+            "driBatchReference": if_none_empty(row[column_indexes["DRIBATCHREFERENCE"]]),
+            "Filename": row[column_indexes["FILENAME"]],
+            "FileReference": row[column_indexes["FILEREFERENCE"]],
+            "metadata": str(row[column_indexes["METADATA"]]),
             "ClientSideOriginalFilepath": file_path
         }
+        file_path = puid_lookup[puid]['file_path']
         for each_checksum in checksum_data:
             for algorithm in each_checksum:
-                file_path = puid_lookup[puid]['file_path']
                 algorithm_lower = algorithm.lower().replace("-", "")
                 fingerprint = calculate_checksum(file_path, algorithm_lower)
                 metadata[f"checksum_{algorithm_lower}"] = fingerprint
 
-        s3_client.upload_file(puid_lookup[puid]['file_path'], bucket, asset_uuid)
+        s3_client.upload_file(file_path, bucket, asset_uuid)
 
         json_bytes = io.BytesIO(json.dumps(metadata).encode("utf-8"))
         s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")

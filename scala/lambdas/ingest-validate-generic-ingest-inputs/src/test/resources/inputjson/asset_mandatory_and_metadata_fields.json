@@ -15,7 +15,7 @@
       ],
       "transferCompleteDatetime": "2023-10-31T13:40:54Z",
       "transferringBody": "body",
-      "upstreamSystem": "upstreamSystem",
+      "upstreamSystem": "TDR",
       "id_BornDigitalRef": "bornDigitalRef",
       "id_ConsignmentReference": "consignmentReference",
       "id_RecordID": "recordId",

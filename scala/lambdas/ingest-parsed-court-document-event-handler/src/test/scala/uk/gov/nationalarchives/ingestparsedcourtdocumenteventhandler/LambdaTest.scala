@@ -13,6 +13,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.TestUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.`TRE: FCL Parser workflow`
 
 import java.net.URI
 import java.time.{Instant, LocalDate, OffsetDateTime, ZoneOffset}
@@ -69,7 +70,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         Some("test"),
         "test-organisation",
         OffsetDateTime.parse("2023-10-31T13:40:54Z"),
-        "TRE: FCL Parser workflow",
+        `TRE: FCL Parser workflow`,
         "Born Digital",
         Option("FCL"),
         "/a/path/to/file",

@@ -46,28 +46,33 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         .flatMap { packageMetadata =>
           val assetId = packageMetadata.UUID
           val fileId = packageMetadata.fileId.getOrElse(dependencies.uuidGenerator())
+          val sourceSpecificIdentifiers = config.sourceSystem match {
+            case SourceSystem.TDR => List(IdField("BornDigitalRef", packageMetadata.fileReference), IdField("UpstreamSystemReference", packageMetadata.fileReference))
+            case SourceSystem.DRI =>
+              List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
+                packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
+            case _ => Nil
+          }
           val assetMetadata = AssetMetadataObject(
             assetId,
             None,
-            packageMetadata.Filename,
+            packageMetadata.filename,
             assetId.toString,
             List(fileId),
             List(metadataId),
             packageMetadata.description,
-            packageMetadata.TransferringBody.getOrElse(""),
-            LocalDateTime.parse(packageMetadata.TransferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
+            packageMetadata.transferringBody.getOrElse(""),
+            LocalDateTime.parse(packageMetadata.transferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
             config.sourceSystem,
             "Born Digital",
             None,
             packageMetadata.originalFilePath,
             potentialMessageId,
             List(
-              IdField("Code", s"${packageMetadata.Series}/${packageMetadata.FileReference}"),
-              IdField("UpstreamSystemReference", packageMetadata.FileReference),
-              IdField("BornDigitalRef", packageMetadata.FileReference),
-              IdField("ConsignmentReference", packageMetadata.ConsignmentReference),
+              IdField("Code", s"${packageMetadata.series}/${packageMetadata.fileReference}"),
+              IdField("ConsignmentReference", packageMetadata.consignmentReference),
               IdField("RecordID", assetId.toString)
-            ) ++ packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
+            ) ++ sourceSpecificIdentifiers
           )
           for {
             headObjectResponse <- dependencies.s3Client
@@ -76,21 +81,21 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               val fileMetadata = FileMetadataObject(
                 fileId,
                 Option(assetId),
-                packageMetadata.Filename,
+                packageMetadata.filename,
                 1,
-                packageMetadata.Filename,
+                packageMetadata.filename,
                 headObjectResponse.contentLength(),
                 Preservation,
                 1,
                 fileLocation,
                 packageMetadata.checksums
               )
-              val contentFolder = contentFolderMap.get(packageMetadata.ConsignmentReference)
+              val contentFolder = contentFolderMap.get(packageMetadata.consignmentReference)
               if contentFolder.isDefined then (contentFolderMap, List(assetMetadata.copy(parentId = contentFolder.map(_.id)), fileMetadata))
               else
                 val contentFolderId = dependencies.uuidGenerator()
-                val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, packageMetadata.ConsignmentReference, Option(packageMetadata.Series), Nil)
-                val updatedMap = contentFolderMap + (packageMetadata.ConsignmentReference -> contentFolderMetadata)
+                val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, packageMetadata.consignmentReference, Option(packageMetadata.series), Nil)
+                val updatedMap = contentFolderMap + (packageMetadata.consignmentReference -> contentFolderMetadata)
                 val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id)), fileMetadata)
                 (updatedMap, allMetadata)
             }
@@ -227,23 +232,23 @@ object Lambda:
     )
 
   case class PackageMetadata(
-      Series: String,
+      series: String,
       UUID: UUID,
       fileId: Option[UUID],
       description: Option[String],
-      TransferringBody: Option[String],
-      TransferInitiatedDatetime: String,
-      ConsignmentReference: String,
-      Filename: String,
+      transferringBody: Option[String],
+      transferInitiatedDatetime: String,
+      consignmentReference: String,
+      filename: String,
       checksums: List[Checksum],
-      FileReference: String,
+      fileReference: String,
       originalFilePath: String,
       driBatchReference: Option[String]
   )
 
   type LockTableMessage = NotificationMessage
 
-  case class Config(lockTableName: String, lockTableGsiName: String, rawCacheBucket: String, concurrency: Int, sourceSystem: String) derives ConfigReader
+  case class Config(lockTableName: String, lockTableGsiName: String, rawCacheBucket: String, concurrency: Int, sourceSystem: SourceSystem) derives ConfigReader
 
   case class Dependencies(dynamoDbClient: DADynamoDBClient[IO], s3Client: DAS3Client[IO], uuidGenerator: () => UUID)
 

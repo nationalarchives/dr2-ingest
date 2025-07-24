@@ -2,9 +2,9 @@
   "input": [
     {
       "type": "Asset",
-      "id": "0f9cab98-114d-4e72-b378-695559155c45",
+      "id": "ef5ecd0a-8562-497e-9d27-b01a0b63ea1f",
       "name": "TestName",
-      "parentId": "122980ac-2664-4965-9879-f27c524f3668",
+      "parentId": "4636d60f-c9f1-4cb5-afd4-764e318e2e16",
       "title": "Test title",
       "digitalAssetSource": "digitalAssetSource",
       "originalFiles": [
@@ -15,12 +15,14 @@
       ],
       "transferCompleteDatetime": "2023-10-31T13:40:54Z",
       "transferringBody": "body",
-      "upstreamSystem": "TDR",
+      "upstreamSystem": "InvalidSystem",
+      "id_RecordID": "record",
+      "id_BornDigitalRef": "bornDigitalRef",
+      "id_ConsignmentReference": "consignmentReference",
       "filePath": "filePath"
     }
   ],
   "expectedErrors": [
-    "0f9cab98-114d-4e72-b378-695559155c45 $: required property 'id_ConsignmentReference' not found",
-    "0f9cab98-114d-4e72-b378-695559155c45 $: required property 'id_RecordID' not found"
+    "enum uk.gov.nationalarchives.utils.ExternalUtils$.SourceSystem has no case with name: InvalidSystem"
   ]
 }

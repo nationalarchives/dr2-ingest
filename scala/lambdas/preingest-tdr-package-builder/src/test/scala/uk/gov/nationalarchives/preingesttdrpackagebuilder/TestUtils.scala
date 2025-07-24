@@ -32,15 +32,15 @@ object TestUtils:
       (s"$checksumPrefix${checksum.algorithm}", Json.fromString(checksum.fingerprint))
     }
     val metadataObjectFields = List(
-      ("Series", Json.fromString(m.Series)).some,
+      ("Series", Json.fromString(m.series)).some,
       ("UUID", Json.fromString(m.UUID.toString)).some,
       m.fileId.map(f => ("fileId", Json.fromString(f.toString))),
       m.description.map(d => ("description", Json.fromString(d))),
-      m.TransferringBody.map(t => ("TransferringBody", Json.fromString(t))),
-      ("TransferInitiatedDatetime", Json.fromString(m.TransferInitiatedDatetime)).some,
-      ("ConsignmentReference", Json.fromString(m.ConsignmentReference)).some,
-      ("Filename", Json.fromString(m.Filename)).some,
-      ("FileReference", Json.fromString(m.FileReference)).some,
+      m.transferringBody.map(t => ("TransferringBody", Json.fromString(t))),
+      ("TransferInitiatedDatetime", Json.fromString(m.transferInitiatedDatetime)).some,
+      ("ConsignmentReference", Json.fromString(m.consignmentReference)).some,
+      ("Filename", Json.fromString(m.filename)).some,
+      ("FileReference", Json.fromString(m.fileReference)).some,
       ("ClientSideOriginalFilepath", Json.fromString(m.originalFilePath)).some
     ).flatten ++ checksums
     Json.obj(metadataObjectFields*)
@@ -99,7 +99,6 @@ object TestUtils:
           for {
             jsonString <- publisher.toStreamBuffered[IO](1024).map(_.array().map(_.toChar).mkString).compile.string
             json <- IO.fromEither(decode[List[MetadataObject]](jsonString))
-            _ <- IO.println(jsonString)
             _ <- ref.update(currentMap => currentMap + (key -> json))
           } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build
         }

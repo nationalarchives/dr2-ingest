@@ -20,6 +20,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
 import uk.gov.nationalarchives.utils.ExternalUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.`TRE: FCL Parser workflow`
 
 import java.io.{BufferedInputStream, InputStream}
 import java.net.URI
@@ -124,7 +125,7 @@ class FileProcessor(
         potentialJudgmentName,
         treMetadata.parameters.TDR.`Source-Organization`,
         treMetadata.parameters.TDR.`Consignment-Export-Datetime`,
-        "TRE: FCL Parser workflow",
+        `TRE: FCL Parser workflow`,
         "Born Digital",
         Option("FCL"),
         fileInfo.fileName,

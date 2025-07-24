@@ -16,6 +16,7 @@ import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcess
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.TestUtils.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
 import uk.gov.nationalarchives.utils.ExternalUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.`TRE: FCL Parser workflow`
 
 import java.net.URI
 import java.nio.ByteBuffer
@@ -310,7 +311,7 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
                   treName,
                   "test-organisation",
                   OffsetDateTime.parse("2023-10-31T13:40:54Z"),
-                  "TRE: FCL Parser workflow",
+                  `TRE: FCL Parser workflow`,
                   "Born Digital",
                   Option("FCL"),
                   treFileName,
