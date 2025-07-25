@@ -87,9 +87,9 @@ object Aggregator:
       val groupId: GroupId = GroupId(config.sourceSystem)
       val batchId = BatchId(groupId)
       writeToLockTable(input, config, groupId) >>
-      sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
-        Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
-      }
+        sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
+          Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
+        }
     }
 
     private def getNewOrExistingGroupId(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds, input: Input)(using
@@ -103,7 +103,8 @@ object Aggregator:
           val groupF = groupCache.get(sourceId) match
             case None => log(NoExistingGroup) >> startNewGroup(sourceId, config, groupExpiryTime, input)
             case Some(currentGroupForSource) =>
-              if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then log(ExpiryBeforeLambdaTimeout) >> startNewGroup(sourceId, config, groupExpiryTime, input)
+              if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then
+                log(ExpiryBeforeLambdaTimeout) >> startNewGroup(sourceId, config, groupExpiryTime, input)
               else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(sourceId, config, groupExpiryTime, input)
               else writeToLockTable(input, config, currentGroupForSource.groupId).map(_ => currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))
           groupF.map(group => groupCache + (sourceId -> group))
