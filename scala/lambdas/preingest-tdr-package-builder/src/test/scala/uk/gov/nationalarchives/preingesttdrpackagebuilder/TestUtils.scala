@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives.preingesttdrpackagebuilder
 
 import cats.effect.{IO, Ref}
+import cats.syntax.all.*
 import fs2.interop.reactivestreams.*
 import io.circe.generic.semiauto.deriveEncoder
 import io.circe.parser.decode
@@ -14,7 +15,7 @@ import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{IngestLockTableItem, checksumPrefix}
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.given
@@ -26,11 +27,28 @@ object TestUtils:
 
   given Encoder[LockTableMessage] = deriveEncoder[LockTableMessage]
 
-  given Encoder[TDRMetadata] = deriveEncoder[TDRMetadata]
+  given Encoder[PackageMetadata] = (m: PackageMetadata) => {
+    val checksums = m.checksums.map { checksum =>
+      (s"$checksumPrefix${checksum.algorithm}", Json.fromString(checksum.fingerprint))
+    }
+    val metadataObjectFields = List(
+      ("Series", Json.fromString(m.series)).some,
+      ("UUID", Json.fromString(m.UUID.toString)).some,
+      m.fileId.map(f => ("fileId", Json.fromString(f.toString))),
+      m.description.map(d => ("description", Json.fromString(d))),
+      m.transferringBody.map(t => ("TransferringBody", Json.fromString(t))),
+      ("TransferInitiatedDatetime", Json.fromString(m.transferInitiatedDatetime)).some,
+      ("ConsignmentReference", Json.fromString(m.consignmentReference)).some,
+      ("Filename", Json.fromString(m.filename)).some,
+      ("FileReference", Json.fromString(m.fileReference)).some,
+      ("ClientSideOriginalFilepath", Json.fromString(m.originalFilePath)).some
+    ).flatten ++ checksums
+    Json.obj(metadataObjectFields*)
+  }
 
   case class MockTdrFile(fileSize: Long)
 
-  type S3Objects = TDRMetadata | List[MetadataObject] | MockTdrFile
+  type S3Objects = PackageMetadata | List[MetadataObject] | MockTdrFile
 
   def mockDynamoClient(ref: Ref[IO, List[IngestLockTableItem]], failedQuery: Boolean = false): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
     override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = IO.pure(Nil)
@@ -59,14 +77,13 @@ object TestUtils:
       override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = IO.pure(DeleteObjectsResponse.builder.build)
 
       override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] =
-        given Encoder[TDRMetadata] = deriveEncoder[TDRMetadata]
         if downloadError then IO.raiseError(new Exception(s"Error downloading $key from S3 $bucket"))
         else
           for {
             fileMap <- ref.get
             metadata <- fileMap(key) match
-              case metadata: TDRMetadata => IO.pure(metadata.asJson.noSpaces.getBytes)
-              case _                     => IO.raiseError(new Exception("Expecting TDR Metadata Json"))
+              case metadata: PackageMetadata => IO.pure(metadata.asJson.noSpaces.getBytes)
+              case _                         => IO.raiseError(new Exception("Expecting TDR Metadata Json"))
           } yield Flux.just(ByteBuffer.wrap(metadata))
 
       override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = ref.get.map { objectsMap =>
@@ -78,12 +95,13 @@ object TestUtils:
 
       override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] = {
         if uploadError then IO.raiseError(new Exception(s"Error uploading $key to $bucket"))
-        else
+        else {
           for {
             jsonString <- publisher.toStreamBuffered[IO](1024).map(_.array().map(_.toChar).mkString).compile.string
             json <- IO.fromEither(decode[List[MetadataObject]](jsonString))
             _ <- ref.update(currentMap => currentMap + (key -> json))
           } yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build
+        }
 
       }
 

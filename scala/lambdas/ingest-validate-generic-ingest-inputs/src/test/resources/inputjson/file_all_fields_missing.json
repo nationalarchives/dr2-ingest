@@ -5,7 +5,6 @@
     }
   ],
   "expectedErrors": [
-    "Attempt to decode value on failed cursor: DownField(checksum_sha256)",
     "Attempt to decode value on failed cursor: DownField(fileSize)",
     "Attempt to decode value on failed cursor: DownField(id)",
     "Attempt to decode value on failed cursor: DownField(location)",

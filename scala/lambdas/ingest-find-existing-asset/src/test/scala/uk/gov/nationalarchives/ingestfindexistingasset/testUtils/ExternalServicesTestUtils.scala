@@ -51,7 +51,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
     Nil,
     1,
     false,
-    None
+    None,
+    "/a/file/path"
   )
 
   def generateEntity(identifierValue: String, entityType: Option[EntityType] = Some(InformationObject)): EntityWithIdentifiers = {

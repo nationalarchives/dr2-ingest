@@ -26,10 +26,11 @@
       "originalMetadataFiles": ["8664d643-fe3b-4fa4-be89-9806143b5dda"],
       "transferCompleteDatetime": "2023-10-31T13:40:54Z",
       "transferringBody": "body",
-      "upstreamSystem": "upstreamSystem",
+      "upstreamSystem": "TDR",
       "id_RecordID": "record",
       "id_BornDigitalRef": "bornDigitalRef",
-      "id_ConsignmentReference": "consignmentReference"
+      "id_ConsignmentReference": "consignmentReference",
+      "filePath": "filePath"
     },
     {
       "type": "Asset",
@@ -42,10 +43,11 @@
       "originalMetadataFiles": ["8664d643-fe3b-4fa4-be89-9806143b5dda"],
       "transferCompleteDatetime": "2023-10-31T13:40:54Z",
       "transferringBody": "body",
-      "upstreamSystem": "upstreamSystem",
+      "upstreamSystem": "TDR",
       "id_RecordID": "record",
       "id_BornDigitalRef": "bornDigitalRef",
-      "id_ConsignmentReference": "consignmentReference"
+      "id_ConsignmentReference": "consignmentReference",
+      "filePath": "filePath"
     },
     {
       "type": "File",

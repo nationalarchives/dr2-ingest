@@ -167,7 +167,8 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
     Nil,
     1,
     false,
-    None
+    None,
+    "/a/file/path"
   )
 
   def generateFile: FileDynamoItem = FileDynamoItem(

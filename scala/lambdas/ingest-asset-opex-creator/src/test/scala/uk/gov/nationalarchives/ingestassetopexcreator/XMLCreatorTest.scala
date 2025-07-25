@@ -66,6 +66,7 @@ class XMLCreatorTest extends AnyFlatSpec {
             <TransferringBody>transferringBody</TransferringBody>
             <UpstreamSystem>upstreamSystem</UpstreamSystem>
             <UpstreamSystemRef>testSystemRef2</UpstreamSystemRef>
+            <UpstreamPath>/a/file/path</UpstreamPath>
           </Source>
         </opex:DescriptiveMetadata>
     </opex:OPEXMetadata>
@@ -164,7 +165,8 @@ class XMLCreatorTest extends AnyFlatSpec {
     List(Identifier("Test2", "testIdentifier2"), Identifier("Test", "testIdentifier"), Identifier("UpstreamSystemReference", "testSystemRef")),
     1,
     false,
-    None
+    None,
+    "/a/file/path"
   )
   val uuids: List[UUID] = List(UUID.fromString("a814ee41-89f4-4975-8f92-303553fe9a02"), UUID.fromString("9ecbba86-437f-42c6-aeba-e28b678bbf4c"))
   val representationTypes: List[(FileRepresentationType, Int)] = List((PreservationRepresentationType, 1), (AccessRepresentationType, 1))

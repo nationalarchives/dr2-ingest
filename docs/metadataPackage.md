@@ -80,7 +80,7 @@ flowchart LR;
 
 \* Either a `parentId` or `series` is required.  
 \*\* Required for custom metadata within the Preservation System.  
-\*\*\* `id_BornDigitalRef`, `id_ConsignmentReference`, and `id_RecordID` are required for custom metadata within the Preservation System.
+\*\*\* `id_ConsignmentReference`, and `id_RecordID` are required for custom metadata within the Preservation System.
 
 ### File
 

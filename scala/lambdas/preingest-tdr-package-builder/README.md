@@ -1,4 +1,6 @@
-# DR2 Preingest TDR package builder
+# DR2 Preingest package builder
+
+This code is used for both the TDR and DRI migration preingest.
 
 The lambda reads rows from the ingest lock table for the group ID provided as input.
 
@@ -52,3 +54,4 @@ The lambda outputs this json.
 | LOCK_DDB_TABLE_GROUPID_GSI_NAME | The lock table global secondary index name in Dynamo                                                                                    |
 | OUTPUT_BUCKET_NAME              | The bucket the TDR file and metadata file are stored in                                                                                 |
 | CONCURRENCY                     | An optional parameter which configures how many items the lambda processes in parallel. Used for performance tweaking. Defaults to 1000 |
+| SOURCE_SYSTEM                   | TDR or DRI                                                                                                                              |

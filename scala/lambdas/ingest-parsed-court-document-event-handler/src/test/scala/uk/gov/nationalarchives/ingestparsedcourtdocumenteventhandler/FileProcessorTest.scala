@@ -11,10 +11,12 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.*
 import uk.gov.nationalarchives.DAS3Client
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.TestUtils.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
 import uk.gov.nationalarchives.utils.ExternalUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.`TRE: FCL Parser workflow`
 
 import java.net.URI
 import java.nio.ByteBuffer
@@ -307,11 +309,12 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
                   List(fileId),
                   List(metadataId),
                   treName,
-                  "test-organisation",
+                  Option("test-organisation"),
                   OffsetDateTime.parse("2023-10-31T13:40:54Z"),
-                  "TRE: FCL Parser workflow",
+                  `TRE: FCL Parser workflow`,
                   "Born Digital",
                   Option("FCL"),
+                  treFileName,
                   potentialCorrelationId,
                   List(
                     Option(IdField("UpstreamSystemReference", reference)),
@@ -324,7 +327,18 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
                   ).flatten
                 )
               val files = List(
-                FileMetadataObject(fileId, Option(assetId), fileName, 1, treFileName, 1, RepresentationType.Preservation, 1, URI.create("s3://bucket/key"), "abcde"),
+                FileMetadataObject(
+                  fileId,
+                  Option(assetId),
+                  fileName,
+                  1,
+                  treFileName,
+                  1,
+                  RepresentationType.Preservation,
+                  1,
+                  URI.create("s3://bucket/key"),
+                  List(Checksum("sha256", "abcde"))
+                ),
                 FileMetadataObject(
                   metadataId,
                   Option(assetId),
@@ -335,7 +349,7 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
                   RepresentationType.Preservation,
                   1,
                   URI.create("s3://bucket/metadataKey"),
-                  "metadataChecksum"
+                  List(Checksum("sha256", "metadataChecksum"))
                 )
               )
               val expectedMetadataObjects: List[MetadataObject] = List(folder, asset) ++ files
