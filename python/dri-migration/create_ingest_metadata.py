@@ -78,7 +78,7 @@ while True:
         asset_uuid = row[column_indexes["UUID"]]
         file_id = row[column_indexes["FILEID"]]
         file_path = row[column_indexes["FILE_PATH"]]
-        checksum_data = json.loads(row[column_indexes["FIXITIES"]])
+        checksums = json.loads(row[column_indexes["FIXITIES"]])
         metadata = {
             "Series": row[column_indexes["SERIES"]],
             "UUID": asset_uuid,
@@ -93,7 +93,7 @@ while True:
             "ClientSideOriginalFilepath": file_path
         }
         file_path = puid_lookup[puid]['file_path']
-        for each_checksum in checksum_data:
+        for each_checksum in checksums:
             for algorithm in each_checksum:
                 algorithm_lower = algorithm.lower().replace("-", "")
                 fingerprint = calculate_checksum(file_path, algorithm_lower)
