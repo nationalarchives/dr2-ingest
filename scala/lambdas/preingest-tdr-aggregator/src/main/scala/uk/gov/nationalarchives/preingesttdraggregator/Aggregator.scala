@@ -92,26 +92,24 @@ object Aggregator:
         }
     }
 
-    private def getNewOrExistingGroupId(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds, msgInput: Input)(using
+    private def updateOrCreateNewGroup(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds, msgInput: Input)(using
         Encoder[SFNArguments]
-    ): F[GroupId] = {
+    ): F[Unit] = {
       def log = logWithReason(sourceId)
 
       val groupExpiryTime: Milliseconds = lambdaTimeoutTime + config.maxSecondaryBatchingWindow.toMilliSeconds
-      atomicCell
-        .evalUpdateAndGet { groupCache =>
-          val groupF = groupCache.get(sourceId) match
-            case None => log(NoExistingGroup) >> startNewGroup(sourceId, config, groupExpiryTime, msgInput)
-            case Some(currentGroupForSource) =>
-              if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then
-                log(ExpiryBeforeLambdaTimeout) >> startNewGroup(sourceId, config, groupExpiryTime, msgInput)
-              else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(sourceId, config, groupExpiryTime, msgInput)
-              else
-                writeToLockTable(msgInput, config, currentGroupForSource.groupId) >>
-                  Async[F].pure(currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))
-          groupF.map(group => groupCache + (sourceId -> group))
-        }
-        .map(_(sourceId).groupId)
+      atomicCell.evalUpdateAndGet { groupCache =>
+        val groupF = groupCache.get(sourceId) match
+          case None => log(NoExistingGroup) >> startNewGroup(sourceId, config, groupExpiryTime, msgInput)
+          case Some(currentGroupForSource) =>
+            if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then
+              log(ExpiryBeforeLambdaTimeout) >> startNewGroup(sourceId, config, groupExpiryTime, msgInput)
+            else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(sourceId, config, groupExpiryTime, msgInput)
+            else
+              writeToLockTable(msgInput, config, currentGroupForSource.groupId) >>
+                Async[F].pure(currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))
+        groupF.map(group => groupCache + (sourceId -> group))
+      }.void
     }
 
     override def aggregate(config: Config, atomicCell: AtomicCell[F, Map[String, Group]], messages: List[SQSMessage], remainingTimeInMillis: Int)(using
@@ -123,7 +121,7 @@ object Aggregator:
         fibers <- messages.parTraverse { record =>
           val process = for {
             input <- Async[F].fromEither(decode[Input](record.getBody))
-            groupId <- getNewOrExistingGroupId(atomicCell, config, record.getEventSourceArn, lambdaTimeoutTime, input)
+            _ <- updateOrCreateNewGroup(atomicCell, config, record.getEventSourceArn, lambdaTimeoutTime, input)
           } yield record.getMessageId
           process.handleErrorWith { err =>
             logger.error(Map(), err)(err.getMessage) >>
