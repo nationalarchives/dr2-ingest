@@ -61,7 +61,7 @@ def migrate():
     puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt'])
 
     oracledb.init_oracle_client(lib_dir=os.environ['CLIENT_LOCATION'])
-    conn = oracledb.connect(dsn='localhost/SDB4', user="system", password=os.environ['STORE_PASSWORD'])
+    conn = oracledb.connect(dsn='localhost/SDB4', user="STORE", password=os.environ['STORE_PASSWORD'])
     cur = conn.cursor()
 
     with open("../ingest_query.sql") as query:
