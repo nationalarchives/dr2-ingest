@@ -64,7 +64,7 @@ def migrate():
     conn = oracledb.connect(dsn='localhost/SDB4', user="STORE", password=os.environ['STORE_PASSWORD'])
     cur = conn.cursor()
 
-    with open("../ingest_query.sql") as query:
+    with open("ingest_query.sql") as query:
         sql = query.read()
         cur.execute(sql)
     column_indexes = {keys[0]: idx for idx, keys in enumerate(cur.description)}
