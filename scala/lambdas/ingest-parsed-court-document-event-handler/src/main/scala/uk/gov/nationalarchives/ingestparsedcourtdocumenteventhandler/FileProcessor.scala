@@ -123,7 +123,7 @@ class FileProcessor(
         List(fileInfo.id),
         List(metadataFileInfo.id),
         potentialJudgmentName,
-        treMetadata.parameters.TDR.`Source-Organization`,
+        Option(treMetadata.parameters.TDR.`Source-Organization`),
         treMetadata.parameters.TDR.`Consignment-Export-Datetime`,
         `TRE: FCL Parser workflow`,
         "Born Digital",

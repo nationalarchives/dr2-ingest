@@ -31,7 +31,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
   case class TestData(
       series: String,
-      body: String,
+      body: Option[String],
       date: String,
       tdrRef: String,
       fileName: FileName,
@@ -66,7 +66,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
   val testDataGen: Gen[TestData] = for {
     series <- Gen.asciiStr
-    body <- Gen.asciiStr
+    body <- Gen.option(Gen.asciiStr)
     date <- dateGen
     tdrRef <- Gen.asciiStr
     fileName <- fileNameGen
@@ -94,7 +94,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
         tdrFileId,
         None,
         None,
-        Option(testData.body),
+        testData.body,
         testData.date,
         testData.tdrRef,
         s"${testData.fileName.prefix}.${testData.fileName.suffix}",

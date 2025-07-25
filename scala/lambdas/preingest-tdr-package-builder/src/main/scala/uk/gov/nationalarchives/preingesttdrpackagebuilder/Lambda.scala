@@ -61,7 +61,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             List(fileId),
             List(metadataId),
             packageMetadata.description,
-            packageMetadata.transferringBody.getOrElse(""),
+            packageMetadata.transferringBody,
             LocalDateTime.parse(packageMetadata.transferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
             config.sourceSystem,
             "Born Digital",

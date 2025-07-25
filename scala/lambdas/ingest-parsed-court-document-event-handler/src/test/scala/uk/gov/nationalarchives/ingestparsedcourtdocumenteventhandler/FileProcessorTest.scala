@@ -309,7 +309,7 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
                   List(fileId),
                   List(metadataId),
                   treName,
-                  "test-organisation",
+                  Option("test-organisation"),
                   OffsetDateTime.parse("2023-10-31T13:40:54Z"),
                   `TRE: FCL Parser workflow`,
                   "Born Digital",
