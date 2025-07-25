@@ -12,7 +12,7 @@ import hashlib
 def create_skeleton_suite_lookup(prefixes):
     puid_lookup = {}
     for prefix in prefixes:
-        path = f"{os.environ['DROID_PATH']}\\{prefix}"
+        path = os.path.join(os.environ['DROID_PATH'], prefix)
 
         pattern = re.compile(r'((x-)?fmt-\d{1,5})-signature-id-\d{1,5}(\.[A-Za-z]{1,10})')
 
@@ -22,7 +22,7 @@ def create_skeleton_suite_lookup(prefixes):
             match = pattern.search(name)
             if match:
                 puid = match.group(1).replace(f'{prefix}-', f'{prefix}/')
-                puid_lookup[puid] = {'file_path': f"{path}\\{name}"}
+                puid_lookup[puid] = {'file_path': os.path.join(path, name)}
 
     return puid_lookup
 
