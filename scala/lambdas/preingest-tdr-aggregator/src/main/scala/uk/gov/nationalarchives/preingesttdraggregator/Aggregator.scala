@@ -68,9 +68,9 @@ object Aggregator:
 
     private def toDynamoString(value: String): AttributeValue = AttributeValue.builder.s(value).build
 
-    def writeToLockTable(input: Input, config: Config, groupId: GroupId): F[Int] = {
+    def writeToLockTable(msgInput: Input, config: Config, groupId: GroupId): F[Int] = {
       val dynamoLockTableItem: DynamoValue = DynamoWriteUtils.writeLockTableItem(
-        IngestLockTableItem(input.id, groupId.groupValue, input.asJson.printWith(Printer.noSpaces), Generators().generateInstant.toString)
+        IngestLockTableItem(msgInput.id, groupId.groupValue, msgInput.asJson.printWith(Printer.noSpaces), Generators().generateInstant.toString)
       )
 
       dynamoClient.writeItem(
@@ -82,16 +82,17 @@ object Aggregator:
       )
     }
 
-    private def startNewGroup(sourceId: String, config: Config, groupExpiryTime: Milliseconds)(using enc: Encoder[SFNArguments]): F[Group] = {
+    private def startNewGroup(sourceId: String, config: Config, groupExpiryTime: Milliseconds, msgInput: Input)(using enc: Encoder[SFNArguments]): F[Group] = {
       val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
       val groupId: GroupId = GroupId(config.sourceSystem)
       val batchId = BatchId(groupId)
-      sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
-        Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
-      }
+      writeToLockTable(msgInput, config, groupId) >>
+        sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
+          Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
+        }
     }
 
-    private def getNewOrExistingGroupId(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds)(using
+    private def getNewOrExistingGroupId(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds, msgInput: Input)(using
         Encoder[SFNArguments]
     ): F[GroupId] = {
       def log = logWithReason(sourceId)
@@ -100,11 +101,14 @@ object Aggregator:
       atomicCell
         .evalUpdateAndGet { groupCache =>
           val groupF = groupCache.get(sourceId) match
-            case None => log(NoExistingGroup) >> startNewGroup(sourceId, config, groupExpiryTime)
+            case None => log(NoExistingGroup) >> startNewGroup(sourceId, config, groupExpiryTime, msgInput)
             case Some(currentGroupForSource) =>
-              if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then log(ExpiryBeforeLambdaTimeout) >> startNewGroup(sourceId, config, groupExpiryTime)
-              else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(sourceId, config, groupExpiryTime)
-              else Async[F].pure(currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))
+              if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then
+                log(ExpiryBeforeLambdaTimeout) >> startNewGroup(sourceId, config, groupExpiryTime, msgInput)
+              else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(sourceId, config, groupExpiryTime, msgInput)
+              else
+                writeToLockTable(msgInput, config, currentGroupForSource.groupId) >>
+                  Async[F].pure(currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))
           groupF.map(group => groupCache + (sourceId -> group))
         }
         .map(_(sourceId).groupId)
@@ -118,9 +122,8 @@ object Aggregator:
       for {
         fibers <- messages.parTraverse { record =>
           val process = for {
-            groupId <- getNewOrExistingGroupId(atomicCell, config, record.getEventSourceArn, lambdaTimeoutTime)
             input <- Async[F].fromEither(decode[Input](record.getBody))
-            _ <- writeToLockTable(input, config, groupId)
+            groupId <- getNewOrExistingGroupId(atomicCell, config, record.getEventSourceArn, lambdaTimeoutTime, input)
           } yield record.getMessageId
           process.handleErrorWith { err =>
             logger.error(Map(), err)(err.getMessage) >>
