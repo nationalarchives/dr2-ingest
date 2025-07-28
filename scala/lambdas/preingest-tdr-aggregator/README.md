@@ -1,5 +1,7 @@
 # DR2 Preingest TDR aggregator
 
+This code is used for both the TDR and DRI migration preingest.
+
 The aggregation uses Lambda's [built-in batching](https://aws.amazon.com/about-aws/whats-new/2020/11/aws-lambda-now-supports-batch-windows-of-up-to-5-minutes-for-functions/) functionality and in-memory caching to group events into groups of a specified size. 
 DynamoDB is used to prevent the same message being included in multiple groups due to SQS's at-least-once delivery guarantee. 
 The application is designed to handle a failure of the aggregation-lambda, ensuring that events do not become stuck within the DynamoDB table and preventing re-processing.

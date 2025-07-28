@@ -9,10 +9,11 @@ import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Checksum, IngestLockTableItem}
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.TestUtils.{*, given}
 import uk.gov.nationalarchives.utils.ExternalUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.TDR
 
 import java.net.URI
 import java.time.{Instant, LocalDateTime, ZoneOffset}
@@ -20,22 +21,27 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
-  val config: Config = Config("", "", "cacheBucket", 1)
+  val config: Config = Config("", "", "cacheBucket", 1, TDR)
   private val dateTimeNow: Instant = Instant.now()
   case class FileName(prefix: String, suffix: String) {
     def fileString: String = s"$prefix.$suffix"
   }
+
+  private def checksum(fingerprint: String) = List(Checksum("sha256", fingerprint))
+
   case class TestData(
       series: String,
-      body: String,
+      body: Option[String],
       date: String,
       tdrRef: String,
       fileName: FileName,
       fileSize: Long,
-      checksum: String,
+      checksums: List[Checksum],
       fileRef: String,
       groupId: String,
-      batchId: String
+      batchId: String,
+      filePath: String,
+      driBatchRef: Option[String]
   )
   val dateGen: Gen[String] = for {
     year <- Gen.posNum[Int]
@@ -51,20 +57,27 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     suffix <- Gen.asciiStr
   } yield FileName(prefix, suffix)
 
+  val checksumGen: Gen[Checksum] = for {
+    algorithm <- Gen.alphaStr
+    fingerprint <- Gen.alphaStr
+  } yield Checksum(algorithm, fingerprint)
+
   val testCount: Iterator[Int] = (1 to 100).toList.iterator
 
   val testDataGen: Gen[TestData] = for {
     series <- Gen.asciiStr
-    body <- Gen.asciiStr
+    body <- Gen.option(Gen.asciiStr)
     date <- dateGen
     tdrRef <- Gen.asciiStr
     fileName <- fileNameGen
     fileSize <- Gen.posNum[Long]
-    checksum <- Gen.alphaStr
+    checksum <- checksumGen
     fileRef <- Gen.asciiStr
     groupId <- Gen.asciiStr
     batchId <- Gen.alphaStr
-  } yield TestData(series, body, date, tdrRef, fileName, fileSize, checksum, fileRef, groupId, batchId)
+    filePath <- Gen.asciiStr
+    driBatchRef <- Gen.option(Gen.asciiStr)
+  } yield TestData(series, body, date, tdrRef, fileName, fileSize, List(checksum), fileRef, groupId, batchId, filePath, driBatchRef)
 
   given PropertyCheckConfiguration = PropertyCheckConfiguration(minSuccessful = 100)
 
@@ -76,16 +89,19 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       val tdrFileId = UUID.fromString("a2834c9d-46e8-42d9-a300-2a4ed31c1e1a")
       val uuids = Iterator(metadataFileId, fileId, archiveFolderId)
       val uuidIterator: () => UUID = () => uuids.next
-      val tdrMetadata = TDRMetadata(
+      val tdrMetadata = PackageMetadata(
         testData.series,
         tdrFileId,
+        None,
         None,
         testData.body,
         testData.date,
         testData.tdrRef,
         s"${testData.fileName.prefix}.${testData.fileName.suffix}",
-        testData.checksum,
-        testData.fileRef
+        testData.checksums,
+        testData.fileRef,
+        testData.filePath,
+        testData.driBatchRef
       )
       val metadataChecksum = fs2.Stream
         .emits(tdrMetadata.asJson.noSpaces.getBytes)
@@ -126,7 +142,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       assetMetadataObject.description should equal(None)
       assetMetadataObject.transferringBody should equal(testData.body)
       assetMetadataObject.transferCompleteDatetime should equal(LocalDateTime.parse(testData.date.replace(" ", "T")).atOffset(ZoneOffset.UTC))
-      assetMetadataObject.upstreamSystem should equal("TDR")
+      assetMetadataObject.upstreamSystem should equal(TDR)
       assetMetadataObject.digitalAssetSource should equal("Born Digital")
       assetMetadataObject.digitalAssetSubtype should equal(None)
       assetMetadataObject.correlationId should equal(potentialLockTableMessageId)
@@ -146,7 +162,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       fileMetadataObject.representationType should equal(RepresentationType.Preservation)
       fileMetadataObject.representationSuffix should equal(1)
       fileMetadataObject.location should equal(URI.create("s3://bucket/key"))
-      fileMetadataObject.checksumSha256 should equal(testData.checksum)
+      fileMetadataObject.checksums should equal(testData.checksums)
 
       metadataFileMetadataObject.parentId should equal(Option(tdrFileId))
       metadataFileMetadataObject.title should equal(s"$tdrFileId-metadata")
@@ -156,7 +172,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       metadataFileMetadataObject.representationType should equal(RepresentationType.Preservation)
       metadataFileMetadataObject.representationSuffix should equal(1)
       metadataFileMetadataObject.location should equal(URI.create("s3://bucket/key.metadata"))
-      metadataFileMetadataObject.checksumSha256 should equal(metadataChecksum)
+      metadataFileMetadataObject.checksums.head should equal(Checksum("sha256", metadataChecksum))
 
       output.groupId should equal(testData.groupId)
       output.batchId should equal(testData.batchId)
@@ -173,19 +189,22 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val tdrFileId = UUID.fromString("a2834c9d-46e8-42d9-a300-2a4ed31c1e1a")
     val uuids = Iterator(metadataFileId, fileId, archiveFolderId)
     val uuidIterator: () => UUID = () => UUID.randomUUID
-    val tdrMetadataOne = TDRMetadata(
+    val tdrMetadataOne = PackageMetadata(
       "TST 123",
       tdrFileId,
       None,
-      "body",
+      None,
+      Option("body"),
       "2024-10-18 00:00:01",
       "TDR-ABCD",
       s"file.txt",
-      "checksum",
-      "reference"
+      checksum("checksum"),
+      "reference",
+      "/path/to/file.txt",
+      None
     )
 
-    val tdrMetadataTwo = tdrMetadataOne.copy(ConsignmentReference = "TDR-EFGH")
+    val tdrMetadataTwo = tdrMetadataOne.copy(consignmentReference = "TDR-EFGH")
 
     val groupId = UUID.randomUUID.toString
     val batchId = s"${groupId}_0"
@@ -241,7 +260,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
-    val tdrMetadata = TDRMetadata("", UUID.randomUUID, None, "", "2024-10-04 10:00:00", "", "test.txt", "", "")
+    val tdrMetadata = PackageMetadata("", UUID.randomUUID, None, None, Option(""), "2024-10-04 10:00:00", "", "test.txt", checksum(""), "", "", None)
     val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(1))
     val ex = intercept[Throwable] {
       runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)

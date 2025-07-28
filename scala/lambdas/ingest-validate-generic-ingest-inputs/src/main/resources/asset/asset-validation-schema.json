@@ -90,7 +90,6 @@
     }
   },
   "required": [
-    "id_BornDigitalRef",
     "id_ConsignmentReference",
     "id_RecordID",
     "title"

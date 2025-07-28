@@ -74,6 +74,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       "id_Test2" -> fromS("testIdentifier2"),
       childCount -> fromN("1"),
       skipIngest -> fromBool(false),
+      filePath -> fromS("/a/file/path"),
       correlationId -> fromS("correlationId")
     )
   }
@@ -100,7 +101,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
           (digitalAssetSource, "testDigitalAssetSource"),
           (digitalAssetSubtype, "testDigitalAssetSubtype"),
           (originalFiles, "dec2b921-20e3-41e8-a299-f3cbc13131a2"),
-          (originalMetadataFiles, "3f42e3f2-fffe-4fe9-87f7-262e95b86d75")
+          (originalMetadataFiles, "3f42e3f2-fffe-4fe9-87f7-262e95b86d75"),
+          (filePath, "/a/file/path")
         ) ++ baseFields
       case "File" =>
         List(
@@ -519,7 +521,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       Nil,
       1,
       false,
-      None
+      None,
+      ""
     )
     val res = assetItemFormat.write(dynamoItem)
     val resultMap = res.toAttributeValue.m().asScala
@@ -905,7 +908,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       identifiers,
       1,
       skipIngest,
-      Option("correlationId")
+      Option("correlationId"),
+      ""
     )
   }
 

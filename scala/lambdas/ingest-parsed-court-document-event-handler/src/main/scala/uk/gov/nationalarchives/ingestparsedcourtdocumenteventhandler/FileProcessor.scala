@@ -16,9 +16,11 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.reactivestreams.{FlowAdapters, Publisher}
 import pureconfig.ConfigReader
 import uk.gov.nationalarchives.DAS3Client
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
 import uk.gov.nationalarchives.utils.ExternalUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.`TRE: FCL Parser workflow`
 
 import java.io.{BufferedInputStream, InputStream}
 import java.net.URI
@@ -121,11 +123,12 @@ class FileProcessor(
         List(fileInfo.id),
         List(metadataFileInfo.id),
         potentialJudgmentName,
-        treMetadata.parameters.TDR.`Source-Organization`,
+        Option(treMetadata.parameters.TDR.`Source-Organization`),
         treMetadata.parameters.TDR.`Consignment-Export-Datetime`,
-        "TRE: FCL Parser workflow",
+        `TRE: FCL Parser workflow`,
         "Born Digital",
         Option("FCL"),
+        fileInfo.fileName,
         potentialCorrelationId,
         assetMetadataIdFields
       )
@@ -140,7 +143,7 @@ class FileProcessor(
         RepresentationType.Preservation,
         1,
         fileInfo.location,
-        treMetadata.parameters.TDR.`Document-Checksum-sha256`
+        List(Checksum("sha256", treMetadata.parameters.TDR.`Document-Checksum-sha256`))
       )
     val fileMetadataObject = FileMetadataObject(
       metadataFileInfo.id,
@@ -152,7 +155,7 @@ class FileProcessor(
       RepresentationType.Preservation,
       1,
       metadataFileInfo.location,
-      metadataFileInfo.sha256Checksum
+      List(Checksum("sha256", metadataFileInfo.sha256Checksum))
     )
     List(archiveFolderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
   }
