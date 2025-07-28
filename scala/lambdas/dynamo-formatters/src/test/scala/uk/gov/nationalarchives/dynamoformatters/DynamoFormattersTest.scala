@@ -381,7 +381,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     assetRow.id should equal(UUID.fromString(allAssetFieldsPopulated(id).s()))
     assetRow.potentialParentPath.get should equal("testParentPath")
     assetRow.`type` should equal(Asset)
-    assetRow.transferringBody should equal("testTransferringBody")
+    assetRow.transferringBody.get should equal("testTransferringBody")
     assetRow.transferCompleteDatetime should equal(OffsetDateTime.parse("2023-06-01T00:00Z"))
     assetRow.upstreamSystem should equal("testUpstreamSystem")
     assetRow.digitalAssetSource should equal("testDigitalAssetSource")
@@ -509,7 +509,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       Asset,
       None,
       None,
-      transferringBody,
+      Option(transferringBody),
       OffsetDateTime.parse("2023-06-01T00:00Z"),
       upstreamSystem,
       digitalAssetSource,
@@ -896,7 +896,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       Asset,
       Option(title),
       Option(description),
-      transferringBody,
+      Option(transferringBody),
       OffsetDateTime.parse("2023-06-01T00:00Z"),
       upstreamSystem,
       digitalAssetSource,

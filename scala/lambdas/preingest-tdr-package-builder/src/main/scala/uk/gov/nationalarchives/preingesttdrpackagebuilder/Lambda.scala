@@ -70,13 +70,15 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             potentialMessageId,
             List(
               IdField("Code", s"${packageMetadata.series}/${packageMetadata.fileReference}"),
-              IdField("ConsignmentReference", packageMetadata.consignmentReference),
               IdField("RecordID", assetId.toString)
-            ) ++ sourceSpecificIdentifiers
+            ) ++ sourceSpecificIdentifiers ++ packageMetadata.consignmentReference.map(consignmentRef => List(IdField("ConsignmentReference", consignmentRef))).getOrElse(Nil)
           )
           for {
             headObjectResponse <- dependencies.s3Client
               .headObject(fileLocation.getHost, fileLocation.getPath.drop(1))
+            contentFolderKey <- IO.fromOption[String](packageMetadata.consignmentReference.orElse(packageMetadata.driBatchReference))(
+              new Exception(s"We need either a consignment reference or DRI batch reference for $assetId")
+            )
             res <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
               val fileMetadata = FileMetadataObject(
                 fileId,
@@ -90,12 +92,12 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                 fileLocation,
                 packageMetadata.checksums
               )
-              val contentFolder = contentFolderMap.get(packageMetadata.consignmentReference)
+              val contentFolder = contentFolderMap.get(contentFolderKey)
               if contentFolder.isDefined then (contentFolderMap, List(assetMetadata.copy(parentId = contentFolder.map(_.id)), fileMetadata))
               else
                 val contentFolderId = dependencies.uuidGenerator()
-                val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, packageMetadata.consignmentReference, Option(packageMetadata.series), Nil)
-                val updatedMap = contentFolderMap + (packageMetadata.consignmentReference -> contentFolderMetadata)
+                val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, contentFolderKey, Option(packageMetadata.series), Nil)
+                val updatedMap = contentFolderMap + (contentFolderKey -> contentFolderMetadata)
                 val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id)), fileMetadata)
                 (updatedMap, allMetadata)
             }
@@ -210,7 +212,7 @@ object Lambda:
       description <- c.downField("description").as[Option[String]]
       transferringBody <- c.downField("TransferringBody").as[Option[String]]
       transferInitiatedDatetime <- c.downField("TransferInitiatedDatetime").as[String]
-      consignmentReference <- c.downField("ConsignmentReference").as[String]
+      consignmentReference <- c.downField("ConsignmentReference").as[Option[String]]
       fileName <- c.downField("Filename").as[String]
       checksums <- getChecksums(c)
       fileReference <- c.downField("FileReference").as[String]
@@ -238,7 +240,7 @@ object Lambda:
       description: Option[String],
       transferringBody: Option[String],
       transferInitiatedDatetime: String,
-      consignmentReference: String,
+      consignmentReference: Option[String],
       filename: String,
       checksums: List[Checksum],
       fileReference: String,

@@ -38,7 +38,8 @@ object TestUtils:
       m.description.map(d => ("description", Json.fromString(d))),
       m.transferringBody.map(t => ("TransferringBody", Json.fromString(t))),
       ("TransferInitiatedDatetime", Json.fromString(m.transferInitiatedDatetime)).some,
-      ("ConsignmentReference", Json.fromString(m.consignmentReference)).some,
+      m.consignmentReference.map(c => ("ConsignmentReference", Json.fromString(c))),
+      m.driBatchReference.map(d => ("driBatchReference", Json.fromString(d))),
       ("Filename", Json.fromString(m.filename)).some,
       ("FileReference", Json.fromString(m.fileReference)).some,
       ("ClientSideOriginalFilepath", Json.fromString(m.originalFilePath)).some
