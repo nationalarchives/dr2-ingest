@@ -184,7 +184,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     checkWriteItemArgs(writeItemArgs, List(assetId), groupId)
   }
 
-  "aggregate" should "not add a new group if the expiry is after the lambda timeout and the group is smaller than the max" in {
+  "aggregate" should "update the existing group's 'itemCount' if the expiry is after the lambda timeout and the group is smaller than the max" in {
     val assetId = UUID.randomUUID
     val existingGroupId = GroupId("TST")
     val later = Instant.now.plusMillis(10000)
