@@ -60,88 +60,89 @@ object Aggregator:
   enum NewGroupReason:
     case NoExistingGroup, ExpiryBeforeLambdaTimeout, MaxGroupSizeExceeded
 
-  def apply[F[_]: {Async, Parallel}](sfnClient: DASFNClient[F], dynamoClient: DADynamoDBClient[F])(using Generators): Aggregator[F] = new Aggregator[F]:
-    private val logger: SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger
+  def apply[F[_]: {Async, Parallel}](sfnClient: DASFNClient[F], dynamoClient: DADynamoDBClient[F])(using Generators): Aggregator[F] =
+    new Aggregator[F]:
+      private val logger: SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger
 
-    private def logWithReason(sourceId: String)(newGroupReason: NewGroupReason): F[Unit] =
-      logger.info(Map("action" -> "Start new group", "reason" -> newGroupReason.toString, "sourceId" -> sourceId))("Starting a new group")
+      private def logWithReason(sourceId: String)(newGroupReason: NewGroupReason): F[Unit] =
+        logger.info(Map("action" -> "Start new group", "reason" -> newGroupReason.toString, "sourceId" -> sourceId))("Starting a new group")
 
-    private def toDynamoString(value: String): AttributeValue = AttributeValue.builder.s(value).build
+      private def toDynamoString(value: String): AttributeValue = AttributeValue.builder.s(value).build
 
-    def writeToLockTable(msgInput: Input, config: Config, groupId: GroupId): F[Int] = {
-      val dynamoLockTableItem: DynamoValue = DynamoWriteUtils.writeLockTableItem(
-        IngestLockTableItem(msgInput.id, groupId.groupValue, msgInput.asJson.printWith(Printer.noSpaces), Generators().generateInstant.toString)
-      )
-
-      dynamoClient.writeItem(
-        DADynamoDbWriteItemRequest(
-          config.lockTable,
-          dynamoLockTableItem.toAttributeValue.m().asScala.toMap,
-          Some(s"attribute_not_exists(assetId)")
+      def writeToLockTable(msgInput: Input, config: Config, groupId: GroupId): F[Int] = {
+        val dynamoLockTableItem: DynamoValue = DynamoWriteUtils.writeLockTableItem(
+          IngestLockTableItem(msgInput.id, groupId.groupValue, msgInput.asJson.printWith(Printer.noSpaces), Generators().generateInstant.toString)
         )
-      )
-    }
 
-    private def startNewGroup(config: Config, groupExpiryTime: Milliseconds, msgInput: Input)(using enc: Encoder[SFNArguments]): F[Group] = {
-      val groupId: GroupId = GroupId(config.sourceSystem)
-      val batchId = BatchId(groupId)
-      writeToLockTable(msgInput, config, groupId) >> {
-        val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
-        sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
-          Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
+        dynamoClient.writeItem(
+          DADynamoDbWriteItemRequest(
+            config.lockTable,
+            dynamoLockTableItem.toAttributeValue.m().asScala.toMap,
+            Some(s"attribute_not_exists(assetId)")
+          )
+        )
+      }
+
+      private def startNewGroup(config: Config, groupExpiryTime: Milliseconds, msgInput: Input)(using enc: Encoder[SFNArguments]): F[Group] = {
+        val groupId: GroupId = GroupId(config.sourceSystem)
+        val batchId = BatchId(groupId)
+        writeToLockTable(msgInput, config, groupId) >> {
+          val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
+          sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
+            Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
+          }
         }
       }
-    }
 
-    private def updateOrCreateNewGroup(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds, msgInput: Input)(using
-        Encoder[SFNArguments]
-    ): F[Unit] = {
-      def log = logWithReason(sourceId)
+      private def updateOrCreateNewGroup(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds, msgInput: Input)(using
+          Encoder[SFNArguments]
+      ): F[Unit] = {
+        def log = logWithReason(sourceId)
 
-      val groupExpiryTime: Milliseconds = lambdaTimeoutTime + config.maxSecondaryBatchingWindow.toMilliSeconds
-      atomicCell.evalUpdateAndGet { groupCache =>
-        val groupF = groupCache.get(sourceId) match
-          case None => log(NoExistingGroup) >> startNewGroup(config, groupExpiryTime, msgInput)
-          case Some(currentGroupForSource) =>
-            if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then log(ExpiryBeforeLambdaTimeout) >> startNewGroup(config, groupExpiryTime, msgInput)
-            else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(config, groupExpiryTime, msgInput)
-            else
-              writeToLockTable(msgInput, config, currentGroupForSource.groupId) >>
-                Async[F].pure(currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))
-        groupF.map(group => groupCache + (sourceId -> group))
-      }.void
-    }
+        val groupExpiryTime: Milliseconds = lambdaTimeoutTime + config.maxSecondaryBatchingWindow.toMilliSeconds
+        atomicCell.evalUpdateAndGet { groupCache =>
+          val groupF = groupCache.get(sourceId) match
+            case None => log(NoExistingGroup) >> startNewGroup(config, groupExpiryTime, msgInput)
+            case Some(currentGroupForSource) =>
+              if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then log(ExpiryBeforeLambdaTimeout) >> startNewGroup(config, groupExpiryTime, msgInput)
+              else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(config, groupExpiryTime, msgInput)
+              else
+                writeToLockTable(msgInput, config, currentGroupForSource.groupId) >>
+                  Async[F].pure(currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))
+          groupF.map(group => groupCache + (sourceId -> group))
+        }.void
+      }
 
-    override def aggregate(config: Config, atomicCell: AtomicCell[F, Map[String, Group]], messages: List[SQSMessage], remainingTimeInMillis: Int)(using
-        Encoder[SFNArguments],
-        Decoder[Input]
-    ): F[List[BatchItemFailure]] = {
-      val lambdaTimeoutTime = (Generators().generateInstant.toEpochMilli + remainingTimeInMillis).milliSeconds
-      for {
-        fibers <- messages.parTraverse { message =>
-          val process = for {
-            input <- Async[F].fromEither(decode[Input](message.getBody))
-            _ <- updateOrCreateNewGroup(atomicCell, config, message.getEventSourceArn, lambdaTimeoutTime, input)
-          } yield message.getMessageId
-          process.handleErrorWith { err =>
-            logger.error(Map(), err)(err.getMessage) >>
-              Async[F].raiseError(AggregatorError(message.getMessageId))
-          }.start
-        }
-        results <- fibers.traverse(_.join)
-        _ <- logger.info(Map("successes" -> results.count(_.isSuccess).toString, "failures" -> results.count(_.isError).toString))("Aggregation complete")
-        response <- handleErrors(results)
-      } yield response
-    }
+      override def aggregate(config: Config, atomicCell: AtomicCell[F, Map[String, Group]], messages: List[SQSMessage], remainingTimeInMillis: Int)(using
+          Encoder[SFNArguments],
+          Decoder[Input]
+      ): F[List[BatchItemFailure]] = {
+        val lambdaTimeoutTime = (Generators().generateInstant.toEpochMilli + remainingTimeInMillis).milliSeconds
+        for {
+          fibers <- messages.parTraverse { message =>
+            val process = for {
+              input <- Async[F].fromEither(decode[Input](message.getBody))
+              _ <- updateOrCreateNewGroup(atomicCell, config, message.getEventSourceArn, lambdaTimeoutTime, input)
+            } yield message.getMessageId
+            process.handleErrorWith { err =>
+              logger.error(Map(), err)(err.getMessage) >>
+                Async[F].raiseError(AggregatorError(message.getMessageId))
+            }.start
+          }
+          results <- fibers.traverse(_.join)
+          _ <- logger.info(Map("successes" -> results.count(_.isSuccess).toString, "failures" -> results.count(_.isError).toString))("Aggregation complete")
+          response <- handleErrors(results)
+        } yield response
+      }
 
-    private def handleErrors(results: List[Outcome[F, Throwable, String]]): F[List[BatchItemFailure]] = {
-      results
-        .traverse {
-          case Outcome.Errored(e) =>
-            e match
-              case AggregatorError(messageId) => BatchItemFailure.builder().withItemIdentifier(messageId).build.some.pure[F]
-              case _ => Async[F].raiseError(new RuntimeException("Unexpected error", e)) // Should never get here but the compiler complains if I don't check.
-          case _ => none[BatchItemFailure].pure[F]
-        }
-        .map(_.flatten)
-    }
+      private def handleErrors(results: List[Outcome[F, Throwable, String]]): F[List[BatchItemFailure]] = {
+        results
+          .traverse {
+            case Outcome.Errored(e) =>
+              e match
+                case AggregatorError(messageId) => BatchItemFailure.builder().withItemIdentifier(messageId).build.some.pure[F]
+                case _ => Async[F].raiseError(new RuntimeException("Unexpected error", e)) // Should never get here but the compiler complains if I don't check.
+            case _ => none[BatchItemFailure].pure[F]
+          }
+          .map(_.flatten)
+      }
