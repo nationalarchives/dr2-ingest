@@ -205,9 +205,11 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     val existingGroupId = GroupId("TST")
     val later = Instant.now.plusMillis(10000)
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 1))
-    val (writeItemArgs, _, _, results) = getAggregatorOutput(List(assetId), groupCache, dynamoErrors = Map(assetId -> true)).unsafeRunSync()
+    val (writeItemArgs, _, group, results) = getAggregatorOutput(List(assetId), groupCache, dynamoErrors = Map(assetId -> true)).unsafeRunSync()
 
     checkWriteItemArgs(writeItemArgs, List(assetId), existingGroupId)
+    group.size should equal(1)
+    checkGroup(group.head._2, existingGroupId, later, 1)
     results.size should equal(1)
     results.head.getItemIdentifier should equal(assetId.toString)
   }
@@ -220,14 +222,16 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     val later = Instant.now.plusMillis(10000)
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 1))
 
-    val (writeItemArgs, _, _, resultsOne) = getAggregatorOutput(List(assetIdOne, assetIdTwo), groupCache, dynamoErrors = Map(assetIdOne -> true)).unsafeRunSync()
+    val (writeItemArgs, _, group, resultsOne) = getAggregatorOutput(List(assetIdOne, assetIdTwo), groupCache, dynamoErrors = Map(assetIdOne -> true)).unsafeRunSync()
     writeItemArgs.size should equal(2)
     checkWriteItemArgs(writeItemArgs, List(assetIdOne, assetIdTwo), existingGroupId)
     resultsOne.size should equal(1)
     resultsOne.head.getItemIdentifier should equal(assetIdOne.toString)
 
-    val (writeItemArgs2, _, _, resultsTwo) = getAggregatorOutput(List(assetIdOne, assetIdTwo), groupCache, dynamoErrors = Map(assetIdTwo -> true)).unsafeRunSync()
+    val (writeItemArgs2, _, group2, resultsTwo) = getAggregatorOutput(List(assetIdOne, assetIdTwo), groupCache, dynamoErrors = Map(assetIdTwo -> true)).unsafeRunSync()
     checkWriteItemArgs(writeItemArgs, List(assetIdOne, assetIdTwo), existingGroupId)
+    group2.size should equal(1)
+    checkGroup(group2.head._2, existingGroupId, later, 2)
     resultsTwo.size should equal(1)
     resultsTwo.head.getItemIdentifier should equal(assetIdTwo.toString)
   }
@@ -238,9 +242,11 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     val later = Instant.now
     val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 11))
 
-    val (writeItemArgs, startSfnArgs, _, results) = getAggregatorOutput(List(assetId), groupCache, sfnError = true).unsafeRunSync()
+    val (writeItemArgs, startSfnArgs, group, results) = getAggregatorOutput(List(assetId), groupCache, sfnError = true).unsafeRunSync()
     checkWriteItemArgs(writeItemArgs, List(assetId), groupId)
     checkSfnArgs(startSfnArgs.head, newBatchId, groupId)
+    group.size should equal(1)
+    checkGroup(group.head._2, existingGroupId, later, 11)
     results.size should equal(1)
     results.head.getItemIdentifier should equal(assetId.toString)
   }
