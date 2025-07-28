@@ -83,13 +83,14 @@ object Aggregator:
     }
 
     private def startNewGroup(sourceId: String, config: Config, groupExpiryTime: Milliseconds, msgInput: Input)(using enc: Encoder[SFNArguments]): F[Group] = {
-      val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
       val groupId: GroupId = GroupId(config.sourceSystem)
       val batchId = BatchId(groupId)
-      writeToLockTable(msgInput, config, groupId) >>
+      writeToLockTable(msgInput, config, groupId) >> {
+        val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
         sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
           Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
         }
+      }
     }
 
     private def updateOrCreateNewGroup(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds, msgInput: Input)(using
