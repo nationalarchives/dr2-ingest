@@ -133,7 +133,8 @@ object ExternalServicesTestUtils:
     List(Identifier("UpstreamSystemReference", "upstreamSystemReference")),
     1,
     false,
-    None
+    None,
+    "/a/file/path"
   )
 
   def generateFile: FileDynamoItem = FileDynamoItem(
@@ -197,6 +198,7 @@ object ExternalServicesTestUtils:
             <TransferringBody>{asset.transferringBody}</TransferringBody>
             <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
             <UpstreamSystemRef>upstreamSystemReference</UpstreamSystemRef>
+            <UpstreamPath>{asset.filePath}</UpstreamPath>
           </Source>
         </opex:DescriptiveMetadata>
       </opex:OPEXMetadata>

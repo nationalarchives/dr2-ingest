@@ -2,9 +2,9 @@
   "input": [
     {
       "type": "Asset",
-      "id": "0f9cab98-114d-4e72-b378-695559155c45",
+      "id": "ef5ecd0a-8562-497e-9d27-b01a0b63ea1f",
       "name": "TestName",
-      "parentId": null,
+      "parentId": "4636d60f-c9f1-4cb5-afd4-764e318e2e16",
       "title": "Test title",
       "digitalAssetSource": "digitalAssetSource",
       "originalFiles": [
@@ -14,16 +14,15 @@
         "8664d643-fe3b-4fa4-be89-9806143b5dda"
       ],
       "transferCompleteDatetime": "2023-10-31T13:40:54Z",
-      "transferringBody": "body",
+      "transferringBody": "",
       "upstreamSystem": "TDR",
+      "id_RecordID": "record",
       "id_BornDigitalRef": "bornDigitalRef",
       "id_ConsignmentReference": "consignmentReference",
-      "id_RecordID": "recordId",
       "filePath": "filePath"
     }
   ],
   "expectedErrors": [
-    "There is no top level folder in this metadata file",
-    "There is not at least one file in this metadata file"
+    "ef5ecd0a-8562-497e-9d27-b01a0b63ea1f $.transferringBody: must be at least 1 characters long"
   ]
 }

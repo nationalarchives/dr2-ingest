@@ -21,6 +21,7 @@ import java.util.UUID
 
 class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   private val sourceId = "SourceID"
+
   override def handler: (
       Input,
       Config,
