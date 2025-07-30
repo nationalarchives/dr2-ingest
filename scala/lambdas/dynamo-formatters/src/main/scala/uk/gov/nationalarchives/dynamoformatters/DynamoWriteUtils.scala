@@ -39,7 +39,6 @@ object DynamoWriteUtils {
     DynamoObject {
       commonFieldsToMap(assetDynamoItem) ++
         Map(
-          "transferringBody" -> DynamoValue.fromString(assetDynamoItem.transferringBody),
           "transferCompleteDatetime" -> DynamoValue.fromString(assetDynamoItem.transferCompleteDatetime.toString),
           "upstreamSystem" -> DynamoValue.fromString(assetDynamoItem.upstreamSystem),
           "digitalAssetSource" -> DynamoValue.fromString(assetDynamoItem.digitalAssetSource),
@@ -50,6 +49,7 @@ object DynamoWriteUtils {
         ) ++ (if (assetDynamoItem.skipIngest) Map("skipIngest" -> DynamoValue.fromBoolean(assetDynamoItem.skipIngest)) else Map())
         ++ assetDynamoItem.correlationId.map(id => Map(correlationId -> DynamoValue.fromString(id))).getOrElse(Map())
         ++ assetDynamoItem.potentialDigitalAssetSubtype.map(subType => Map(digitalAssetSubtype -> DynamoValue.fromString(subType))).getOrElse(Map())
+        ++ assetDynamoItem.transferringBody.map(tb => Map(transferringBody -> DynamoValue.fromString(tb))).getOrElse(Map())
     }.toDynamoValue
 
   def writeFileItem(fileDynamoItem: FileDynamoItem): DynamoValue =

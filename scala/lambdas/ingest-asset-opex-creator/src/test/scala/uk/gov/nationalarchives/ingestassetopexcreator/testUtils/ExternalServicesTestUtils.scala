@@ -121,7 +121,7 @@ object ExternalServicesTestUtils:
     Asset,
     None,
     None,
-    "Body",
+    Option("Body"),
     OffsetDateTime.parse("2023-06-01T00:00Z"),
     "upstreamSystem",
     "digitalAssetSource",
@@ -195,7 +195,7 @@ object ExternalServicesTestUtils:
             <OriginalFiles></OriginalFiles>
             <OriginalMetadataFiles></OriginalMetadataFiles>
             <TransferDateTime>{asset.transferCompleteDatetime}</TransferDateTime>
-            <TransferringBody>{asset.transferringBody}</TransferringBody>
+            <TransferringBody>{asset.transferringBody.getOrElse("")}</TransferringBody>
             <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
             <UpstreamSystemRef>upstreamSystemReference</UpstreamSystemRef>
             <UpstreamPath>{asset.filePath}</UpstreamPath>

@@ -7,6 +7,29 @@ import os
 import tempfile
 
 
+def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows):
+    os.environ['CLIENT_LOCATION'] = '/test/client'
+    os.environ['STORE_PASSWORD'] = 'password'
+    os.environ['DROID_PATH'] = '/test/droid'
+    os.environ['ACCOUNT_NUMBER'] = '123456789'
+    os.environ['ENVIRONMENT'] = 'testenv'
+    mock_create_skeleton.return_value = {
+        "fmt/123": {"file_path": "/test/file1"},
+        "x-fmt/123": {"file_path": "/test/file2"}
+    }
+    mock_cursor = MagicMock()
+    mock_cursor.description = [
+        ("PUID",), ("UUID",), ("FILEID",), ("FILE_PATH",), ("FIXITIES",),
+        ("SERIES",), ("DESCRIPTION",), ("TRANSFERINITIATEDDATETIME",),
+        ("CONSIGNMENTREFERENCE",), ("DRIBATCHREFERENCE",), ("FILENAME",),
+        ("FILEREFERENCE",), ("METADATA",), ("MANIFESTATIONRELREF",), ("TYPEREF",)
+    ]
+
+    mock_cursor.fetchmany.side_effect = [rows, []]
+    mock_connect.return_value.cursor.return_value = mock_cursor
+    mock_checksum.return_value = "abc123"
+
+
 class TestMigrate(unittest.TestCase):
     @patch('oracledb.connect')
     @patch('oracledb.init_oracle_client')
@@ -19,42 +42,21 @@ class TestMigrate(unittest.TestCase):
             self, mock_sqs, mock_s3, mock_checksum,
             mock_create_skeleton, _, __, mock_connect,
     ):
-        os.environ['CLIENT_LOCATION'] = '/test/client'
-        os.environ['STORE_PASSWORD'] = 'password'
-        os.environ['DROID_PATH'] = '/test/droid'
-        os.environ['ACCOUNT_NUMBER'] = '123456789'
-        os.environ['ENVIRONMENT'] = 'testenv'
-
-        mock_create_skeleton.return_value = {
-            "fmt/123": {"file_path": "/test/file1"},
-            "x-fmt/123": {"file_path": "/test/file2"}
-        }
-
-        mock_cursor = MagicMock()
-        mock_cursor.description = [
-            ("PUID",), ("UUID",), ("FILEID",), ("FILE_PATH",), ("FIXITIES",),
-            ("SERIES",), ("DESCRIPTION",), ("TRANSFERINITIATEDDATETIME",),
-            ("CONSIGNMENTREFERENCE",), ("DRIBATCHREFERENCE",), ("FILENAME",),
-            ("FILEREFERENCE",), ("METADATA",)
-        ]
-
         row_fmt = [
             "fmt/123", "uuid-abc", "fileid-xyz", "/test/file1",
             json.dumps([{"SHA256": "test"}]),
             "series1", "desc", "2021-01-01", "consignment", "batch-ref",
-            "filename.txt", "fileref", "meta"
+            "filename.txt", "fileref", "meta", "1", "1"
         ]
         row_x_fmt = [
             "x-fmt/123", "uuid-def", "fileid-xyz", "/test/file2",
             json.dumps([{"SHA256": "test"}]),
             "series1", "desc", "2021-01-01", "consignment", "batch-ref",
-            "filename.txt", "fileref", "meta"
+            "filename.txt", "fileref", "meta", "1", "1"
         ]
         rows = [row_fmt, row_x_fmt]
-        mock_cursor.fetchmany.side_effect = [rows, []]
-        mock_connect.return_value.cursor.return_value = mock_cursor
 
-        mock_checksum.return_value = "abc123"
+        setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows)
 
         create_ingest_metadata.migrate()
 
@@ -84,6 +86,30 @@ class TestMigrate(unittest.TestCase):
             sent_body = json.loads(sqs_args[idx][1]["MessageBody"])
             self.assertEqual(sent_body["fileId"], rows[idx][1])
             self.assertEqual(sent_body["bucket"], "testenv-dr2-ingest-raw-cache")
+
+    @patch('oracledb.connect')
+    @patch('oracledb.init_oracle_client')
+    @patch('builtins.open', new_callable=mock_open, read_data="SELECT * FROM TEST")
+    @patch('migrate.create_ingest_metadata.create_skeleton_suite_lookup')
+    @patch('migrate.create_ingest_metadata.calculate_checksum')
+    @patch('migrate.create_ingest_metadata.s3_client')
+    @patch('migrate.create_ingest_metadata.sqs_client')
+    def test_migrate_raises_error_if_consignment_ref_and_batch_ref_are_missing(
+            self, _, __, mock_checksum,
+            mock_create_skeleton, ___, ____, mock_connect,
+    ):
+        row = [
+            "fmt/123", "uuid-abc", "fileid-xyz", "/test/file1",
+            json.dumps([{"SHA256": "test"}]),
+            "series1", "desc", "2021-01-01", None, None,
+            "filename.txt", "fileref", "meta", "1", "1"
+        ]
+        setup_test(mock_checksum, mock_connect, mock_create_skeleton, [row])
+
+        with self.assertRaises(ValueError) as cm:
+            create_ingest_metadata.migrate()
+
+        self.assertEqual(str(cm.exception), "We need either a consignment reference or a dri batch reference")
 
     def test_skeleton_suite_lookup(self):
         self.test_dir = tempfile.mkdtemp()
@@ -142,6 +168,27 @@ class TestMigrate(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             create_ingest_metadata.calculate_checksum(self.file_path, 'notahash')
         self.assertEqual(str(cm.exception), "Unsupported hash algorithm: notahash")
+
+    def test_redacted_processing(self):
+        metadata_redacted_one = {'UUID': '72918742-af2e-4007-b630-0785c94a7526', 'FileReference': 'ABC/Z'}
+        metadata_redacted_two = {'UUID': '72918742-af2e-4007-b630-0785c94a7526', 'FileReference': 'ABC/Z'}
+        metadata_standard = {'UUID': '00117826-c0b7-4485-b16f-6c996f0e331c', 'FileReference': 'DEF/Z'}
+        assets = [
+            {'type_ref': 100, 'rel_ref': 2, 'metadata': metadata_redacted_one},
+            {'type_ref': 1, 'rel_ref': 1, 'metadata': metadata_redacted_two},
+            {'type_ref': 1, 'rel_ref': 1, 'metadata': metadata_standard}
+        ]
+        processed_assets = create_ingest_metadata.process_redacted(assets)
+
+        def count(key, value):
+            return sum(1 for asset in processed_assets if asset['metadata'][key] == value)
+
+        self.assertEqual(len(processed_assets), 3)
+        self.assertEqual(count('UUID', '72918742-af2e-4007-b630-0785c94a7526'), 1)
+        self.assertEqual(count('UUID', '00117826-c0b7-4485-b16f-6c996f0e331c'), 1)
+        self.assertEqual(count('FileReference', 'ABC/Z'), 1)
+        self.assertEqual(count('FileReference', 'ABC/Z/1'), 1)
+        self.assertEqual(count('FileReference', 'DEF/Z'), 1)
 
 
 if __name__ == '__main__':

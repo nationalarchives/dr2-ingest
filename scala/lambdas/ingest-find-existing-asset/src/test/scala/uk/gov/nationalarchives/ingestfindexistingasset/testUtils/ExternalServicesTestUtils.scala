@@ -39,7 +39,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
     Asset,
     None,
     None,
-    transferringBody,
+    Option(transferringBody),
     OffsetDateTime.parse("2023-06-01T00:00Z"),
     upstreamSystem,
     digitalAssetSource,
