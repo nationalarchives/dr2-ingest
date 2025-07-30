@@ -127,5 +127,5 @@ object Lambda {
   )
   case class Input(groupId: String, batchId: String, metadataPackage: URI, executionName: String)
   case class Config(dynamoTableName: String, discoveryApiUrl: String, ingestStateBucket: String) derives ConfigReader
-  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], s3: DAS3Client[IO], time: () => Instant = () => Generators().generateInstant)
+  case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], s3: DAS3Client[IO], time: () => Instant = () => Generators().generateNowInstant)
 }

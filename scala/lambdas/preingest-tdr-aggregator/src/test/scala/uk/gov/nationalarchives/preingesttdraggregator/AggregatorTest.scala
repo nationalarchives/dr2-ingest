@@ -94,7 +94,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
   def generators(instant: Instant): Generators = new Generators:
     override def generateRandomUuid: UUID = groupUUID
 
-    override def generateInstant: Instant = instant
+    override def generateNowInstant: Instant = instant
 
     override def generateRandomInt(min: Int, max: Int): Int = throw new Exception("Not implemented")
 
