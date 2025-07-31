@@ -69,7 +69,7 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     getPotentialStringValue(title),
     getPotentialStringValue(description),
     stringToType(getPotentialStringValue(typeField)),
-    getValidatedMandatoryAttributeAsString(transferringBody),
+    getPotentialStringValue(transferringBody),
     stringToScalaType[OffsetDateTime](
       transferCompleteDatetime,
       getPotentialStringValue(transferCompleteDatetime),
@@ -305,7 +305,6 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     (
       allValidatedFileTableAttributes.batchId,
       allValidatedFileTableAttributes.id,
-      allValidatedFileTableAttributes.transferringBody,
       allValidatedFileTableAttributes.transferCompleteDatetime,
       allValidatedFileTableAttributes.upstreamSystem,
       allValidatedFileTableAttributes.digitalAssetSource,
@@ -319,7 +318,6 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       (
           batchId,
           id,
-          transferringBody,
           transferCompletedDatetime,
           upstreamSystem,
           digitalAssetSource,
@@ -337,7 +335,7 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
           rowType,
           allValidatedFileTableAttributes.potentialTitle,
           allValidatedFileTableAttributes.potentialDescription,
-          transferringBody,
+          allValidatedFileTableAttributes.transferringBody,
           transferCompletedDatetime,
           upstreamSystem,
           digitalAssetSource,

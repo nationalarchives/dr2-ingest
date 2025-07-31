@@ -1,12 +1,14 @@
 import io
 import json
 import re
+from collections import defaultdict
 from os import listdir
 import oracledb
 import os
 import boto3
 from botocore.config import Config
 import hashlib
+import uuid
 
 
 def create_skeleton_suite_lookup(prefixes):
@@ -14,7 +16,7 @@ def create_skeleton_suite_lookup(prefixes):
     for prefix in prefixes:
         path = os.path.join(os.environ['DROID_PATH'], prefix)
 
-        pattern = re.compile(r'((x-)?fmt-\d{1,5})-signature-id-\d{1,5}(\.[A-Za-z]{1,10})')
+        pattern = re.compile(r'((x-)?fmt-\d{1,5})-.*')
 
         directory_list = listdir(path)
 
@@ -28,6 +30,8 @@ def create_skeleton_suite_lookup(prefixes):
 
 
 page_size = 100
+
+assets = []
 
 config = Config(region_name="eu-west-2")
 
@@ -48,8 +52,20 @@ def calculate_checksum(file_path: str, algorithm: str) -> str:
     return hasher.hexdigest()
 
 
-def if_none_empty(value):
-    return value if value else ''
+def process_redacted(assets_to_process):
+    grouped = defaultdict(list)
+    for asset in assets_to_process:
+        grouped[asset['metadata']['UUID']].append(asset)
+    grouped_assets = dict(grouped)
+    for asset_uuid, assets_for_uuid in grouped_assets.items():
+        if len(assets_for_uuid) > 1:
+            for redacted_asset in assets_for_uuid:
+                if redacted_asset['type_ref'] == 100:
+                    file_reference = redacted_asset['metadata']['FileReference']
+                    rel_ref = redacted_asset['rel_ref']
+                    redacted_asset['metadata']['UUID'] = str(uuid.uuid4())
+                    redacted_asset['metadata']['FileReference'] = f"{file_reference}/{rel_ref - 1}"
+    return [asset for assets_for_uuid in grouped_assets.values() for asset in assets_for_uuid]
 
 
 def migrate():
@@ -79,19 +95,30 @@ def migrate():
             file_id = row[column_indexes["FILEID"]]
             file_path = row[column_indexes["FILE_PATH"]]
             checksums = json.loads(row[column_indexes["FIXITIES"]])
+            consignment_reference = row[column_indexes["CONSIGNMENTREFERENCE"]]
+            dri_batch_reference = row[column_indexes["DRIBATCHREFERENCE"]]
+            rel_ref = row[column_indexes["MANIFESTATIONRELREF"]]
+            type_ref = row[column_indexes["TYPEREF"]]
+
             metadata = {
                 "Series": row[column_indexes["SERIES"]],
                 "UUID": asset_uuid,
                 "fileId": file_id,
                 "description": row[column_indexes["DESCRIPTION"]],
                 "TransferInitiatedDatetime": str(row[column_indexes["TRANSFERINITIATEDDATETIME"]]),
-                "ConsignmentReference": if_none_empty(row[column_indexes["CONSIGNMENTREFERENCE"]]),
-                "driBatchReference": if_none_empty(row[column_indexes["DRIBATCHREFERENCE"]]),
                 "Filename": row[column_indexes["FILENAME"]],
                 "FileReference": row[column_indexes["FILEREFERENCE"]],
                 "metadata": str(row[column_indexes["METADATA"]]),
                 "ClientSideOriginalFilepath": file_path
             }
+            if consignment_reference:
+                metadata["ConsignmentReference"] = consignment_reference
+            if dri_batch_reference:
+                metadata["driBatchReference"] = dri_batch_reference
+
+            if not consignment_reference and not dri_batch_reference:
+                raise ValueError("We need either a consignment reference or a dri batch reference")
+
             file_path = puid_lookup[puid]['file_path']
             for each_checksum in checksums:
                 for algorithm in each_checksum:
@@ -99,12 +126,21 @@ def migrate():
                     fingerprint = calculate_checksum(file_path, algorithm_lower)
                     metadata[f"checksum_{algorithm_lower}"] = fingerprint
 
-            s3_client.upload_file(file_path, bucket, asset_uuid)
+            assets.append({'file_path': file_path, 'metadata': metadata, 'rel_ref': rel_ref, 'type_ref': type_ref})
 
-            json_bytes = io.BytesIO(json.dumps(metadata).encode("utf-8"))
-            s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")
-            sqs_client.send_message(QueueUrl=queue_url,
-                                    MessageBody=json.dumps({'fileId': asset_uuid, 'bucket': bucket}))
+    assets_with_redacted = process_redacted(assets)
+
+    for asset in assets_with_redacted:
+        file_path = asset['file_path']
+
+        metadata = asset['metadata']
+        asset_uuid = metadata['UUID']
+        s3_client.upload_file(file_path, bucket, asset_uuid)
+
+        json_bytes = io.BytesIO(json.dumps(metadata).encode("utf-8"))
+        s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")
+        sqs_client.send_message(QueueUrl=queue_url,
+                                MessageBody=json.dumps({'fileId': asset_uuid, 'bucket': bucket}))
 
 
 if __name__ == "__main__":

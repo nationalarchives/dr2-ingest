@@ -33,7 +33,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       series: String,
       body: Option[String],
       date: String,
-      tdrRef: String,
+      tdrRef: Option[String],
       fileName: FileName,
       fileSize: Long,
       checksums: List[Checksum],
@@ -63,12 +63,16 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   } yield Checksum(algorithm, fingerprint)
 
   val testCount: Iterator[Int] = (1 to 100).toList.iterator
+  val tdrOrDriBatchGen: Gen[(Option[String], Option[String])] =
+    for
+      tdr <- Gen.option(Gen.asciiStr)
+      dri <- Gen.option(Gen.asciiStr)
+    yield if tdr.isEmpty && dri.isEmpty then (Option("TDR-123"), None) else (tdr, dri)
 
   val testDataGen: Gen[TestData] = for {
     series <- Gen.asciiStr
     body <- Gen.option(Gen.asciiStr)
     date <- dateGen
-    tdrRef <- Gen.asciiStr
     fileName <- fileNameGen
     fileSize <- Gen.posNum[Long]
     checksum <- checksumGen
@@ -76,8 +80,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     groupId <- Gen.asciiStr
     batchId <- Gen.alphaStr
     filePath <- Gen.asciiStr
-    driBatchRef <- Gen.option(Gen.asciiStr)
-  } yield TestData(series, body, date, tdrRef, fileName, fileSize, List(checksum), fileRef, groupId, batchId, filePath, driBatchRef)
+    (potentialTdrRef, potentialDriBatchRef) <- tdrOrDriBatchGen
+  } yield TestData(series, body, date, potentialTdrRef, fileName, fileSize, List(checksum), fileRef, groupId, batchId, filePath, potentialDriBatchRef)
 
   given PropertyCheckConfiguration = PropertyCheckConfiguration(minSuccessful = 100)
 
@@ -127,8 +131,9 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       val fileMetadataObjects = metadataObjects.collect { case fileMetadataObject: FileMetadataObject => fileMetadataObject }
       val fileMetadataObject = fileMetadataObjects.filterNot(_.name.endsWith("-metadata.json")).head
       val metadataFileMetadataObject = fileMetadataObjects.filter(_.name.endsWith("-metadata.json")).head
+      val expectedContentFolderName = testData.tdrRef.getOrElse(testData.driBatchRef.get)
 
-      contentFolderMetadataObject.name should equal(testData.tdrRef)
+      contentFolderMetadataObject.name should equal(expectedContentFolderName)
       contentFolderMetadataObject.title should equal(None)
       contentFolderMetadataObject.parentId should equal(None)
       contentFolderMetadataObject.series should equal(Option(testData.series))
@@ -151,7 +156,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       checkIdField("Code", s"${testData.series}/${testData.fileRef}")
       checkIdField("UpstreamSystemReference", testData.fileRef)
       checkIdField("BornDigitalRef", testData.fileRef)
-      checkIdField("ConsignmentReference", testData.tdrRef)
+      testData.tdrRef.map(tdrRef => checkIdField("ConsignmentReference", tdrRef))
       checkIdField("RecordID", tdrFileId.toString)
 
       fileMetadataObject.parentId should equal(Option(tdrFileId))
@@ -196,7 +201,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       None,
       Option("body"),
       "2024-10-18 00:00:01",
-      "TDR-ABCD",
+      Option("TDR-ABCD"),
       s"file.txt",
       checksum("checksum"),
       "reference",
@@ -204,7 +209,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       None
     )
 
-    val tdrMetadataTwo = tdrMetadataOne.copy(consignmentReference = "TDR-EFGH")
+    val tdrMetadataTwo = tdrMetadataOne.copy(consignmentReference = Option("TDR-EFGH"))
 
     val groupId = UUID.randomUUID.toString
     val batchId = s"${groupId}_0"
@@ -260,12 +265,25 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
-    val tdrMetadata = PackageMetadata("", UUID.randomUUID, None, None, Option(""), "2024-10-04 10:00:00", "", "test.txt", checksum(""), "", "", None)
+    val tdrMetadata = PackageMetadata("", UUID.randomUUID, None, None, Option(""), "2024-10-04 10:00:00", Option("ABC-123"), "test.txt", checksum(""), "", "", None)
     val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(1))
     val ex = intercept[Throwable] {
       runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)
     }
     ex.getMessage should equal("Error uploading /metadata.json to cacheBucket")
+  }
+
+  "lambda handler" should "return an error if neither the consignment reference nor DRI reference are set" in {
+    val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
+    val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
+    val id = UUID.randomUUID
+
+    val tdrMetadata = PackageMetadata("", id, None, None, Option(""), "2024-10-04 10:00:00", None, "test.txt", checksum(""), "", "", None)
+    val initialS3Objects = Map("key.metadata" -> tdrMetadata, "key" -> MockTdrFile(1))
+    val ex = intercept[Throwable] {
+      runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)
+    }
+    ex.getMessage should equal(s"We need either a consignment reference or DRI batch reference for $id")
   }
 
   "lambda handler" should "return an error if the dynamo query fails" in {

@@ -153,7 +153,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     Asset,
     Option("title"),
     Option("description"),
-    "transferringBody",
+    Option("transferringBody"),
     OffsetDateTime.parse("2023-06-01T00:00Z"),
     "upstreamSystem",
     "digitalAssetSource",
