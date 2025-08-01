@@ -11,6 +11,7 @@ from test_utils import copy_helper
 
 @patch.dict('os.environ', {'OUTPUT_BUCKET_NAME': 'destination-bucket'})
 @patch.dict('os.environ', {'OUTPUT_QUEUE_URL': 'destination-queue'})
+@patch.dict('os.environ', {'SOURCE_SYSTEM': 'dri'})
 class TestLambdaFunction(unittest.TestCase):
     @staticmethod
     def valid_metadata():
@@ -34,6 +35,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.validate_mandatory_fields_exist')
     @patch('lambda_function.validate_formats')
     @patch.dict(os.environ, {'OUTPUT_BUCKET_NAME': 'destination-bucket'})
+    @patch.dict(os.environ, {'SOURCE_SYSTEM': 'dri'})
     def test_copy(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
                   mock_send_message, mock_complete_multipart_upload, _,
                   mock_create_multipart_upload,
@@ -53,6 +55,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.validate_mandatory_fields_exist')
     @patch('lambda_function.validate_formats')
     @patch.dict(os.environ, {'DESTINATION_BUCKET': 'destination-bucket'})
+    @patch.dict(os.environ, {'SOURCE_SYSTEM': 'dri'})
     def test_copy_returns_messageId_when_in_body(self, mock_validate_formats, mock_validate_mandatory_fields_exist,
                                                  mock_get_object, mock_send_message, mock_complete_multipart_upload, _,
                                                  mock_create_multipart_upload, mock_head_object):

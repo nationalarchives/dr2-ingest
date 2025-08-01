@@ -90,7 +90,6 @@
     }
   },
   "required": [
-    "id_ConsignmentReference",
     "id_RecordID",
     "title"
   ],
