@@ -12,7 +12,10 @@ updates:
       # Check for updates to python packages every week
       interval: "weekly"
   - package-ecosystem: "gradle"
-    directory: "/kotlin"
+    directories: 
+      - "/kotlin/e2etests"
+      - "/kotlin/gradle"
+      - "/kotlin/lib"
     schedule:
       # Check for updates to kotlin packages every week
       interval: "weekly"
