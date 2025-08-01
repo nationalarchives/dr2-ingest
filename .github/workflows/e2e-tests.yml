@@ -20,7 +20,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
       - name: Configure AWS credentials for Lambda
-        uses: aws-actions/configure-aws-credentials@a159d7bb5354cf786f855f2f5d1d8d768d9a08d1
+        uses: aws-actions/configure-aws-credentials@a021b9699343ede242bb1ce239a4b9180ba9dd3d
         with:
           role-duration-seconds: 7200
           role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/intg-dr2-run-e2e-tests-role
