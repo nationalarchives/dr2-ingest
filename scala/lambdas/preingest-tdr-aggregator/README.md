@@ -7,7 +7,8 @@ Lambda's [built-in batching](https://aws.amazon.com/about-aws/whats-new/2020/11/
 functionality and in-memory caching to group these messages into groups (batches) of a specified size. The Event Source Mapping,
 a resource that connects an event source (the Aggregator SQS queue in this case) to a Lambda function, for this is configured
 with the highest possible `BatchSize` and `MaximumBatchingWindowInSeconds`, meaning that this lambda won't be invoked
-until the payload size (messages gathered) reaches 6MB or 10,000 messages, or 300 seconds has elapsed since the first message was received.
+until the payload size (messages gathered) reaches 6MB or 10,000 messages, or 300 seconds has elapsed since the first message
+was received. These values are subject to change.
 
 However, due to Lambda's 6MB invocation payload limit and the large amount of non-optional SQS metadata included in each
 received message, we need to make this function smarter if it is to handle batches of more than a few thousand items.
