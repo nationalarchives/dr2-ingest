@@ -71,7 +71,7 @@ object Aggregator:
 
       def writeToLockTable(msgInput: Input, config: Config, groupId: GroupId): F[Int] = {
         val dynamoLockTableItem: DynamoValue = DynamoWriteUtils.writeLockTableItem(
-          IngestLockTableItem(msgInput.id, groupId.groupValue, msgInput.asJson.printWith(Printer.noSpaces), Generators().generateNowInstant.toString)
+          IngestLockTableItem(msgInput.id, groupId.groupValue, msgInput.asJson.printWith(Printer.noSpaces), Generators().generateInstant.toString)
         )
 
         dynamoClient.writeItem(
@@ -87,7 +87,7 @@ object Aggregator:
         val groupId: GroupId = GroupId(config.sourceSystem)
         val batchId = BatchId(groupId)
         writeToLockTable(msgInput, config, groupId) >> {
-          val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateNowInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
+          val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
           sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
             Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
           }
@@ -117,7 +117,7 @@ object Aggregator:
           Encoder[SFNArguments],
           Decoder[Input]
       ): F[List[BatchItemFailure]] = {
-        val lambdaTimeoutTime = (Generators().generateNowInstant.toEpochMilli + remainingTimeInMillis).milliSeconds
+        val lambdaTimeoutTime = (Generators().generateInstant.toEpochMilli + remainingTimeInMillis).milliSeconds
         for {
           fibers <- messages.parTraverse { message =>
             val process = for {

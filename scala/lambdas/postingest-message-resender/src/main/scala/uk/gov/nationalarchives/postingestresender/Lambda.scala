@@ -29,7 +29,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
   given Encoder[QueueMessage] = deriveEncoder[QueueMessage]
 
   override def dependencies(config: Config): IO[Dependencies] = IO(
-    Dependencies(DADynamoDBClient[IO](), DASQSClient[IO](), () => Generators().generateNowInstant)
+    Dependencies(DADynamoDBClient[IO](), DASQSClient[IO](), () => Generators().generateInstant)
   )
 
   override def handler: (ScheduledEvent, Config, Dependencies) => IO[Unit] = { (triggerEvent, config, dependencies) =>
