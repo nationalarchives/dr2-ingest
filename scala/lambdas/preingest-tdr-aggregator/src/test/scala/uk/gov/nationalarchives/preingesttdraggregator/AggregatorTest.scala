@@ -44,8 +44,11 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
     override def writeItem(dynamoDbWriteRequest: DADynamoDbWriteItemRequest): IO[Int] = {
       val assetId = UUID.fromString(dynamoDbWriteRequest.attributeNamesAndValuesToWrite("assetId").s())
-      if dynamoErrors.getOrElse(assetId, false) then IO.raiseError(new Exception("Write item failed"))
-      else ref.update(args => dynamoDbWriteRequest :: args).map(_ => 2)
+
+      ref.update(args => dynamoDbWriteRequest :: args).flatMap { _ =>
+        if dynamoErrors.getOrElse(assetId, false) then IO.raiseError(new Exception("Write item failed"))
+        else IO.pure(2)
+      }
     }
 
     override def writeItems[T](tableName: String, items: List[T])(using format: DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
@@ -72,15 +75,21 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     startExecutionArgs.name.get should equal(batchId)
   }
 
-  def checkWriteItemArgs(dynamoDbWriteItemRequest: DADynamoDbWriteItemRequest, assetId: UUID, groupId: GroupId): Assertion = {
+  private def validateWriteItemArgs(dynamoDbWriteItemRequest: DADynamoDbWriteItemRequest, assetId: UUID, groupId: GroupId) = {
     dynamoDbWriteItemRequest.tableName should equal("test-table")
     dynamoDbWriteItemRequest.conditionalExpression should equal(Some("attribute_not_exists(assetId)"))
     val attributes = dynamoDbWriteItemRequest.attributeNamesAndValuesToWrite
-    attributes("assetId").s() should equal(assetId.toString)
     attributes("groupId").s() should equal(groupId.groupValue)
     attributes("message").s() should equal(s"""{"id":"$assetId","location":"s3://bucket/key","messageId":"message-id"}""")
     attributes("createdAt").s() should equal("2024-08-13T14:39:07Z")
   }
+
+  def checkWriteItemArgs(dynamoDbWriteItemRequests: List[DADynamoDbWriteItemRequest], expectedAssetIds: List[UUID], groupId: GroupId): List[Assertion] =
+    dynamoDbWriteItemRequests.map { dynamoDbWriteItemRequest =>
+      val actualAssetId = UUID.fromString(dynamoDbWriteItemRequest.attributeNamesAndValuesToWrite("assetId").s())
+      expectedAssetIds.contains(actualAssetId) should equal(true)
+      validateWriteItemArgs(dynamoDbWriteItemRequest, actualAssetId, groupId)
+    }
 
   def generators(instant: Instant): Generators = new Generators:
     override def generateRandomUuid: UUID = groupUUID
@@ -95,8 +104,10 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     override def sendTaskSuccess[T: Encoder](taskToken: String, potentialOutput: Option[T]): IO[Unit] = notImplemented
 
     override def startExecution[T <: Product](stateMachineArn: String, input: T, name: Option[String])(using enc: Encoder[T]): IO[StartExecutionResponse] =
-      if sfnError then IO.raiseError(new Exception("Error starting step function"))
-      else ref.update(args => StartExecutionArgs(stateMachineArn, input.asInstanceOf[SFNArguments], name) :: args).map(_ => StartExecutionResponse.builder.build)
+      ref.update(args => StartExecutionArgs(stateMachineArn, input.asInstanceOf[SFNArguments], name) :: args).flatMap { _ =>
+        if sfnError then IO.raiseError(new Exception("Error starting step function"))
+        else IO.pure(StartExecutionResponse.builder.build)
+      }
 
   private def getAggregatorOutput(
       assetIds: List[UUID],
@@ -139,7 +150,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     group.size should equal(1)
     checkGroup(group.head._2, groupId, instant.plusMillis(2000), 1)
     checkSfnArgs(startSfnArgs.head, newBatchId, groupId)
-    checkWriteItemArgs(writeItemArgs.head, assetId, groupId)
+    checkWriteItemArgs(writeItemArgs, List(assetId), groupId)
   }
 
   "aggregate" should "add a new group to the existing group if the expiry is before the lambda timeout" in {
@@ -154,7 +165,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     group.size should equal(1)
     checkGroup(group.head._2, groupId, instant.plusMillis(2000), 1)
     checkSfnArgs(startSfnArgs.head, newBatchId, groupId)
-    checkWriteItemArgs(writeItemArgs.head, assetId, groupId)
+    checkWriteItemArgs(writeItemArgs, List(assetId), groupId)
   }
 
   "aggregate" should "add a new group to the existing group if the expiry is after the lambda timeout but items is more than max batch size" in {
@@ -170,10 +181,10 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     group.size should equal(1)
     checkGroup(group.head._2, groupId, instant.plusMillis(2000), 1)
     checkSfnArgs(startSfnArgs.head, newBatchId, groupId)
-    checkWriteItemArgs(writeItemArgs.head, assetId, groupId)
+    checkWriteItemArgs(writeItemArgs, List(assetId), groupId)
   }
 
-  "aggregate" should "not add a new group if the expiry is after the lambda timeout and the group is smaller than the max" in {
+  "aggregate" should "update the existing group's 'itemCount' if the expiry is after the lambda timeout and the group is smaller than the max" in {
     val assetId = UUID.randomUUID
     val existingGroupId = GroupId("TST")
     val later = Instant.now.plusMillis(10000)
@@ -186,13 +197,19 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     group.size should equal(1)
     checkGroup(group.head._2, existingGroupId, later, 2)
     startSfnArgs.length should equal(0)
-    checkWriteItemArgs(writeItemArgs.head, assetId, existingGroupId)
+    checkWriteItemArgs(writeItemArgs, List(assetId), existingGroupId)
   }
 
   "aggregate" should "return a failed batch item if the write request returns an error" in {
     val assetId = UUID.randomUUID
-    val (_, _, _, results) = getAggregatorOutput(List(assetId), dynamoErrors = Map(assetId -> true)).unsafeRunSync()
+    val existingGroupId = GroupId("TST")
+    val later = Instant.now.plusMillis(10000)
+    val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 1))
+    val (writeItemArgs, _, group, results) = getAggregatorOutput(List(assetId), groupCache, dynamoErrors = Map(assetId -> true)).unsafeRunSync()
 
+    checkWriteItemArgs(writeItemArgs, List(assetId), existingGroupId)
+    group.size should equal(1)
+    checkGroup(group.head._2, existingGroupId, later, 1)
     results.size should equal(1)
     results.head.getItemIdentifier should equal(assetId.toString)
   }
@@ -200,19 +217,36 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
   "aggregate" should "return one failed batch item if one of two write requests returns an error" in {
     val assetIdOne = UUID.randomUUID
     val assetIdTwo = UUID.randomUUID
-    val (_, _, _, resultsOne) = getAggregatorOutput(List(assetIdOne, assetIdTwo), dynamoErrors = Map(assetIdOne -> true)).unsafeRunSync()
+
+    val existingGroupId = GroupId("TST")
+    val later = Instant.now.plusMillis(10000)
+    val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 1))
+
+    val (writeItemArgs, _, group, resultsOne) = getAggregatorOutput(List(assetIdOne, assetIdTwo), groupCache, dynamoErrors = Map(assetIdOne -> true)).unsafeRunSync()
+    writeItemArgs.size should equal(2)
+    checkWriteItemArgs(writeItemArgs, List(assetIdOne, assetIdTwo), existingGroupId)
     resultsOne.size should equal(1)
     resultsOne.head.getItemIdentifier should equal(assetIdOne.toString)
 
-    val (_, _, _, resultsTwo) = getAggregatorOutput(List(assetIdOne, assetIdTwo), dynamoErrors = Map(assetIdTwo -> true)).unsafeRunSync()
+    val (writeItemArgs2, _, group2, resultsTwo) = getAggregatorOutput(List(assetIdOne, assetIdTwo), groupCache, dynamoErrors = Map(assetIdTwo -> true)).unsafeRunSync()
+    checkWriteItemArgs(writeItemArgs, List(assetIdOne, assetIdTwo), existingGroupId)
+    group2.size should equal(1)
+    checkGroup(group2.head._2, existingGroupId, later, 2)
     resultsTwo.size should equal(1)
     resultsTwo.head.getItemIdentifier should equal(assetIdTwo.toString)
   }
 
   "aggregate" should "return a failed batch item if the step function request returns an error" in {
     val assetId = UUID.randomUUID
-    val (_, _, _, results) = getAggregatorOutput(List(assetId), sfnError = true).unsafeRunSync()
+    val existingGroupId = GroupId("TST")
+    val later = Instant.now
+    val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 11))
 
+    val (writeItemArgs, startSfnArgs, group, results) = getAggregatorOutput(List(assetId), groupCache, sfnError = true).unsafeRunSync()
+    checkWriteItemArgs(writeItemArgs, List(assetId), groupId)
+    checkSfnArgs(startSfnArgs.head, newBatchId, groupId)
+    group.size should equal(1)
+    checkGroup(group.head._2, existingGroupId, later, 11)
     results.size should equal(1)
     results.head.getItemIdentifier should equal(assetId.toString)
   }
