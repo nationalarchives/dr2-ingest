@@ -52,11 +52,15 @@ def calculate_checksum(file_path: str, algorithm: str) -> str:
     return hasher.hexdigest()
 
 
-def process_redacted(assets_to_process):
+def group_assets(assets_list):
     grouped = defaultdict(list)
-    for asset in assets_to_process:
+    for asset in assets_list:
         grouped[asset['metadata']['UUID']].append(asset)
-    grouped_assets = dict(grouped)
+    return dict(grouped)
+
+
+def process_redacted():
+    grouped_assets = group_assets(assets)
     for asset_uuid, assets_for_uuid in grouped_assets.items():
         if len(assets_for_uuid) > 1:
             for redacted_asset in assets_for_uuid:
@@ -75,7 +79,7 @@ def migrate():
     queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-copy-files-from-dri"
 
     puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt'])
-
+    oracledb.defaults.fetch_lobs = False
     oracledb.init_oracle_client(lib_dir=os.environ['CLIENT_LOCATION'])
     conn = oracledb.connect(dsn='localhost/SDB4', user="STORE", password=os.environ['STORE_PASSWORD'])
     cur = conn.cursor()
@@ -99,12 +103,14 @@ def migrate():
             dri_batch_reference = row[column_indexes["DRIBATCHREFERENCE"]]
             rel_ref = row[column_indexes["MANIFESTATIONRELREF"]]
             type_ref = row[column_indexes["TYPEREF"]]
-
+            description_one = row[column_indexes["DESC1"]]
+            description_two = row[column_indexes["DESC2"]]
+            description = description_one if description_one else description_two
             metadata = {
                 "Series": row[column_indexes["SERIES"]],
                 "UUID": asset_uuid,
                 "fileId": file_id,
-                "description": row[column_indexes["DESCRIPTION"]],
+                "description": description,
                 "TransferInitiatedDatetime": str(row[column_indexes["TRANSFERINITIATEDDATETIME"]]),
                 "Filename": row[column_indexes["FILENAME"]],
                 "FileReference": row[column_indexes["FILEREFERENCE"]],
@@ -128,19 +134,28 @@ def migrate():
 
             assets.append({'file_path': file_path, 'metadata': metadata, 'rel_ref': rel_ref, 'type_ref': type_ref})
 
-    assets_with_redacted = process_redacted(assets)
+    assets_with_redacted = process_redacted()
 
-    for asset in assets_with_redacted:
-        file_path = asset['file_path']
+    grouped_assets = group_assets(assets_with_redacted)
 
-        metadata = asset['metadata']
-        asset_uuid = metadata['UUID']
-        s3_client.upload_file(file_path, bucket, asset_uuid)
+    all_sqs_messages = []
 
-        json_bytes = io.BytesIO(json.dumps(metadata).encode("utf-8"))
+    for asset_uuid, assets_list in grouped_assets.items():
+        all_metadata = []
+        for asset in assets_list:
+            file_path = asset['file_path']
+            metadata = asset['metadata']
+            file_id = metadata['fileId']
+            all_metadata.append(metadata)
+            s3_client.upload_file(file_path, bucket, f'{asset_uuid}/{file_id}')
+
+        json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
         s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")
-        sqs_client.send_message(QueueUrl=queue_url,
-                                MessageBody=json.dumps({'fileId': asset_uuid, 'bucket': bucket}))
+        all_sqs_messages.append(json.dumps({'assetId': asset_uuid, 'bucket': bucket}))
+
+    for sqs_message in all_sqs_messages:
+        sqs_client.send_message(QueueUrl=queue_url, MessageBody=sqs_message)
+
 
 
 if __name__ == "__main__":

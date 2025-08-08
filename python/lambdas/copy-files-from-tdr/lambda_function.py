@@ -17,17 +17,17 @@ def lambda_handler(event, context):
     destination_queue = os.environ["OUTPUT_QUEUE_URL"]
     for record in event["Records"]:
         body: dict[str, str] = json.loads(record["body"])
-        file_id = body["fileId"]
+        file_id = body["assetId"] if "assetId" in body else body["fileId"]
         metadata_file_id = f"{file_id}.metadata"
         source_bucket = body["bucket"]
-        files = [file_id, metadata_file_id]
         try:
-            assert_objects_exist_in_bucket(source_bucket, files)
+            file_objects = assert_objects_exist_in_bucket(source_bucket, file_id)
             validate_metadata(source_bucket, metadata_file_id)
-            file_location = copy_objects(destination_bucket, file_id, source_bucket)
-            copy_objects(destination_bucket, metadata_file_id, source_bucket)
+            transfer_files = [f['Key'] for f in file_objects if not f['Key'].endswith(".metadata")]
+            copy_objects(destination_bucket, transfer_files, source_bucket)
+            copy_objects(destination_bucket, [metadata_file_id], source_bucket)
             potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
-            sqs_body = {"id": file_id, "location": file_location}
+            sqs_body = {"id": file_id, "location": f"s3://{destination_bucket}/{metadata_file_id}"}
             sqs_body.update(potential_message_id)
             sqs_client.send_message(QueueUrl=destination_queue, MessageBody=json.dumps(sqs_body))
         except Exception as e:
@@ -35,20 +35,38 @@ def lambda_handler(event, context):
             raise Exception(e)
 
 
-def assert_objects_exist_in_bucket(source_bucket, files):
-    for file in files:
-        try:
-            s3_client.head_object(Bucket=source_bucket, Key=file)
-        except botocore.exceptions.ClientError as ex:
-            raise Exception(f"Object '{file}' does not exist in '{source_bucket}', underlying error is: '{ex}'")
+def list_all_objects(source_bucket, file_id):
+    all_contents = []
+    is_truncated = True
+    while is_truncated:
+        response = s3_client.list_objects(Bucket=source_bucket, Prefix=file_id)
+        all_contents.extend(response['Contents'])
+        is_truncated = response['IsTruncated']
+
+    return all_contents
+
+
+def assert_objects_exist_in_bucket(source_bucket, asset_id):
+    try:
+        contents = list_all_objects(source_bucket, asset_id)
+        missing_metadata = len([c for c in contents if c['Key'] == f"{asset_id}.metadata"]) == 0
+        missing_file_objects = len([c for c in contents if c['Key'] != f"{asset_id}.metadata"]) == 0
+        if missing_file_objects:
+            raise Exception(f"Asset '{asset_id}' has no files in '{source_bucket}'")
+        if missing_metadata:
+            raise Exception(f"Object '{asset_id}.metadata' does not exist in '{source_bucket}'")
+        return contents
+    except botocore.exceptions.ClientError as ex:
+        raise Exception(f"Object '{asset_id}' does not exist in '{source_bucket}', underlying error is: '{ex}'")
 
 
 def validate_metadata(bucket, s3_key):
     source_system = os.environ["SOURCE_SYSTEM"]
     response = s3_client.get_object(Bucket=bucket, Key=s3_key)
     json_metadata = json.loads(response['Body'].read().decode('utf-8'))
-    validate_mandatory_fields_exist(f"common/preingest-{source_system}/metadata-schema.json", json_metadata)
-    validate_formats(json_metadata, bucket, s3_key)
+    for metadata in json_metadata:
+        validate_mandatory_fields_exist(f"common/preingest-{source_system}/metadata-schema.json", metadata)
+        validate_formats(metadata, bucket, s3_key)
 
 
 def validate_mandatory_fields_exist(schema_location, json_metadata):
@@ -84,12 +102,11 @@ def validate_formats(json_metadata, bucket, s3_key):
     return True
 
 
-def copy_objects(destination_bucket, s3_key, source_bucket):
-    try:
-        copy_source = {"Bucket": source_bucket, "Key": s3_key}
-        s3_client.copy(copy_source, destination_bucket, s3_key)
-        return f"s3://{destination_bucket}/{s3_key}"
-    except Exception as e:
-        print(f"Error during copy of '{s3_key}' from '{source_bucket}' to '{destination_bucket}': {e}")
-        raise e
-
+def copy_objects(destination_bucket, s3_keys, source_bucket):
+    for s3_key in s3_keys:
+        try:
+            copy_source = {"Bucket": source_bucket, "Key": s3_key}
+            s3_client.copy(copy_source, destination_bucket, s3_key)
+        except Exception as e:
+            print(f"Error during copy of '{s3_key}' from '{source_bucket}' to '{destination_bucket}': {e}")
+            raise e

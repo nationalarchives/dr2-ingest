@@ -5,7 +5,6 @@ import cats.syntax.all.*
 import fs2.interop.reactivestreams.*
 import io.circe.generic.semiauto.deriveEncoder
 import io.circe.parser.decode
-import io.circe.syntax.*
 import io.circe.*
 import org.reactivestreams.Publisher
 import org.scanamo.DynamoFormat
@@ -13,7 +12,7 @@ import org.scanamo.request.RequestCondition
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse, S3Object}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{IngestLockTableItem, checksumPrefix}
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
@@ -34,7 +33,7 @@ object TestUtils:
     val metadataObjectFields = List(
       ("Series", Json.fromString(m.series)).some,
       ("UUID", Json.fromString(m.UUID.toString)).some,
-      m.fileId.map(f => ("fileId", Json.fromString(f.toString))),
+      ("fileId", Json.fromString(m.fileId.toString)).some,
       m.description.map(d => ("description", Json.fromString(d))),
       m.transferringBody.map(t => ("TransferringBody", Json.fromString(t))),
       ("TransferInitiatedDatetime", Json.fromString(m.transferInitiatedDatetime)).some,
@@ -49,7 +48,7 @@ object TestUtils:
 
   case class MockTdrFile(fileSize: Long)
 
-  type S3Objects = PackageMetadata | List[MetadataObject] | MockTdrFile
+  type S3Objects = String | List[MetadataObject] | MockTdrFile
 
   def mockDynamoClient(ref: Ref[IO, List[IngestLockTableItem]], failedQuery: Boolean = false): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
     override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = IO.pure(Nil)
@@ -83,9 +82,9 @@ object TestUtils:
           for {
             fileMap <- ref.get
             metadata <- fileMap(key) match
-              case metadata: PackageMetadata => IO.pure(metadata.asJson.noSpaces.getBytes)
-              case _                         => IO.raiseError(new Exception("Expecting TDR Metadata Json"))
-          } yield Flux.just(ByteBuffer.wrap(metadata))
+              case metadata: String => IO.pure(metadata)
+              case _                => IO.raiseError(new Exception("Expecting TDR Metadata Json"))
+          } yield Flux.just(ByteBuffer.wrap(metadata.getBytes))
 
       override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = ref.get.map { objectsMap =>
         val fileSize = objectsMap.get(key).collect({ case mockTdrFile: MockTdrFile => mockTdrFile }).get.fileSize
@@ -107,5 +106,13 @@ object TestUtils:
       }
 
       override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = IO.pure(CompletedCopy.builder.build)
+
+      override def listObjects(bucket: String, prefix: Option[String]): IO[ListObjectsV2Response] = ref.get.map { objects =>
+        val s3Objects = objects.flatMap {
+          case (key, file: MockTdrFile) => Option(S3Object.builder.key(key).size(file.fileSize).build)
+          case _                        => None
+        }.toList
+        ListObjectsV2Response.builder.contents(s3Objects*).build
+      }
     }
   }
