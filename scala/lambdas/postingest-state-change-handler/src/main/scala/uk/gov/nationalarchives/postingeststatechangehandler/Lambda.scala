@@ -188,11 +188,17 @@ object Lambda:
     }
   }
 
-  given Decoder[DynamodbStreamRecord] = (c: HCursor) =>
+  given Decoder[List[DynamodbStreamRecord]] = Decoder.decodeList[Option[DynamodbStreamRecord]].map(_.flatten)
+  
+  given Decoder[Option[DynamodbStreamRecord]] = (c: HCursor) =>
     for {
       eventName <- c.downField("eventName").as[String]
-      streamRecord <- c.downField("dynamodb").as[StreamRecord]
-    } yield DynamodbStreamRecord(EventName.valueOf(eventName), streamRecord)
+      recordOpt <- 
+        if (eventName == EventName.REMOVE.toString) then
+          Right(None)
+        else 
+          c.downField("dynamodb").as[StreamRecord].map(streamRecord => Some(DynamodbStreamRecord(EventName.valueOf(eventName), streamRecord)))
+    } yield recordOpt
 
   enum EventName:
     case MODIFY, INSERT, REMOVE

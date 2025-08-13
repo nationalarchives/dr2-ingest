@@ -16,6 +16,7 @@ import uk.gov.nationalarchives.postingeststatechangehandler.Utils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.{IngestedCCDisk, IngestedPreservation}
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.{IngestComplete, IngestUpdate}
 import uk.gov.nationalarchives.utils.ExternalUtils.OutputMessage
+import io.circe.parser.decode
 
 import java.time.Instant
 import java.util.UUID
@@ -166,6 +167,132 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       runLambda(Nil, event).unsafeRunSync()
     }
     ex.getMessage should equal("MODIFY Event was triggered but either an OldImage, NewImage or both don't exist")
+  }
+
+  "Decoder" should "skip `REMOVE` events" in {
+    val eventsJson = {
+      """[
+        |  {
+        |    "eventName" : "INSERT",
+        |    "dynamodb" : {
+        |      "Keys" : {
+        |          "assetId" : { "S" : "5b4f0a1d-ca14-4d0b-80da-04a384bde8d5"},
+        |          "batchId" : { "S" : "batchId" }
+        |      },
+        |      "OldImage" : null,
+        |      "NewImage" : {
+        |        "assetId": { "S": "ab4a5713-0f5e-48ac-85e2-5d3347c6a304" },
+        |        "batchId": {
+        |           "S": "DRI_c4f10c52-07b4-4e48-857f-4ed54fded557_0"
+        |         },
+        |       "cc_result": {
+        |         "S": "true"
+        |       },
+        |       "firstQueued": {
+        |         "S": "2025-08-07T13:08:00.830157634Z"
+        |       },
+        |       "input": {
+        |         "S": "{\"preservationSystemId\":\"c258832c-a5ee-4d9b-bd9c-13bb24934e47\"}"
+        |       },
+        |       "lastQueued": {
+        |         "S": "2025-08-07T13:08:00.830157634Z"
+        |       },
+        |       "queue": {
+        |         "S": "CC"
+        |       }
+        |      }
+        |    }
+        |  },
+        |  {
+        |    "eventName" : "MODIFY",
+        |    "dynamodb" : {
+        |      "Keys" : {
+        |          "assetId" : { "S" : "5b4f0a1d-ca14-4d0b-80da-04a384bde8d5"},
+        |          "batchId" : { "S" : "batchId" }
+        |      },
+        |      "OldImage" : {
+        |        "assetId": { "S": "ab4a5713-0f5e-48ac-85e2-5d3347c6a304" },
+        |        "batchId": {
+        |           "S": "DRI_c4f10c52-07b4-4e48-857f-4ed54fded557_0"
+        |         },
+        |       "cc_result": {
+        |         "S": "true"
+        |       },
+        |       "firstQueued": {
+        |         "S": "2025-08-07T13:08:00.830157634Z"
+        |       },
+        |       "input": {
+        |         "S": "{\"preservationSystemId\":\"c258832c-a5ee-4d9b-bd9c-13bb24934e47\"}"
+        |       },
+        |       "lastQueued": {
+        |         "S": "2025-08-07T13:08:00.830157634Z"
+        |       },
+        |       "queue": {
+        |         "S": "CC"
+        |       }
+        |      },
+        |      "NewImage" : {
+        |        "assetId": { "S": "ab4a5713-0f5e-48ac-85e2-5d3347c6a304" },
+        |        "batchId": {
+        |           "S": "DRI_c4f10c52-07b4-4e48-857f-4ed54fded557_0"
+        |         },
+        |       "cc_result": {
+        |         "S": "true"
+        |       },
+        |       "firstQueued": {
+        |         "S": "2025-08-07T13:08:00.830157634Z"
+        |       },
+        |       "input": {
+        |         "S": "{\"preservationSystemId\":\"c258832c-a5ee-4d9b-bd9c-13bb24934e47\"}"
+        |       },
+        |       "lastQueued": {
+        |         "S": "2025-08-07T13:08:00.830157634Z"
+        |       },
+        |       "queue": {
+        |         "S": "CC"
+        |       }
+        |      }
+        |    }
+        |  },
+        |  {
+        |    "eventName" : "REMOVE",
+        |    "dynamodb" : {
+        |      "Keys" : {
+        |          "assetId" : { "S" : "5b4f0a1d-ca14-4d0b-80da-04a384bde8d5"},
+        |          "batchId" : { "S" : "batchId" }
+        |      },
+        |      "NewImage" : null,
+        |      "OldImage" : {
+        |        "assetId": { "S": "ab4a5713-0f5e-48ac-85e2-5d3347c6a304" },
+        |        "batchId": {
+        |           "S": "DRI_c4f10c52-07b4-4e48-857f-4ed54fded557_0"
+        |         },
+        |       "cc_result": {
+        |         "S": "true"
+        |       },
+        |       "firstQueued": {
+        |         "S": "2025-08-07T13:08:00.830157634Z"
+        |       },
+        |       "input": {
+        |         "S": "{\"preservationSystemId\":\"c258832c-a5ee-4d9b-bd9c-13bb24934e47\"}"
+        |       },
+        |       "lastQueued": {
+        |         "S": "2025-08-07T13:08:00.830157634Z"
+        |       },
+        |       "queue": {
+        |         "S": "CC"
+        |       }
+        |      }
+        |    }
+        |  }
+        |]""".stripMargin
+    }
+    val result = decode[List[DynamodbStreamRecord]](eventsJson)
+    result.isRight shouldBe true
+    val dynamodbStreamRecords: List[DynamodbStreamRecord] = result.getOrElse(Nil)
+    dynamodbStreamRecords.size shouldBe 2
+    dynamodbStreamRecords.count(_.eventName.equals(EventName.REMOVE)) shouldBe 0
+
   }
 }
 
