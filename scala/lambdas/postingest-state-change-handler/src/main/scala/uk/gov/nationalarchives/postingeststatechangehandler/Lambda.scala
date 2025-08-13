@@ -194,7 +194,7 @@ object Lambda:
     for {
       eventName <- c.downField("eventName").as[String]
       recordOpt <- 
-        if (eventName == EventName.REMOVE.toString) then
+        if eventName == EventName.REMOVE.toString then
           Right(None)
         else 
           c.downField("dynamodb").as[StreamRecord].map(streamRecord => Some(DynamodbStreamRecord(EventName.valueOf(eventName), streamRecord)))
