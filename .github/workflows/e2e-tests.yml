@@ -14,7 +14,7 @@ jobs:
     environment: intg
     steps:
       - uses: actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709
-      - uses: sbt/setup-sbt@3c1652372d153b35a30472b3e5b2f1f204eff746
+      - uses: sbt/setup-sbt@f20dc1bc1f8be605c44ffbcec6f17f708a4af9d1
       - uses: actions/setup-java@e9343db97e09d87a3c50e544105d99fe912c204b
         with:
           distribution: 'temurin'
