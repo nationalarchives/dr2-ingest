@@ -1,7 +1,6 @@
 import Dependencies.*
 ThisBuild / scalaVersion := "3.7.1"
 
-
 lazy val root = (project in file("."))
   .aggregate(e2eTestsSpec, ingestLambdasRoot)
   .settings(
