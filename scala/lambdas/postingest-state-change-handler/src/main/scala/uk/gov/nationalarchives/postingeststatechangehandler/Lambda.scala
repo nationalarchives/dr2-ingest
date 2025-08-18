@@ -193,10 +193,10 @@ object Lambda:
   given Decoder[Option[DynamodbStreamRecord]] = (c: HCursor) =>
     for {
       eventName <- c.downField("eventName").as[String]
-      recordOpt <-
+      potentialStreamRecord <-
         if eventName == EventName.REMOVE.toString then Right(None)
         else c.downField("dynamodb").as[StreamRecord].map(streamRecord => Some(DynamodbStreamRecord(EventName.valueOf(eventName), streamRecord)))
-    } yield recordOpt
+    } yield potentialStreamRecord
 
   enum EventName:
     case MODIFY, INSERT, REMOVE
