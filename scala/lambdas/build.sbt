@@ -304,7 +304,7 @@ lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-bu
 lazy val preingestDriPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(
     name := "preingest-dri-package-builder",
-    target := (preIngestTdrPackageBuilder/baseDirectory).value / "target" / "preingest-dri-package-builder"
+    target := (preIngestTdrPackageBuilder / baseDirectory).value / "target" / "preingest-dri-package-builder"
   )
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
@@ -324,13 +324,11 @@ lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
 lazy val preingestDriAggregator = (project in file("preingest-tdr-aggregator"))
   .settings(
     name := "preingest-dri-aggregator",
-    target := (preingestTdrAggregator/baseDirectory).value / "target" / "preingest-dri-aggregator",
+    target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-dri-aggregator"
   )
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(aggregatorSettings)
-
-
 
 lazy val custodialCopyQueueCreator = (project in file("custodial-copy-queue-creator"))
   .settings(name := baseDirectory.value.getName)

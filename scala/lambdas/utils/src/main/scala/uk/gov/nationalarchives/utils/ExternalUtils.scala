@@ -212,11 +212,10 @@ object ExternalUtils {
       }
   }
 
-
   given Decoder[URI] = Decoder.decodeString.emap { str =>
     Try(URI.create(str)).toEither.left.map(_.getMessage)
   }
-  
+
   given Encoder[URI] = Encoder.encodeString.contramap(_.toString)
 
   def getChecksums(c: HCursor): Result[List[Checksum]] =
@@ -228,9 +227,9 @@ object ExternalUtils {
       }
     else
       checksumKeys.traverse { key =>
-      val algorithm = key.replace(checksumPrefix, "")
-      c.downField(key).as[String].map(fingerprint => Checksum(algorithm, fingerprint))
-    }
+        val algorithm = key.replace(checksumPrefix, "")
+        c.downField(key).as[String].map(fingerprint => Checksum(algorithm, fingerprint))
+      }
 
   given Decoder[FileMetadataObject] = new Decoder[FileMetadataObject]:
 
@@ -278,21 +277,21 @@ object ExternalUtils {
   ) extends MetadataObject
 
   case class AssetMetadataObject(
-                                  id: UUID,
-                                  parentId: Option[UUID],
-                                  title: String,
-                                  name: String,
-                                  originalFiles: List[UUID],
-                                  originalMetadataFiles: List[UUID],
-                                  description: Option[String],
-                                  transferringBody: Option[String],
-                                  transferCompleteDatetime: OffsetDateTime,
-                                  upstreamSystem: SourceSystem,
-                                  digitalAssetSource: String,
-                                  digitalAssetSubtype: Option[String],
-                                  filePath: String,
-                                  correlationId: Option[String],
-                                  idFields: List[IdField] = Nil
+      id: UUID,
+      parentId: Option[UUID],
+      title: String,
+      name: String,
+      originalFiles: List[UUID],
+      originalMetadataFiles: List[UUID],
+      description: Option[String],
+      transferringBody: Option[String],
+      transferCompleteDatetime: OffsetDateTime,
+      upstreamSystem: SourceSystem,
+      digitalAssetSource: String,
+      digitalAssetSubtype: Option[String],
+      filePath: String,
+      correlationId: Option[String],
+      idFields: List[IdField] = Nil
   ) extends MetadataObject
 
   case class FileMetadataObject(
