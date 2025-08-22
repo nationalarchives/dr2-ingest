@@ -72,7 +72,7 @@ def migrate():
     account_number = os.environ["ACCOUNT_NUMBER"]
     environment = os.environ["ENVIRONMENT"]
     bucket = f"{environment}-dr2-ingest-raw-cache"
-    queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-copy-files-from-dri"
+    queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-dri-importer"
 
     puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt'])
 
