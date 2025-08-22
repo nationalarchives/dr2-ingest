@@ -82,7 +82,7 @@ class TestMigrate(unittest.TestCase):
             self.assertEqual(object_key, f"{metadata_uuid}.metadata")
 
             self.assertEqual(sqs_args[idx][1]["QueueUrl"],
-                             "https://sqs.eu-west-2.amazonaws.com/123456789/testenv-dr2-copy-files-from-dri")
+                             "https://sqs.eu-west-2.amazonaws.com/123456789/testenv-dr2-preingest-dri-importer")
             sent_body = json.loads(sqs_args[idx][1]["MessageBody"])
             self.assertEqual(sent_body["fileId"], rows[idx][1])
             self.assertEqual(sent_body["bucket"], "testenv-dr2-ingest-raw-cache")
