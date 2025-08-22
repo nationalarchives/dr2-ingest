@@ -59,8 +59,8 @@ def group_assets(assets_list):
     return dict(grouped)
 
 
-def process_redacted():
-    grouped_assets = group_assets(assets)
+def process_redacted(assets_to_process):
+    grouped_assets = group_assets(assets_to_process)
     for asset_uuid, assets_for_uuid in grouped_assets.items():
         if len(assets_for_uuid) > 1:
             for redacted_asset in assets_for_uuid:
@@ -134,7 +134,7 @@ def migrate():
 
             assets.append({'file_path': file_path, 'metadata': metadata, 'rel_ref': rel_ref, 'type_ref': type_ref})
 
-    assets_with_redacted = process_redacted()
+    assets_with_redacted = process_redacted(assets)
 
     grouped_assets = group_assets(assets_with_redacted)
 
