@@ -5,7 +5,7 @@ import cats.effect.{IO, Ref}
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestparentfolderopexcreator.Lambda
@@ -53,6 +53,8 @@ object ExternalServicesTestUtils {
         val filteredObjects = existing.filter(_.key.startsWith(keysPrefixedWith))
         SdkPublisher.fromIterable(filteredObjects.map(_.key).asJava)
       }
+
+    override def listObjects(bucket: String, prefix: Option[String]): IO[ListObjectsV2Response] = notImplemented
 
   def runLambda(initialS3State: List[S3Object], errors: Option[Errors] = None): (Either[Throwable, Unit], List[S3Object]) =
     (for {

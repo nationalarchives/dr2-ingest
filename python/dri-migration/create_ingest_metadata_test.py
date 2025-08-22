@@ -20,7 +20,7 @@ def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows):
     mock_cursor = MagicMock()
     mock_cursor.description = [
         ("PUID",), ("UUID",), ("FILEID",), ("FILE_PATH",), ("FIXITIES",),
-        ("SERIES",), ("DESCRIPTION",), ("TRANSFERINITIATEDDATETIME",),
+        ("SERIES",), ("DESC1",), ("DESC2",), ("TRANSFERINITIATEDDATETIME",),
         ("CONSIGNMENTREFERENCE",), ("DRIBATCHREFERENCE",), ("FILENAME",),
         ("FILEREFERENCE",), ("METADATA",), ("MANIFESTATIONRELREF",), ("TYPEREF",)
     ]
@@ -45,13 +45,13 @@ class TestMigrate(unittest.TestCase):
         row_fmt = [
             "fmt/123", "uuid-abc", "fileid-xyz", "/test/file1",
             json.dumps([{"SHA256": "test"}]),
-            "series1", "desc", "2021-01-01", "consignment", "batch-ref",
+            "series1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
             "filename.txt", "fileref", "meta", "1", "1"
         ]
         row_x_fmt = [
             "x-fmt/123", "uuid-def", "fileid-xyz", "/test/file2",
             json.dumps([{"SHA256": "test"}]),
-            "series1", "desc", "2021-01-01", "consignment", "batch-ref",
+            "series1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
             "filename.txt", "fileref", "meta", "1", "1"
         ]
         rows = [row_fmt, row_x_fmt]
@@ -61,8 +61,8 @@ class TestMigrate(unittest.TestCase):
         create_ingest_metadata.migrate()
 
         calls = [
-            call("/test/file1", "testenv-dr2-ingest-raw-cache", "uuid-abc"),
-            call("/test/file2", "testenv-dr2-ingest-raw-cache", "uuid-def")
+            call("/test/file1", "testenv-dr2-ingest-raw-cache", "uuid-abc/fileid-xyz"),
+            call("/test/file2", "testenv-dr2-ingest-raw-cache", "uuid-def/fileid-xyz")
         ]
 
         mock_s3.upload_file.assert_has_calls(calls)
@@ -72,7 +72,7 @@ class TestMigrate(unittest.TestCase):
         for idx, s3_arg in enumerate(s3_args):
             bytes_request, bucket, object_key = s3_arg[0]
             metadata_bytes = bytes_request.getvalue()
-            metadata = json.loads(metadata_bytes.decode("utf-8"))
+            metadata = json.loads(metadata_bytes.decode("utf-8"))[0]
             metadata_uuid = rows[idx][1]
 
             self.assertEqual(metadata["UUID"], metadata_uuid)
@@ -84,7 +84,7 @@ class TestMigrate(unittest.TestCase):
             self.assertEqual(sqs_args[idx][1]["QueueUrl"],
                              "https://sqs.eu-west-2.amazonaws.com/123456789/testenv-dr2-copy-files-from-dri")
             sent_body = json.loads(sqs_args[idx][1]["MessageBody"])
-            self.assertEqual(sent_body["fileId"], rows[idx][1])
+            self.assertEqual(sent_body["assetId"], rows[idx][1])
             self.assertEqual(sent_body["bucket"], "testenv-dr2-ingest-raw-cache")
 
     @patch('oracledb.connect')
@@ -101,7 +101,7 @@ class TestMigrate(unittest.TestCase):
         row = [
             "fmt/123", "uuid-abc", "fileid-xyz", "/test/file1",
             json.dumps([{"SHA256": "test"}]),
-            "series1", "desc", "2021-01-01", None, None,
+            "series1", "desc1", "desc2", "2021-01-01", None, None,
             "filename.txt", "fileref", "meta", "1", "1"
         ]
         setup_test(mock_checksum, mock_connect, mock_create_skeleton, [row])
