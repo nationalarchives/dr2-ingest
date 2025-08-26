@@ -1,4 +1,4 @@
-# DR2 Preingest Copy files from TDR to our bucket
+# DR2 Preingest Import files from TDR
 
 ## Input
 
