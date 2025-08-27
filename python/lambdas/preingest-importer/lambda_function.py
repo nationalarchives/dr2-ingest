@@ -49,8 +49,8 @@ def list_all_objects(source_bucket, file_id):
 def assert_objects_exist_in_bucket(source_bucket, asset_id):
     try:
         contents = list_all_objects(source_bucket, asset_id)
-        missing_metadata = len([c for c in contents if c['Key'] == f"{asset_id}.metadata"]) == 0
-        missing_file_objects = len([c for c in contents if c['Key'] != f"{asset_id}.metadata"]) == 0
+        missing_metadata = not any(c for c in contents if c['Key'] == f"{asset_id}.metadata")
+        missing_file_objects = not any(c for c in contents if c['Key'] != f"{asset_id}.metadata")
         if missing_file_objects:
             raise Exception(f"Asset '{asset_id}' has no files in '{source_bucket}'")
         if missing_metadata:

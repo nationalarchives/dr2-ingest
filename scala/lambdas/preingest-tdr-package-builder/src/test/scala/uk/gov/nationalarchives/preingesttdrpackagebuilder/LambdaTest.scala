@@ -64,7 +64,6 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     fingerprint <- Gen.alphaStr
   } yield Checksum(algorithm, fingerprint)
 
-  val testCount: Iterator[Int] = (1 to 100).toList.iterator
   val listTestCount: Iterator[Int] = (1 to 100).toList.iterator
   val tdrOrDriBatchGen: Gen[(Option[String], Option[String])] =
     for

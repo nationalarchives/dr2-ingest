@@ -47,15 +47,15 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       val jsonString = new String(metadataArr, "utf-8")
       decodePackageMetadata(jsonString)
         .flatMap { packageMetadataList =>
-          def createMetadataObjects(firstPackageMetadata: PackageMetadata, fileName: String, originalFilePath: String, fileIds: List[UUID]) = for {
+          def createMetadataObjects(firstPackageMetadata: PackageMetadata, fileName: String, originalFilePath: String) = for {
             assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId, packageMetadataList.map(_.fileId))
-            s3Files <- listS3Objects(fileLocation.getHost, assetMetadata.id)
+            s3FilesMap <- listS3Objects(fileLocation.getHost, assetMetadata.id)
             contentFolderKey <- IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
               new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
             )
             res <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
-              val files = packageMetadataList.zipWithIndex.map { (packageMetadata, idx) =>
-                val s3File = s3Files(packageMetadata.fileId)
+              val files: List[FileMetadataObject] = packageMetadataList.zipWithIndex.map { (packageMetadata, idx) =>
+                val s3File = s3FilesMap(packageMetadata.fileId)
                 FileMetadataObject(
                   packageMetadata.fileId,
                   Option(assetMetadata.id),
@@ -82,8 +82,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           } yield res
 
           packageMetadataList match {
-            case head :: Nil  => createMetadataObjects(head, head.filename, head.originalFilePath, List(head.fileId))
-            case head :: rest => createMetadataObjects(head, descriptionToFileName(head.description), getParentPath(head.originalFilePath), (head :: rest).map(_.fileId))
+            case head :: Nil  => createMetadataObjects(head, head.filename, head.originalFilePath)
+            case head :: rest => createMetadataObjects(head, descriptionToFileName(head.description), getParentPath(head.originalFilePath))
             case Nil          => IO.raiseError(new Exception("The metadata list is empty"))
           }
         }
