@@ -17,7 +17,7 @@ object Dependencies {
   lazy val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
   lazy val circeFs2 = "io.circe" %% "circe-fs2" % "0.14.1"
-  lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.27.1"
+  lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.28.0"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.5"
   lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.18.0"
   lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.32.5"
