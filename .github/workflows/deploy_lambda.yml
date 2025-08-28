@@ -20,7 +20,7 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709
+        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
       - id: role-name
         run: |
           import os
@@ -28,7 +28,7 @@ jobs:
             print(f"role-name={'${{ github.event.inputs.environment }}'.title()}DPGithubActionsDeployLambdaRole", file=fh)
         shell: python
       - name: Configure AWS credentials for Lambda
-        uses: aws-actions/configure-aws-credentials@51f55603786c3ffd12ca4774eaa071929349df8e
+        uses: aws-actions/configure-aws-credentials@0eb446ecb2e3f0e1a19f106e12e76c6a98b6bdb2
         with:
           role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
           aws-region: eu-west-2
