@@ -16,7 +16,7 @@ import org.scanamo.request.RequestCondition
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, PutObjectResponse}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse}
 import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
@@ -100,6 +100,8 @@ object TestUtils:
       .map(_ => DeleteObjectsResponse.builder.build)
 
     override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = notImplemented
+
+    override def listObjects(bucket: String, prefix: Option[String]): IO[ListObjectsV2Response] = notImplemented
 
   val reference = "TEST-REFERENCE"
 
