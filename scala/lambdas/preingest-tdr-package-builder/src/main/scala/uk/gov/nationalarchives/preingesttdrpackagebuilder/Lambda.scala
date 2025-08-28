@@ -15,6 +15,7 @@ import io.circe.{Decoder, HCursor}
 import org.reactivestreams.FlowAdapters
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
+import software.amazon.awssdk.services.s3.model.S3Object
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Checksum, IngestLockTableItem}
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
@@ -26,8 +27,10 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
 import java.net.URI
 import java.nio.ByteBuffer
+import java.nio.file.Path
 import java.time.{LocalDateTime, ZoneOffset}
 import java.util.UUID
+import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   lazy private val bufferSize = 1024 * 5
@@ -42,66 +45,47 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
     ): IO[List[MetadataObject]] = {
       val jsonString = new String(metadataArr, "utf-8")
-      IO.fromEither(decode[PackageMetadata](jsonString))
-        .flatMap { packageMetadata =>
-          val assetId = packageMetadata.UUID
-          val fileId = packageMetadata.fileId.getOrElse(dependencies.uuidGenerator())
-          val sourceSpecificIdentifiers = config.sourceSystem match {
-            case SourceSystem.TDR => List(IdField("BornDigitalRef", packageMetadata.fileReference), IdField("UpstreamSystemReference", packageMetadata.fileReference))
-            case SourceSystem.DRI =>
-              List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
-                packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
-            case _ => Nil
-          }
-          val assetMetadata = AssetMetadataObject(
-            assetId,
-            None,
-            packageMetadata.filename,
-            assetId.toString,
-            List(fileId),
-            List(metadataId),
-            packageMetadata.description,
-            packageMetadata.transferringBody,
-            LocalDateTime.parse(packageMetadata.transferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
-            config.sourceSystem,
-            "Born Digital",
-            None,
-            packageMetadata.originalFilePath,
-            potentialMessageId,
-            List(
-              IdField("Code", s"${packageMetadata.series}/${packageMetadata.fileReference}"),
-              IdField("RecordID", assetId.toString)
-            ) ++ sourceSpecificIdentifiers ++ packageMetadata.consignmentReference.map(consignmentRef => List(IdField("ConsignmentReference", consignmentRef))).getOrElse(Nil)
-          )
-          for {
-            headObjectResponse <- dependencies.s3Client
-              .headObject(fileLocation.getHost, fileLocation.getPath.drop(1))
-            contentFolderKey <- IO.fromOption[String](packageMetadata.consignmentReference.orElse(packageMetadata.driBatchReference))(
-              new Exception(s"We need either a consignment reference or DRI batch reference for $assetId")
+      decodePackageMetadata(jsonString)
+        .flatMap { packageMetadataList =>
+          def createMetadataObjects(firstPackageMetadata: PackageMetadata, fileName: String, originalFilePath: String) = for {
+            assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId, packageMetadataList.map(_.fileId))
+            s3FilesMap <- listS3Objects(fileLocation.getHost, assetMetadata.id)
+            contentFolderKey <- IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
+              new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
             )
             res <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
-              val fileMetadata = FileMetadataObject(
-                fileId,
-                Option(assetId),
-                packageMetadata.filename,
-                1,
-                packageMetadata.filename,
-                headObjectResponse.contentLength(),
-                Preservation,
-                1,
-                fileLocation,
-                packageMetadata.checksums
-              )
+              val files: List[FileMetadataObject] = packageMetadataList.zipWithIndex.map { (packageMetadata, idx) =>
+                val s3File = s3FilesMap(packageMetadata.fileId)
+                FileMetadataObject(
+                  packageMetadata.fileId,
+                  Option(assetMetadata.id),
+                  packageMetadata.filename,
+                  idx + 1,
+                  packageMetadata.filename,
+                  s3File.size(),
+                  Preservation,
+                  1,
+                  URI.create(s"s3://${fileLocation.getHost}/${s3File.key()}"),
+                  packageMetadata.checksums
+                )
+              }
+
               val contentFolder = contentFolderMap.get(contentFolderKey)
-              if contentFolder.isDefined then (contentFolderMap, List(assetMetadata.copy(parentId = contentFolder.map(_.id)), fileMetadata))
+              if contentFolder.isDefined then (contentFolderMap, assetMetadata.copy(parentId = contentFolder.map(_.id)) :: files)
               else
                 val contentFolderId = dependencies.uuidGenerator()
-                val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, contentFolderKey, Option(packageMetadata.series), Nil)
+                val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, contentFolderKey, Option(firstPackageMetadata.series), Nil)
                 val updatedMap = contentFolderMap + (contentFolderKey -> contentFolderMetadata)
-                val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id)), fileMetadata)
+                val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id))) ++ files
                 (updatedMap, allMetadata)
             }
           } yield res
+
+          packageMetadataList match {
+            case head :: Nil  => createMetadataObjects(head, head.filename, head.originalFilePath)
+            case head :: rest => createMetadataObjects(head, descriptionToFileName(head.description), getParentPath(head.originalFilePath))
+            case Nil          => IO.raiseError(new Exception("The metadata list is empty"))
+          }
         }
     }
 
@@ -113,26 +97,26 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       .compile
       .to(string)
 
-    def processMetadataFiles(metadataArr: Array[Byte], fileLocation: URI, metadataId: UUID): IO[List[MetadataObject]] = {
+    def processMetadataFiles(metadataArr: Array[Byte], fileLocation: URI, metadataId: UUID): IO[MetadataObject] = {
       val metadataJsonString = new String(metadataArr, "utf-8")
       for {
-        packageMetadata <- IO.fromEither(decode[PackageMetadata](metadataJsonString))
+        packageMetadataList <- decodePackageMetadata(metadataJsonString)
         sha256Fingerprint <- metadataSha256Fingerprint(metadataArr)
+        firstPackageMetadata <- IO.fromOption(packageMetadataList.headOption)(new Exception("The metadata list is empty"))
       } yield {
         val metadataFileSize = metadataArr.length
-        val metadata = FileMetadataObject(
+        FileMetadataObject(
           metadataId,
-          Option(packageMetadata.UUID),
-          s"${packageMetadata.UUID}-metadata",
+          Option(firstPackageMetadata.UUID),
+          s"${firstPackageMetadata.UUID}-metadata",
           2,
-          s"${packageMetadata.UUID}-metadata.json",
+          s"${firstPackageMetadata.UUID}-metadata.json",
           metadataFileSize,
           Preservation,
           1,
-          getMetadataUri(fileLocation),
+          fileLocation,
           List(Checksum("sha256", sha256Fingerprint))
         )
-        List(metadata)
       }
     }
 
@@ -146,15 +130,14 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       for {
         nonMetadataObjects <- processNonMetadataObjects(metadataArr, fileLocation, metadataId, potentialMessageId, contentFolderCell)
         metadataFiles <- processMetadataFiles(metadataArr, fileLocation, metadataId)
-      } yield nonMetadataObjects ++ metadataFiles
+      } yield metadataFiles :: nonMetadataObjects
     }
 
     def downloadMetadataFile(lockTableMessage: LockTableMessage, contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]): IO[List[MetadataObject]] = {
       val fileLocation = lockTableMessage.location
-      val metadataUri = getMetadataUri(fileLocation)
       val potentialMessageId = lockTableMessage.messageId
       dependencies.s3Client
-        .download(metadataUri.getHost, metadataUri.getPath.drop(1))
+        .download(fileLocation.getHost, fileLocation.getPath.drop(1))
         .map(_.toStreamBuffered[IO](bufferSize))
         .flatMap(_.compile.toList)
         .map(_.toArray.flatMap(_.array()))
@@ -185,18 +168,74 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       }
     }
 
+    def listS3Objects(bucket: String, id: UUID): IO[Map[UUID, S3Object]] = {
+      dependencies.s3Client.listObjects(bucket, Option(id.toString)).map { res =>
+        res
+          .contents()
+          .asScala
+          .toList
+          .filterNot(_.key().endsWith(".metadata"))
+          .map { s3Object =>
+            UUID.fromString(s3Object.key.split("/").last) -> s3Object
+          }
+          .toMap
+      }
+    }
+
+    def createAsset(
+        packageMetadata: PackageMetadata,
+        fileName: String,
+        originalFilePath: String,
+        metadataId: UUID,
+        potentialMessageId: Option[String],
+        originalFiles: List[UUID]
+    ): IO[AssetMetadataObject] = IO.pure {
+      val assetId = packageMetadata.UUID
+      val sourceSpecificIdentifiers = config.sourceSystem match {
+        case SourceSystem.TDR => List(IdField("BornDigitalRef", packageMetadata.fileReference), IdField("UpstreamSystemReference", packageMetadata.fileReference))
+        case SourceSystem.DRI =>
+          List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
+            packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
+        case _ => Nil
+      }
+      AssetMetadataObject(
+        assetId,
+        None,
+        fileName,
+        assetId.toString,
+        originalFiles,
+        List(metadataId),
+        packageMetadata.description,
+        packageMetadata.transferringBody,
+        LocalDateTime.parse(packageMetadata.transferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
+        config.sourceSystem,
+        "Born Digital",
+        None,
+        originalFilePath,
+        potentialMessageId,
+        List(
+          IdField("Code", s"${packageMetadata.series}/${packageMetadata.fileReference}"),
+          IdField("RecordID", assetId.toString)
+        ) ++ sourceSpecificIdentifiers ++ packageMetadata.consignmentReference.map(consignmentRef => List(IdField("ConsignmentReference", consignmentRef))).getOrElse(Nil)
+      )
+    }
+
     dependencies.dynamoDbClient
       .queryItems(config.lockTableName, "groupId" === input.groupId, Option(config.lockTableGsiName))
       .flatMap(processLockTableItems)
       .map(_ => new Output(input.batchId, input.groupId, URI.create(s"s3://${config.rawCacheBucket}/${input.batchId}/metadata.json"), input.retryCount, ""))
   }
 
-  private def getMetadataUri(fileLocation: URI): URI = {
-    val bucket = fileLocation.getHost
-    val fileKey = fileLocation.getPath.drop(1)
-    val metadataKey = s"$fileKey.metadata"
-    URI.create(s"s3://$bucket/$metadataKey")
-  }
+  private def descriptionToFileName(description: Option[String]) =
+    description match
+      case Some(value) => value.split(" ").slice(0, 14).mkString(" ") + "..."
+      case None        => "Untitled"
+
+  private def getParentPath(path: String) =
+    Path.of(path).getParent.toString
+
+  private def decodePackageMetadata(json: String): IO[List[PackageMetadata]] =
+    IO.fromEither(decode[List[PackageMetadata]](json))
 
   override def dependencies(config: Config): IO[Dependencies] =
     IO(Dependencies(DADynamoDBClient[IO](), DAS3Client[IO](), () => UUID.randomUUID()))
@@ -205,10 +244,10 @@ end Lambda
 object Lambda:
 
   given Decoder[PackageMetadata] = (c: HCursor) =>
-    for {
+    for
       series <- c.downField("Series").as[String]
       uuid <- c.downField("UUID").as[UUID]
-      fileId <- c.downField("fileId").as[Option[UUID]]
+      fileId <- c.downField("fileId").as[UUID]
       description <- c.downField("description").as[Option[String]]
       transferringBody <- c.downField("TransferringBody").as[Option[String]]
       transferInitiatedDatetime <- c.downField("TransferInitiatedDatetime").as[String]
@@ -218,7 +257,7 @@ object Lambda:
       fileReference <- c.downField("FileReference").as[String]
       filePath <- c.downField("ClientSideOriginalFilepath").as[String]
       driBatchReference <- c.downField("driBatchReference").as[Option[String]]
-    } yield PackageMetadata(
+    yield PackageMetadata(
       series,
       uuid,
       fileId,
@@ -236,7 +275,7 @@ object Lambda:
   case class PackageMetadata(
       series: String,
       UUID: UUID,
-      fileId: Option[UUID],
+      fileId: UUID,
       description: Option[String],
       transferringBody: Option[String],
       transferInitiatedDatetime: String,
