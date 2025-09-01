@@ -76,6 +76,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     updateTableReq.attributeNamesAndValuesToUpdate("queue") should equal(Some(fromS("CC")))
     updateTableReq.attributeNamesAndValuesToUpdate("firstQueued") should equal(Some(fromS("2038-01-19T03:14:07Z")))
     updateTableReq.attributeNamesAndValuesToUpdate("lastQueued") should equal(Some(fromS("2038-01-19T03:14:07Z")))
+    updateTableReq.conditionalExpression should equal(Some("attribute_exists(assetId)"))
 
     refs.sentSqsMessages.size should equal(1)
     val (queueUrl, messagesPerQueue) = refs.sentSqsMessages.head
