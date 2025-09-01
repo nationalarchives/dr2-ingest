@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.25.1"
   lazy val pureConfigVersion = "0.17.9"
-  lazy val daAwsClientsVersion = "0.1.130"
+  lazy val daAwsClientsVersion = "0.1.131"
   private val fs2Version = "3.12.0"
   private val sttpVersion = "3.11.0"
   private val circeVersion = "0.15.0-M1"
@@ -20,7 +20,7 @@ object Dependencies {
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.28.0"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.5"
   lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.18.0"
-  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.32.31"
+  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.32.33"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
@@ -37,13 +37,13 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % s"$scalaTestVersion.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.145"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.146"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.7.9"
   lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.18.1"
   lazy val scalaCheckPlus = "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0"
-  lazy val scanamo = "org.scanamo" %% "scanamo" % "3.0.0"
+  lazy val scanamo = "org.scanamo" %% "scanamo" % "4.0.0"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
   lazy val sqsClient = "uk.gov.nationalarchives" %% "da-sqs-client" % daAwsClientsVersion
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
