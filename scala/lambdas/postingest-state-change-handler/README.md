@@ -9,68 +9,54 @@ The input is provided by DynamoDB, a list of either:
 ```json
 {
   "Records": [
-    {
-      "eventID": "d54bf46da49d9044706b8a8682fef203",
-      "eventName": "INSERT",
-      "eventVersion": "1.1",
-      "eventSource": "aws:dynamodb",
-      "awsRegion": "eu-west-2",
-      "dynamodb": {
-        "ApproximateCreationDateTime": 1720773442,
-        "Keys": {
-          "assetId": {
-            "S": "assetId"
-          },
-          "batchId": {
-            "S": "batchId"
-          }
+     {
+        "eventID": "d54bf46da49d9044706b8a8682fef203",
+        "eventName": "INSERT",
+        "eventVersion": "1.1",
+        "eventSource": "aws:dynamodb",
+        "awsRegion": "eu-west-2",
+        "dynamodb": {
+           "ApproximateCreationDateTime": 1720773442,
+           "Keys": {
+              "id": {
+                 "S": "1"
+              },
+              "batchId": {
+                 "S": "A"
+              }
+           },
+           "NewImage": {
+              "assetId": {
+                 "S": "assetId"
+              },
+              "batchId": {
+                 "S": "batchId"
+              },
+              "input": {
+                 "S": "input"
+              },
+              "correlationId": {
+                 "S": "id"
+              },
+              "queue": {
+                 "S": "queue1"
+              },
+              "firstQueued": {
+                 "S": "2038-01-19T15:14:07.000Z"
+              },
+              "lastQueued": {
+                 "S": "2038-01-19T15:14:07.000Z"
+              },
+              "result_CC": {
+                 "S": "<result>"
+              }
+           },
+           "SequenceNumber": "6200000000010677449965",
+           "SizeBytes": 47,
+           "StreamViewType": "NEW_IMAGE"
         },
-        "OldImage": {
-           "assetId": {
-              "S": "assetId"
-           },
-           "batchId": {
-              "S": "batchId"
-           },
-           "input": {
-              "S": "input"
-           },
-           "correlationId": {
-              "S": "id"
-           }
-        }, 
-        "NewImage": {
-          "assetId": {
-            "S": "assetId"
-          },
-          "batchId": {
-            "S": "batchId"
-          },
-          "input": {
-            "S": "input"
-          },
-          "correlationId": {
-             "S": "id"
-          },
-          "queue": {
-             "S": "queue1"
-          },
-          "firstQueued": {
-             "S": "2038-01-19T15:14:07.000Z"
-          },
-          "lastQueued": {
-             "S": "2038-01-19T15:14:07.000Z"
-          },
-          "result_CC": {
-             "S": "<result>"
-          }
-        },
-        "SequenceNumber": "6200000000010677449965",
-        "SizeBytes": 47,
-        "StreamViewType": "NEW_IMAGE"
-      },
-      "eventSourceARN": "arn:aws:dynamodb:..."
-    }
+        "eventSourceARN": "arn:aws:dynamodb:..."
+     }
   ]
 }
 ```
@@ -79,54 +65,68 @@ or
 ```json
 {
   "Records": [
-    {
-      "eventID": "d54bf46da49d9044706b8a8682fef203",
-      "eventName": "MODIFY",
-      "eventVersion": "1.1",
-      "eventSource": "aws:dynamodb",
-      "awsRegion": "eu-west-2",
-      "dynamodb": {
-        "ApproximateCreationDateTime": 1720773442,
-        "Keys": {
-          "id": {
-            "S": "1"
-          },
-          "batchId": {
-            "S": "A"
-          }
+     {
+        "eventID": "d54bf46da49d9044706b8a8682fef203",
+        "eventName": "MODIFY",
+        "eventVersion": "1.1",
+        "eventSource": "aws:dynamodb",
+        "awsRegion": "eu-west-2",
+        "dynamodb": {
+           "ApproximateCreationDateTime": 1720773442,
+           "Keys": {
+              "assetId": {
+                 "S": "assetId"
+              },
+              "batchId": {
+                 "S": "batchId"
+              }
+           },
+           "OldImage": {
+              "assetId": {
+                 "S": "assetId"
+              },
+              "batchId": {
+                 "S": "batchId"
+              },
+              "input": {
+                 "S": "input"
+              },
+              "correlationId": {
+                 "S": "id"
+              }
+           },
+           "NewImage": {
+              "assetId": {
+                 "S": "assetId"
+              },
+              "batchId": {
+                 "S": "batchId"
+              },
+              "input": {
+                 "S": "input"
+              },
+              "correlationId": {
+                 "S": "id"
+              },
+              "queue": {
+                 "S": "queue1"
+              },
+              "firstQueued": {
+                 "S": "2038-01-19T15:14:07.000Z"
+              },
+              "lastQueued": {
+                 "S": "2038-01-19T15:14:07.000Z"
+              },
+              "result_CC": {
+                 "S": "<result>"
+              }
+           },
+           "SequenceNumber": "6200000000010677449965",
+           "SizeBytes": 47,
+           "StreamViewType": "NEW_IMAGE"
         },
-        "NewImage": {
-           "assetId": {
-              "S": "assetId"
-           },
-           "batchId": {
-              "S": "batchId"
-           },
-           "input": {
-              "S": "input"
-           },
-           "correlationId": {
-              "S": "id"
-           },
-           "queue": {
-              "S": "queue1"
-           },
-           "firstQueued": {
-              "S": "2038-01-19T15:14:07.000Z"
-           },
-           "lastQueued": {
-              "S": "2038-01-19T15:14:07.000Z"
-           },
-           "result_CC": {
-              "S": "<result>"
-           }
-        },
-        "SequenceNumber": "6200000000010677449965",
-        "SizeBytes": 47,
-        "StreamViewType": "NEW_IMAGE"
-      },
-      "eventSourceARN": "arn:aws:dynamodb:..."
-    }
+        "eventSourceARN": "arn:aws:dynamodb:..."
+     }
   ]
 }
 ```
@@ -145,7 +145,7 @@ The Lambda:
       2. this property name will (and should) end with the queue alias and therefore can be searched for by using the alias
 2. Checks for "INSERT" events; if one exists, it will:
    1. get the first queue (using the queueOrder)
-   2. update the item in the DDB table with:
+   2. update the item in the DDB table, only if the item with same assetId already exists. The attributes are updated with:
       1. the queue it will go to next
       2. when it was first queued
       3. when it was last queued

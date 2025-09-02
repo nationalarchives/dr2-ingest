@@ -29,7 +29,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     def getPrimaryKey(item: PostIngestStateTableItem) =
       PostIngestStatePrimaryKey(PostIngestStatePartitionKey(item.assetId), PostIngestStateSortKey(item.batchId))
 
-    def addOrUpdateItem(item: PostIngestStateTableItem, queueAlias: String): IO[Unit] = {
+    def updateItem(item: PostIngestStateTableItem, queueAlias: String): IO[Unit] = {
       val batchId = AttributeValue.builder().s(item.batchId).build()
       val postIngestQueue = AttributeValue.builder().s(queueAlias).build()
       val dateTimeNow = dependencies.instantGenerator()
@@ -40,7 +40,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           DADynamoDbRequest(
             config.stateTableName,
             postIngestStatePkFormat.write(getPrimaryKey(item)).toAttributeValue.m().asScala.toMap,
-            Map(queue -> Some(postIngestQueue), firstQueued -> Some(dateTimeNowIso), lastQueued -> Some(dateTimeNowIso))
+            Map(queue -> Some(postIngestQueue), firstQueued -> Some(dateTimeNowIso), lastQueued -> Some(dateTimeNowIso)),
+            Some(s"attribute_exists($assetId)")
           )
         )
         .void
@@ -66,7 +67,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     }
 
     def updateTableAndSendToSqs(newItem: PostIngestStateTableItem, queue: Queue) =
-      addOrUpdateItem(newItem, queue.queueAlias) >>
+      updateItem(newItem, queue.queueAlias) >>
         sendMessageToQueue(
           queue.queueUrl,
           OutputQueueMessage(newItem.assetId, newItem.batchId, queue.resultAttrName, newItem.input)
