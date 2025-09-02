@@ -121,8 +121,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
 
       override def streamBitstreamContent[T](stream: capabilities.Streams[Fs2Streams[IO]])(url: String, streamFn: stream.BinaryStream => IO[T]): IO[T] = notImplemented
 
-      override def entitiesUpdatedSince(dateTime: ZonedDateTime, startEntry: Int, maxEntries: Int): IO[Seq[Entity]] = notImplemented
-
       override def entityEventActions(entity: Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] = notImplemented
 
       override def streamAllEntityRefs(repTypeFilter: Option[EntityClient.RepresentationType]): fs2.Stream[IO, Entities.EntityRef] = fs2.Stream.empty[IO]
@@ -141,6 +139,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
       override def addIdentifierForEntity(entityRef: UUID, entityType: EntityType, identifier: PreservicaIdentifier): IO[String] = notImplemented
 
       override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = notImplemented
+
+      override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[Seq[Entity]] = notImplemented
     }
 
   def runLambda(
