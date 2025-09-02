@@ -64,9 +64,10 @@ object ExternalServicesTestUtils {
 
       override def streamBitstreamContent[T](stream: capabilities.Streams[Fs2Streams[IO]])(url: String, streamFn: stream.BinaryStream => IO[T]): IO[T] = notImplemented
 
-      override def entitiesUpdatedSince(dateTime: ZonedDateTime, startEntry: Int, maxEntries: Int): IO[Seq[Entity]] = ref.getAndUpdate { existing =>
-        Nil
-      }
+      override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[Seq[Entity]] =
+        ref.getAndUpdate { existing =>
+          Nil
+        }
 
       override def entityEventActions(entity: Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] =
         IO.raiseWhen(errors.exists(_.getEventActionsError))(new Exception("Error getting event actions")) >> IO.pure(eventActions)
