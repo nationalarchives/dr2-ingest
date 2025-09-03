@@ -33,7 +33,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       val updateRequest = DADynamoDbRequest(
         config.dynamoTableName,
         Map("id" -> AttributeValue.builder().s(assetDynamoItem.id.toString).build(), "batchId" -> AttributeValue.builder().s(assetDynamoItem.batchId).build()),
-        Map("skipIngest" -> Some(skipIngestAttributeValue))
+        Map("skipIngest" -> skipIngestAttributeValue)
       )
       dependencies.dynamoDbClient.updateAttributeValues(updateRequest).map(_ => ())
 

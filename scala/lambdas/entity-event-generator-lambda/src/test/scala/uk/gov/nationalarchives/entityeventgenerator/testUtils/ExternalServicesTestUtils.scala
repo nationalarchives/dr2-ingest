@@ -96,10 +96,9 @@ object ExternalServicesTestUtils {
       IO.raiseWhen(errors.exists(_.updateAttributeValuesError))(new Exception("Error updating Dynamo attribute values")) >>
         ref
           .update { _ =>
-            (for {
-              dateTime <- dynamoDbRequest.attributeNamesAndValuesToUpdate.getOrElse("datetime", None).map(_.s())
-              start <- dynamoDbRequest.attributeNamesAndValuesToUpdate.getOrElse("start", None).map(_.n())
-            } yield (dateTime, start.toInt)).toList
+            val datetime = dynamoDbRequest.attributeNamesAndValuesToUpdate("datetime").s()
+            val start = dynamoDbRequest.attributeNamesAndValuesToUpdate("start").n()
+            List((datetime, start.toInt))
           }
           .map(_ => 1)
 

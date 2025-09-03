@@ -76,7 +76,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
           DADynamoDbRequest(
             config.stateTableName,
             postIngestStatePkFormat.write(postIngestPk).toAttributeValue.m().asScala.toMap,
-            Map(lastQueued -> Some(AttributeValue.builder().s(newDateTime.toString).build()))
+            Map(lastQueued -> AttributeValue.builder().s(newDateTime.toString).build())
           )
         )
         .handleErrorWith { error =>

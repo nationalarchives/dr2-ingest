@@ -101,7 +101,7 @@ object Helpers {
     override def getItems[T, K](primaryKeys: List[K], tableName: String)(using returnFormat: DynamoFormat[T], keyFormat: DynamoFormat[K]): IO[List[T]] = notImplemented
     override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = {
       errors.raise(_.updateAttributeValues, "Unable to update attribute values in the table") >> {
-        val newLastQueued = dynamoDbRequest.attributeNamesAndValuesToUpdate.get(lastQueued).flatMap(_.map(_.s()))
+        val newLastQueued = dynamoDbRequest.attributeNamesAndValuesToUpdate.get(lastQueued).map(_.s())
         val assetIdToUpdate = UUID.fromString(dynamoDbRequest.primaryKeyAndItsValue.get(assetId).map(_.s()).get)
         ref
           .update: existingItems =>

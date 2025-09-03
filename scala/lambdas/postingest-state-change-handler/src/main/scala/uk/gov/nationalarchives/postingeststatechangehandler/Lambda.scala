@@ -40,7 +40,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           DADynamoDbRequest(
             config.stateTableName,
             postIngestStatePkFormat.write(getPrimaryKey(item)).toAttributeValue.m().asScala.toMap,
-            Map(queue -> Some(postIngestQueue), firstQueued -> Some(dateTimeNowIso), lastQueued -> Some(dateTimeNowIso)),
+            Map(queue -> postIngestQueue, firstQueued -> dateTimeNowIso, lastQueued -> dateTimeNowIso),
             Some(s"attribute_exists($assetId)")
           )
         )
