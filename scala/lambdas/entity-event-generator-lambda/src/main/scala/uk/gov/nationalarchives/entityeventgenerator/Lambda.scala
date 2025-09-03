@@ -93,7 +93,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
           updateDateRequest = DADynamoDbRequest(
             config.lastEventActionTableName,
             dateItemPrimaryKeyAndValue,
-            Map(datetimeField -> Some(updateDateAttributeValue), "start" -> Some(startAttributeValue))
+            Map(datetimeField -> updateDateAttributeValue, "start" -> startAttributeValue)
           )
           dynamoStatusCode <- dADynamoDBClient.updateAttributeValues(updateDateRequest)
           _ <- logger.info(s"Dynamo updateAttributeValues returned status code $dynamoStatusCode")

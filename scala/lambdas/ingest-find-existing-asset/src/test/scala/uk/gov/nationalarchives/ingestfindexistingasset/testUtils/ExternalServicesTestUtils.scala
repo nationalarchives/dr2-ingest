@@ -89,7 +89,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
     override def updateAttributeValues(dynamoDbRequest: DADynamoDBClient.DADynamoDbRequest): IO[Int] = ref
       .update { existing =>
         val id = UUID.fromString(dynamoDbRequest.primaryKeyAndItsValue("id").s())
-        val skipIngest = dynamoDbRequest.attributeNamesAndValuesToUpdate("skipIngest").map(_.bool()).get
+        val skipIngest = dynamoDbRequest.attributeNamesAndValuesToUpdate("skipIngest").bool()
         existing.map { each =>
           if each.id == id then each.copy(skipIngest = skipIngest) else each
         }
