@@ -76,13 +76,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     ex.getMessage should equal(s"Entity $coId not found")
   }
 
-  "lambda handler" should "not send a message if the CO entity is deleted" in {
+  "lambda handler" should "send a message if the CO entity is deleted" in {
     val message = new SQSMessage()
     val coId = UUID.randomUUID
-    message.setBody(s"""{"id": "co:$coId", "deleted": true}""")
+    message.setBody(s"""{"id": "$coId", "deleted": true}""")
 
     val sqsMessages = runLambda(List(message), Nil)
-    sqsMessages(outputQueue).size should equal(0)
+    sqsMessages(outputQueue).size should equal(1)
   }
 
   "lambda handler" should "not send a message if this is an SO message" in {
