@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.25.1"
   lazy val pureConfigVersion = "0.17.9"
-  lazy val daAwsClientsVersion = "0.1.132"
+  lazy val daAwsClientsVersion = "0.1.133"
   private val fs2Version = "3.12.0"
   private val sttpVersion = "3.11.0"
   private val circeVersion = "0.15.0-M1"
@@ -20,7 +20,7 @@ object Dependencies {
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.28.0"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.5"
   lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.18.0"
-  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.32.33"
+  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.33.2"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
@@ -29,7 +29,7 @@ object Dependencies {
   lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.4.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
   lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "1.5.8"
-  lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.3.0"
+  lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.4.0"
   lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.16.1"
   lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion
   lazy val log4CatsSlf4j = "org.typelevel" %% "log4cats-slf4j" % log4CatsVersion
@@ -57,6 +57,6 @@ object Dependencies {
   lazy val sttpClientFs2 = "com.softwaremill.sttp.client3" %% "fs2" % sttpVersion
   lazy val sttpCirce = "com.softwaremill.sttp.client3" %% "circe" % sttpVersion
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.4"
-  lazy val upickle = "com.lihaoyi" %% "upickle" % "4.2.1"
+  lazy val upickle = "com.lihaoyi" %% "upickle" % "4.3.0"
   lazy val wiremock = "org.wiremock" % "wiremock" % "3.13.1"
 }
