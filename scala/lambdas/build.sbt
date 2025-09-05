@@ -50,7 +50,7 @@ lazy val commonSettings = Seq(
     scalaTest % Test,
     wiremock % Test
   ),
-  dependencyOverrides ++= Seq(commonsLogging),
+  dependencyOverrides ++= Seq(awsDynamo, commonsLogging),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
@@ -367,7 +367,8 @@ lazy val utils = (project in file("utils"))
   .settings(commonSettings)
   .dependsOn(dynamoFormatters)
   .settings(
-    libraryDependencies += scanamo
+    libraryDependencies += scanamo,
+    dependencyOverrides += awsDynamo
   )
 
 lazy val dynamoFormatters = (project in file("dynamo-formatters"))
@@ -375,6 +376,7 @@ lazy val dynamoFormatters = (project in file("dynamo-formatters"))
     libraryDependencies ++= Seq(
       scanamo,
       scalaTest % Test
-    )
+    ),
+    dependencyOverrides += awsDynamo
   )
   .disablePlugins(AssemblyPlugin)
