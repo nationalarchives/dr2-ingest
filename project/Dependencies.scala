@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.25.1"
   lazy val pureConfigVersion = "0.17.9"
-  lazy val daAwsClientsVersion = "0.1.132"
+  lazy val daAwsClientsVersion = "0.1.133"
   private val fs2Version = "3.12.0"
   private val sttpVersion = "3.11.0"
   private val circeVersion = "0.15.0-M1"
@@ -29,7 +29,7 @@ object Dependencies {
   lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.4.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
   lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "1.5.8"
-  lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.3.0"
+  lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.4.0"
   lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.16.1"
   lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion
   lazy val log4CatsSlf4j = "org.typelevel" %% "log4cats-slf4j" % log4CatsVersion
@@ -57,6 +57,6 @@ object Dependencies {
   lazy val sttpClientFs2 = "com.softwaremill.sttp.client3" %% "fs2" % sttpVersion
   lazy val sttpCirce = "com.softwaremill.sttp.client3" %% "circe" % sttpVersion
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.4"
-  lazy val upickle = "com.lihaoyi" %% "upickle" % "4.2.1"
+  lazy val upickle = "com.lihaoyi" %% "upickle" % "4.3.0"
   lazy val wiremock = "org.wiremock" % "wiremock" % "3.13.1"
 }
