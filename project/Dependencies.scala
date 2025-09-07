@@ -41,7 +41,7 @@ object Dependencies {
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.7.9"
-  lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.18.1"
+  lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.19.0"
   lazy val scalaCheckPlus = "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0"
   lazy val scanamo = "org.scanamo" %% "scanamo" % "4.0.0"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
