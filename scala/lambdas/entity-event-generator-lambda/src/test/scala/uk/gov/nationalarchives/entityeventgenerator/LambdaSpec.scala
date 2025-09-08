@@ -27,6 +27,33 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     lambdaResult.value should equal(1)
   }
 
+  "handler" should "increment the startAt argument, not update the event datetime and send messages if all entities are deleted" in {
+    val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
+    val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
+    val entities = List(generateEntity, generateEntity).map(_.copy(deleted = true))
+    val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entities, Nil, dynamoResponse)
+
+    dynamoResult.head should equal("2023-06-06T20:39:53.377170+01:00", 1000)
+
+    snsResult.length should equal(2)
+
+    lambdaResult.value should equal(2)
+  }
+
+  "handler" should "not increment the start argument, update the event datetime and send all messages if some entities are deleted" in {
+    val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
+    val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
+    val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
+    val entities = generateEntity :: List(generateEntity, generateEntity).map(_.copy(deleted = true))
+    val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entities, List(generateEventAction(eventActionTime)), dynamoResponse)
+
+    dynamoResult.head should equal("2023-06-05T00:00+01:00", 0)
+
+    snsResult.length should equal(3)
+
+    lambdaResult.value should equal(3)
+  }
+
   "handler" should "increment the start number in dynamo if the event action time is the same as the update since time" in {
     val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
     val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
