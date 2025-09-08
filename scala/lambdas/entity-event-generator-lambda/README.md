@@ -20,8 +20,8 @@ We are only using the time portion of the event.
 * Call the `/updated-since` API endpoint with the date and start value from DynamoDB as the parameters.
 * If all entities in the list are deleted entities:
   * Set the last action date to be the same as the `LastPolled` date.
-* If some of the entities are not deleted 
-  * These parameters are ordered by ascending date, get the last entity in the list, excluding any deleted entities.
+* If some of the entities are not deleted: 
+  * (Since these parameters are ordered by ascending date) get the last entity in the list, excluding any deleted entities.
   * Get the event actions for this entity and get the last action date from the response.
 * If the last action date is after the triggered date from the input json, do nothing.
 * If the last action date is before the triggered date from the input json:

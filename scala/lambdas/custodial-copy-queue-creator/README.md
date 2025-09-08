@@ -13,7 +13,7 @@ To prevent this, we set the deduplication id to a random UUID.
 
 ## Input
 The lambda is triggered from an SQS queue. The body of the message is the same as the output from the entity event generator.
-This can one of two message types.
+This can be one of two message types.
 
 ```json
 {
