@@ -18,12 +18,15 @@ We are only using the time portion of the event.
 ## Process
 * Get the start value and `LastPolled` date from DynamoDB.
 * Call the `/updated-since` API endpoint with the date and start value from DynamoDB as the parameters.
-* These parameters are ordered by ascending date, get the last entity in the list.
-* Get the event actions for this entity and get the action date from the response.
+* If all entities in the list are deleted entities:
+  * Set the last action date to be the same as the `LastPolled` date.
+* If some of the entities are not deleted 
+  * These parameters are ordered by ascending date, get the last entity in the list, excluding any deleted entities.
+  * Get the event actions for this entity and get the last action date from the response.
 * If the last action date is after the triggered date from the input json, do nothing.
 * If the last action date is before the triggered date from the input json:
   * Send a message to SNS with the form `{"id":"io:3963e77c-ed9a-4ff7-8960-aa2ca48973af","deleted":false}`
-  * If the last action date is equal to the previous date from DynamoDB, this indicates there are more than 1000 entities with the same updated time. Increment the start count by 1.
+  * If the last action date is equal to the previous date from DynamoDB, this indicates there are more than 1000 entities with the same updated time or that all returned entities were deleted. Increment the start count by 1.
   * Store the start count and the last updated time in Dynamo DB and return the number of messages sent to SNS.
   * If the number is more than zero, repeat the process from the second step.
 
