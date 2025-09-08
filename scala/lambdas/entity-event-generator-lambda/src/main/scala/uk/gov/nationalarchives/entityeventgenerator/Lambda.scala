@@ -81,7 +81,9 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
           entitiesClient.entityEventActions(lastUpdatedEntity).map { entityEventActions =>
             Some(entityEventActions.filterNot(ev => ignoredEventTypes.contains(ev.eventType)).head.dateOfEvent.toOffsetDateTime)
           }
-        else if recentlyUpdatedEntities.nonEmpty && recentlyUpdatedEntities.forall(_.deleted) then { // If all entities are deleted, get the next page
+        else if recentlyUpdatedEntities.nonEmpty && recentlyUpdatedEntities
+            .forall(_.deleted)
+        then { // If all entities are deleted, return the updatedSinceAsDate in order to get the next page of results
           IO.pure(Option(updatedSinceAsDate.toOffsetDateTime))
         } else IO.none
 
@@ -89,7 +91,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         for {
           _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
           updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
-          // This is to cover the case where there are more than 1000 entities with the same last event action date
+          // This is to cover the case where there are more than 1000 entities with the same last event action date or for when there are only deleted entities in the response.
           nextStart = if entityLastEventActionDate.get.isEqual(OffsetDateTime.parse(updatedSinceResponse.eventDatetime)) then currentStart + 1000 else 0
           startAttributeValue = AttributeValue.builder.n(nextStart.toString).build()
           updateDateRequest = DADynamoDbRequest(

@@ -32,8 +32,8 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
             dependencies.entityClient
               .getEntity(id, EntityType.ContentObject)
               .map(_.parent)
-          case DeletedMessageBody(id) => IO.pure(id.some)
-          case SoMessageBody(id)      => IO.none
+          case DeletionMessageBody(id) => IO.pure(id.some)
+          case SoMessageBody(id)       => IO.none
         _ <- IO.whenA(potentialMessageGroupId.nonEmpty) {
           val fifoConfiguration = potentialMessageGroupId.map(messageGroupId => FifoQueueConfiguration(messageGroupId.toString, dependencies.uuidGenerator().toString))
           dependencies.sqsClient.sendMessage(config.outputQueue)(messageBody, fifoConfiguration).void
@@ -56,10 +56,10 @@ object Lambda:
   }
 
   given Encoder[MessageBody] =
-    case IoMessageBody(id)      => toJson(id, false, "io".some)
-    case CoMessageBody(id)      => toJson(id, false, "co".some)
-    case SoMessageBody(id)      => toJson(id, false, "so".some)
-    case DeletedMessageBody(id) => toJson(id, true, None)
+    case IoMessageBody(id)       => toJson(id, false, "io".some)
+    case CoMessageBody(id)       => toJson(id, false, "co".some)
+    case SoMessageBody(id)       => toJson(id, false, "so".some)
+    case DeletionMessageBody(id) => toJson(id, true, None)
 
   given Decoder[MessageBody] = (c: HCursor) =>
     for {
@@ -75,11 +75,11 @@ object Lambda:
             case "co" => CoMessageBody(ref)
             case "so" => SoMessageBody(ref)
           }
-        case Array(ref) => DeletedMessageBody(UUID.fromString(ref))
+        case Array(ref) => DeletionMessageBody(UUID.fromString(ref))
     }
 
   enum MessageBody(val id: UUID, val deleted: Boolean):
     case IoMessageBody(override val id: UUID) extends MessageBody(id, false)
     case CoMessageBody(override val id: UUID) extends MessageBody(id, false)
     case SoMessageBody(override val id: UUID) extends MessageBody(id, false)
-    case DeletedMessageBody(override val id: UUID) extends MessageBody(id, true)
+    case DeletionMessageBody(override val id: UUID) extends MessageBody(id, true)
