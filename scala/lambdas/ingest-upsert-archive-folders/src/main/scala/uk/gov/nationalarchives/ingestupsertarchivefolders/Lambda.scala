@@ -84,7 +84,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
         folderRow.potentialTitle.getOrElse(folderRow.name),
         folderRow.potentialDescription,
         StructuralObject,
-        Open,
+        Unknown,
         potentialParentRef
       )
       val folderName = folderRow.name
