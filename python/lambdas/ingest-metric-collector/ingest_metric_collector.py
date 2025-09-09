@@ -1,6 +1,6 @@
 import collections
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 import boto3
 from dateutil.parser import isoparse
@@ -58,7 +58,7 @@ def get_flow_control_metrics(resources_prefix):
     queue_table = resources_prefix + "-queue"
 
     for source_system in SOURCE_SYSTEMS:
-        itemResult = dynamo_client.query(
+        item_result = dynamo_client.query(
             TableName = queue_table,
             KeyConditionExpression = "sourceSystem = :ssPlaceHolder",
             ExpressionAttributeValues = {":ssPlaceHolder": {"S": source_system}}
@@ -69,12 +69,16 @@ def get_flow_control_metrics(resources_prefix):
                 "Dimensions": [
                     {"Name": "SourceSystem", "Value": source_system},
                 ],
-                "Value": len(itemResult["Items"]),
+                "Value": len(item_result["Items"]),
                 "Unit": "Count"
             }
         )
 
-        oldest_item_age = isoparse(datetime.now().timestamp() - itemResult['Items'][0]['queuedAt']['S'].split('_')[0]).timestamp() if len(itemResult['Items']) > 0 else 0
+        if item_result["Items"]:
+            queued_at = isoparse(item_result["Items"][0]["queuedAt"]["S"].split("_")[0])
+            oldest_item_age = (datetime.now(timezone.utc) - queued_at).total_seconds()
+        else:
+            oldest_item_age = 0
         metric_data.append(
             {
                 "MetricName": "ApproximateAgeOfOldestQueuedIngest",
@@ -85,7 +89,7 @@ def get_flow_control_metrics(resources_prefix):
                 "Unit": "seconds"
             }
         )
-        return metric_data
+    return metric_data
 
 def lambda_handler(event, context):
     resources_prefix = context.function_name.split("-")[0] + "-dr2-ingest"
