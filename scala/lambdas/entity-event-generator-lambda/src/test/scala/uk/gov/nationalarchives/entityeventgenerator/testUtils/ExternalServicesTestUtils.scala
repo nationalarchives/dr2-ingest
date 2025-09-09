@@ -143,7 +143,7 @@ object ExternalServicesTestUtils {
     Some(s"mock description"),
     deleted = false,
     Option(InformationObject.entityPath),
-    Some(Open),
+    Some(Unknown),
     None
   )
 }
