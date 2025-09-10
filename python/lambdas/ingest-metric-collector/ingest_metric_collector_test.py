@@ -66,7 +66,7 @@ class TestLambdaFunction(unittest.TestCase):
         metric_names = [m["Dimensions"] for m in metrics]
         self.assertEqual(len(metrics), 1 + len(ingest_metric_collector.SOURCE_SYSTEMS))  # total + sources + DEFAULT
 
-        # Check that TDR, COURTDOC and DEFAULT, all got one
+        # Check that TDR, COURTDOC and DEFAULT, all got Value as 1
         tdr_metric = next(
             m for m in metrics
             if {"Name": "SourceSystem", "Value": "TDR"} in m["Dimensions"]
@@ -97,14 +97,30 @@ class TestLambdaFunction(unittest.TestCase):
         for m in metrics:
             self.assertEqual(0, m["Value"])
 
+    def make_source_system_specific_mock(self, mock_mapping):
+        def query_side_effect(**kwargs):
+            ss_value = kwargs["ExpressionAttributeValues"][":ssPlaceHolder"]["S"]
+            return {"Items": mock_mapping.get(ss_value, [])}
+
+        return query_side_effect
+
     @patch("ingest_metric_collector.boto3.client")
     def test_with_items_in_queue(self, mock_boto_client):
         now = datetime.now(timezone.utc)
-        queued_at = (now - timedelta(seconds=120)).isoformat()  # 2 minutes since queued
-        mock_item = {"sourceSystem" : {"S": "TDR"},  "queuedAt": {"S": queued_at}}
+
+        mock_mapping = {
+            "TDR": [
+                {
+                    "sourceSystem": {"S": "CRM"},
+                    "queuedAt": {"S": (now - timedelta(seconds=60)).isoformat()},
+                }
+            ],
+            "COURTDOC": [],
+            "DEFAULT": [],
+        }
 
         mock_dynamo = MagicMock()
-        mock_dynamo.query.return_value = {"Items": [mock_item]}
+        mock_dynamo.query.side_effect = self.make_source_system_specific_mock(mock_mapping)
         mock_boto_client.return_value = mock_dynamo
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2")
@@ -113,12 +129,29 @@ class TestLambdaFunction(unittest.TestCase):
         # IngestsQueued should be 1
         queued_metric = [m for m in metrics if m["MetricName"] == "IngestsQueued"]
         for m in queued_metric:
-            self.assertEqual(1, m["Value"])
+            ss = next(d["Value"] for d in m["Dimensions"] if d["Name"] == "SourceSystem")
+            if ss == "TDR":
+                self.assertEqual(1, m["Value"])
+            elif ss == "COURTDOC":
+                self.assertEqual(0, m["Value"])
+            elif ss == "DEFAULT":
+                self.assertEqual(0, m["Value"])
+            else:
+                self.fail(f"This should never happen: Unexpected source system {ss}")
 
-        # ApproximateAgeOfOldestQueuedIngest should be close to 120
+
         age_metric = [m for m in metrics if m["MetricName"] == "ApproximateAgeOfOldestQueuedIngest"]
         for m in age_metric:
-            self.assertAlmostEqual(120, m["Value"], delta=2)
+            ss = next(d["Value"] for d in m["Dimensions"] if d["Name"] == "SourceSystem")
+            if ss == "TDR":
+                self.assertAlmostEqual(60, m["Value"], delta=2)
+            elif ss == "COURTDOC":
+                self.assertEqual(0, m["Value"])
+            elif ss == "DEFAULT":
+                self.assertEqual(0, m["Value"])
+            else:
+                self.fail(f"This should never happen: Unexpected source system {ss}")
+
 
 if __name__ == '__main__':
     unittest.main()
