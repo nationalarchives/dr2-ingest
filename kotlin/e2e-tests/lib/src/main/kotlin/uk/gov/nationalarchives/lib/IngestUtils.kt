@@ -20,20 +20,22 @@ import kotlinx.coroutines.flow.takeWhile
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import uk.gov.nationalarchives.lib.JsonUtils.ExternalNotificationMessage
-import uk.gov.nationalarchives.lib.JsonUtils.ValidationErrorMessage
-import uk.gov.nationalarchives.lib.JsonUtils.TDRMetadata
-import uk.gov.nationalarchives.lib.JsonUtils.TREMetadata
-import uk.gov.nationalarchives.lib.JsonUtils.TREMetadataParameters
 import uk.gov.nationalarchives.lib.JsonUtils.Parser
 import uk.gov.nationalarchives.lib.JsonUtils.Payload
-import uk.gov.nationalarchives.lib.JsonUtils.TREParams
+import uk.gov.nationalarchives.lib.JsonUtils.TDRMetadata
 import uk.gov.nationalarchives.lib.JsonUtils.TDRParams
+import uk.gov.nationalarchives.lib.JsonUtils.TREMetadata
+import uk.gov.nationalarchives.lib.JsonUtils.TREMetadataParameters
+import uk.gov.nationalarchives.lib.JsonUtils.TREParams
+import uk.gov.nationalarchives.lib.JsonUtils.ValidationErrorMessage
 import uk.gov.nationalarchives.lib.JsonUtils.jsonCodec
 import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
 import java.util.concurrent.TimeoutException
 import java.util.zip.GZIPOutputStream
@@ -46,7 +48,7 @@ class IngestUtils(
     private val dynamoDbClient: DynamoDbClient,
     private val sfnClient: SfnClient,
     private val config: Config,
-    private val fileIds: MutableList<UUID>
+    private val assetIds: MutableList<UUID>
 ) {
 
     private val completeStatus = "Asset has been written to custodial copy disk."
@@ -55,17 +57,17 @@ class IngestUtils(
     fun checkForValidationFailureMessages(logGroupArn: String, timeout: Long) {
         streamLogs(timeout, logGroupArn) { logEvents: List<LiveTailSessionLogEvent>? ->
             logEvents?.let { events ->
-                val assetIds = events
+                val assetIdsFromMessage = events
                     .flatMap {
                         try {
                             listOf(jsonCodec.decodeFromString<ValidationErrorMessage>(it.message!!))
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             emptyList()
                         }
                     }
-                    .map { it.fileId }
-                fileIds.removeAll(assetIds)
-                fileIds.isEmpty()
+                    .map { it.assetId }
+                assetIds.removeAll(assetIdsFromMessage)
+                assetIds.isEmpty()
             } ?: false
         }
     }
@@ -75,12 +77,12 @@ class IngestUtils(
         val status = if (messageType == "update") failedStatus else completeStatus
         streamLogs(timeout, logGroupArn) { logEvents: List<LiveTailSessionLogEvent>? ->
             logEvents?.let { events ->
-                val assetIds = events
+                val assetIdsFromMessage = events
                     .map { jsonCodec.decodeFromString<ExternalNotificationMessage>(it.message!!) }
                     .filter { it.body.properties.messageType == "preserve.digital.asset.ingest.$messageType" && it.body.parameters.status == status }
                     .map { it.body.parameters.assetId }
-                fileIds.removeAll(assetIds)
-                fileIds.isEmpty()
+                assetIds.removeAll(assetIdsFromMessage)
+                assetIds.isEmpty()
             } ?: false
         }
     }
@@ -92,15 +94,16 @@ class IngestUtils(
         invalidChecksum: Boolean = false
     ) {
         val invalidChecksumValue = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        fileIds.addAll(List<UUID>(numberOfFiles) { UUID.randomUUID() })
+        assetIds.addAll(List<UUID>(numberOfFiles) { UUID.randomUUID() })
         coroutineScope {
-            fileIds.map {
+            assetIds.map {
                 launch {
                     val checksum = if (emptyChecksum) ""
                     else if (invalidChecksum) invalidChecksumValue
                     else hash(it.toString())
-                    uploadFileToS3(it.toString(), ByteStream.fromString(it.toString()))
-                    uploadFileToS3("${it}.metadata", createMetadataJson(it, checksum, invalidMetadata))
+                    val fileId = UUID.randomUUID()
+                    uploadFileToS3("$it/${fileId}", ByteStream.fromString(it.toString()))
+                    uploadFileToS3("${it}.metadata", createMetadataJson(it, fileId, checksum, invalidMetadata))
                 }
             }
         }
@@ -149,7 +152,7 @@ class IngestUtils(
 
     suspend fun createJudgment() {
         val id = UUID.randomUUID()
-        fileIds.add(id)
+        assetIds.add(id)
         val metadataBytes = createJudgmentMetadata(id)
         val tarGz = createTarGzByteStream(id, metadataBytes)
         uploadFileToS3("$id.tar.gz", tarGz)
@@ -157,7 +160,7 @@ class IngestUtils(
 
     suspend fun sendTdrMessages() = coroutineScope {
         val bucket = config.getString("s3Bucket")
-        fileIds.map {
+        assetIds.map {
             async {
                 val request = SendMessageRequest {
                     queueUrl = config.getString("sqsQueue")!!
@@ -170,7 +173,7 @@ class IngestUtils(
 
     suspend fun sendJudgmentMessage() = coroutineScope {
         val bucket = config.getString("s3Bucket")
-        fileIds.map {
+        assetIds.map {
             async {
                 val inputParameters = JsonUtils.TREInputParameters("", idToRef(it), true, bucket, "$it.tar.gz")
                 val request = SendMessageRequest {
@@ -185,10 +188,10 @@ class IngestUtils(
     suspend fun createBatch() = coroutineScope {
         val groupId = "E2E_${UUID.randomUUID()}"
         val batchId = "${groupId}_0"
-        fileIds.map {
+        assetIds.map {
             async {
                 val input = jsonCodec.encodeToString(
-                    JsonUtils.AggregatorInputMessage(it, URI.create("s3://${config.getString("s3Bucket")}/$it"))
+                    JsonUtils.AggregatorInputMessage(it, URI.create("s3://${config.getString("s3Bucket")}/$it.metadata"))
                 )
                 val request = PutItemRequest {
                     conditionExpression = "attribute_not_exists(assetId)"
@@ -196,7 +199,8 @@ class IngestUtils(
                     item = mapOf(
                         "assetId" to AttributeValue.S(it.toString()),
                         "groupId" to AttributeValue.S(groupId),
-                        "message" to AttributeValue.S(input)
+                        "message" to AttributeValue.S(input),
+                        "createdAt" to AttributeValue.S(DateTimeFormatter.ISO_DATE_TIME.format(ZonedDateTime.now())),
                     )
                 }
                 dynamoDbClient.putItem(request)
@@ -224,24 +228,27 @@ class IngestUtils(
         return chars.shuffled(Random).take(length).joinToString("")
     }
 
-    private fun createMetadataJson(id: UUID, checksum: String, invalidMetadata: Boolean): ByteStream {
+    private fun createMetadataJson(assetId: UUID, fileId: UUID, checksum: String, invalidMetadata: Boolean): ByteStream {
         val thisYear = LocalDate.now().year
         fun <T> generateValue(value: T): T? = if (invalidMetadata && Random.nextBoolean()) null else value
 
         fun generateSeries() = listOf(null, "TEST123", "").shuffled().first()
         val series = if (invalidMetadata) generateSeries() else "TEST 123"
+
         val metadata = TDRMetadata(
             series,
-            generateValue(id),
+            generateValue(assetId),
             null,
             "TestBody",
             generateValue("2024-10-07 09:54:48"),
             "E2E-${thisYear}-${makeReference(4)}",
-            "${id}.txt",
+            "${assetId}.txt",
             checksum,
-            "Z${makeReference(5)}"
+            "Z${makeReference(5)}",
+            "/",
+            fileId
         )
-        return ByteStream.fromString(jsonCodec.encodeToString(metadata))
+        return ByteStream.fromString(jsonCodec.encodeToString(listOf(metadata)))
     }
 
     private suspend fun uploadFileToS3(objectKey: String, bodyStream: ByteStream) {
