@@ -1,4 +1,5 @@
 import collections
+import logging
 import re
 from datetime import datetime, timezone
 
@@ -7,6 +8,9 @@ from dateutil.parser import isoparse
 from moto.utilities.paginator import paginate
 
 SOURCE_SYSTEMS = ["TDR", "COURTDOC", "DEFAULT"] # do we have one for DRI migration?
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 def get_stepfunction_metrics(resources_prefix):
     metric_data = []
@@ -93,13 +97,33 @@ def get_flow_control_metrics(resources_prefix):
 
 def lambda_handler(event, context):
     resources_prefix = context.function_name.split("-")[0] + "-dr2-ingest"
-    metric_data = [
-        *get_stepfunction_metrics(resources_prefix),
-        *get_flow_control_metrics(resources_prefix)
-    ]
+    metric_data = []
+    sfn_collection_failed = False
+    age_collection_failed = False
+    try:
+        sfn_metrics = get_stepfunction_metrics(resources_prefix)
+        metric_data.extend(sfn_metrics)
+        logger.info("Successfully collected step function metrics")
+    except Exception as e:
+        logger.warning("Failed to collect step function metrics: %s", e, exc_info = True)
+        sfn_collection_failed = True
 
-    cloudwatch_client = boto3.client('cloudwatch')
-    cloudwatch_client.put_metric_data(
-        Namespace = resources_prefix,
-        MetricData = metric_data
-    )
+    try:
+        age_metrics = get_flow_control_metrics(resources_prefix)
+        metric_data.extend(age_metrics)
+        logger.info("Successfully collected age metrics")
+    except Exception as e:
+        logger.warning("Failed to collect age metrics@ %s", e, exc_info = True)
+        age_collection_failed = True
+
+    if sfn_collection_failed and age_collection_failed:
+        raise Exception(f"Failed to collect metrics for step function as well as age of executions. Unable to proceed")
+    else:
+        try:
+            cloudwatch_client = boto3.client('cloudwatch')
+            cloudwatch_client.put_metric_data(
+                Namespace = resources_prefix,
+                MetricData = metric_data
+            )
+        except Exception as e:
+            raise Exception(f"Failed to send metrics to cloudwatch due to underlying exception: '{e}'")

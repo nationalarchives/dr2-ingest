@@ -105,7 +105,7 @@ class TestLambdaFunction(unittest.TestCase):
         return query_side_effect
 
     @patch("ingest_metric_collector.boto3.client")
-    def test_with_items_in_queue(self, mock_boto_client):
+    def test_should_return_executions_and_age_when_there_are_items_in_queue(self, mock_boto_client):
         now = datetime.now(timezone.utc)
 
         mock_mapping = {
@@ -152,6 +152,63 @@ class TestLambdaFunction(unittest.TestCase):
             else:
                 self.fail(f"This should never happen: Unexpected source system {ss}")
 
+    @patch("ingest_metric_collector.boto3.client")
+    @patch("ingest_metric_collector.get_stepfunction_metrics", side_effect=Exception("sfn error"))
+    @patch("ingest_metric_collector.get_flow_control_metrics", return_value=[{"MetricName": "ApproximateAgeOfOldestQueuedIngest", "Unit": "seconds", "Value": 0}])
+    def test_should_return_valid_metrics_when_step_function_metrics_fail_but_age_metrics_succeed(self, mock_flow_control, mock_sfn, mock_boto_client):
+        mock_client = MagicMock()
+        mock_boto_client.return_value = mock_client
+
+        ingest_metric_collector.lambda_handler({}, DummyContext())
+
+        mock_client.put_metric_data.assert_called_once_with(
+            Namespace="intg-dr2-ingest",
+            MetricData=[{"MetricName": "ApproximateAgeOfOldestQueuedIngest", "Unit": "seconds", "Value": 0}]
+        )
+
+    @patch("ingest_metric_collector.boto3.client")
+    @patch("ingest_metric_collector.get_flow_control_metrics", side_effect=Exception("flow control metrics error"))
+    @patch("ingest_metric_collector.get_stepfunction_metrics", return_value=[{"MetricName": "ExecutionsRunning", "Value": 1}])
+    def test_should_return_valid_metrics_when_step_function_metrics_succeed_but_age_metrics_fail(self, mock_sfn, mock_flow_control, mock_boto_client):
+        mock_client = MagicMock()
+        mock_boto_client.return_value = mock_client
+
+        ingest_metric_collector.lambda_handler({}, DummyContext())
+
+        mock_client.put_metric_data.assert_called_once_with(
+            Namespace="intg-dr2-ingest",
+            MetricData=[{"MetricName": "ExecutionsRunning", "Value": 1}]
+        )
+
+    @patch("ingest_metric_collector.boto3.client")
+    @patch("ingest_metric_collector.get_stepfunction_metrics", side_effect=Exception("step function exception"))
+    @patch("ingest_metric_collector.get_flow_control_metrics", side_effect=Exception("flow control exception"))
+    def test_should_throw_exception_when_step_function_metrics_fail_and_age_metrics_fail(self, mock_flow_control, mock_sfn, mock_boto_client):
+        mock_client = MagicMock()
+        mock_boto_client.return_value = mock_client
+        with self.assertRaises(Exception) as context:
+            ingest_metric_collector.lambda_handler({}, DummyContext())
+        self.assertIn("Failed to collect metrics for step function as well as age", str(context.exception))
+
+        mock_client.put_metric_data.assert_not_called()
+
+    @patch("ingest_metric_collector.boto3.client")
+    @patch("ingest_metric_collector.get_stepfunction_metrics",  return_value=[{"MetricName": "ExecutionsRunning", "Value": 1}])
+    @patch("ingest_metric_collector.get_flow_control_metrics", return_value=[{"MetricName": "ApproximateAgeOfOldestQueuedIngest", "Unit": "seconds", "Value": 0}])
+    def test_should_throw_exception_when_put_metric_to_cloudwatch_fails(self, mock_flow_control, mock_sfn, mock_boto_client):
+        mock_client = MagicMock()
+        mock_boto_client.return_value = mock_client
+        mock_client.put_metric_data.side_effect = Exception("dummy reason should be embedded in message")
+
+        with self.assertRaises(Exception) as context:
+            ingest_metric_collector.lambda_handler({}, DummyContext())
+        self.assertIn("Failed to send metrics to cloudwatch due to underlying exception: 'dummy reason should be embedded in message'", str(context.exception))
+
+
+
+class DummyContext:
+    def __init__(self, function_name="intg-some-lambda-function-name"):
+        self.function_name = function_name
 
 if __name__ == '__main__':
     unittest.main()
