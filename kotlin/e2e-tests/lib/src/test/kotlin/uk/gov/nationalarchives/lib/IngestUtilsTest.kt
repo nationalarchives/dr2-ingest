@@ -111,7 +111,7 @@ class IngestUtilsTest {
     fun testValidationFailureSucceedsIfSomeMessagesAreInvalidJson() {
         val assetId = UUID.randomUUID()
         val bodyList = listOf(
-            """{"error": "An error", "fileId": "$assetId"}""",
+            """{"error": "An error", "assetId": "$assetId"}""",
             "invalidJson"
         )
         messageIngestUtils(bodyList, mutableListOf(assetId))
@@ -127,7 +127,7 @@ class IngestUtilsTest {
     @Test
     fun testValidationFailureTimeoutIfAssetIdDoesNotMatch() {
         val assetId = UUID.randomUUID()
-        val bodyList = listOf("""{"error": "An error", "fileId": "${UUID.randomUUID()}"}""")
+        val bodyList = listOf("""{"error": "An error", "assetId": "${UUID.randomUUID()}"}""")
         assertFailsWith<TimeoutException> {
             messageIngestUtils(bodyList, mutableListOf(assetId)).checkForValidationFailureMessages("", timeout)
         }
