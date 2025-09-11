@@ -1,13 +1,11 @@
 import collections
 import logging
-import re
 from datetime import datetime, timezone
 
 import boto3
 from dateutil.parser import isoparse
-from moto.utilities.paginator import paginate
 
-SOURCE_SYSTEMS = ["TDR", "COURTDOC", "DEFAULT"] # do we have one for DRI migration?
+SOURCE_SYSTEMS = ["TDR", "COURTDOC", "DEFAULT"]
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
