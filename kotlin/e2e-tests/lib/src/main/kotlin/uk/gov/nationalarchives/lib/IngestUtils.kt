@@ -65,7 +65,7 @@ class IngestUtils(
                             emptyList()
                         }
                     }
-                    .map { it.fileId }
+                    .map { it.assetId }
                 assetIds.removeAll(assetIdsFromMessage)
                 assetIds.isEmpty()
             } ?: false
@@ -102,7 +102,6 @@ class IngestUtils(
                     else if (invalidChecksum) invalidChecksumValue
                     else hash(it.toString())
                     val fileId = UUID.randomUUID()
-                    println(fileId)
                     uploadFileToS3("$it/${fileId}", ByteStream.fromString(it.toString()))
                     uploadFileToS3("${it}.metadata", createMetadataJson(it, fileId, checksum, invalidMetadata))
                 }

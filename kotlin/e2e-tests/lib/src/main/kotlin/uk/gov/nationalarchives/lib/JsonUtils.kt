@@ -10,7 +10,6 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
-import kotlinx.serialization.modules.contextual
 import java.net.URI
 import java.time.OffsetDateTime
 import java.util.*
@@ -74,7 +73,7 @@ object JsonUtils {
     data class AggregatorInputMessage(@Contextual val id: UUID, @Contextual val location: URI)
 
     @Serializable
-    data class ValidationErrorMessage(val error: String, @Contextual val fileId: UUID)
+    data class ValidationErrorMessage(val error: String, @Contextual val assetId: UUID)
 
     @Serializable
     data class SqsInputMessage(@Contextual val fileId: UUID, val bucket: String)
