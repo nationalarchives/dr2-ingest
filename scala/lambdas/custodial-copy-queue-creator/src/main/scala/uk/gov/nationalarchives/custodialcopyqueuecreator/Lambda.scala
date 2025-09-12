@@ -27,14 +27,13 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
       for {
         messageBody <- IO.fromEither(decode[MessageBody](record.getBody))
         potentialMessageGroupId <- messageBody match
-          case IoMessageBody(id, _) => IO.pure(id.some)
-          case CoMessageBody(id, deleted) =>
-            if deleted then IO.none
-            else
-              dependencies.entityClient
-                .getEntity(id, EntityType.ContentObject)
-                .map(_.parent)
-          case SoMessageBody(id, _) => IO.none
+          case IoMessageBody(id) => IO.pure(id.some)
+          case CoMessageBody(id) =>
+            dependencies.entityClient
+              .getEntity(id, EntityType.ContentObject)
+              .map(_.parent)
+          case DeletionMessageBody(id) => IO.pure(id.some)
+          case SoMessageBody(id)       => IO.none
         _ <- IO.whenA(potentialMessageGroupId.nonEmpty) {
           val fifoConfiguration = potentialMessageGroupId.map(messageGroupId => FifoQueueConfiguration(messageGroupId.toString, dependencies.uuidGenerator().toString))
           dependencies.sqsClient.sendMessage(config.outputQueue)(messageBody, fifoConfiguration).void
@@ -51,13 +50,16 @@ object Lambda:
   case class Config(secretName: String, outputQueue: String) derives ConfigReader
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], sqsClient: DASQSClient[IO], uuidGenerator: () => UUID)
 
-  private def toJson(id: UUID, deleted: Boolean, messageType: String): Json =
-    Json.fromJsonObject(JsonObject(("id", Json.fromString(s"$messageType:$id")), ("deleted", Json.fromBoolean(deleted))))
+  private def toJson(id: UUID, deleted: Boolean, potentialMessageType: Option[String]): Json = {
+    val idValue = potentialMessageType.map(messageType => s"$messageType:$id").getOrElse(id.toString)
+    Json.fromJsonObject(JsonObject(("id", Json.fromString(idValue)), ("deleted", Json.fromBoolean(deleted))))
+  }
 
   given Encoder[MessageBody] =
-    case IoMessageBody(id, deleted) => toJson(id, deleted, "io")
-    case CoMessageBody(id, deleted) => toJson(id, deleted, "co")
-    case SoMessageBody(id, deleted) => toJson(id, deleted, "so")
+    case IoMessageBody(id)       => toJson(id, false, "io".some)
+    case CoMessageBody(id)       => toJson(id, false, "co".some)
+    case SoMessageBody(id)       => toJson(id, false, "so".some)
+    case DeletionMessageBody(id) => toJson(id, true, None)
 
   given Decoder[MessageBody] = (c: HCursor) =>
     for {
@@ -65,16 +67,19 @@ object Lambda:
       deleted <- c.downField("deleted").as[Boolean]
     } yield {
       val typeAndRef = id.split(":")
-      val ref = UUID.fromString(typeAndRef.last)
-      val entityType = typeAndRef.head
-      entityType match {
-        case "io" => IoMessageBody(ref, deleted)
-        case "co" => CoMessageBody(ref, deleted)
-        case "so" => SoMessageBody(ref, deleted)
-      }
+      typeAndRef match
+        case Array(entityType, refString) =>
+          val ref = UUID.fromString(refString)
+          entityType match {
+            case "io" => IoMessageBody(ref)
+            case "co" => CoMessageBody(ref)
+            case "so" => SoMessageBody(ref)
+          }
+        case Array(ref) => DeletionMessageBody(UUID.fromString(ref))
     }
 
   enum MessageBody(val id: UUID, val deleted: Boolean):
-    case IoMessageBody(override val id: UUID, override val deleted: Boolean) extends MessageBody(id, deleted)
-    case CoMessageBody(override val id: UUID, override val deleted: Boolean) extends MessageBody(id, deleted)
-    case SoMessageBody(override val id: UUID, override val deleted: Boolean) extends MessageBody(id, deleted)
+    case IoMessageBody(override val id: UUID) extends MessageBody(id, false)
+    case CoMessageBody(override val id: UUID) extends MessageBody(id, false)
+    case SoMessageBody(override val id: UUID) extends MessageBody(id, false)
+    case DeletionMessageBody(override val id: UUID) extends MessageBody(id, true)
