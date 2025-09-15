@@ -112,7 +112,7 @@ object AWSClients {
     class TestTDRS3Client(private val fileContents: MutableList<UUID>, private val metadata: MutableList<JsonUtils.TDRMetadata>, delegate: S3Client = S3Client.builder().build()): S3Client by delegate {
         override suspend fun putObject(input: PutObjectRequest): PutObjectResponse {
             if (input.key?.endsWith("metadata") == true) {
-                input.body?.decodeToString()?.let { metadata.add(jsonCodec.decodeFromString(it)) }
+                input.body?.decodeToString()?.let { metadata.addAll(jsonCodec.decodeFromString<List<JsonUtils.TDRMetadata>>(it)) }
             } else {
                 input.body?.decodeToString()?.let { fileContents.add(UUID.fromString(it)) }
             }
