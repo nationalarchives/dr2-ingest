@@ -6,31 +6,31 @@ import ingest_metric_collector
 class TestLambdaFunction(unittest.TestCase):
 
     @patch("ingest_metric_collector.boto3.client")
-    def test_should_return_empty_metrics_when_there_are_no_state_machines(self, mock_boto_client):
+    def test_get_stepfunction_metrics_should_return_empty_metrics_when_there_are_no_state_machines(self, mock_boto_client):
         mock_sfn = MagicMock()
         mock_sfn.get_paginator.return_value.paginate.return_value = [{"stateMachines": []}]
         mock_boto_client.return_value = mock_sfn
 
         metrics = ingest_metric_collector.get_stepfunction_metrics("env-prefix")
-        self.assertEqual(metrics, [])
+        self.assertEqual([], metrics)
 
     @patch("ingest_metric_collector.boto3.client")
-    def test_should_return_single_metric_when_no_executions_and_state_machine_not_from_known_source_systems(self, mock_boto_client):
+    def test_get_stepfunction_metrics_should_return_single_metric_when_no_executions_and_state_machine_not_from_known_source_systems(self, mock_boto_client):
         mock_sfn = MagicMock()
         mock_sfn.get_paginator.return_value.paginate.return_value = [
-            {"stateMachines": [{"name": "unknown-prefix-something", "stateMachineArn": "arn:some_arn"}]}
+            {"stateMachines": [{"name": "unknown-ss-something", "stateMachineArn": "arn:some_arn"}]}
         ]
         mock_sfn.list_executions.return_value = {"executions": []}
         mock_boto_client.return_value = mock_sfn
 
         metrics = ingest_metric_collector.get_stepfunction_metrics("TDR-")
         # Should return one metric with 0 executions
-        self.assertEqual(len(metrics), 1)
-        self.assertEqual(metrics[0]["Value"], 0)
+        self.assertEqual(1, len(metrics))
+        self.assertEqual(0, metrics[0]["Value"])
 
 
     @patch("ingest_metric_collector.boto3.client")
-    def test_should_return_metric_per_source_system_when_source_system_is_known(self,
+    def test_get_stepfunction_metrics_should_return_metric_per_source_system_when_source_system_is_known(self,
                                                                                                             mock_boto_client):
         mock_sfn = MagicMock()
         mock_sfn.get_paginator.return_value.paginate.return_value = [
@@ -41,12 +41,12 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2-")
         # Should return one metric with 0 executions
-        self.assertEqual(len(metrics), 4) #1 for running executions and 3 for each source system
-        self.assertEqual(metrics[0]["Value"], 0)
+        self.assertEqual(4, len(metrics)) #1 for running executions and 3 for each source system
+        self.assertEqual(0, metrics[0]["Value"])
 
 
     @patch("ingest_metric_collector.boto3.client")
-    def test_should_return_metrics_when_executions_and_source_system_exist(self, mock_boto_client):
+    def test_get_stepfunction_metrics_should_return_metrics_when_executions_and_source_system_exist(self, mock_boto_client):
         mock_sfn = MagicMock()
         mock_sfn.get_paginator.return_value.paginate.return_value = [
             {"stateMachines": [{"name": "test-dr2-something", "stateMachineArn": "arn:some_arn"}]}
@@ -63,30 +63,29 @@ class TestLambdaFunction(unittest.TestCase):
         metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2")
 
         # 1 metric for total executions + metrics per source system
-        metric_names = [m["Dimensions"] for m in metrics]
-        self.assertEqual(len(metrics), 1 + len(ingest_metric_collector.SOURCE_SYSTEMS))  # total + sources + DEFAULT
+        self.assertEqual(1 + len(ingest_metric_collector.SOURCE_SYSTEMS), len(metrics))  # total + sources + DEFAULT
 
         # Check that TDR, COURTDOC and DEFAULT, all got Value as 1
         tdr_metric = next(
             m for m in metrics
             if {"Name": "SourceSystem", "Value": "TDR"} in m["Dimensions"]
         )
-        self.assertEqual(tdr_metric["Value"], 1)
+        self.assertEqual(1, tdr_metric["Value"])
 
         courtdoc_metric = next(
             m for m in metrics
             if {"Name": "SourceSystem", "Value": "COURTDOC"} in m["Dimensions"]
         )
-        self.assertEqual(courtdoc_metric["Value"], 1)
+        self.assertEqual(1, courtdoc_metric["Value"])
 
 
         default_metric = next(m for m in metrics if any(
             d.get("Value") == "DEFAULT" for d in m["Dimensions"]
         ))
-        self.assertEqual(default_metric["Value"], 1)
+        self.assertEqual(1, default_metric["Value"])
 
     @patch("ingest_metric_collector.boto3.client")
-    def test_should_return_zero_when_no_items_in_queue(self, mock_boto_client):
+    def test_get_flow_control_metrics_should_return_zero_when_no_items_in_queue(self, mock_boto_client):
         mock_dynamo = MagicMock()
         mock_dynamo.query.return_value = {"Items": []}
         mock_boto_client.return_value = mock_dynamo
@@ -105,7 +104,7 @@ class TestLambdaFunction(unittest.TestCase):
         return query_side_effect
 
     @patch("ingest_metric_collector.boto3.client")
-    def test_should_return_executions_and_age_when_there_are_items_in_queue(self, mock_boto_client):
+    def test_get_flow_control_metrics_should_return_executions_and_age_when_there_are_items_in_queue(self, mock_boto_client):
         now = datetime.now(timezone.utc)
 
         mock_mapping = {
@@ -155,7 +154,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch("ingest_metric_collector.boto3.client")
     @patch("ingest_metric_collector.get_stepfunction_metrics", side_effect=Exception("sfn error"))
     @patch("ingest_metric_collector.get_flow_control_metrics", return_value=[{"MetricName": "ApproximateAgeOfOldestQueuedIngest", "Unit": "seconds", "Value": 0}])
-    def test_should_return_valid_metrics_when_step_function_metrics_fail_but_age_metrics_succeed(self, mock_flow_control, mock_sfn, mock_boto_client):
+    def test_lambda_handler_should_return_valid_metrics_when_get_stepfunction_metrics_fails_but_get_flow_control_metrics_succeed(self, mock_flow_control, mock_sfn, mock_boto_client):
         mock_client = MagicMock()
         mock_boto_client.return_value = mock_client
 
@@ -169,7 +168,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch("ingest_metric_collector.boto3.client")
     @patch("ingest_metric_collector.get_flow_control_metrics", side_effect=Exception("flow control metrics error"))
     @patch("ingest_metric_collector.get_stepfunction_metrics", return_value=[{"MetricName": "ExecutionsRunning", "Value": 1}])
-    def test_should_return_valid_metrics_when_step_function_metrics_succeed_but_age_metrics_fail(self, mock_sfn, mock_flow_control, mock_boto_client):
+    def test_lambda_handler_should_return_valid_metrics_when_get_stepfunction_metrics_succeed_but_get_flow_control_metrics_fails(self, mock_sfn, mock_flow_control, mock_boto_client):
         mock_client = MagicMock()
         mock_boto_client.return_value = mock_client
 
@@ -183,7 +182,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch("ingest_metric_collector.boto3.client")
     @patch("ingest_metric_collector.get_stepfunction_metrics", side_effect=Exception("step function exception"))
     @patch("ingest_metric_collector.get_flow_control_metrics", side_effect=Exception("flow control exception"))
-    def test_should_throw_exception_when_step_function_metrics_fail_and_age_metrics_fail(self, mock_flow_control, mock_sfn, mock_boto_client):
+    def test_lambda_handler_should_throw_exception_when_get_stepfunction_metrics_as_well_as_get_flow_control_metrics_fails(self, mock_flow_control, mock_sfn, mock_boto_client):
         mock_client = MagicMock()
         mock_boto_client.return_value = mock_client
         with self.assertRaises(Exception) as context:
@@ -195,14 +194,14 @@ class TestLambdaFunction(unittest.TestCase):
     @patch("ingest_metric_collector.boto3.client")
     @patch("ingest_metric_collector.get_stepfunction_metrics",  return_value=[{"MetricName": "ExecutionsRunning", "Value": 1}])
     @patch("ingest_metric_collector.get_flow_control_metrics", return_value=[{"MetricName": "ApproximateAgeOfOldestQueuedIngest", "Unit": "seconds", "Value": 0}])
-    def test_should_throw_exception_when_put_metric_to_cloudwatch_fails(self, mock_flow_control, mock_sfn, mock_boto_client):
+    def test_lambda_handler_should_throw_exception_when_put_metric_to_cloudwatch_fails(self, mock_flow_control, mock_sfn, mock_boto_client):
         mock_client = MagicMock()
         mock_boto_client.return_value = mock_client
         mock_client.put_metric_data.side_effect = Exception("dummy reason should be embedded in message")
 
         with self.assertRaises(Exception) as context:
             ingest_metric_collector.lambda_handler({}, DummyContext())
-        self.assertIn("Failed to send metrics to cloudwatch due to underlying exception: 'dummy reason should be embedded in message'", str(context.exception))
+        self.assertIn("Failed to send metrics to CloudWatch due to underlying exception: 'dummy reason should be embedded in message'", str(context.exception))
 
 
 

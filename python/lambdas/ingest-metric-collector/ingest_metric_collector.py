@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import boto3
 from dateutil.parser import isoparse
 
-SOURCE_SYSTEMS = ["TDR", "COURTDOC", "DEFAULT"]
+SOURCE_SYSTEMS = {"TDR", "COURTDOC", "DEFAULT"}
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -27,6 +27,7 @@ def get_stepfunction_metrics(resources_prefix):
                     "MetricName": "ExecutionsRunning",
                     "Dimensions": [
                         {"Name" : "StateMachineArn", "Value": state_machine_arn},
+                        {"Name" : "StateMachineName", "Value": state_machine_name},
                     ],
                     "Value" : len(executions),
                     "Unit": "Count"
@@ -36,21 +37,22 @@ def get_stepfunction_metrics(resources_prefix):
             if state_machine_name.startswith(resources_prefix) :
                 execution_ss = [e["name"].split("_", 1)[0] for e in executions]
                 counts = collections.Counter(execution_ss)
-                execution_counts = {ss: counts.get(ss, 0) for ss in SOURCE_SYSTEMS}
+                ss_execution_counts = {ss: counts.get(ss, 0) for ss in SOURCE_SYSTEMS}
                 unlisted_ss_count = sum(count for system, count in counts.items() if system not in SOURCE_SYSTEMS)
-                execution_counts["DEFAULT"] = execution_counts.get("DEFAULT", 0) + unlisted_ss_count
+                ss_execution_counts["DEFAULT"] = ss_execution_counts.get("DEFAULT", 0) + unlisted_ss_count
 
                 metric_data.extend(
                     {
-                        "MetricName": "ExecutionsRunning",
+                        "MetricName": "ExecutionsRunningBySourceSystem",
                         "Dimensions" : [
                             {"Name": "StateMachineArn", "Value": state_machine_arn},
+                            {"Name": "StateMachineName", "Value": state_machine_name},
                             {"Name" : "SourceSystem", "Value": ss},
                         ],
                         "Value" : counts_ss,
                         "Unit": "Count"
                     }
-                    for ss, counts_ss in execution_counts.items()
+                    for ss, counts_ss in ss_execution_counts.items()
                 )
     return metric_data
 
@@ -65,19 +67,20 @@ def get_flow_control_metrics(resources_prefix):
             KeyConditionExpression = "sourceSystem = :ssPlaceHolder",
             ExpressionAttributeValues = {":ssPlaceHolder": {"S": source_system}}
         )
+        items = item_result["Items"]
         metric_data.append(
             {
                 "MetricName": "IngestsQueued",
                 "Dimensions": [
                     {"Name": "SourceSystem", "Value": source_system},
                 ],
-                "Value": len(item_result["Items"]),
+                "Value": len(items),
                 "Unit": "Count"
             }
         )
 
-        if item_result["Items"]:
-            queued_at = isoparse(item_result["Items"][0]["queuedAt"]["S"].split("_")[0])
+        if items:
+            queued_at = isoparse(items[0]["queuedAt"]["S"].split("_")[0])
             oldest_item_age = (datetime.now(timezone.utc) - queued_at).total_seconds()
         else:
             oldest_item_age = 0
@@ -124,4 +127,4 @@ def lambda_handler(event, context):
                 MetricData = metric_data
             )
         except Exception as e:
-            raise Exception(f"Failed to send metrics to cloudwatch due to underlying exception: '{e}'")
+            raise Exception(f"Failed to send metrics to CloudWatch due to underlying exception: '{e}'")
