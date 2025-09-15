@@ -18,7 +18,7 @@ import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, Entit
 import uk.gov.nationalarchives.entityeventgenerator.Lambda
 import uk.gov.nationalarchives.entityeventgenerator.Lambda.{CompactEntity, Config, Dependencies, GetItemsResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
-import uk.gov.nationalarchives.dp.client.EntityClient.Identifier
+import uk.gov.nationalarchives.dp.client.EntityClient.{EntitiesUpdated, Identifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 
 import java.time.ZonedDateTime
@@ -37,7 +37,7 @@ object ExternalServicesTestUtils {
 
   def notImplemented[T]: IO[T] = IO.raiseError(new Exception("Not implemented"))
 
-  def preservicaClient(ref: Ref[IO, List[Entity]], eventActions: List[EventAction], errors: Option[Errors]): EntityClient[IO, Fs2Streams[IO]] =
+  def preservicaClient(ref: Ref[IO, EntitiesUpdated], eventActions: List[EventAction], errors: Option[Errors]): EntityClient[IO, Fs2Streams[IO]] =
     new EntityClient[IO, Fs2Streams[IO]]:
 
       override val dateFormatter: DateTimeFormatter = DateTimeFormatter.BASIC_ISO_DATE
@@ -64,9 +64,9 @@ object ExternalServicesTestUtils {
 
       override def streamBitstreamContent[T](stream: capabilities.Streams[Fs2Streams[IO]])(url: String, streamFn: stream.BinaryStream => IO[T]): IO[T] = notImplemented
 
-      override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[Seq[Entity]] =
+      override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[EntitiesUpdated] =
         ref.getAndUpdate { existing =>
-          Nil
+          EntitiesUpdated(existing.hasNext, Nil)
         }
 
       override def entityEventActions(entity: Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] =
@@ -115,13 +115,13 @@ object ExternalServicesTestUtils {
 
   def runLambda(
       event: ScheduledEvent,
-      entities: List[Entity],
+      entitiesUpdated: EntitiesUpdated,
       eventActions: List[EventAction],
       dateTimes: List[String],
       errors: Option[Errors] = None,
       startCount: Int = 0
   ): (List[(String, Int)], List[CompactEntity], Either[Throwable, Int]) = (for {
-    preservicaRef <- Ref.of[IO, List[Entity]](entities)
+    preservicaRef <- Ref.of[IO, EntitiesUpdated](entitiesUpdated)
     dynamoRef <- Ref.of[IO, List[(String, Int)]](dateTimes.map(dt => dt -> startCount))
     snsRef <- Ref.of[IO, List[CompactEntity]](Nil)
     dependencies = Dependencies(preservicaClient(preservicaRef, eventActions, errors), snsClient(snsRef, errors), dynamoClient(dynamoRef, errors))

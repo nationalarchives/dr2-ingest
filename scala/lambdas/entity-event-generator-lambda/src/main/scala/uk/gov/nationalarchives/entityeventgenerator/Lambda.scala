@@ -65,6 +65,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
   ): IO[Int] = {
     val ignoredEventTypes = IgnoredEventTypes.values.map(_.toString)
     for {
+      _ <- logger.info(s"Getting entities for triggered time $eventTriggeredDatetime")
       updatedSinceResponses <- dADynamoDBClient.getItems[GetItemsResponse, PartitionKey](
         List(PartitionKey("LastPolled")),
         config.lastEventActionTableName
@@ -72,38 +73,42 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
       updatedSinceResponse = updatedSinceResponses.head
       updatedSinceAsDate = OffsetDateTime.parse(updatedSinceResponse.eventDatetime).toZonedDateTime
       currentStart = updatedSinceResponse.startAt
-      recentlyUpdatedEntities <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, currentStart)
-      _ <- logger.info(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate")
-
+      entitiesUpdated <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, currentStart)
+      recentlyUpdatedEntities = entitiesUpdated.entities
+      _ <- logger.info(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate with startAt $currentStart")
       entityLastEventActionDate <-
-        if !recentlyUpdatedEntities.forall(_.deleted) then
+        if recentlyUpdatedEntities.nonEmpty && (recentlyUpdatedEntities.forall(_.deleted) || entitiesUpdated.hasNext) then
+          // If all entities are deleted, we can't get the event actions so return the same updatedSinceAsDate.
+          // If there is another page, return the updatedSinceAsDate in order to get the next page of results.
+          IO.pure(Option(updatedSinceAsDate.toOffsetDateTime))
+        else if recentlyUpdatedEntities.nonEmpty then
           val lastUpdatedEntity: Entity = recentlyUpdatedEntities.filterNot(_.deleted).last
           entitiesClient.entityEventActions(lastUpdatedEntity).map { entityEventActions =>
             Some(entityEventActions.filterNot(ev => ignoredEventTypes.contains(ev.eventType)).head.dateOfEvent.toOffsetDateTime)
           }
-        else if recentlyUpdatedEntities.nonEmpty && recentlyUpdatedEntities
-            .forall(_.deleted)
-        then { // If all entities are deleted, return the updatedSinceAsDate in order to get the next page of results
-          IO.pure(Option(updatedSinceAsDate.toOffsetDateTime))
-        } else IO.none
+        else IO.none
 
-      _ <- IO.whenA(entityLastEventActionDate.exists(_.isBefore(eventTriggeredDatetime))) {
-        for {
-          _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
-          updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
-          // This is to cover the case where there are more than 1000 entities with the same last event action date or for when there are only deleted entities in the response.
-          nextStart = if entityLastEventActionDate.get.isEqual(OffsetDateTime.parse(updatedSinceResponse.eventDatetime)) then currentStart + 1000 else 0
-          startAttributeValue = AttributeValue.builder.n(nextStart.toString).build()
-          updateDateRequest = DADynamoDbRequest(
+      count <-
+        if entityLastEventActionDate.exists(_.isBefore(eventTriggeredDatetime)) then
+          val updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
+          val nextStart = if entitiesUpdated.hasNext then currentStart + 1000 else 0
+          val startAttributeValue = AttributeValue.builder.n(nextStart.toString).build()
+          val updateDateRequest = DADynamoDbRequest(
             config.lastEventActionTableName,
             dateItemPrimaryKeyAndValue,
             Map(datetimeField -> updateDateAttributeValue, "startAt" -> startAttributeValue)
           )
-          dynamoStatusCode <- dADynamoDBClient.updateAttributeValues(updateDateRequest)
-          _ <- logger.info(s"Dynamo updateAttributeValues returned status code $dynamoStatusCode")
-        } yield ()
-      }
-    } yield recentlyUpdatedEntities.length
+          for
+            _ <- dASnsDBClient.publish[CompactEntity](config.snsArn)(convertToCompactEntities(recentlyUpdatedEntities.toList))
+            dynamoStatusCode <- dADynamoDBClient.updateAttributeValues(updateDateRequest)
+            _ <- logger.info(s"Dynamo updateAttributeValues returned status code $dynamoStatusCode")
+          yield recentlyUpdatedEntities.length
+        else {
+          // Sometimes the last action date is after the triggered datetime.
+          // In that case, we want to terminate the lambda and wait for the next invocation.
+          IO.pure(0)
+        }
+    } yield count
   }
 
   override def dependencies(config: Config): IO[Dependencies] = for {

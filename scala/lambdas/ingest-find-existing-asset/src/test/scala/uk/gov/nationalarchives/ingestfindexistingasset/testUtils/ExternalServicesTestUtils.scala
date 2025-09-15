@@ -11,7 +11,7 @@ import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
-import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, Identifier, UpdateEntityRequest, Identifier as PreservicaIdentifier}
+import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntitiesUpdated, EntityType, Identifier, UpdateEntityRequest, Identifier as PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
@@ -140,7 +140,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
 
       override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = notImplemented
 
-      override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[Seq[Entity]] = notImplemented
+      override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[EntitiesUpdated] =
+        notImplemented
     }
 
   def runLambda(

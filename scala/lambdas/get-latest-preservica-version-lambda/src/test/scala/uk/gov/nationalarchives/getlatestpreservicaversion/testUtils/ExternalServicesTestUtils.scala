@@ -13,7 +13,7 @@ import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
-import uk.gov.nationalarchives.dp.client.EntityClient.Identifier
+import uk.gov.nationalarchives.dp.client.EntityClient.{EntitiesUpdated, Identifier}
 import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda
 import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.{Config, Dependencies, Detail, GetDr2PreservicaVersionResponse}
 
@@ -67,7 +67,7 @@ object ExternalServicesTestUtils:
 
     override def streamBitstreamContent[T](stream: capabilities.Streams[Fs2Streams[IO]])(url: String, streamFn: stream.BinaryStream => IO[T]): IO[T] = notImplemented
 
-    override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[Seq[Entity]] = notImplemented
+    override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[EntitiesUpdated] = notImplemented
 
     override def entityEventActions(entity: Entities.Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] = notImplemented
 
