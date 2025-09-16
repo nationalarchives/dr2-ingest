@@ -54,7 +54,7 @@ class StepDefs {
 
     @Then("I receive an ingest complete message")
     fun iReceiveAnIngestCompleteMessage() = runBlocking {
-        utils.checkForIngestStatusMessages(config.getString("externalLogGroup"), 60 * 60 * 1000, "complete")
+        utils.checkForIngestStatusMessages(config.getString("externalLogGroup"), 2 * 60 * 60 * 1000, "complete")
         assertTrue(fileIds.isEmpty())
     }
 

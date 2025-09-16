@@ -187,7 +187,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
       Some(s"mock description_$suffix"),
       deleted = false,
       Some(StructuralObject.entityPath),
-      Some(Open),
+      Some(Unknown),
       parent
     )
     EntityWithIdentifiers(entity, List(Identifier("SourceID", identifierValue)))
