@@ -17,21 +17,21 @@ def lambda_handler(event, context):
     destination_queue = os.environ["OUTPUT_QUEUE_URL"]
     for record in event["Records"]:
         body: dict[str, str] = json.loads(record["body"])
-        file_id = body["assetId"] if "assetId" in body else body["fileId"]
-        metadata_file_id = f"{file_id}.metadata"
+        asset_id = body["assetId"] if "assetId" in body else body["fileId"]
+        metadata_file_id = f"{asset_id}.metadata"
         source_bucket = body["bucket"]
         try:
-            file_objects = assert_objects_exist_in_bucket(source_bucket, file_id)
+            file_objects = assert_objects_exist_in_bucket(source_bucket, asset_id)
             validate_metadata(source_bucket, metadata_file_id)
             transfer_files = [f['Key'] for f in file_objects if not f['Key'].endswith(".metadata")]
             copy_objects(destination_bucket, transfer_files, source_bucket)
             copy_objects(destination_bucket, [metadata_file_id], source_bucket)
             potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
-            sqs_body = {"id": file_id, "location": f"s3://{destination_bucket}/{metadata_file_id}"}
+            sqs_body = {"id": asset_id, "location": f"s3://{destination_bucket}/{metadata_file_id}"}
             sqs_body.update(potential_message_id)
             sqs_client.send_message(QueueUrl=destination_queue, MessageBody=json.dumps(sqs_body))
         except Exception as e:
-            print(json.dumps({"error": str(e), "fileId": file_id}))
+            print(json.dumps({"error": str(e), "assetId": asset_id}))
             raise Exception(e)
 
 

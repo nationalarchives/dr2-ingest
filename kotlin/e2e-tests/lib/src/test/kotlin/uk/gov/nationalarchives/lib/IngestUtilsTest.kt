@@ -111,7 +111,7 @@ class IngestUtilsTest {
     fun testValidationFailureSucceedsIfSomeMessagesAreInvalidJson() {
         val assetId = UUID.randomUUID()
         val bodyList = listOf(
-            """{"error": "An error", "fileId": "$assetId"}""",
+            """{"error": "An error", "assetId": "$assetId"}""",
             "invalidJson"
         )
         messageIngestUtils(bodyList, mutableListOf(assetId))
@@ -127,7 +127,7 @@ class IngestUtilsTest {
     @Test
     fun testValidationFailureTimeoutIfAssetIdDoesNotMatch() {
         val assetId = UUID.randomUUID()
-        val bodyList = listOf("""{"error": "An error", "fileId": "${UUID.randomUUID()}"}""")
+        val bodyList = listOf("""{"error": "An error", "assetId": "${UUID.randomUUID()}"}""")
         assertFailsWith<TimeoutException> {
             messageIngestUtils(bodyList, mutableListOf(assetId)).checkForValidationFailureMessages("", timeout)
         }
@@ -181,7 +181,7 @@ class IngestUtilsTest {
             val attributeMap = dynamoItems.find { it["assetId"]?.equals(file.toString()) == true }.orEmpty()
             assertEquals(file.toString(), attributeMap["assetId"])
             assertTrue(attributeMap["groupId"]?.startsWith("E2E_") == true)
-            val expectedJson = """{"id":"$file","location":"s3://input-bucket/$file"}"""
+            val expectedJson = """{"id":"$file","location":"s3://input-bucket/$file.metadata"}"""
             assertEquals(expectedJson, attributeMap["message"])
         }
         assertEquals(sfnItems.size, 1)
