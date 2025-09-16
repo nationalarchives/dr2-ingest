@@ -63,7 +63,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
       Some(s"mock description"),
       deleted = false,
       entityType.map(_.entityPath),
-      Some(Open),
+      Some(Unknown),
       None
     )
     EntityWithIdentifiers(entity, List(Identifier("SourceID", identifierValue)))
