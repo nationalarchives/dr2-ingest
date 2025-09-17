@@ -54,7 +54,7 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     lambdaResult.value should equal(2)
   }
 
-  "handler" should "not increment the start argument, update the event datetime and send all messages if some entities are deleted" in {
+  "handler" should "not increment the startAt argument, update the event datetime and send all messages if some entities are deleted and there is no next page" in {
     val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
     val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
     val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
@@ -68,7 +68,7 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     lambdaResult.value should equal(3)
   }
 
-  "handler" should "increment the start number in dynamo if there is another page" in {
+  "handler" should "increment the startAt argument in dynamo if there is another page" in {
     val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
     val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
     val dynamoResponse = List(eventActionTime)
@@ -76,9 +76,11 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entities, List(generateEventAction(eventActionTime)), dynamoResponse)
 
     dynamoResult.head should equal("2023-06-05T00:00+01:00", 1000)
+    snsResult.length should equal(1)
+    lambdaResult.value should equal(1)
   }
 
-  "handler" should "write a start number of 0 if the original start number was 1 and the event action time is after the update since time" in {
+  "handler" should "write a startAt argument of 0 if the original startAt argument was 1 and the event action time is after the event datetime" in {
     val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
     val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
     val eventActionTime = "2023-06-05T00:00:00.000000+01:00"

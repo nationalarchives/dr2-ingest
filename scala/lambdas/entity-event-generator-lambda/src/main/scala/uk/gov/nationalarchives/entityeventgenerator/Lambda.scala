@@ -65,7 +65,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
   ): IO[Int] = {
     val ignoredEventTypes = IgnoredEventTypes.values.map(_.toString)
     for {
-      _ <- logger.info(s"Getting entities for triggered time $eventTriggeredDatetime")
+      _ <- logger.info(s"Getting entities - event triggered time: $eventTriggeredDatetime")
       updatedSinceResponses <- dADynamoDBClient.getItems[GetItemsResponse, PartitionKey](
         List(PartitionKey("LastPolled")),
         config.lastEventActionTableName
@@ -77,9 +77,9 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
       recentlyUpdatedEntities = entitiesUpdated.entities
       _ <- logger.info(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate with startAt $currentStart")
       entityLastEventActionDate <-
-        if recentlyUpdatedEntities.nonEmpty && (recentlyUpdatedEntities.forall(_.deleted) || entitiesUpdated.hasNext) then
-          // If all entities are deleted, we can't get the event actions so return the same updatedSinceAsDate.
+        if recentlyUpdatedEntities.nonEmpty && (entitiesUpdated.hasNext || recentlyUpdatedEntities.forall(_.deleted)) then
           // If there is another page, return the updatedSinceAsDate in order to get the next page of results.
+          // If all entities are deleted, we can't get the event actions so return the same updatedSinceAsDate.
           IO.pure(Option(updatedSinceAsDate.toOffsetDateTime))
         else if recentlyUpdatedEntities.nonEmpty then
           val lastUpdatedEntity: Entity = recentlyUpdatedEntities.filterNot(_.deleted).last
