@@ -14,7 +14,7 @@ import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
-import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntityType, Identifier, UpdateEntityRequest, Identifier as PreservicaIdentifier}
+import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntitiesUpdated, EntityType, Identifier, UpdateEntityRequest, Identifier as PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoItem, Identifier as DynamoIdentifier}
@@ -109,7 +109,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
 
       override def streamBitstreamContent[T](stream: capabilities.Streams[Fs2Streams[IO]])(url: String, streamFn: stream.BinaryStream => IO[T]): IO[T] = notImplemented
 
-      override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[Seq[Entity]] = notImplemented
+      override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[EntitiesUpdated] =
+        notImplemented
 
       override def entityEventActions(entity: Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] = notImplemented
 

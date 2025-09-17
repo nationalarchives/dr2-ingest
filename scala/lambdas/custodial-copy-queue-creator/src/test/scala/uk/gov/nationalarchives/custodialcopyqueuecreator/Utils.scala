@@ -12,7 +12,7 @@ import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DASQSClient
 import uk.gov.nationalarchives.DASQSClient.FifoQueueConfiguration
 import uk.gov.nationalarchives.dp.client.Entities.Entity
-import uk.gov.nationalarchives.dp.client.EntityClient.{Identifier, StandardEntityMetadata}
+import uk.gov.nationalarchives.dp.client.EntityClient.{EntitiesUpdated, Identifier, StandardEntityMetadata}
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
 import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.*
 
@@ -94,7 +94,7 @@ object Utils:
 
     override def streamBitstreamContent[T](stream: capabilities.Streams[Fs2Streams[IO]])(url: String, streamFn: stream.BinaryStream => IO[T]): IO[T] = IO.pure("".asInstanceOf[T])
 
-    override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[Seq[Entity]] = IO(Nil)
+    override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[EntitiesUpdated] = IO.stub
 
     override def entityEventActions(entity: Entities.Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] = IO.pure(Nil)
 
