@@ -160,7 +160,7 @@ class LambdaTest extends ExternalServicesTestUtils with EitherValues {
     err.getMessage should be(s"Security tag 'None' is unexpected for SO ref '${updatedEntity.ref}'")
   }
 
-  "handler" should "return an error if an entity has a security tag which is not open, closed or unknown" in {
+  "handler" should "return an error if an entity has a security tag which is not open, closed nor unknown" in {
     val folder = generateItem()
     val entityWithIdentifiers = generateEntity(identifierValue = folder.name)
     val updatedEntity = entityWithIdentifiers.entity.copy(securityTag = Some(null))
