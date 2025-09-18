@@ -9,6 +9,7 @@ import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetItem, AssetW
 
 import java.util.UUID
 import scala.xml.Elem
+import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 
 class XMLCreatorTest extends AnyFlatSpec {
   private val opexNamespace = "http://www.openpreservationexchange.org/opex/v1.2"
@@ -29,7 +30,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       <opex:Properties>
         <opex:Title>title</opex:Title>
         <opex:Description>description</opex:Description>
-        <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+        <opex:SecurityDescriptor>unknown</opex:SecurityDescriptor>
         [INDENT]
       </opex:Properties>
     </opex:OPEXMetadata>""".replace("[INDENT]", "")
@@ -50,7 +51,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       <opex:Properties>
         <opex:Title>title</opex:Title>
         <opex:Description>description</opex:Description>
-        <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+        <opex:SecurityDescriptor>unknown</opex:SecurityDescriptor>
         <opex:Identifiers>
           <opex:Identifier type="Code">name</opex:Identifier>
         </opex:Identifiers>
@@ -73,7 +74,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       <opex:Properties>
         <opex:Title>name</opex:Title>
         <opex:Description>description</opex:Description>
-        <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+        <opex:SecurityDescriptor>unknown</opex:SecurityDescriptor>
         [INDENT]
       </opex:Properties>
     </opex:OPEXMetadata>""".replace("[INDENT]", "")
@@ -82,7 +83,7 @@ class XMLCreatorTest extends AnyFlatSpec {
   <opex:Properties>
     <opex:Title>name</opex:Title>
     <opex:Description>description</opex:Description>
-    <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+    <opex:SecurityDescriptor>unknown</opex:SecurityDescriptor>
   </opex:Properties>
   <opex:Transfer>
     <opex:Manifest>
@@ -142,17 +143,17 @@ class XMLCreatorTest extends AnyFlatSpec {
   }
 
   "createFolderOpex" should "create the correct opex xml, excluding the SourceId, if folder type is not 'ArchiveFolder' and there are no identifiers" in {
-    val xml = XMLCreator().createFolderOpex(archiveFolder.copy(`type` = ContentFolder), childAssets, childFolders, Nil).unsafeRunSync()
+    val xml = XMLCreator().createFolderOpex(archiveFolder.copy(`type` = ContentFolder), childAssets, childFolders, Nil, Unknown).unsafeRunSync()
     xml should equal(expectedStandardNonArchiveFolderXml)
   }
 
   "createFolderOpex" should "create the correct opex xml, including the SourceId, if folder type is 'ArchiveFolder' and there are identifiers" in {
-    val xml = XMLCreator().createFolderOpex(archiveFolder, childAssets, childFolders, List(Identifier("Code", "name"))).unsafeRunSync()
+    val xml = XMLCreator().createFolderOpex(archiveFolder, childAssets, childFolders, List(Identifier("Code", "name")), Unknown).unsafeRunSync()
     xml should equal(expectedStandardArchivedFolderXml.toString)
   }
 
   "createFolderOpex" should "create the correct opex xml, using the name if the title is blank" in {
-    val xml = XMLCreator().createFolderOpex(archiveFolder.copy(potentialTitle = None), childAssets, childFolders, Nil).unsafeRunSync()
+    val xml = XMLCreator().createFolderOpex(archiveFolder.copy(potentialTitle = None), childAssets, childFolders, Nil, Unknown).unsafeRunSync()
     xml should equal(expectedXmlNoTitle)
   }
 }

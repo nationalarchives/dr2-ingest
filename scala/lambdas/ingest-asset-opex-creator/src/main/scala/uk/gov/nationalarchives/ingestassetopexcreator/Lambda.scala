@@ -16,6 +16,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestassetopexcreator.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
+import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -55,12 +56,12 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
           _ <- log(s"Starting copy from ${children.map(_.location).mkString(", ")} to ${config.destinationBucket}")
           _ <- children.parTraverse(child => copyFromSourceToDestination(s3Client, item, config.destinationBucket, asset, child, xmlCreator))
-          xip <- xmlCreator.createXip(asset, children.sortBy(_.sortOrder))
+          xip <- xmlCreator.createXip(asset, children.sortBy(_.sortOrder), Unknown)
           _ <- ValidateXmlAgainstXsd[IO](XipXsdSchemaV7).xmlStringIsValid(xip)
           _ <- uploadXMLToS3(s3Client, xip, config.destinationBucket, s"${assetPath(item, asset)}/${asset.id}.xip")
           _ <- log(s"XIP ${assetPath(item, asset)}/${asset.id}.xip uploaded to ${config.destinationBucket}")
 
-          opex <- xmlCreator.createOpex(asset, children, xip.getBytes.length, asset.identifiers)
+          opex <- xmlCreator.createOpex(asset, children, xip.getBytes.length, asset.identifiers, Unknown)
           _ <- ValidateXmlAgainstXsd[IO](OpexMetadataSchema).xmlStringIsValid(opex)
           _ <- uploadXMLToS3(s3Client, opex, config.destinationBucket, s"${parentPath(item, asset)}/${asset.id}.pax.opex")
           _ <- log(s"OPEX ${parentPath(item, asset)}/${asset.id}.pax.opex uploaded to ${config.destinationBucket}")

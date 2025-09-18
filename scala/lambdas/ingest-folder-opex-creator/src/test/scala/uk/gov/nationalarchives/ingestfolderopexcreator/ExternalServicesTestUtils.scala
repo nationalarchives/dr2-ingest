@@ -163,7 +163,7 @@ object ExternalServicesTestUtils:
       <opex:Properties>
         <opex:Title>Test Name</opex:Title>
         <opex:Description></opex:Description>
-        <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+        <opex:SecurityDescriptor>unknown</opex:SecurityDescriptor>
         <opex:Identifiers>
           <opex:Identifier type="Code">Code</opex:Identifier>
         </opex:Identifiers>

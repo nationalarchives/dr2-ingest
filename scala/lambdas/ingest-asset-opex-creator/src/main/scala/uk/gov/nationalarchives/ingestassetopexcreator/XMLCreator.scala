@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives.ingestassetopexcreator
 
 import cats.effect.IO
+import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 
 import java.time.OffsetDateTime
@@ -30,7 +31,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
       children: List[FileDynamoItem],
       assetXipSize: Long,
       identifiers: List[Identifier],
-      securityDescriptor: String = "open"
+      securityTag: SecurityTag
   ): IO[String] = {
     val transferCompleteDatetime = asset.transferCompleteDatetime
     IO.raiseWhen(transferCompleteDatetime.isAfter(ingestDateTime))(new Exception("'ingestDateTime' is before 'transferCompleteDatetime'!")).map { _ =>
@@ -67,7 +68,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
           <opex:Properties>
             <opex:Title>{asset.potentialTitle.getOrElse(asset.id)}</opex:Title>
             <opex:Description>{asset.potentialDescription.getOrElse("")}</opex:Description>
-            <opex:SecurityDescriptor>{securityDescriptor}</opex:SecurityDescriptor>
+            <opex:SecurityDescriptor>{securityTag.toString}</opex:SecurityDescriptor>
             {
           if identifiers.nonEmpty then
             <opex:Identifiers>
@@ -105,12 +106,12 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
     }
   }
 
-  private[nationalarchives] def createXip(asset: AssetDynamoItem, children: List[FileDynamoItem], securityTag: String = "open"): IO[String] = {
+  private[nationalarchives] def createXip(asset: AssetDynamoItem, children: List[FileDynamoItem], securityTag: SecurityTag): IO[String] = {
     val xip =
       <XIP xmlns="http://preservica.com/XIP/v7.7">
       <InformationObject>
         <Ref>{asset.id}</Ref>
-        <SecurityTag>{securityTag}</SecurityTag>
+        <SecurityTag>{securityTag.toString}</SecurityTag>
         <Title>Preservation</Title>
       </InformationObject>
       {
@@ -138,7 +139,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
               <ContentObject>
         <Ref>{child.id}</Ref>
         <Title>{child.name}</Title>
-        <SecurityTag>{securityTag}</SecurityTag>
+        <SecurityTag>{securityTag.toString}</SecurityTag>
         <Parent>{asset.id}</Parent>
       </ContentObject>
             val generationElement =
