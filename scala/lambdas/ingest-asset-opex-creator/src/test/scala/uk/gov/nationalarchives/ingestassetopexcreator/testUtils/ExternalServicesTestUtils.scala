@@ -168,7 +168,7 @@ object ExternalServicesTestUtils:
           <opex:SourceID>{asset.id}</opex:SourceID>
           <opex:Manifest>
             <opex:Files>
-              <opex:File type="metadata" size="3046">{asset.id}.xip</opex:File>
+              <opex:File type="metadata" size="3055">{asset.id}.xip</opex:File>
               <opex:File type="content" size={fileOne.fileSize.toString}>Representation_Preservation/{fileOne.id}/Generation_1/{fileOne.id}.ext</opex:File>
               <opex:File type="content" size={fileTwo.fileSize.toString}>Representation_Preservation/{fileTwo.id}/Generation_1/{fileTwo.id}.ext</opex:File>
             </opex:Files>
@@ -184,7 +184,7 @@ object ExternalServicesTestUtils:
         <opex:Properties>
           <opex:Title>{asset.id}</opex:Title>
           <opex:Description/>
-          <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+          <opex:SecurityDescriptor>unknown</opex:SecurityDescriptor>
           <opex:Identifiers>
             <opex:Identifier type="UpstreamSystemReference">upstreamSystemReference</opex:Identifier>
           </opex:Identifiers>

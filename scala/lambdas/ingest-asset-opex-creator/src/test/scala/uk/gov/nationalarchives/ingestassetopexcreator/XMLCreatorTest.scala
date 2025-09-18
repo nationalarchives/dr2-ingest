@@ -12,6 +12,7 @@ import scala.xml.{Utility, XML}
 import java.time.OffsetDateTime
 import java.util.UUID
 import scala.xml.Elem
+import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 
 class XMLCreatorTest extends AnyFlatSpec {
   private val opexNamespace = "http://www.openpreservationexchange.org/opex/v1.2"
@@ -44,7 +45,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       <opex:Properties>
         <opex:Title>title</opex:Title>
         <opex:Description>description</opex:Description>
-        <opex:SecurityDescriptor>open</opex:SecurityDescriptor>
+        <opex:SecurityDescriptor>unknown</opex:SecurityDescriptor>
         <opex:Identifiers>
           <opex:Identifier type="Test1">Value1</opex:Identifier>
           <opex:Identifier type="Test2">Value2</opex:Identifier>
@@ -75,7 +76,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     <XIP xmlns="http://preservica.com/XIP/v7.7">
       <InformationObject xmlns="http://preservica.com/XIP/v7.7">
         <Ref>90730c77-8faa-4dbf-b20d-bba1046dac87</Ref>
-        <SecurityTag>open</SecurityTag>
+        <SecurityTag>unknown</SecurityTag>
         <Title>Preservation</Title>
       </InformationObject>
       <Representation xmlns="http://preservica.com/XIP/v7.7">
@@ -96,12 +97,12 @@ class XMLCreatorTest extends AnyFlatSpec {
       <ContentObject xmlns="http://preservica.com/XIP/v7.7">
         <Ref>a814ee41-89f4-4975-8f92-303553fe9a02</Ref>
         <Title>name0</Title>
-        <SecurityTag>open</SecurityTag>
+        <SecurityTag>unknown</SecurityTag>
         <Parent>90730c77-8faa-4dbf-b20d-bba1046dac87</Parent>
       </ContentObject><ContentObject xmlns="http://preservica.com/XIP/v7.7">
       <Ref>9ecbba86-437f-42c6-aeba-e28b678bbf4c</Ref>
       <Title>name1</Title>
-      <SecurityTag>open</SecurityTag>
+      <SecurityTag>unknown</SecurityTag>
       <Parent>90730c77-8faa-4dbf-b20d-bba1046dac87</Parent>
     </ContentObject>
       <Generation original="true" active="true" xmlns="http://preservica.com/XIP/v7.7">
@@ -197,7 +198,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
     val ingestDateTimeBeforeTransferDateTime = OffsetDateTime.parse("2023-05-31T23:59:44.848622Z")
     val ex = intercept[Exception] {
-      XMLCreator(ingestDateTimeBeforeTransferDateTime).createOpex(asset, children, 4, identifiers).unsafeRunSync()
+      XMLCreator(ingestDateTimeBeforeTransferDateTime).createOpex(asset, children, 4, identifiers, Unknown).unsafeRunSync()
     }
 
     ex.getMessage should equal("'ingestDateTime' is before 'transferCompleteDatetime'!")
@@ -205,7 +206,7 @@ class XMLCreatorTest extends AnyFlatSpec {
 
   "createOpex" should "create the correct opex xml with identifiers" in {
     val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
-    val xml = XMLCreator(ingestDateTime).createOpex(asset, children, 4, identifiers).unsafeRunSync()
+    val xml = XMLCreator(ingestDateTime).createOpex(asset, children, 4, identifiers, Unknown).unsafeRunSync()
     verifyXmlEqual(xml, expectedOpexXml)
   }
 
@@ -214,7 +215,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     val assetWithoutDigitalAssetSubType = asset.copy(
       potentialDigitalAssetSubtype = None
     )
-    val xml = XMLCreator(ingestDateTime).createOpex(assetWithoutDigitalAssetSubType, children, 4, identifiers).unsafeRunSync()
+    val xml = XMLCreator(ingestDateTime).createOpex(assetWithoutDigitalAssetSubType, children, 4, identifiers, Unknown).unsafeRunSync()
     val expectedOpexXmlWithoutDigitalAssetSubType = expectedOpexXml.toString.replace("<DigitalAssetSubtype>digitalAssetSubtype</DigitalAssetSubtype>", "<DigitalAssetSubtype/>")
 
     verifyXmlEqual(xml, expectedOpexXmlWithoutDigitalAssetSubType)
@@ -227,7 +228,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       val assetWithTitleWithChars = asset.copy(
         potentialTitle = Some("""Title_with_ASCII_Chars_!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~""")
       )
-      val xml = XMLCreator(ingestDateTime).createOpex(assetWithTitleWithChars, children, 4, identifiers).unsafeRunSync()
+      val xml = XMLCreator(ingestDateTime).createOpex(assetWithTitleWithChars, children, 4, identifiers, Unknown).unsafeRunSync()
       val expectedOpexXmlWithNewTitle =
         expectedOpexXml.toString.replace(
           "<opex:Title>title</opex:Title>",
@@ -241,14 +242,14 @@ class XMLCreatorTest extends AnyFlatSpec {
       val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
 
       val assetWithTitleWithChars = asset.copy(potentialTitle = Some("A title     with   spaces  in            it"))
-      val xml = XMLCreator(ingestDateTime).createOpex(assetWithTitleWithChars, children, 4, identifiers).unsafeRunSync()
+      val xml = XMLCreator(ingestDateTime).createOpex(assetWithTitleWithChars, children, 4, identifiers, Unknown).unsafeRunSync()
       val expectedOpexXmlWithNewTitle =
         expectedOpexXml.toString.replace("<opex:Title>title</opex:Title>", "<opex:Title>A title     with   spaces  in            it</opex:Title>")
       verifyXmlEqual(xml, expectedOpexXmlWithNewTitle)
     }
 
   "createXip" should "create the correct xip xml" in {
-    val xml = XMLCreator(ingestDateTime).createXip(asset, children).unsafeRunSync()
+    val xml = XMLCreator(ingestDateTime).createXip(asset, children, Unknown).unsafeRunSync()
     verifyXmlEqual(xml, expectedXipXml)
   }
 
@@ -258,7 +259,7 @@ class XMLCreatorTest extends AnyFlatSpec {
         children.map(
           _.copy(name = """Title_with_ASCII_Chars_!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~""")
         )
-      val xml = XMLCreator(ingestDateTime).createXip(asset, childrenWithTitleWithChars).unsafeRunSync()
+      val xml = XMLCreator(ingestDateTime).createXip(asset, childrenWithTitleWithChars, Unknown).unsafeRunSync()
       val expectedXipXmlWithNewTitle = s"${expectedXipXml.toString()}\n"
         .replace(
           "<Title>name0</Title>",
@@ -276,7 +277,7 @@ class XMLCreatorTest extends AnyFlatSpec {
     "(with relevant chars escaped) even if the title has multiple spaces" in {
       val childrenWithTitleWithChars =
         children.map(_.copy(name = "A title     with   spaces  in            it"))
-      val xml = XMLCreator(ingestDateTime).createXip(asset, childrenWithTitleWithChars).unsafeRunSync()
+      val xml = XMLCreator(ingestDateTime).createXip(asset, childrenWithTitleWithChars, Unknown).unsafeRunSync()
       val expectedXipXmlWithNewTitle = s"${expectedXipXml.toString()}\n"
         .replace("<Title>name0</Title>", "<Title>A title     with   spaces  in            it</Title>")
         .replace("<Title>name1</Title>", "<Title>A title     with   spaces  in            it</Title>")

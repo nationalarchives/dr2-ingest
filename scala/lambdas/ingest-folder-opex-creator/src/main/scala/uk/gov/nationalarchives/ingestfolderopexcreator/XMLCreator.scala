@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives.ingestfolderopexcreator
 
 import cats.effect.IO
+import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.{AssetWithFileSize, FolderOrAssetItem}
@@ -13,7 +14,7 @@ class XMLCreator {
       childAssets: List[AssetWithFileSize],
       childFolders: List[FolderOrAssetItem],
       identifiers: List[Identifier],
-      securityDescriptor: String = "open"
+      securityTag: SecurityTag
   ): IO[String] = IO.pure {
     val isHierarchyFolder: Boolean = folder.`type` == ArchiveFolder
     <opex:OPEXMetadata xmlns:opex={opexNamespace}>
@@ -32,7 +33,7 @@ class XMLCreator {
       <opex:Properties>
         <opex:Title>{folder.potentialTitle.getOrElse(folder.name)}</opex:Title>
         <opex:Description>{folder.potentialDescription.getOrElse("")}</opex:Description>
-        <opex:SecurityDescriptor>{securityDescriptor}</opex:SecurityDescriptor>
+        <opex:SecurityDescriptor>{securityTag.toString}</opex:SecurityDescriptor>
         {
       if identifiers.nonEmpty then
         <opex:Identifiers>

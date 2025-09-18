@@ -17,6 +17,7 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client.xmlValidator
 import uk.gov.nationalarchives.ingestfolderopexcreator.Lambda.*
 import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 
 import java.util.UUID
 import scala.jdk.CollectionConverters.MapHasAsScala
@@ -128,7 +129,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- log("File sizes for assets fetched from S3")
 
       folderRows <- IO.pure(childrenWithoutSkip.filter(child => isFolder(child.`type`)))
-      folderOpex <- dependencies.xmlCreator.createFolderOpex(folder, assetRows, folderRows, folder.identifiers)
+      folderOpex <- dependencies.xmlCreator.createFolderOpex(folder, assetRows, folderRows, folder.identifiers, Unknown)
       _ <- xmlValidator(PreservicaSchema.OpexMetadataSchema).xmlStringIsValid("""<?xml version="1.0" encoding="UTF-8"?>""" + folderOpex)
       key = generateKey(input.executionName, folder)
       _ <- uploadXMLToS3(folderOpex, config.bucketName, key)
