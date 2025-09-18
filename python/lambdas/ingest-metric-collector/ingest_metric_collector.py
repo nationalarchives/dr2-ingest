@@ -91,7 +91,7 @@ def get_flow_control_metrics(resources_prefix):
                     {"Name": "SourceSystem", "Value": source_system},
                 ],
                 "Value": oldest_item_age,
-                "Unit": "seconds"
+                "Unit": "Seconds"
             }
         )
     return metric_data
