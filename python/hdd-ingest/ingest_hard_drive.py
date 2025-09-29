@@ -1,7 +1,12 @@
 import argparse
+import uuid
+import json
 from pathlib import Path
 
+import pandas
 import pandas as pd
+from pandas import Series
+from pandas.core.interchange.dataframe_protocol import DataFrame
 
 import dataset_validator
 from dataset_validator import Js8Validator
@@ -37,6 +42,19 @@ def validate_arguments(args):
     else:
         return
 
+def create_metadata(row):
+
+    metadata = {
+        "Series": row["catRef"].split("/")[0].strip(),
+        "UUID": str(uuid.uuid4()),
+        "fileId": str(uuid.uuid4()),
+        "description": "from discovery",  # need to get it from discovery
+        "fileName": row["fileName"].split("\\")[-1].strip(),
+        "checksum_sha256": row["checksum"].strip(),
+        "FileReference": row["catRef"].strip()
+    }
+    return metadata
+
 def main():
     args = build_argument_parser().parse_args()
     validate_arguments(args)
@@ -53,6 +71,17 @@ def main():
         dataset_validator.validate_dataset(Js8Validator(), data_set)
     except Exception as e:
         raise Exception("Boom")
+
+    data_set: pandas.DataFrame
+    for index, row in data_set.iterrows():
+        metadata = create_metadata(row)
+        print(metadata)
+
+
+
+
+
+
 
 
 if __name__ == "__main__":
