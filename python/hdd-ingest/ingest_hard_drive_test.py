@@ -1,6 +1,7 @@
 import argparse
 from io import StringIO
 from unittest import TestCase
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -37,17 +38,21 @@ class Test(TestCase):
 
         self.assertEqual("The input file [non_existent_file.csv] does not exist or it is not a valid file\n", str(e.exception))
 
-    def test_create_metadata_should_create_a_metadata_object_from_csv_rows(self):
+    @patch("discovery_client.get_description")
+    def test_create_metadata_should_create_a_metadata_object_from_csv_rows(self, mock_description):
+
+        mock_description.return_value = "Some description from discovery"
+
         csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
         JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
-        print(data_set.iloc[0])
         for index, row in data_set.iterrows():
             metadata = ingest_hard_drive.create_metadata(row)
             self.assertEqual("JS 8", metadata["Series"])
             self.assertEqual("evid0001.pdf", metadata["fileName"])
             self.assertEqual("JS 8/3", metadata["FileReference"])
             self.assertEqual("9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc", metadata["checksum_sha256"])
+            self.assertEqual("Some description from discovery", metadata["description"])
 
 
 
