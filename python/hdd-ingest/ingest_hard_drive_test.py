@@ -53,6 +53,7 @@ class Test(TestCase):
             self.assertEqual("JS 8/3", metadata["FileReference"])
             self.assertEqual("9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc", metadata["checksum_sha256"])
             self.assertEqual("Some description from discovery", metadata["description"])
+            self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilePath"])
 
 
 

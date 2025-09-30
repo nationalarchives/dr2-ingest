@@ -46,14 +46,18 @@ def validate_arguments(args):
 
 def create_metadata(row):
     catalog_ref = row["catRef"].strip()
+    file_path = row["fileName"].strip()
     metadata = {
         "Series": row["catRef"].split("/")[0].strip(),
         "UUID": str(uuid.uuid4()),
         "fileId": str(uuid.uuid4()),
-        "description": discovery_client.get_description(catalog_ref),  # need to get it from discovery
-        "fileName": row["fileName"].split("\\")[-1].strip(),
-        "checksum_sha256": row["checksum"].strip(),
-        "FileReference": catalog_ref
+        "description": discovery_client.get_description(catalog_ref),
+        #"TransferInitiatedDateTime" --> need to find it
+        #"ConsignmentReference" --> or some sort of reference, maybe a new field
+        "fileName": file_path.split("\\")[-1].strip(),
+        "checksum_sha256": row["checksum"].strip(), # generate if not present?
+        "FileReference": catalog_ref,
+        "ClientSideOriginalFilePath": file_path
     }
     return metadata
 
