@@ -32,6 +32,7 @@ jobs:
           zip -jA preingest-tdr-importer python/lambdas/preingest-importer/lambda_function.py
           cp preingest-tdr-importer target/outputs
           cp preingest-tdr-importer target/outputs/preingest-dri-importer
+          cp preingest-tdr-importer target/outputs/preingest-hdd-importer
           zip -jA ingest-metric-collector python/lambdas/ingest-metric-collector/ingest_metric_collector.py
           cp ingest-metric-collector target/outputs
           cd target/outputs
