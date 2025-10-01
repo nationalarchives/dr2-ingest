@@ -34,6 +34,7 @@ import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   lazy private val bufferSize = 1024 * 5
+  val defaultFolderName = "Record"
 
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
@@ -50,8 +51,10 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           def createMetadataObjects(firstPackageMetadata: PackageMetadata, fileName: String, originalFilePath: String) = for {
             assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId, packageMetadataList.map(_.fileId))
             s3FilesMap <- listS3Objects(fileLocation.getHost, assetMetadata.id)
-            contentFolderKey <- IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
-              new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
+            contentFolderKey <- IO.pure(
+              firstPackageMetadata.consignmentReference
+                .orElse(firstPackageMetadata.driBatchReference)
+                .getOrElse(defaultFolderName)
             )
             res <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
               val files: List[FileMetadataObject] = packageMetadataList.zipWithIndex.map { (packageMetadata, idx) =>
@@ -207,7 +210,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         List(metadataId),
         packageMetadata.description,
         packageMetadata.transferringBody,
-        LocalDateTime.parse(packageMetadata.transferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
+        packageMetadata.transferInitiatedDatetime.map{dt => LocalDateTime.parse(dt.replace(" ", "T")).atOffset(ZoneOffset.UTC)},
         config.sourceSystem,
         "Born Digital",
         None,
@@ -250,7 +253,7 @@ object Lambda:
       fileId <- c.downField("fileId").as[UUID]
       description <- c.downField("description").as[Option[String]]
       transferringBody <- c.downField("TransferringBody").as[Option[String]]
-      transferInitiatedDatetime <- c.downField("TransferInitiatedDatetime").as[String]
+      transferInitiatedDatetime <- c.downField("TransferInitiatedDatetime").as[Option[String]]
       consignmentReference <- c.downField("ConsignmentReference").as[Option[String]]
       fileName <- c.downField("Filename").as[String]
       checksums <- getChecksums(c)
@@ -278,7 +281,7 @@ object Lambda:
       fileId: UUID,
       description: Option[String],
       transferringBody: Option[String],
-      transferInitiatedDatetime: String,
+      transferInitiatedDatetime: Option[String],
       consignmentReference: Option[String],
       filename: String,
       checksums: List[Checksum],

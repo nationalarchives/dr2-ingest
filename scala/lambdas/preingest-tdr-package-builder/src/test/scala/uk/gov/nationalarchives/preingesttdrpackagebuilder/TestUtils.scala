@@ -36,7 +36,7 @@ object TestUtils:
       ("fileId", Json.fromString(m.fileId.toString)).some,
       m.description.map(d => ("description", Json.fromString(d))),
       m.transferringBody.map(t => ("TransferringBody", Json.fromString(t))),
-      ("TransferInitiatedDatetime", Json.fromString(m.transferInitiatedDatetime)).some,
+      m.transferInitiatedDatetime.map(dt => ("TransferInitiatedDatetime", Json.fromString(dt))),
       m.consignmentReference.map(c => ("ConsignmentReference", Json.fromString(c))),
       m.driBatchReference.map(d => ("driBatchReference", Json.fromString(d))),
       ("Filename", Json.fromString(m.filename)).some,

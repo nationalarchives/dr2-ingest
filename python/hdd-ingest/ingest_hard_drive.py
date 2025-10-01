@@ -47,13 +47,13 @@ def validate_arguments(args):
 def create_metadata(row):
     catalog_ref = row["catRef"].strip()
     file_path = row["fileName"].strip()
+    title, description = discovery_client.get_title_and_description(catalog_ref)
+    description_to_use = title if title is not None else description
     metadata = {
         "Series": row["catRef"].split("/")[0].strip(),
         "UUID": str(uuid.uuid4()),
         "fileId": str(uuid.uuid4()),
-        "description": discovery_client.get_description(catalog_ref),
-        #"TransferInitiatedDateTime" --> need to find it
-        #"ConsignmentReference" --> or some sort of reference, maybe a new field
+        "description": description_to_use,
         "fileName": file_path.split("\\")[-1].strip(),
         "checksum_sha256": row["checksum"].strip(), # generate if not present?
         "FileReference": catalog_ref,
@@ -82,13 +82,6 @@ def main():
     for index, row in data_set.iterrows():
         metadata = create_metadata(row)
         print(metadata)
-
-
-
-
-
-
-
 
 if __name__ == "__main__":
     main()

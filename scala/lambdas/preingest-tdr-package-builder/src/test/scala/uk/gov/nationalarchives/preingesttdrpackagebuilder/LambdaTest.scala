@@ -16,7 +16,7 @@ import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.TDR
 
 import java.net.URI
-import java.time.{Instant, LocalDateTime, ZoneOffset}
+import java.time.{Instant, LocalDateTime, OffsetDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
@@ -33,7 +33,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       fileId: UUID,
       series: String,
       body: Option[String],
-      date: String,
+      date: Option[String],
       tdrRef: Option[String],
       fileName: FileName,
       fileSize: Long,
@@ -75,7 +75,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     series <- Gen.asciiStr
     body <- Gen.option(Gen.asciiStr)
     fileId <- Gen.uuid
-    date <- dateGen
+    date <- Gen.option(dateGen)
     fileName <- fileNameGen
     fileSize <- Gen.posNum[Long]
     checksum <- checksumGen
@@ -171,11 +171,21 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     assetMetadataObject.originalMetadataFiles should equal(List(uuidList.head))
     assetMetadataObject.description should equal(testData.description)
     assetMetadataObject.transferringBody should equal(testData.body)
-    assetMetadataObject.transferCompleteDatetime should equal(LocalDateTime.parse(testData.date.replace(" ", "T")).atOffset(ZoneOffset.UTC))
+    checkDateTimeOptionFieldEquals(testData.date, assetMetadataObject.transferCompleteDatetime)
     assetMetadataObject.upstreamSystem should equal(TDR)
     assetMetadataObject.digitalAssetSource should equal("Born Digital")
     assetMetadataObject.digitalAssetSubtype should equal(None)
     assetMetadataObject.correlationId should equal(potentialLockTableMessageId)
+
+    def checkDateTimeOptionFieldEquals(expected: Option[String], actual: Option[OffsetDateTime]) = {
+      expected match {
+        case Some(value) =>
+          val expectedDate = LocalDateTime.parse(expected.get.replace(" ", "T")).atOffset(ZoneOffset.UTC)
+          actual.get should equal(expectedDate)
+        case None =>
+          actual should be(None)
+      }
+    }
 
     def checkIdField(name: String, value: String) =
       assetMetadataObject.idFields.find(_.name == name).map(_.value).get should equal(value)
@@ -226,7 +236,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       fileId,
       None,
       Option("body"),
-      "2024-10-18 00:00:01",
+      Option("2024-10-18 00:00:01"),
       Option(consignmentReference),
       s"file.txt",
       checksum("checksum"),
@@ -292,7 +302,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
-    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), "2024-10-04 10:00:00", Option("ABC-123"), "test.txt", checksum(""), "", "", None))
+    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), Option("ABC-123"), "test.txt", checksum(""), "", "", None))
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
     val ex = intercept[Throwable] {
       runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)
@@ -300,18 +310,20 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     ex.getMessage should equal("Error uploading /metadata.json to cacheBucket")
   }
 
-  "lambda handler" should "return an error if neither the consignment reference nor DRI reference are set" in {
+  "lambda handler" should "return a hardcoded value of 'Record' if neither the consignment reference nor DRI reference are set" in {
     val assetId = UUID.randomUUID
     val fileId = UUID.randomUUID
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
-    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), "2024-10-04 10:00:00", None, "test.txt", checksum(""), "", "", None))
+    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None))
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
-    val ex = intercept[Throwable] {
-      runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)
-    }
-    ex.getMessage should equal(s"We need either a consignment reference or DRI batch reference for $assetId")
+    val (s3Contents, output) = runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects)
+    val metadataObjects: List[MetadataObject] = s3Contents(s"/metadata.json").asInstanceOf[List[MetadataObject]]
+    val contentFolderMetadataObjects = metadataObjects.collect { case contentFolderMetadataObject: ContentFolderMetadataObject => contentFolderMetadataObject }
+    contentFolderMetadataObjects.size should be(1)
+    contentFolderMetadataObjects.head.name should be("Record")
+
   }
 
   "lambda handler" should "return an error if the dynamo query fails" in {
