@@ -95,12 +95,11 @@ object ExternalServicesTestUtils:
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
   def runLambda(
-      dynamoResponses: List[GetDr2PreservicaVersionResponse],
       preservicaVersion: Float,
       errors: Option[Errors] = None
   ): (Either[Throwable, Unit], List[String]) = (for {
     messagesRef <- Ref.of[IO, List[String]](Nil)
-    dependencies = Dependencies(preservicaClient(preservicaVersion, errors), eventBridgeClient(messagesRef, errors), dynamoClient(dynamoResponses, errors))
+    dependencies = Dependencies(preservicaClient(preservicaVersion, errors), eventBridgeClient(messagesRef, errors))
     res <- new Lambda().handler(new ScheduledEvent(), config, dependencies).attempt
     messages <- messagesRef.get
   } yield (res, messages)).unsafeRunSync()
