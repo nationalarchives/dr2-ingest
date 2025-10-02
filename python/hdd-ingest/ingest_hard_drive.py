@@ -1,12 +1,20 @@
 import argparse
-import uuid
+import io
 import json
+import os.path
+import uuid
 from pathlib import Path
 
+import boto3
 import pandas
 import pandas as pd
-from pandas import Series
-from pandas.core.interchange.dataframe_protocol import DataFrame
+from botocore.config import Config
+
+config = Config(region_name="eu-west-2")
+
+s3_client = boto3.client("s3")
+sqs_client = boto3.client("sqs", config=config)
+
 
 import discovery_client
 import dataset_validator
@@ -44,6 +52,8 @@ def validate_arguments(args):
         return
 
 
+
+
 def create_metadata(row):
     catalog_ref = row["catRef"].strip()
     file_path = row["fileName"].strip()
@@ -61,6 +71,23 @@ def create_metadata(row):
     }
     return metadata
 
+def upload_files(metadata, file_path, args):
+    account_number = "123456789" #os.environ["ACCOUNT_NUMBER"]
+    environment = args.environment
+    bucket = f"{environment}-dr2-ingest-raw-cache"
+    queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-dri-importer"
+
+    asset_id = metadata["UUID"]
+    file_id = metadata["fileId"]
+
+    s3_client.upload_file(file_path, bucket, f'{asset_id}/{file_id}')
+    json_bytes = io.BytesIO(json.dumps(metadata).encode("utf-8"))
+    s3_client.upload_fileobj(json_bytes, bucket, f"{asset_id}.metadata")
+
+    sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps({'assetId': asset_id, 'bucket': bucket}))
+
+
+
 def main():
     args = build_argument_parser().parse_args()
     validate_arguments(args)
@@ -72,16 +99,22 @@ def main():
         data_set = pd.read_excel(input_file_path)
     else:
         raise Exception("Unsupported input file format. Only CSV and Excel (xls, xlsx) files are supported for input")
-
     try:
         dataset_validator.validate_dataset(Js8Validator(), data_set)
     except Exception as e:
-        raise Exception("Boom")
+        raise Exception(f"Invalid  input file: {e}")
 
     data_set: pandas.DataFrame
     for index, row in data_set.iterrows():
         metadata = create_metadata(row)
-        print(metadata)
+        file_path = row["fileName"].strip()
+        #     # FIXME: in case of dry run, just report and continue checking further, don't raise an exception.
+        #     # for regular upload, raise exception
+        #     raise Exception(f"The file, '{file_path}' does not exist")
+        print(f"Uploading {file_path} and corresponding metadata to S3")
+        upload_files(metadata, file_path, args)
+
+
 
 if __name__ == "__main__":
     main()
