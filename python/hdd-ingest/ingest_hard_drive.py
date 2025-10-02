@@ -2,6 +2,7 @@ import argparse
 import io
 import json
 import os.path
+import sys
 import uuid
 from pathlib import Path
 
@@ -37,7 +38,7 @@ def build_argument_parser():
         default="INTG"
     )
     parser.add_argument(
-        "-d", "--dry-run",
+        "-d", "--dry_run",
         help="Value of 'True' indicates that the tool will only validate inputs, without actually running an ingest",
         default=False
     )
@@ -51,9 +52,6 @@ def validate_arguments(args):
     else:
         return
 
-
-
-
 def create_metadata(row):
     catalog_ref = row["catRef"].strip()
     file_path = row["fileName"].strip()
@@ -65,7 +63,7 @@ def create_metadata(row):
         "fileId": str(uuid.uuid4()),
         "description": description_to_use,
         "fileName": file_path.split("\\")[-1].strip(),
-        "checksum_sha256": row["checksum"].strip(), # generate if not present?
+        "checksum_sha256": row["checksum"].strip(), # FIXME: generate MD5 if not present
         "FileReference": catalog_ref,
         "ClientSideOriginalFilePath": file_path
     }
@@ -100,19 +98,25 @@ def main():
     else:
         raise Exception("Unsupported input file format. Only CSV and Excel (xls, xlsx) files are supported for input")
     try:
-        dataset_validator.validate_dataset(Js8Validator(), data_set)
+        is_dry_run = False if args.dry_run == "False" else True
+        is_valid = dataset_validator.validate_dataset(Js8Validator(), data_set, is_dry_run)
     except Exception as e:
-        raise Exception(f"Invalid  input file: {e}")
+        raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 
-    data_set: pandas.DataFrame
-    for index, row in data_set.iterrows():
-        metadata = create_metadata(row)
-        file_path = row["fileName"].strip()
-        #     # FIXME: in case of dry run, just report and continue checking further, don't raise an exception.
-        #     # for regular upload, raise exception
-        #     raise Exception(f"The file, '{file_path}' does not exist")
-        print(f"Uploading {file_path} and corresponding metadata to S3")
-        upload_files(metadata, file_path, args)
+    if is_dry_run:
+        if not is_valid:
+            print("Please fix errors before continuing")
+            sys.exit(1)
+        else:
+            print("Validation finished successfully. Please proceed with ingest")
+            sys.exit(0)
+    else:
+        data_set: pandas.DataFrame
+        for index, row in data_set.iterrows():
+            metadata = create_metadata(row)
+            file_path = row["fileName"].strip()
+            print(f"Uploading {file_path} and corresponding metadata to S3")
+            upload_files(metadata, file_path, args)
 
 
 
