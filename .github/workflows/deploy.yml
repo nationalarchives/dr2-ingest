@@ -27,12 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
       - name: Configure AWS credentials for ECR
-        uses: aws-actions/configure-aws-credentials@6e562ac9abb118b648a1c7765070c66a1c996eb6
+        uses: aws-actions/configure-aws-credentials@0be22f94c34623c570f2c1479d3a28b5678673c7
         with:
           role-to-assume: arn:aws:iam::${{ secrets.MANAGEMENT_ACCOUNT_NUMBER }}:role/MgmtDPGithubImageDeploy
           aws-region: us-east-1
           role-session-name: ECRLogin
-      - uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1
+      - uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef
         with:
           registry: public.ecr.aws
       - run: |
