@@ -1,14 +1,15 @@
+import hashlib
 import io
 import json
+import os
 import re
+import uuid
 from collections import defaultdict
 from os import listdir
-import oracledb
-import os
+
 import boto3
+import oracledb
 from botocore.config import Config
-import hashlib
-import uuid
 
 
 def create_skeleton_suite_lookup(prefixes):

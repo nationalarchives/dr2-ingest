@@ -1,9 +1,12 @@
+import io
 import os
 import shutil
 import tempfile
-from unittest import TestCase
-import pandas as pd
+from contextlib import redirect_stdout
 from io import StringIO
+from unittest import TestCase
+
+import pandas as pd
 
 import dataset_validator
 from dataset_validator import Js8Validator
@@ -76,4 +79,31 @@ class Test(TestCase):
             dataset_validator.validate_dataset(Js8Validator(), erroneous_dataset)
 
         self.assertEqual("Failed to locate following files: /tmp/non-existent-file1.txt,/tmp/non-existent-file2.txt", str(e.exception))
+
+    def test_should_report_the_error_when_one_of_the_required_columns_is_missing(self):
+        csv_data = """catRef,fileName
+        JS 8/3,d:\\js\\3\\1\\evid0001.pdf
+        JS 8/4,d:\\js\\3\\1\\evid0002.pdf"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        console_out = io.StringIO()
+        with redirect_stdout(console_out):
+            is_valid = dataset_validator.validate_dataset(Js8Validator(), data_set, True)
+
+        self.assertFalse(is_valid)
+        self.assertEqual("Input spreadsheet is missing one or more of the required columns: ['catRef', 'fileName', 'checksum']", console_out.getvalue().strip())
+
+    def test_should_report_multiple_validation_failures_across_spreadsheet_structure_validation(self):
+        csv_data = """catRef,fileName,checksum
+        JS 8/3,/missing/evid0001.pdf,checksum_one
+        JS 8/4,,checksum_one
+        JS 8/5,/missing/evid0003.pdf,checksum_three"""
+
+        data_set = pd.read_csv(StringIO(csv_data))
+        console_out = io.StringIO()
+        with redirect_stdout(console_out):
+            is_valid = dataset_validator.validate_dataset(Js8Validator(), data_set, True)
+
+        self.assertFalse(is_valid)
+        self.assertEqual("The column 'checksum' has duplicate entries\nThe column 'fileName' has empty entries", console_out.getvalue().strip())
 

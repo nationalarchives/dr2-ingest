@@ -1,5 +1,5 @@
 import re
-from urllib.parse import urlencode, quote
+from urllib.parse import quote
 
 import requests
 

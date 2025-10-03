@@ -1,8 +1,8 @@
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
 
-import requests
 import discovery_client
+
 
 class Test(TestCase):
 

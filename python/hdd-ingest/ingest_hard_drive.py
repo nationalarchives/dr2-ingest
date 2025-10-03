@@ -1,7 +1,6 @@
 import argparse
 import io
 import json
-import os.path
 import sys
 import uuid
 from pathlib import Path
