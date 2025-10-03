@@ -33,6 +33,7 @@ jobs:
           cp preingest-tdr-importer target/outputs
           cp preingest-tdr-importer target/outputs/preingest-dri-importer
           zip -jA ingest-metric-collector python/lambdas/ingest-metric-collector/ingest_metric_collector.py
+          zip -jA pause-ingest python/lambdas/pause-ingest/pause_ingest.py
           cp ingest-metric-collector target/outputs
           cd target/outputs
           aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
