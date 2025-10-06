@@ -10,7 +10,7 @@ def send_eventbridge_message(detail):
     eventbridge.put_events(
         Entries=[
             {
-                "Source": "ingest-pause",
+                "Source": "pause-ingest",
                 "DetailType": "DR2DevMessage",
                 "Detail": json.dumps(detail),
                 "EventBusName": "default"
@@ -57,7 +57,7 @@ def pause_flow_control(ssm_parameter_name):
     )
 
 
-def is_ingest_paused(ssm_parameter_name, trigger_arns):
+def ingest_paused(ssm_parameter_name, trigger_arns):
     paused = False
     for trigger_arn in trigger_arns:
         mappings = lambda_client.list_event_source_mappings(EventSourceArn=trigger_arn)
@@ -79,18 +79,18 @@ def lambda_handler(event, context):
             pause_message = {
                 "slackMessage": f":alert-noflash-slow: Ingest has been paused in environment {environment}"
             }
-            send_eventbridge_message(pause_message)
             update_sqs_trigger(trigger_arns, False)
             pause_flow_control(ssm_parameter_name)
+            send_eventbridge_message(pause_message)
         else:
             resume_message = {
-                "slackMessage": f":white_check_mark: Ingest has been resumed in environment {environment}"
+                "slackMessage": f":green-tick: Ingest has been resumed in environment {environment}"
             }
             update_sqs_trigger(trigger_arns, True)
             resume_flow_control(ssm_parameter_name)
             send_eventbridge_message(resume_message)
 
-    if event.get("source") == "aws.events" and is_ingest_paused(ssm_parameter_name, trigger_arns):
+    if event.get("source") == "aws.events" and ingest_paused(ssm_parameter_name, trigger_arns):
         still_paused_message = {
             "slackMessage": f":alert-noflash-slow: Ingest is still paused on environment {environment}"
         }

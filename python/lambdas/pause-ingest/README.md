@@ -1,8 +1,8 @@
-# DR2 Pause Ingest
+# DR2 Pause and Resume Ingest
 
 ## Input
 
-The lambda can be triggered either directly from a call to invoke-lambda in GitHub actions or can be triggered by an
+The lambda can be triggered either directly from a call to invoke-lambda in [GitHub Actions](https://github.com/nationalarchives/dr2-runbooks/actions/workflows/pause_and_resume_ingest.yml) or can be triggered by an
 Eventbridge scheduled event.
 
 The invoke-lambda input will be either
@@ -39,19 +39,19 @@ The lambda doesn't return anything
 
 If `pause` is True
 
-* Send a message to Slack to say that the ingest is being paused
-* Disable the aggregator lambda trigger.
-* Disable the court document handler trigger.
+* Disable the aggregator lambda trigger
+* Disable the court document handler trigger
 * Set `maxConcurrency` in the flow control config to 0 and store the original value in a field
   called `previousMaxConcurrency`
+* Send a message to Slack to say that the ingest is being paused
 
 If `pause` is False
 
-* Send a message to Slack to say that the ingest has been resumed
-* Enabled the aggregator lambda trigger.
-* Enabled the court document handler trigger.
+* Enable the aggregator lambda trigger.
+* Enable the court document handler trigger.
 * Set `maxConcurrency` in the flow control config to the value of `previousMaxConcurrency` and
   remove `previousMaxConcurrency` from the json.
+* Send a message to Slack to say that the ingest has been resumed
 
 If `source` is `aws.events`
 

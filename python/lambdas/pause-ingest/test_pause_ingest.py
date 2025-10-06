@@ -40,7 +40,7 @@ def test_pause_ingest(env, boto3_mocks):
 
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
-            "Source": "ingest-pause",
+            "Source": "pause-ingest",
             "DetailType": "DR2DevMessage",
             "Detail": '{"slackMessage": ":alert-noflash-slow: Ingest has been paused in environment test"}',
             "EventBusName": "default"
@@ -53,7 +53,7 @@ def test_pause_ingest(env, boto3_mocks):
         call(UUID='court-uuid', Enabled=False)
     ], any_order=True)
 
-    args, kwargs = ssm_mock.put_parameter.call_args
+    _, kwargs = ssm_mock.put_parameter.call_args
     value = json.loads(kwargs['Value'])
     assert value['maxConcurrency'] == 0
     assert value['previousMaxConcurrency'] == 5
@@ -74,9 +74,9 @@ def test_resume_ingest(env, boto3_mocks):
 
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
-            "Source": "ingest-pause",
+            "Source": "pause-ingest",
             "DetailType": "DR2DevMessage",
-            "Detail": '{"slackMessage": ":white_check_mark: Ingest has been resumed in environment test"}',
+            "Detail": '{"slackMessage": ":green-tick: Ingest has been resumed in environment test"}',
             "EventBusName": "default"
         }]
     )
@@ -116,7 +116,7 @@ def test_scheduled_event_agg_disabled(env, boto3_mocks):
     pause_ingest.lambda_handler(event, None)
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
-            "Source": "ingest-pause",
+            "Source": "pause-ingest",
             "DetailType": "DR2DevMessage",
             "Detail": '{"slackMessage": ":alert-noflash-slow: Ingest is still paused on environment test"}',
             "EventBusName": "default"
@@ -135,7 +135,7 @@ def test_scheduled_event_court_disabled(env, boto3_mocks):
     pause_ingest.lambda_handler(event, None)
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
-            "Source": "ingest-pause",
+            "Source": "pause-ingest",
             "DetailType": "DR2DevMessage",
             "Detail": '{"slackMessage": ":alert-noflash-slow: Ingest is still paused on environment test"}',
             "EventBusName": "default"
@@ -154,12 +154,24 @@ def test_scheduled_event_max_concurrency_zero(env, boto3_mocks):
     pause_ingest.lambda_handler(event, None)
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
-            "Source": "ingest-pause",
+            "Source": "pause-ingest",
             "DetailType": "DR2DevMessage",
             "Detail": '{"slackMessage": ":alert-noflash-slow: Ingest is still paused on environment test"}',
             "EventBusName": "default"
         }]
     )
+
+def test_no_eventbridge_message_if_empty_input(env, boto3_mocks):
+    eventbridge_mock, lambda_mock, ssm_mock = boto3_mocks
+    lambda_mock.list_event_source_mappings.side_effect = [
+        {'EventSourceMappings': [{'UUID': 'agg-uuid-1', 'Enabled': True}]},
+        {'EventSourceMappings': [{'UUID': 'agg-uuid-2', 'Enabled': True}]},
+        {'EventSourceMappings': [{'UUID': 'court-uuid', 'Enabled': True}]}
+    ]
+    setup_ssm(ssm_mock, max_concurrency=0)
+    event = {}
+    pause_ingest.lambda_handler(event, None)
+    eventbridge_mock.put_events.assert_not_called()
 def test_eventbridge_error(env, boto3_mocks):
     eventbridge_mock, lambda_mock, ssm_mock = boto3_mocks
     setup_ssm(ssm_mock, max_concurrency=5)
