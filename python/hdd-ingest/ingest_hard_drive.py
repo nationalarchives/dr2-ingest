@@ -1,6 +1,8 @@
 import argparse
+import hashlib
 import io
 import json
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -11,10 +13,6 @@ import pandas as pd
 from botocore.config import Config
 
 config = Config(region_name="eu-west-2")
-
-s3_client = boto3.client("s3")
-sqs_client = boto3.client("sqs", config=config)
-
 
 import discovery_client
 import dataset_validator
@@ -62,14 +60,25 @@ def create_metadata(row):
         "fileId": str(uuid.uuid4()),
         "description": description_to_use,
         "fileName": file_path.split("\\")[-1].strip(),
-        "checksum_sha256": row["checksum"].strip(), # FIXME: generate MD5 if not present
         "FileReference": catalog_ref,
         "ClientSideOriginalFilePath": file_path
     }
+    sha256_checksum = row["checksum"].strip()
+    if not sha256_checksum:
+        metadata["checksum_md5"] = create_md5_hash(file_path)
+    else:
+        metadata["checksum_sha256"] = sha256_checksum
     return metadata
 
+def create_md5_hash(file_path, chunk_size=8192):
+    md5 = hashlib.md5()
+    with open(file_path, "rb") as the_file:   # open in binary mode
+        for chunk in iter(lambda: the_file.read(chunk_size), b""):
+            md5.update(chunk)
+    return md5.hexdigest()
+
 def upload_files(metadata, file_path, args):
-    account_number = "123456789" #os.environ["ACCOUNT_NUMBER"]
+    account_number = os.environ["ACCOUNT_NUMBER"]
     environment = args.environment
     bucket = f"{environment}-dr2-ingest-raw-cache"
     queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-dri-importer"
@@ -77,13 +86,13 @@ def upload_files(metadata, file_path, args):
     asset_id = metadata["UUID"]
     file_id = metadata["fileId"]
 
+    s3_client = boto3.client("s3")
     s3_client.upload_file(file_path, bucket, f'{asset_id}/{file_id}')
     json_bytes = io.BytesIO(json.dumps(metadata).encode("utf-8"))
     s3_client.upload_fileobj(json_bytes, bucket, f"{asset_id}.metadata")
 
+    sqs_client = boto3.client("sqs", config=config)
     sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps({'assetId': asset_id, 'bucket': bucket}))
-
-
 
 def main():
     args = build_argument_parser().parse_args()
@@ -91,7 +100,8 @@ def main():
 
     input_file_path = Path(args.input)
     if input_file_path.suffix.lower() == ".csv":
-        data_set = pd.read_csv(input_file_path)
+        # read all values as str and empty values to be kept as str
+        data_set = pd.read_csv(input_file_path, dtype=str, keep_default_na=False)
     elif input_file_path.suffix.lower() in [".xls", ".xlsx"]:
         data_set = pd.read_excel(input_file_path)
     else:

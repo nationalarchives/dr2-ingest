@@ -20,10 +20,10 @@ class Test(TestCase):
             f.write("temporary file one")
         tmp2 = os.path.join(self.test_dir, "hdd_ingest_test_file2.txt")
         with open(tmp2, "w") as f:
-            f.write("temporary file one")
+            f.write("temporary file two")
         tmp3 = os.path.join(self.test_dir, "hdd_ingest_test_file3.txt")
         with open(tmp3, "w") as f:
-            f.write("temporary file one")
+            f.write("temporary file three")
 
         csv_data = f"""catRef,someOtherColumn,fileName,checksum,anotherColumn
         JS 8/3,duplicate_value_allowed_here,{tmp1},9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc,another
