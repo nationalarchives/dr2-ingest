@@ -32,7 +32,7 @@ def enable_secret_rotation(secrets_manager_details):
         )
 
 
-def is_ingest_paused(rule_name, secrets_manager_details):
+def activity_paused(rule_name, secrets_manager_details):
     rotation_disabled = False
     for detail in secrets_manager_details:
         resp = secretsmanager.describe_secret(SecretId=detail['id'])
@@ -55,18 +55,18 @@ def lambda_handler(event, context):
             pause_message = {
                 "slackMessage": f":alert-noflash-slow: Preservica activity has been paused in environment {environment}"
             }
-            send_eventbridge_message(pause_message)
             disable_secret_rotation(secrets_manager_details)
             eventbridge.disable_rule(Name=rule_name)
+            send_eventbridge_message(pause_message)
         else:
             enable_secret_rotation(secrets_manager_details)
             eventbridge.enable_rule(Name=rule_name)
             resume_message = {
-                "slackMessage": f":white_check_mark: Preservica activity has been resumed in environment {environment}"
+                "slackMessage": f":green-tick: Preservica activity has been resumed in environment {environment}"
             }
             send_eventbridge_message(resume_message)
 
-    if event.get("source") == "aws.events" and is_ingest_paused(rule_name, secrets_manager_details):
+    elif event.get("source") == "aws.events" and activity_paused(rule_name, secrets_manager_details):
         still_paused_message = {
             "slackMessage": f":alert-noflash-slow: Preservica activity is still paused on environment {environment}"
         }

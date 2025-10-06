@@ -55,7 +55,7 @@ def test_resume_preservica_activity(env, boto3_mocks):
         Entries=[{
             "Source": "preservica-activity-pause",
             "DetailType": "DR2DevMessage",
-            "Detail": '{"slackMessage": ":white_check_mark: Preservica activity has been resumed in environment test"}',
+            "Detail": '{"slackMessage": ":green-tick: Preservica activity has been resumed in environment test"}',
             "EventBusName": "default"
         }]
     )
@@ -158,6 +158,13 @@ def test_secret_rotation_enabled_rule_disabled(env, boto3_mocks):
             "EventBusName": "default"
         }]
     )
+
+
+def test_no_eventbridge_message_if_empty_input(env, boto3_mocks):
+    eventbridge_mock, _ = boto3_mocks
+    event = {}
+    pause_preservica_activity.lambda_handler(event, None)
+    eventbridge_mock.put_events.assert_not_called()
 
 def test_eventbridge_error(env, boto3_mocks):
     eventbridge_mock, secretsmanager_mock = boto3_mocks
