@@ -37,7 +37,7 @@ module "dr2_custodial_copy_queue_creator_lambda" {
   }]
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_only.security_group_id]
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
   }
   plaintext_env_vars = {
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_metadata.name

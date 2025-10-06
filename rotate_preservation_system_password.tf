@@ -23,7 +23,7 @@ module "dr2_rotate_preservation_system_password_lambda" {
   runtime     = local.java_runtime
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_only.security_group_id]
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
   }
   tags = {
     Name = local.rotate_preservation_system_password_name
