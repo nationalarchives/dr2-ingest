@@ -28,19 +28,18 @@ S3 bucket and send a message to <env>-dr2-preingest-dri-importer queue to trigge
 | ACCOUNT_NUMBER  | The DR2 account number of the environment you are ingesting to           |
 
 ### Script Arguments 
-| Name               | Description                                                                 |
-|--------------------|-----------------------------------------------------------------------------|
-| -i   --input       | A CSV (or Excel) file having rows corresponding to the data to be ingested. |
-|                    | Each row has Catalog Reference (catRef), name of the file (fileName) with   |
-|                    | absolute path, and optionally, checksum for the file to be ingested         |
-| ---------------    | --------------------------------------------------------------------------- |
-| -e  --environment  | Name of the environment where the records are ingested (e.g. intg, prd)     |
-|                    | The script makes use of the environment name to construct names of the AWS  |
-|                    | resources (default 'INTG')                                                  |
-| ---------------    | --------------------------------------------------------------------------- |
-| -d   --dry_run     | Boolean value, when True indicates that the script should only validate the |
-|                    | data but stop short of actually uploading it to S3. False indicates that    |
-|                    | the script should ingest data as well. (default False)                      |
+| Name               | Description                                                                       |
+|--------------------|-----------------------------------------------------------------------------------|
+| -i   --input       | A CSV (or Excel) file having rows corresponding to the data to be ingested. <br/> |
+|                    | &emsp;Each row has Catalog Reference (catRef), name of the file (fileName) with   |
+|                    | absolute path, and optionally, checksum for the file to be ingested               |
+| -e  --environment  | Name of the environment where the records are ingested (e.g. intg, prd)           |
+|                    | The script makes use of the environment name to construct names of the AWS        |
+|                    | resources (default 'INTG')                                                        |
+| -d   --dry_run     | Boolean value, when True indicates that the script should only validate the       |
+|                    | data but stop short of actually uploading it to S3. False indicates that          |
+|                    | the script should ingest data as well. (default False)                            |
+
 
 
 ### Script steps

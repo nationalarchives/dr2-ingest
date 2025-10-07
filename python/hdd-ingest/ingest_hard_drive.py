@@ -53,6 +53,10 @@ def create_metadata(row):
     catalog_ref = row["catRef"].strip()
     file_path = row["fileName"].strip()
     title, description = discovery_client.get_title_and_description(catalog_ref)
+
+    if not title and not description:
+        raise Exception(f"Title and Description both are empty for '{catalog_ref}', unable to proceed with this record")
+
     description_to_use = title if title is not None else description
     metadata = {
         "Series": row["catRef"].split("/")[0].strip(),
@@ -94,6 +98,38 @@ def upload_files(metadata, file_path, args):
     sqs_client = boto3.client("sqs", config=config)
     sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps({'assetId': asset_id, 'bucket': bucket}))
 
+def run_ingest(data_set, args, is_upstream_valid):
+    data_set: pandas.DataFrame
+    is_dry_run = False if args.dry_run == "False" else True
+
+    is_discovery_available = discovery_client.is_discovery_api_reachable()
+    if not is_discovery_available:
+        print("Discovery API is not available for getting metadata information, terminating process")
+        sys.exit(1)
+
+    is_metadata_valid = is_upstream_valid
+    for index, row in data_set.iterrows():
+        try:
+            metadata = create_metadata(row)
+            if not is_dry_run:  # upload the files to s3 and send message only if it is not a dry run
+                file_path = row["fileName"].strip()
+                print(f"Uploading {file_path} and corresponding metadata to S3")
+                upload_files(metadata, file_path, args)
+        except Exception as e:
+            is_metadata_valid = False
+            print(f"Error creating metadata: {e}")
+            if not is_dry_run:
+                sys.exit(1)
+
+
+    if is_dry_run:
+        if is_metadata_valid:
+            print("Validations completed successfully, please proceed to ingest")
+        else:
+            print("Please fix the errors identified during validation before continuing further")
+            sys.exit(1)
+
+
 def main():
     args = build_argument_parser().parse_args()
     validate_arguments(args)
@@ -106,28 +142,18 @@ def main():
         data_set = pd.read_excel(input_file_path)
     else:
         raise Exception("Unsupported input file format. Only CSV and Excel (xls, xlsx) files are supported for input")
+
+    is_valid = True
+    is_dry_run = False if args.dry_run == "False" else True
     try:
-        is_dry_run = False if args.dry_run == "False" else True
         is_valid = dataset_validator.validate_dataset(Js8Validator(), data_set, is_dry_run)
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 
-    if is_dry_run:
-        if not is_valid:
-            print("Please fix errors before continuing")
-            sys.exit(1)
-        else:
-            print("Validation finished successfully. Please proceed with ingest")
-            sys.exit(0)
-    else:
-        data_set: pandas.DataFrame
-        for index, row in data_set.iterrows():
-            metadata = create_metadata(row)
-            file_path = row["fileName"].strip()
-            print(f"Uploading {file_path} and corresponding metadata to S3")
-            upload_files(metadata, file_path, args)
+    run_ingest(data_set, args, is_valid)
 
-
+    if not is_dry_run:
+        print("Upload finished successfully")
 
 if __name__ == "__main__":
     main()
