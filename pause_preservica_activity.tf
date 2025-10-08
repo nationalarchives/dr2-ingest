@@ -25,7 +25,7 @@ module "pause_preservica_activity_lambda" {
   plaintext_env_vars = {
     ENVIRONMENT = local.environment,
     SECRETS_MANAGER_DETAILS = jsonencode([
-      for key, rotation in aws_secretsmanager_secret_rotation.secret_rotation : {
+      for _, rotation in aws_secretsmanager_secret_rotation.secret_rotation : {
         id                  = rotation.secret_id,
         lambda_arn          = rotation.rotation_lambda_arn
         schedule_expression = rotation.rotation_rules[0].schedule_expression
