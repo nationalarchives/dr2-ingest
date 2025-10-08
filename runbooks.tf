@@ -22,8 +22,9 @@ module "remove_all_nacl_rules_policy" {
 module "pause_preservica_activity_role" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
   assume_role_policy = templatefile("${path.module}/templates/iam_role/github_assume_role.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-  repo_filters = jsonencode(["repo:nationalarchives/dr2-runbooks:environment:intg", "repo:nationalarchives/dr2-runbooks:environment:staging", "repo:nationalarchives/dr2-runbooks:environment:prod"]) })
+    account_id   = data.aws_caller_identity.current.account_id,
+    repo_filters = jsonencode(["repo:nationalarchives/dr2-runbooks:environment:intg", "repo:nationalarchives/dr2-runbooks:environment:staging", "repo:nationalarchives/dr2-runbooks:environment:prod"])
+  })
   name = "${local.environment}-dr2-runbook-pause-preservica-activity"
   policy_attachments = {
     pause_ingest_policy = module.pause_preservica_activity_policy.policy_arn

@@ -32,7 +32,6 @@
       "Effect": "Allow",
       "Action": [
         "lambda:InvokeFunction"
-
       ],
       "Resource": "${secret_rotation_arn}"
     },
