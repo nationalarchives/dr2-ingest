@@ -161,18 +161,22 @@ module "outbound_https_access_only" {
   description = "A security group to allow outbound access only"
   name        = "${local.environment}-outbound-https"
   vpc_id      = module.vpc.vpc_id
-  egress_cidr_rules = [{
-    port        = 443
-    description = "Outbound https access",
-    cidr_blocks = ["0.0.0.0/0"],
-    protocol    = "tcp"
-  }]
-  egress_security_group_rules = [{
-    port              = 443
-    description       = "Outbound https to discovery VPC endpoint"
-    security_group_id = module.discovery_inbound_https.security_group_id
-    protocol          = "tcp"
-  }]
+  rules = {
+    egress = [
+      {
+        port              = 443
+        description       = "Outbound https to discovery VPC endpoint"
+        security_group_id = module.discovery_inbound_https.security_group_id
+        protocol          = "tcp"
+      },
+      {
+        port        = 443
+        description = "Outbound https to all IPs"
+        cidr_ip_v4  = "0.0.0.0/0"
+        protocol    = "tcp"
+      },
+    ]
+  }
 }
 
 resource "aws_ec2_managed_prefix_list" "cloudflare_prefix_list" {
@@ -193,12 +197,14 @@ module "outbound_cloudflare_https_access" {
   description = "A security group to allow outbound access only"
   name        = "${local.environment}-outbound-https-to-cloudflare"
   vpc_id      = module.vpc.vpc_id
-  egress_prefix_list_rules = [{
-    port            = 443
-    description     = "Outbound https cloudflare access",
-    prefix_list_ids = [aws_ec2_managed_prefix_list.cloudflare_prefix_list.id]
-    protocol        = "tcp"
-  }]
+  rules = {
+    egress = [{
+      port           = 443
+      description    = "Outbound https cloudflare access",
+      prefix_list_id = aws_ec2_managed_prefix_list.cloudflare_prefix_list.id
+      protocol       = "tcp"
+    }]
+  }
 }
 
 module "dr2_kms_key" {
