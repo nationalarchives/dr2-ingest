@@ -46,11 +46,12 @@ module "discovery_inbound_https" {
   description = "A security group to allow inbound access to discovery VPC endpoint from lambda security group"
   name        = "${local.environment}-dr2-discovery-inbound-https"
   vpc_id      = module.vpc.vpc_id
-  ingress_security_group_rules = [{
-    port              = 443
-    description       = "Inbound access from lambda security group"
-    security_group_id = module.outbound_https_access_only.security_group_id
-    }
-  ]
+  rules = {
+    ingress = [{
+      port              = 443
+      description       = "Inbound access from lambda security group"
+      security_group_id = module.outbound_https_access_only.security_group_id
+    }]
+  }
 }
 

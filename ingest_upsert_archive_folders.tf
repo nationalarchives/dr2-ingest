@@ -23,7 +23,7 @@ module "dr2_ingest_upsert_archive_folders_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_only.security_group_id]
+    security_group_ids = local.outbound_security_group_ids
   }
   reserved_concurrency = 1
   tags = {

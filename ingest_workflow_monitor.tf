@@ -21,7 +21,7 @@ module "dr2_ingest_workflow_monitor_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_only.security_group_id]
+    security_group_ids = local.outbound_security_group_ids
   }
   tags = {
     Name = local.ingest_workflow_monitor_lambda_name
