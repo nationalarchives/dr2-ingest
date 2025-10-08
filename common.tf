@@ -183,7 +183,7 @@ module "outbound_https_access_only" {
 
 resource "aws_ec2_managed_prefix_list" "cloudflare_prefix_list" {
   address_family = "IPv4"
-  max_entries    = length(local.cloudflare_ip_ranges)
+  max_entries    = length(local.cloudflare_ip_ranges) + 5
   name           = "${local.environment}-cloudflare-ranges"
   dynamic "entry" {
     for_each = local.cloudflare_ip_ranges
