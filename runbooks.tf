@@ -24,6 +24,16 @@ module "remove_all_nacl_rules_policy" {
   })
 }
 
+module "pause_ingest_role" {
+  source             = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
+  assume_role_policy = local.assume_role_policy
+  name               = "${local.environment}-dr2-runbook-pause-ingest"
+  policy_attachments = {
+    pause_ingest_policy = module.pause_ingest_policy.policy_arn
+  }
+  tags = {}
+}
+
 module "pause_preservica_activity_role" {
   source             = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
   assume_role_policy = local.assume_role_policy
@@ -32,6 +42,14 @@ module "pause_preservica_activity_role" {
     pause_ingest_policy = module.pause_preservica_activity_policy.policy_arn
   }
   tags = {}
+}
+
+module "pause_ingest_policy" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
+  name   = "${local.environment}-dr2-runbooks-pause-ingest-policy"
+  policy_string = templatefile("${path.module}/templates/iam_policy/runbook_invoke_lambda_policy.json.tpl", {
+    lambda_arn = module.pause_ingest_lambda.lambda_arn
+  })
 }
 
 module "pause_preservica_activity_policy" {

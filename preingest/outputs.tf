@@ -2,6 +2,10 @@ output "aggregator_lambda" {
   value = module.dr2_preingest_aggregator_lambda.lambda_function
 }
 
+output "aggregator_sqs" {
+  value = module.dr2_preingest_aggregator_queue
+}
+
 output "package_builder_lambda" {
   value = module.dr2_preingest_package_builder_lambda.lambda_function
 }
