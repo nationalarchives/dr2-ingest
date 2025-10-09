@@ -1,6 +1,7 @@
 name: DR2 Run Lambda Tests
 on:
   pull_request:
+    paths-ignore: ["docs/**"]
 permissions:
   id-token: write
   contents: write
