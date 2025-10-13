@@ -1,0 +1,17 @@
+{
+    "type": "object",
+    "properties": {
+        "Series": {"type": "string"},
+        "UUID": {"type": "string", "format": "uuid"},
+        "description": {"type": ["string", "null"]},
+        "ConsignmentReference": {"type": "string"},
+        "Filename": {"type": "string"},
+        "FileReference": {"type": "string"}
+    },
+    "required": [
+        "Series",
+        "UUID",
+        "Filename",
+        "FileReference"
+    ]
+}

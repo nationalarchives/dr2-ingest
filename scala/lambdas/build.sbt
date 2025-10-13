@@ -29,6 +29,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     preingestHddAggregator,
     preIngestTdrPackageBuilder,
     preingestDriPackageBuilder,
+    preingestHddPackageBuilder,
     rotatePreservationSystemPassword,
     startWorkflow
   )

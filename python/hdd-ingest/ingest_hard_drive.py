@@ -63,9 +63,9 @@ def create_metadata(row):
         "UUID": str(uuid.uuid4()),
         "fileId": str(uuid.uuid4()),
         "description": description_to_use,
-        "fileName": file_path.split("\\")[-1].strip(),
+        "Filename": file_path.split("\\")[-1].strip(),
         "FileReference": catalog_ref,
-        "ClientSideOriginalFilePath": file_path
+        "ClientSideOriginalFilepath": file_path
     }
     sha256_checksum = row["checksum"].strip()
     if not sha256_checksum:
@@ -85,14 +85,14 @@ def upload_files(metadata, file_path, args):
     account_number = os.environ["ACCOUNT_NUMBER"]
     environment = args.environment
     bucket = f"{environment}-dr2-ingest-raw-cache"
-    queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-dri-importer"
+    queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-hdd-importer"
 
     asset_id = metadata["UUID"]
     file_id = metadata["fileId"]
-
+    print(f"Asset ID: {asset_id} and File ID: {file_id}")
     s3_client = boto3.client("s3")
     s3_client.upload_file(file_path, bucket, f'{asset_id}/{file_id}')
-    json_bytes = io.BytesIO(json.dumps(metadata).encode("utf-8"))
+    json_bytes = io.BytesIO(json.dumps([metadata]).encode("utf-8"))
     s3_client.upload_fileobj(json_bytes, bucket, f"{asset_id}.metadata")
 
     sqs_client = boto3.client("sqs", config=config)

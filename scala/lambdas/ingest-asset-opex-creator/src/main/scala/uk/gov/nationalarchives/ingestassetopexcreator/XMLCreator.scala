@@ -34,7 +34,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
       securityTag: SecurityTag
   ): IO[String] = {
     val transferCompleteDatetime = asset.transferCompleteDatetime
-    IO.raiseWhen(transferCompleteDatetime.isAfter(ingestDateTime))(new Exception("'ingestDateTime' is before 'transferCompleteDatetime'!")).map { _ =>
+    IO.raiseWhen(transferCompleteDatetime.exists(_.isAfter(ingestDateTime)))(new Exception("'ingestDateTime' is before 'transferCompleteDatetime'!")).map { _ =>
       val xml =
         <opex:OPEXMetadata xmlns:opex={opexNamespace}>
           <opex:Transfer>

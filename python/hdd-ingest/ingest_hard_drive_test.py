@@ -56,7 +56,7 @@ class Test(TestCase):
         for index, row in data_set.iterrows():
             metadata = ingest_hard_drive.create_metadata(row)
             self.assertEqual("JS 8", metadata["Series"])
-            self.assertEqual("evid0001.pdf", metadata["fileName"])
+            self.assertEqual("evid0001.pdf", metadata["Filename"])
             self.assertEqual("JS 8/3", metadata["FileReference"])
             self.assertEqual("9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc", metadata["checksum_sha256"])
             self.assertEqual("Some description from discovery", metadata["description"])
@@ -101,7 +101,7 @@ class Test(TestCase):
         ingest_hard_drive.upload_files(metadata, tmp1, args)
 
         mock_client.upload_file.assert_called_once_with(tmp1, "test-dr2-ingest-raw-cache", "someRecordId/someFileId")
-        mock_client.send_message.assert_called_once_with(QueueUrl="https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-dri-importer", MessageBody="""{"assetId": "someRecordId", "bucket": "test-dr2-ingest-raw-cache"}""")
+        mock_client.send_message.assert_called_once_with(QueueUrl="https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer", MessageBody="""{"assetId": "someRecordId", "bucket": "test-dr2-ingest-raw-cache"}""")
 
     @patch("discovery_client.get_title_and_description")
     def test_create_metadata_should_throw_exception_when_it_cannot_find_title_or_description_from_discovery(self, mock_description):
