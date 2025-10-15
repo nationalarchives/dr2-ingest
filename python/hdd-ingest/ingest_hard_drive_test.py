@@ -57,10 +57,28 @@ class Test(TestCase):
             metadata = ingest_hard_drive.create_metadata(row)
             self.assertEqual("JS 8", metadata["Series"])
             self.assertEqual("evid0001.pdf", metadata["Filename"])
-            self.assertEqual("JS 8/3", metadata["FileReference"])
+            self.assertEqual("3", metadata["FileReference"])
             self.assertEqual("9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc", metadata["checksum_sha256"])
             self.assertEqual("Some description from discovery", metadata["description"])
-            self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilePath"])
+            self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
+
+    @patch("discovery_client.get_title_and_description")
+    def test_create_metadata_should_create_a_filename_from_various_paths_independent_of_platform(self, mock_description):
+
+        mock_description.return_value = None, "Some description from discovery"
+
+        csv_data = """catRef,fileName,checksum
+        JS 8/3,d:\\js\\3\\1\\evid0001.pdf,windows_absolute_path 
+        JS 8/4,c:\\evid0001.pdf,windows_absolute_path_at_root
+        JS 8/5,c:\old_folder\evid0001.pdf,windows_absolute_path_single_slash
+        JS 8/6,/home/users/evid0001.pdf,unix_absolute_path
+        JS 8/7,c:evid0001.pdf,windows_no_slashes
+        JS 8/7,\a\b\evid0001.pdf,windows_relative_single_slash
+        JS 8/8,c:/abcd/evid0001.pdf,windows_absolute_path_forward_slash"""
+        data_set = pd.read_csv(StringIO(csv_data))
+        for index, row in data_set.iterrows():
+            metadata = ingest_hard_drive.create_metadata(row)
+            self.assertEqual("evid0001.pdf", metadata["Filename"])
 
     @patch("discovery_client.get_title_and_description")
     def test_create_metadata_should_use_title_when_title_is_available_from_discovery(self, mock_description):

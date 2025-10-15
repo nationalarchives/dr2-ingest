@@ -34,7 +34,7 @@ import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   lazy private val bufferSize = 1024 * 5
-  val defaultFolderName = "Record"
+  val defaultFolderName = "Records"
 
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
@@ -199,6 +199,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         case SourceSystem.DRI =>
           List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
             packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
+        case SourceSystem.HDD => List(IdField("UpstreamSystemReference", packageMetadata.fileReference))
         case _ => Nil
       }
       AssetMetadataObject(

@@ -5,7 +5,7 @@ import json
 import os
 import sys
 import uuid
-from pathlib import Path
+from pathlib import Path, PureWindowsPath, PurePosixPath
 
 import boto3
 import pandas
@@ -58,13 +58,14 @@ def create_metadata(row):
         raise Exception(f"Title and Description both are empty for '{catalog_ref}', unable to proceed with this record")
 
     description_to_use = title if title is not None else description
+    series = row["catRef"].split("/")[0].strip()
     metadata = {
-        "Series": row["catRef"].split("/")[0].strip(),
+        "Series": series,
         "UUID": str(uuid.uuid4()),
         "fileId": str(uuid.uuid4()),
         "description": description_to_use,
-        "Filename": file_path.split("\\")[-1].strip(),
-        "FileReference": catalog_ref,
+        "Filename": get_filename_from_cross_platform_path(file_path),
+        "FileReference": catalog_ref.removeprefix(f"{series}/"),
         "ClientSideOriginalFilepath": file_path
     }
     sha256_checksum = row["checksum"].strip()
@@ -73,6 +74,12 @@ def create_metadata(row):
     else:
         metadata["checksum_sha256"] = sha256_checksum
     return metadata
+
+def get_filename_from_cross_platform_path(path_str):
+    if "\\" in path_str or ":" in path_str: #maybe Windows path
+        return PureWindowsPath(path_str).name.strip()
+    else :
+        return PurePosixPath(path_str).name.strip()
 
 def create_md5_hash(file_path, chunk_size=8192):
     md5 = hashlib.md5()
