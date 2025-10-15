@@ -2,7 +2,7 @@
 
 Infrastructure as Code for Digital Records Repository's (DR2) AWS environments, see [nationalarchives/dr2-ingest](https://github.com/nationalarchives/dr2-ingest) for more information and documentation.
 
-![Diagram of DR2 components in AWS](https://github.com/nationalarchives/dr2-ingest/blob/main/docs/images/dr2-diagram.png)
+![Diagram of DR2 components in AWS](https://github.com/nationalarchives/dr2-ingest/blob/main/docs/images/dr2-end-to-end.svg)
 
 ## Terraform Structure
 
