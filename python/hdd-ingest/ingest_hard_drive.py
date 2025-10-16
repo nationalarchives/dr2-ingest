@@ -98,12 +98,22 @@ def upload_files(metadata, file_path, args):
     file_id = metadata["fileId"]
     print(f"Asset ID: {asset_id} and File ID: {file_id}")
     s3_client = boto3.client("s3")
-    s3_client.upload_file(file_path, bucket, f'{asset_id}/{file_id}')
+    s3_client.upload_file(get_absolute_file_path(args, file_path), bucket, f'{asset_id}/{file_id}')
     json_bytes = io.BytesIO(json.dumps([metadata]).encode("utf-8"))
     s3_client.upload_fileobj(json_bytes, bucket, f"{asset_id}.metadata")
 
     sqs_client = boto3.client("sqs", config=config)
     sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps({'assetId': asset_id, 'bucket': bucket}))
+
+# the path in the input file may be relative to the input csv
+def get_absolute_file_path(args, relative_or_absolute_file_path):
+    input_args = Path(args.input)
+    input_file_path = input_args.resolve()
+
+    if Path(relative_or_absolute_file_path).is_absolute():
+        return str(relative_or_absolute_file_path)
+    else:
+        return str((input_file_path.parent / relative_or_absolute_file_path).resolve())
 
 def run_ingest(data_set, args, is_upstream_valid):
     data_set: pandas.DataFrame

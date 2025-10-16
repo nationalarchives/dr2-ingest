@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 from io import StringIO
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
@@ -115,8 +116,24 @@ class Test(TestCase):
             f.write("temporary file one")
 
         metadata = {"UUID": "someRecordId", "fileId": "someFileId"}
-        args = SimpleNamespace(environment="test")
+        args = SimpleNamespace(environment="test", input="/home/users/input-file.csv")
         ingest_hard_drive.upload_files(metadata, tmp1, args)
+
+        mock_client.upload_file.assert_called_once_with(tmp1, "test-dr2-ingest-raw-cache", "someRecordId/someFileId")
+        mock_client.send_message.assert_called_once_with(QueueUrl="https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer", MessageBody="""{"assetId": "someRecordId", "bucket": "test-dr2-ingest-raw-cache"}""")
+
+    @patch.dict(os.environ, {"ACCOUNT_NUMBER": "123456789"})
+    @patch("boto3.client")
+    def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_to_the_csv_file_and_send_a_message_to_the_queue(self, mock_boto):
+        mock_client = MagicMock()
+        mock_boto.return_value = mock_client
+        tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
+        with open(tmp1, "w") as f:
+            f.write("temporary file one")
+
+        metadata = {"UUID": "someRecordId", "fileId": "someFileId"}
+        args = SimpleNamespace(environment="test", input=f"{self.test_dir}/test-input.csv")
+        ingest_hard_drive.upload_files(metadata, Path(tmp1).name, args)
 
         mock_client.upload_file.assert_called_once_with(tmp1, "test-dr2-ingest-raw-cache", "someRecordId/someFileId")
         mock_client.send_message.assert_called_once_with(QueueUrl="https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer", MessageBody="""{"assetId": "someRecordId", "bucket": "test-dr2-ingest-raw-cache"}""")
