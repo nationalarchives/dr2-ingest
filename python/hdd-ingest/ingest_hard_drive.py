@@ -98,7 +98,7 @@ def upload_files(metadata, file_path, args):
     file_id = metadata["fileId"]
     print(f"Asset ID: {asset_id} and File ID: {file_id}")
     s3_client = boto3.client("s3")
-    s3_client.upload_file(get_absolute_file_path(args, file_path), bucket, f'{asset_id}/{file_id}')
+    s3_client.upload_file(get_absolute_file_path(args.input, file_path), bucket, f'{asset_id}/{file_id}')
     json_bytes = io.BytesIO(json.dumps([metadata]).encode("utf-8"))
     s3_client.upload_fileobj(json_bytes, bucket, f"{asset_id}.metadata")
 
@@ -106,9 +106,8 @@ def upload_files(metadata, file_path, args):
     sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps({'assetId': asset_id, 'bucket': bucket}))
 
 # the path in the input file may be relative to the input csv
-def get_absolute_file_path(args, relative_or_absolute_file_path):
-    input_args = Path(args.input)
-    input_file_path = input_args.resolve()
+def get_absolute_file_path(input_path, relative_or_absolute_file_path):
+    input_file_path = Path(input_path).resolve()
 
     if Path(relative_or_absolute_file_path).is_absolute():
         return str(relative_or_absolute_file_path)
@@ -163,7 +162,7 @@ def main():
     is_valid = True
     is_dry_run = False if args.dry_run == "False" else True
     try:
-        is_valid = dataset_validator.validate_dataset(Js8Validator(), data_set, is_dry_run)
+        is_valid = dataset_validator.validate_dataset(Js8Validator(), data_set, str(input_file_path), is_dry_run)
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 

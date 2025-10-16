@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pandas
 
@@ -16,7 +17,7 @@ class Js8Validator:
     UNIQUE_COLUMNS = ["catRef", "fileName", "checksum"] #what if there is same file for 2 different records?
     NON_EMPTY_COLUMNS = ["catRef", "fileName"]
 
-    def validate(self, data_set, is_dry_run):
+    def validate(self, data_set, input_file_path, is_dry_run):
         validation_fail = False
         data_set: pandas.DataFrame
         columns = data_set.columns
@@ -48,7 +49,7 @@ class Js8Validator:
         all_files_exist = True
         missing_files = []
         for index, row in data_set.iterrows():
-            file_path = row["fileName"].strip()
+            file_path =  get_absolute_file_path(input_file_path, row["fileName"].strip())
             if not os.path.exists(file_path):
                 missing_files.append(file_path)
                 all_files_exist = False
@@ -59,13 +60,15 @@ class Js8Validator:
 
         return not validation_fail
 
+
+
 ####
 # This method validates a data in the CSV file, this simply offloads the validation to a series specific validator
 # that is passed into the method as a parameter. Thus, we can continue to use the same method from ingest script
 # and implement different validators based on series to be ingested
 ####
-def validate_dataset(series_validator, data_set, is_dry_run=False):
-    return series_validator.validate(data_set, is_dry_run)
+def validate_dataset(series_validator, data_set, input_file_path, is_dry_run=False):
+    return series_validator.validate(data_set, input_file_path, is_dry_run)
 
 
 def throw_or_report(param, is_dry_run):
@@ -74,3 +77,10 @@ def throw_or_report(param, is_dry_run):
     else:
         raise Exception(param)
 
+def get_absolute_file_path(input_path, relative_or_absolute_file_path):
+    input_file_path = Path(input_path).resolve()
+
+    if Path(relative_or_absolute_file_path).is_absolute():
+        return str(relative_or_absolute_file_path)
+    else:
+        return str((input_file_path.parent / relative_or_absolute_file_path).resolve())
