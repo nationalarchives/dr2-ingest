@@ -1,0 +1,15 @@
+name: 'Terraform check'
+on:
+  push:
+permissions:
+  id-token: write
+  contents: write
+jobs:
+  check:
+    uses: nationalarchives/dr2-github-actions/.github/workflows/terraform_check.yml@917201e254f112ff041b952dae76ef767cae7378
+    secrets:
+      WORKFLOW_TOKEN: ${{ secrets.DR2_WORKFLOW_PAT }}
+      STATE_BUCKET: ${{ secrets.DR2_INTG_STATE_BUCKET }}
+      DYNAMO_TABLE: ${{ secrets.DR2_INTG_DYNAMO_TABLE }}
+      TERRAFORM_ROLE: ${{ secrets.DR2_INTG_TERRAFORM_ROLE }}
+
