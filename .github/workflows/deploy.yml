@@ -21,6 +21,8 @@ permissions:
 jobs:
   terraform_plan:
     runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.detect_changes.outputs.changes }}
     environment: ${{ github.event.inputs.environment }}
     steps:
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
@@ -44,7 +46,8 @@ jobs:
           terraform init
           terraform workspace select ${{ github.event.inputs.environment }}
           terraform plan -detailed-exitcode || echo $? > exit-code
-      - run: |
+      - id: detect_changes
+        run: |
           cat exit-code
           EXITCODE=$(cat exit-code || echo 0)
           if [ "$EXITCODE" = "2" ]; then
@@ -57,7 +60,7 @@ jobs:
         env:
           MESSAGE: |
             :book: Terraform plan ready for environment ${{ github.event.inputs.environment }}
-            :white_check_mark: https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|Approve the workflow>
+            :white_check_mark: <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|Approve the workflow>
   terraform_apply:
     needs: terraform_plan
     runs-on: ubuntu-latest
