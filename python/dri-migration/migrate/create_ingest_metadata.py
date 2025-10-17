@@ -105,6 +105,8 @@ def migrate():
             type_ref = row[column_indexes["TYPEREF"]]
             description_one = row[column_indexes["DESC1"]]
             description_two = row[column_indexes["DESC2"]]
+            sort_order = row[column_indexes["SORTORDER"]]
+            security_tag = row[column_indexes["SECURITYTAG"]]
             description = description_one if description_one else description_two
             metadata = {
                 "Series": row[column_indexes["SERIES"]],
@@ -115,7 +117,9 @@ def migrate():
                 "Filename": row[column_indexes["FILENAME"]],
                 "FileReference": row[column_indexes["FILEREFERENCE"]],
                 "metadata": str(row[column_indexes["METADATA"]]),
-                "ClientSideOriginalFilepath": file_path
+                "ClientSideOriginalFilepath": file_path,
+                "sourceSystem": security_tag,
+                "sortOrder": sort_order,
             }
             if consignment_reference:
                 metadata["ConsignmentReference"] = consignment_reference
