@@ -1,0 +1,6 @@
+[submodule "da-terraform-configurations"]
+	path = da-terraform-configurations
+	url = https://github.com/nationalarchives/da-terraform-configurations.git
+[submodule "terraform/da-terraform-configurations"]
+	path = terraform/da-terraform-configurations
+	url = https://github.com/nationalarchives/da-terraform-configurations.git

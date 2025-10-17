@@ -1,3 +1,0 @@
-[submodule "da-terraform-configurations"]
-	path = da-terraform-configurations
-	url = https://github.com/nationalarchives/da-terraform-configurations.git
