@@ -125,7 +125,7 @@ object ExternalUtils {
               ("transferringBody", transferringBody.map(Json.fromString).getOrElse(Null)),
               ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
               ("upstreamSystem", Json.fromString(upstreamSystem.toString)),
-              ("digitalAssetSource", Json.fromString(digitalAssetSource)),
+              ("digitalAssetSource", Json.fromString(digitalAssetSource.toString)),
               ("digitalAssetSubtype", digitalAssetSubtype.map(Json.fromString).getOrElse(Null)),
               ("correlationId", correlationId.map(Json.fromString).getOrElse(Null)),
               ("filePath", Json.fromString(filePath))
@@ -315,7 +315,7 @@ object ExternalUtils {
 
   enum SourceSystem:
     case TDR, DRI, `TRE: FCL Parser workflow`
-
+    
   enum MessageType:
     override def toString: String = this match
       case IngestUpdate   => "preserve.digital.asset.ingest.update"
