@@ -24,6 +24,9 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     steps:
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
+        with:
+          submodules: recursive
+          token: ${{ secrets.WORKFLOW_TOKEN }}
       - uses: hashicorp/setup-terraform@c529327889820530c60b4ce5bbc8d6099e166666
       - id: role-name
         run: echo role-name="$(echo ${{ github.event.inputs.environment }} | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
@@ -57,6 +60,9 @@ jobs:
     if: needs.terraform_plan.outputs.changes == 'true'
     steps:
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
+        with:
+          submodules: recursive
+          token: ${{ secrets.WORKFLOW_TOKEN }}
       - uses: hashicorp/setup-terraform@c529327889820530c60b4ce5bbc8d6099e166666
       - id: role-name
         run: echo role-name="$(echo ${{ github.event.inputs.environment }} | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
