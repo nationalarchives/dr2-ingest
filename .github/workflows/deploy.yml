@@ -42,8 +42,7 @@ jobs:
           terraform init
           terraform workspace select ${{ github.event.inputs.environment }}
           terraform plan -detailed-exitcode
-          echo $? >> exit-code
-          ls -la
+          echo $? > exit-code
       - run: |
           EXITCODE=$(cat exit-code || echo 0)
           if [ "$EXITCODE" = "2" ]; then
@@ -52,6 +51,7 @@ jobs:
           else
             echo "changes=false" >> $GITHUB_OUTPUT
           fi
+        working-directory: terraform
         env:
           MESSAGE: |
             :book: Terraform plan ready for environment ${{ github.event.inputs.environment }}
