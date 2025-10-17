@@ -34,6 +34,7 @@ jobs:
           role-session-name: TerraformDeploy
       - run: pip install boto3
       - name: run_plan
+        working-directory: terraform
         run: |
           terraform init
           terraform plan -detailed-exitcode || echo $? >> exit-code
@@ -68,6 +69,7 @@ jobs:
           terraform init
           terraform workspace select ${{ github.event.inputs.environment }}
           terraform apply --auto-approve
+        working-directory: terraform
       - run: |
           git branch -f release-${{ github.event.inputs.environment }} HEAD
           git push -f origin release-${{ github.event.inputs.environment }}
