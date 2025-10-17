@@ -44,13 +44,12 @@ jobs:
           terraform init
           terraform workspace select ${{ github.event.inputs.environment }}
           terraform plan -detailed-exitcode || echo $? > exit-code
-
       - run: |
           cat exit-code
           EXITCODE=$(cat exit-code || echo 0)
           if [ "$EXITCODE" = "2" ]; then
             echo "changes=true" >> $GITHUB_OUTPUT
-            python .github/scripts/send_message.py
+            python ../.github/scripts/send_message.py
           else
             echo "changes=false" >> $GITHUB_OUTPUT
           fi
@@ -77,11 +76,15 @@ jobs:
           role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
           aws-region: eu-west-2
           role-session-name: TerraformDeploy
+      - run: pip install boto3
       - run: |
           terraform init
           terraform workspace select ${{ github.event.inputs.environment }}
           terraform apply --auto-approve
+          python ../.github/scripts/send_message.py
         working-directory: terraform
+        env:
+          MESSAGE: ":white_check_mark: terraform deploy successful for ${{ github.event.inputs.environment }}"
       - run: |
           git branch -f release-${{ github.event.inputs.environment }} HEAD
           git push -f origin release-${{ github.event.inputs.environment }}
