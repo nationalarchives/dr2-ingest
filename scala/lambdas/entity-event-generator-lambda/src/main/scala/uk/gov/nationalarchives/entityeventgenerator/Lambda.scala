@@ -91,7 +91,9 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
       count <-
         if entityLastEventActionDate.exists(_.isBefore(eventTriggeredDatetime)) then
           val updateDateAttributeValue = AttributeValue.builder().s(entityLastEventActionDate.get.toString).build()
-          val nextStart = if entitiesUpdated.hasNext then currentStart + 1000 else 0
+          val nextStart =
+            if recentlyUpdatedEntities.nonEmpty then currentStart + recentlyUpdatedEntities.length
+            else 0
           val startAttributeValue = AttributeValue.builder.n(nextStart.toString).build()
           val updateDateRequest = DADynamoDbRequest(
             config.lastEventActionTableName,
