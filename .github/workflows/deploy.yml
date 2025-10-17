@@ -41,11 +41,11 @@ jobs:
         run: |
           terraform init
           terraform workspace select ${{ github.event.inputs.environment }}
-          terraform plan -detailed-exitcode
-          echo $? > exit-code
+          terraform plan -detailed-exitcode || echo $? > exit-code
+
       - run: |
           cat exit-code
-          EXITCODE=$(cat exit-code)
+          EXITCODE=$(cat exit-code || echo 0)
           if [ "$EXITCODE" = "2" ]; then
             echo "changes=true" >> $GITHUB_OUTPUT
             python .github/scripts/send_message.py
