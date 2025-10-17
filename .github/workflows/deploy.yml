@@ -40,6 +40,7 @@ jobs:
         working-directory: terraform
         run: |
           terraform init
+          terraform workspace select ${{ github.event.inputs.environment }}
           terraform plan -detailed-exitcode || echo $? >> exit-code
       - run: |
           EXITCODE=$(cat plan_exit_code.txt || echo 0)
