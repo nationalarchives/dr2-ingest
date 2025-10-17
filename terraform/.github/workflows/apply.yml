@@ -1,0 +1,31 @@
+name: 'Terraform apply'
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        required: true
+        description: The environment to deploy against.
+        type: string
+        default: intg
+permissions:
+  id-token: write
+  contents: write
+jobs:
+  setup:
+    uses: nationalarchives/dr2-github-actions/.github/workflows/set_terraform_var_names.yml@917201e254f112ff041b952dae76ef767cae7378
+    with:
+      project: dr2
+      environment: ${{ github.event.inputs.environment }}
+  apply:
+    uses: nationalarchives/dr2-github-actions/.github/workflows/terraform_apply.yml@917201e254f112ff041b952dae76ef767cae7378
+    needs: setup
+    with:
+      repo-name: dr2-terraform-environments
+      environment: ${{ github.event.inputs.environment }}
+      project: dr2
+    secrets:
+      WORKFLOW_TOKEN: ${{ secrets[needs.setup.outputs.workflow-token] }}
+      ACCOUNT_NUMBER: ${{ secrets[needs.setup.outputs.account-number] }}
+      SLACK_WEBHOOK: ${{ secrets[needs.setup.outputs.slack-webhook] }}
+      TERRAFORM_ROLE: ${{ secrets[needs.setup.outputs.terraform-role] }}
+
