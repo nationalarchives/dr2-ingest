@@ -48,7 +48,6 @@ jobs:
           terraform plan -detailed-exitcode || echo $? > exit-code
       - id: detect_changes
         run: |
-          cat exit-code
           EXITCODE=$(cat exit-code || echo 0)
           if [ "$EXITCODE" = "2" ]; then
             echo "changes=true" >> $GITHUB_OUTPUT
