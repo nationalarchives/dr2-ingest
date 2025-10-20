@@ -64,7 +64,7 @@ jobs:
   terraform_apply:
     needs: terraform_plan
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}-apply
+    environment: ${{ github.event.inputs.environment }}
     if: needs.terraform_plan.outputs.changes == 'true'
     steps:
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
