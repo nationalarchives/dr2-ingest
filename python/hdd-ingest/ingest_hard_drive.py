@@ -92,8 +92,13 @@ def create_md5_hash(file_path, chunk_size=8192):
             md5.update(chunk)
     return md5.hexdigest()
 
+def get_account_number():
+    sts = boto3.client("sts")
+    return sts.get_caller_identity()["Account"]
+
+
 def upload_files(metadata, file_path, args):
-    account_number = os.environ["ACCOUNT_NUMBER"]
+    account_number = get_account_number()
     environment = args.environment
     bucket = f"{environment}-dr2-ingest-raw-cache"
     queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-hdd-importer"
