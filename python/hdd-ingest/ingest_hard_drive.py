@@ -11,6 +11,7 @@ import boto3
 import pandas
 import pandas as pd
 from botocore.config import Config
+from moto.utilities.utils import str2bool
 
 config = Config(region_name="eu-west-2")
 
@@ -36,6 +37,9 @@ def build_argument_parser():
     )
     parser.add_argument(
         "-d", "--dry_run",
+        nargs="?",
+        const=True,
+        type=str2bool,
         help="Value of 'True' indicates that the tool will only validate inputs, without actually running an ingest",
         default=False
     )
@@ -116,7 +120,7 @@ def get_absolute_file_path(input_path, relative_or_absolute_file_path):
 
 def run_ingest(data_set, args, is_upstream_valid):
     data_set: pandas.DataFrame
-    is_dry_run = False if args.dry_run == "False" else True
+    is_dry_run = False if args.dry_run == False else True
 
     is_discovery_available = discovery_client.is_discovery_api_reachable()
     if not is_discovery_available:

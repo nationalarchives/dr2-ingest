@@ -33,6 +33,13 @@ class Test(TestCase):
         self.assertEqual(False, args.dry_run)
         self.assertEqual("INTG", args.environment)
 
+    def test_should_treat_dry_run_param_as_true_when_no_option_is_provided(self):
+        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d"])
+        self.assertEqual(True, args.dry_run)
+
+        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "--dry_run"])
+        self.assertEqual(True, args.dry_run)
+
     def test_should_parse_arguments_and_set_correct_parameters_for_arguments_passed_on_command_line(self):
         args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "True"])
         self.assertEqual("some_file.csv", args.input)
