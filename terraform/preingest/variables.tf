@@ -21,3 +21,5 @@ variable "bucket_kms_arn" {
 }
 
 variable "copy_source_bucket_name" {}
+
+variable "deploy_version" {}

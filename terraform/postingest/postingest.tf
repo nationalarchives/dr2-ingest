@@ -14,6 +14,7 @@ locals {
   six_hours                  = 60 * 60 * 6
   seven_days                 = 60 * 60 * 24 * 7
   messages_visible_threshold = 1000000
+  code_deploy_bucket         = "mgmt-dp-code-deploy"
 }
 
 data "aws_caller_identity" "current" {}
@@ -97,6 +98,8 @@ module "dr2_state_change_lambda_dlq" {
 module "dr2_state_change_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name   = local.state_change_lambda_name
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = replace("${var.deploy_version}/${local.state_change_lambda_name}", "${var.environment}-dr2-", "")
   handler         = "uk.gov.nationalarchives.postingeststatechangehandler.Lambda::handleRequest"
   timeout_seconds = 900
 
@@ -131,6 +134,8 @@ module "dr2_state_change_lambda" {
 module "dr2_message_resender_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name   = local.resender_lambda_name
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = replace("${var.deploy_version}/${local.resender_lambda_name}", "${var.environment}-dr2-", "")
   handler         = "uk.gov.nationalarchives.postingestresender.Lambda::handleRequest"
   timeout_seconds = 900
 

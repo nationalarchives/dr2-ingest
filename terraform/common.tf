@@ -50,7 +50,10 @@ locals {
   # The list comes from https://www.cloudflare.com/en-gb/ips
   cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
   outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
+  code_deploy_bucket          = "mgmt-dp-code-deploy"
 }
+
+variable "deploy_version" {}
 
 data "aws_iam_role" "org_wiz_access_role" {
   name = "org-wiz-access-role"
@@ -236,6 +239,7 @@ module "ingest" {
   private_subnets                                   = module.vpc.private_subnets
   external_notification_log_group_arn               = aws_cloudwatch_log_group.external_notification_log_group.arn
   failed_ingest_step_function_event_bridge_rule_arn = module.failed_ingest_step_function_event_bridge_rule.rule_arn
+  deploy_version                                    = var.deploy_version
 }
 
 module "dr2_developer_key" {

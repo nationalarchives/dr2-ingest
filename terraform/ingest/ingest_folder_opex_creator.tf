@@ -5,6 +5,8 @@ locals {
 module "dr2_ingest_folder_opex_creator_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name   = local.ingest_folder_opex_creator_lambda_name
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = replace("${var.deploy_version}/${local.ingest_folder_opex_creator_lambda_name}", "${local.environment}-dr2-", "")
   handler         = "uk.gov.nationalarchives.ingestfolderopexcreator.Lambda::handleRequest"
   timeout_seconds = local.java_timeout_seconds
   policies = {

@@ -5,6 +5,8 @@ locals {
 module "dr2_ingest_failure_notifications_lambda" {
   source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name = local.ingest_failure_notifications_lambda_name
+  s3_bucket     = local.code_deploy_bucket
+  s3_key        = replace("${var.deploy_version}/${local.ingest_failure_notifications_lambda_name}", "${local.environment}-dr2-", "")
   handler       = "uk.gov.nationalarchives.ingestfailurenotifications.Lambda::handleRequest"
   policies = {
     "${local.ingest_failure_notifications_lambda_name}-policy" = templatefile("${path.root}/templates/iam_policy/failure_notifications_policy.json.tpl", {

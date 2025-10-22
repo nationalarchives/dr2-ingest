@@ -31,3 +31,5 @@ variable "discovery_security_group_id" {}
 variable "external_notification_log_group_arn" {}
 
 variable "failed_ingest_step_function_event_bridge_rule_arn" {}
+
+variable "deploy_version" {}

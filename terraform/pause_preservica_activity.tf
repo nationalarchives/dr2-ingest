@@ -4,6 +4,8 @@ locals {
 module "pause_preservica_activity_lambda" {
   source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name = local.pause_preservica_activity
+  s3_bucket     = local.code_deploy_bucket
+  s3_key        = replace("${var.deploy_version}/${local.pause_preservica_activity}", "${local.environment}-dr2-", "")
   handler       = "pause_preservica_activity.lambda_handler"
   policies = {
     "${local.pause_preservica_activity}-policy" : templatefile("${path.module}/templates/iam_policy/pause_preservica_activity_lambda_policy.json.tpl", {

@@ -18,6 +18,7 @@ locals {
   aggregator_group_size                        = 10000                                                                                      # Max size of an aggregation group.
   aggregator_queue_visibility_timeout          = local.aggregator_primary_grouping_window_seconds + local.aggregator_lambda_timeout_seconds # <=43200 for SQS.
   messages_visible_threshold                   = 1000000
+  code_deploy_bucket                           = "mgmt-dp-code-deploy"
 }
 
 module "dr2_preingest_aggregator_queue" {
@@ -39,6 +40,8 @@ module "dr2_preingest_aggregator_queue" {
 module "dr2_preingest_aggregator_lambda" {
   source                         = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name                  = local.aggregator_name
+  s3_bucket                      = local.code_deploy_bucket
+  s3_key                         = replace("${var.deploy_version}/${local.aggregator_name}", "${local.environment}-dr2-", "")
   handler                        = "uk.gov.nationalarchives.preingesttdraggregator.Lambda::handleRequest"
   sqs_queue_batching_window      = local.aggregator_primary_grouping_window_seconds
   sqs_queue_mapping_batch_size   = local.aggregator_invocation_batch_size
@@ -99,6 +102,8 @@ module "dr2_preingest_step_function_policy" {
 module "dr2_preingest_package_builder_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name   = local.package_builder_lambda_name
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = replace("${var.deploy_version}/${local.package_builder_lambda_name}", "${local.environment}-dr2-", "")
   handler         = "uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda::handleRequest"
   timeout_seconds = local.java_timeout_seconds
   policies = {

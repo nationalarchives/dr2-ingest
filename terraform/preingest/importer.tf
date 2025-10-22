@@ -12,6 +12,8 @@ module "dr2_importer_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   description     = "A lambda to validate incoming metadata and copy the files to the DR2 S3 bucket for ${upper(var.source_name)}"
   function_name   = local.importer_name
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = replace("${var.deploy_version}/${local.importer_name}", "${local.environment}-dr2-", "")
   handler         = "lambda_function.lambda_handler"
   timeout_seconds = local.python_timeout_seconds
   lambda_sqs_queue_mappings = [

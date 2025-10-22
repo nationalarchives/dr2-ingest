@@ -18,6 +18,8 @@ module "dr2_custodial_copy_queue_creator_queue" {
 module "dr2_custodial_copy_queue_creator_lambda" {
   source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name = local.ingest_queue_creator_name
+  s3_bucket     = local.code_deploy_bucket
+  s3_key        = replace("${var.deploy_version}/${local.ingest_queue_creator_name}", "${local.environment}-dr2-", "")
   handler       = "uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda::handleRequest"
   policies = {
     "${local.ingest_queue_creator_name}-policy" = templatefile("${path.module}/templates/iam_policy/custodial_copy_queue_creator_policy.json.tpl", {

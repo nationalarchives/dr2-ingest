@@ -5,6 +5,8 @@ locals {
 module "dr2_rotate_preservation_system_password_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name   = local.rotate_preservation_system_password_name
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = replace("${var.deploy_version}/${local.rotate_preservation_system_password_name}", "${local.environment}-dr2-", "")
   handler         = "uk.gov.nationalarchives.rotatepreservationsystempassword.Lambda::handleRequest"
   timeout_seconds = local.java_timeout_seconds
   policies = {

@@ -8,6 +8,8 @@ module "dr2_ingest_metric_collector_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   description     = "A lambda function to collect ingest metrics"
   function_name   = local.ingest_metric_collector_lambda_name
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = replace("${var.deploy_version}/${local.ingest_metric_collector_lambda_name}", "${local.environment}-dr2-", "")
   handler         = "ingest_metric_collector.lambda_handler"
   timeout_seconds = local.python_timeout_seconds
   runtime         = local.python_runtime

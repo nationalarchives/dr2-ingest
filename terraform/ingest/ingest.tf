@@ -42,7 +42,8 @@ locals {
     module.dr2_ingest_failure_notifications_lambda.lambda_function,
     module.dr2_ingest_workflow_monitor_lambda.lambda_function
   ]
-  lambdas_by_name = { for lambda in local.lambdas : (lambda.function_name) => lambda }
+  lambdas_by_name    = { for lambda in local.lambdas : (lambda.function_name) => lambda }
+  code_deploy_bucket = "mgmt-dp-code-deploy"
 }
 
 data "aws_caller_identity" "current" {}

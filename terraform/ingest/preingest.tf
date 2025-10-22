@@ -15,6 +15,7 @@ module "tdr_preingest" {
   source_name                         = "tdr"
   bucket_kms_arn                      = module.tdr_config.terraform_config["${local.environment}_s3_export_bucket_kms_key_arn"]
   copy_source_bucket_name             = "tdr-export-${local.environment}"
+  deploy_version                      = var.deploy_version
 }
 
 module "dri_preingest" {
@@ -27,5 +28,6 @@ module "dri_preingest" {
   ingest_step_function_name           = local.ingest_step_function_name
   source_name                         = "dri"
   copy_source_bucket_name             = var.ingest_raw_cache_bucket_name
+  deploy_version                      = var.deploy_version
 }
 

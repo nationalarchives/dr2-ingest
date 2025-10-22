@@ -17,7 +17,8 @@ module "dr2_get_latest_preservica_version_cloudwatch_event" {
 module "dr2_get_latest_preservica_version_lambda" {
   source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name = local.get_latest_preservica_version
-  filename      = "../target/outputs/${local.get_latest_preservica_version_jar_name}"
+  s3_bucket     = local.code_deploy_bucket
+  s3_key        = replace("${var.deploy_version}/${local.get_latest_preservica_version}", "${local.environment}-dr2-", "")
   handler       = "uk.gov.nationalarchives.getlatestpreservicaversion.Lambda::handleRequest"
   policies = {
     "${local.get_latest_preservica_version}-policy" = templatefile("${path.module}/templates/iam_policy/get_latest_preservica_version_lambda_policy.json.tpl", {
