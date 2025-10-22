@@ -2,7 +2,7 @@ locals {
   pause_ingest = "${local.environment}-dr2-pause-ingest"
 }
 module "pause_ingest_lambda" {
-  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name = local.pause_ingest
   handler       = "pause_ingest.lambda_handler"
   policies = {
@@ -21,9 +21,9 @@ module "pause_ingest_lambda" {
   }
   plaintext_env_vars = {
     TRIGGER_ARNS = jsonencode([
-      module.tdr_preingest.aggregator_sqs.sqs_arn,
-      module.dri_preingest.aggregator_sqs.sqs_arn,
-      module.dr2_ingest_parsed_court_document_event_handler_sqs.sqs_arn
+      module.ingest.tdr_preingest.aggregator_sqs.sqs_arn,
+      module.ingest.dri_preingest.aggregator_sqs.sqs_arn,
+      module.ingest.court_document_event_handler_sqs.sqs_arn
     ])
     ENVIRONMENT = local.environment
   }

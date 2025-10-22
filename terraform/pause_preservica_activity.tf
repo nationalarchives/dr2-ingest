@@ -2,7 +2,7 @@ locals {
   pause_preservica_activity = "${local.environment}-dr2-pause-preservica-activity"
 }
 module "pause_preservica_activity_lambda" {
-  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name = local.pause_preservica_activity
   handler       = "pause_preservica_activity.lambda_handler"
   policies = {

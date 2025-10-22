@@ -10,7 +10,7 @@ module "dr2_ip_lock_checker_cloudwatch_event" {
 }
 
 module "dr2_ip_lock_checker_lambda" {
-  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name = local.ip_lock_checker_lambda_name
 
   handler         = "lambda_function.lambda_handler"

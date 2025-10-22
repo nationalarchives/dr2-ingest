@@ -3,7 +3,7 @@ locals {
 }
 
 module "dr2_rotate_preservation_system_password_lambda" {
-  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name   = local.rotate_preservation_system_password_name
   handler         = "uk.gov.nationalarchives.rotatepreservationsystempassword.Lambda::handleRequest"
   timeout_seconds = local.java_timeout_seconds

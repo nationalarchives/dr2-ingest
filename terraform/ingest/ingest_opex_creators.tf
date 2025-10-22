@@ -22,7 +22,7 @@ module "copy_tna_to_preservica_policy" {
   policy_string = templatefile("./templates/iam_policy/tna_to_preservica_copy.json.tpl", {
     account_id            = data.aws_caller_identity.current.account_id
     preservica_tenant     = local.preservica_tenant
-    raw_cache_bucket_name = local.ingest_raw_cache_bucket_name
+    raw_cache_bucket_name = var.ingest_raw_cache_bucket_name
   })
 }
 

@@ -37,7 +37,7 @@ module "dr2_preingest_aggregator_queue" {
 }
 
 module "dr2_preingest_aggregator_lambda" {
-  source                         = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source                         = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name                  = local.aggregator_name
   handler                        = "uk.gov.nationalarchives.preingesttdraggregator.Lambda::handleRequest"
   sqs_queue_batching_window      = local.aggregator_primary_grouping_window_seconds
@@ -97,7 +97,7 @@ module "dr2_preingest_step_function_policy" {
 }
 
 module "dr2_preingest_package_builder_lambda" {
-  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name   = local.package_builder_lambda_name
   handler         = "uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda::handleRequest"
   timeout_seconds = local.java_timeout_seconds

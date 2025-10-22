@@ -3,7 +3,7 @@ locals {
 }
 
 module "dr2_notifications_sns" {
-  source = "git::https://github.com/nationalarchives/da-terraform-modules//sns"
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//sns?ref=DR2-2511-do-not-ignore-filename-if-set"
   sns_policy = templatefile("${path.module}/templates/sns/external_notifications_policy.json.tpl", {
     topic_name         = local.notifications_topic_name
     account_id         = data.aws_caller_identity.current.account_id

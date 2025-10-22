@@ -13,7 +13,7 @@ module "dr2_entity_event_cloudwatch_event" {
 }
 
 module "dr2_entity_event_generator_lambda" {
-  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name = local.entity_event_lambda_name
   handler       = "uk.gov.nationalarchives.entityeventgenerator.Lambda::handleRequest"
   policies = {

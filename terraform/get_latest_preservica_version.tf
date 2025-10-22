@@ -1,5 +1,6 @@
 locals {
-  get_latest_preservica_version              = "${local.environment}-dr2-get-latest-preservica-version-lambda"
+  get_latest_preservica_version_jar_name     = "get-latest-preservica-version-lambda"
+  get_latest_preservica_version              = "${local.environment}-dr2-${local.get_latest_preservica_version_jar_name}"
   latest_preservica_version_event_topic_name = "${local.environment}-dr2-latest-preservica-version-topic"
   dr2_preservica_version_table_name          = "${local.environment}-dr2-preservica-version"
   latest_preservica_version_event_topic_arn  = "arn:aws:sns:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.latest_preservica_version_event_topic_name}"
@@ -14,8 +15,9 @@ module "dr2_get_latest_preservica_version_cloudwatch_event" {
 }
 
 module "dr2_get_latest_preservica_version_lambda" {
-  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name = local.get_latest_preservica_version
+  filename      = "../target/outputs/${local.get_latest_preservica_version_jar_name}"
   handler       = "uk.gov.nationalarchives.getlatestpreservicaversion.Lambda::handleRequest"
   policies = {
     "${local.get_latest_preservica_version}-policy" = templatefile("${path.module}/templates/iam_policy/get_latest_preservica_version_lambda_policy.json.tpl", {

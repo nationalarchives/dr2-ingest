@@ -5,7 +5,7 @@ locals {
 }
 
 module "dr2_ingest_metric_collector_lambda" {
-  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   description     = "A lambda function to collect ingest metrics"
   function_name   = local.ingest_metric_collector_lambda_name
   handler         = "ingest_metric_collector.lambda_handler"
@@ -15,7 +15,7 @@ module "dr2_ingest_metric_collector_lambda" {
     "${local.ingest_metric_collector_lambda_name}-policy" = templatefile("./templates/iam_policy/ingest_metric_collection_lambda_policy.json.tpl", {
       account_id                 = data.aws_caller_identity.current.account_id
       lambda_name                = local.ingest_metric_collector_lambda_name
-      workflow_step_function_arn = module.dr2_ingest_run_workflow_step_function.step_function_arn
+      workflow_step_function_arn = module.ingest.run_workflow_step_function_arn
       ingest_queue_table_arn     = module.ingest_queue_table.table_arn
     })
   }

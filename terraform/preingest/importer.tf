@@ -9,7 +9,7 @@ locals {
   redrive_maximum_receives  = 5
 }
 module "dr2_importer_lambda" {
-  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   description     = "A lambda to validate incoming metadata and copy the files to the DR2 S3 bucket for ${upper(var.source_name)}"
   function_name   = local.importer_name
   handler         = "lambda_function.lambda_handler"

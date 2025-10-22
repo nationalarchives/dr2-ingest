@@ -3,17 +3,17 @@ locals {
 }
 
 module "ingest_find_existing_asset" {
-  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name   = local.ingest_find_existing_asset_name
   handler         = "uk.gov.nationalarchives.ingestfindexistingasset.Lambda::handleRequest"
   timeout_seconds = 60
   policies = {
     "${local.ingest_find_existing_asset_name}-policy" = templatefile(
-      "${path.module}/templates/iam_policy/ingest_find_existing_asset_policy.json.tpl", {
+      "${path.root}/templates/iam_policy/ingest_find_existing_asset_policy.json.tpl", {
         account_id                 = data.aws_caller_identity.current.account_id
         lambda_name                = local.ingest_find_existing_asset_name
-        dynamo_db_file_table_arn   = module.files_table.table_arn
-        secrets_manager_secret_arn = aws_secretsmanager_secret.preservica_read_metadata.arn
+        dynamo_db_file_table_arn   = var.files_table_arn
+        secrets_manager_secret_arn = var.preservica_read_metadata_secret.arn
       }
     )
   }
@@ -21,10 +21,10 @@ module "ingest_find_existing_asset" {
   runtime     = local.java_runtime
   plaintext_env_vars = {
     FILES_DDB_TABLE        = local.files_dynamo_table_name
-    PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_metadata.name
+    PRESERVICA_SECRET_NAME = var.preservica_read_metadata_secret.name
   }
   vpc_config = {
-    subnet_ids         = module.vpc.private_subnets
+    subnet_ids         = var.private_subnets
     security_group_ids = local.outbound_security_group_ids
   }
   tags = {

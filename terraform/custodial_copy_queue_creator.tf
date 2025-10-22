@@ -16,7 +16,7 @@ module "dr2_custodial_copy_queue_creator_queue" {
 }
 
 module "dr2_custodial_copy_queue_creator_lambda" {
-  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
   function_name = local.ingest_queue_creator_name
   handler       = "uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda::handleRequest"
   policies = {
