@@ -1,4 +1,21 @@
+module "config" {
+  source  = "../da-terraform-configurations"
+  project = "dr2"
+}
+
+module "tre_config" {
+  source  = "../da-terraform-configurations"
+  project = "tre"
+}
+
+module "tdr_config" {
+  source  = "../da-terraform-configurations"
+  project = "tdr"
+}
+
 locals {
+  environment                                                 = var.environment
+  environment_title                                           = title(var.environment)
   az_count                                                    = local.environment == "prod" ? 2 : 1
   ingest_raw_cache_bucket_name                                = "${local.environment}-dr2-ingest-raw-cache"
   sample_files_bucket_name                                    = "${local.environment}-dr2-sample-files"
@@ -24,7 +41,7 @@ locals {
   general_notifications_channel_id                            = local.environment == "prod" ? "C06E20AR65V" : "C068RLCPZFE"
   tre_prod_judgment_role                                      = "arn:aws:iam::${module.tre_config.account_numbers["prod"]}:role/prod-tre-editorial-judgment-out-copier"
   step_function_failure_log_group                             = "step-function-failures"
-  terraform_role_arn                                          = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.environment_title}TerraformRole"
+  terraform_role_arn                                          = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${title(local.environment)}TerraformRole"
   preservica_tenant                                           = local.environment == "prod" ? "tna" : "tnatest"
   tna_to_preservica_role_arn                                  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.environment}-tna-to-preservica-ingest-s3-${local.preservica_tenant}"
   creator                                                     = "dr2-terraform-environments"
@@ -38,22 +55,22 @@ locals {
     local.ingest_queue_creator_name,
     local.ip_lock_checker_lambda_name,
     local.rotate_preservation_system_password_name
-  ], keys(module.ingest.lambdas))
+  ], keys(var.ingest.lambdas))
   queues = concat([
-    module.ingest.court_document_event_handler_sqs,
+    var.ingest.court_document_event_handler_sqs,
     module.dr2_custodial_copy_queue,
     module.dr2_custodial_copy_queue_creator_queue,
     module.dr2_custodial_copy_db_builder_queue,
     module.dr2_external_notifications_queue,
-  ], module.ingest.importer_sqs_queues)
+  ], var.ingest.importer_sqs_queues)
   messages_visible_threshold = 1000000
   # The list comes from https://www.cloudflare.com/en-gb/ips
-  cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
-  outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
-  code_deploy_bucket          = "mgmt-dp-code-deploy"
+  cloudflare_ip_ranges                   = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
+  outbound_security_group_ids            = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
+  code_deploy_bucket                     = "mgmt-dp-code-deploy"
+  step_function_failure_eventbridge_rule = "${local.environment}-dr2-eventbridge-ingest-step-function-failure"
 }
 
-variable "deploy_version" {}
 
 data "aws_iam_role" "org_wiz_access_role" {
   name = "org-wiz-access-role"
@@ -85,14 +102,32 @@ resource "aws_secretsmanager_secret" "preservica_read_update_metadata_insert_con
 }
 
 resource "aws_secretsmanager_secret_rotation" "secret_rotation" {
-  for_each = toset([
-    aws_secretsmanager_secret.preservica_secret.id,
-    aws_secretsmanager_secret.preservica_read_metadata_read_content.id,
-    aws_secretsmanager_secret.preservica_read_metadata.id,
-    aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.id
-  ])
   rotation_lambda_arn = module.dr2_rotate_preservation_system_password_lambda.lambda_arn
-  secret_id           = each.key
+  secret_id           = aws_secretsmanager_secret.preservica_secret.id
+  rotation_rules {
+    schedule_expression = "rate(4 hours)"
+  }
+}
+
+resource "aws_secretsmanager_secret_rotation" "secret_rotation_read_metadata_read_content" {
+  rotation_lambda_arn = module.dr2_rotate_preservation_system_password_lambda.lambda_arn
+  secret_id           = aws_secretsmanager_secret.preservica_read_metadata_read_content.id
+  rotation_rules {
+    schedule_expression = "rate(4 hours)"
+  }
+}
+
+resource "aws_secretsmanager_secret_rotation" "secret_rotation_read_metadata" {
+  rotation_lambda_arn = module.dr2_rotate_preservation_system_password_lambda.lambda_arn
+  secret_id           = aws_secretsmanager_secret.preservica_read_metadata.id
+  rotation_rules {
+    schedule_expression = "rate(4 hours)"
+  }
+}
+
+resource "aws_secretsmanager_secret_rotation" "secret_rotation_read_update_metadata_insert_content" {
+  rotation_lambda_arn = module.dr2_rotate_preservation_system_password_lambda.lambda_arn
+  secret_id           = aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.id
   rotation_rules {
     schedule_expression = "rate(4 hours)"
   }
@@ -100,10 +135,6 @@ resource "aws_secretsmanager_secret_rotation" "secret_rotation" {
 
 resource "aws_secretsmanager_secret" "demo_preservica_secret" {
   name = "${local.environment}-demo-preservica-api-login-details-${random_string.preservica_user.result}"
-}
-
-data "aws_ssm_parameter" "slack_webhook_url" {
-  name = "/${local.environment}/slack/cloudwatch-alarm-webhook"
 }
 
 module "vpc" {
@@ -191,26 +222,26 @@ module "dr2_kms_key" {
   default_policy_variables = {
     user_roles_decoupled = concat([
       data.aws_iam_role.org_wiz_access_role.arn,
-      replace(module.ingest.lambdas[module.ingest.lambda_names.ingest_asset_opex_creator].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.find_existing_asset].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.validate_ingest_inputs].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.ingest_reconciler].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.folder_opex_creator].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.parent_folder_opex_creator].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.tdr_aggregator].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.ingest_mapper].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.tdr_package_builder].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.court_document_handler].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.upsert_folders].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.dri_importer].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.tdr_importer].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.dri_package_builder].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.folder_opex_creator].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.dri_aggregator].role, "intg-", "*"),
-      replace(module.ingest.ingest_step_function.step_function_role_arn, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.ingest_asset_opex_creator].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.find_existing_asset].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.validate_ingest_inputs].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.ingest_reconciler].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.folder_opex_creator].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.parent_folder_opex_creator].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.tdr_aggregator].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.ingest_mapper].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.tdr_package_builder].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.court_document_handler].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.upsert_folders].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.dri_importer].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.tdr_importer].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.dri_package_builder].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.folder_opex_creator].role, "intg-", "*"),
+      replace(var.ingest.lambdas[var.ingest.lambda_names.dri_aggregator].role, "intg-", "*"),
+      replace(var.ingest.ingest_step_function.step_function_role_arn, "intg-", "*"),
       local.tna_to_preservica_role_arn,
       local.tre_prod_judgment_role,
-    ], local.additional_user_roles, local.anonymiser_roles, module.ingest.e2e_tests_role)
+    ], local.additional_user_roles, local.anonymiser_roles, var.ingest.e2e_tests_role)
     ci_roles = [local.terraform_role_arn]
     service_details = [
       { service_name = "cloudwatch" },
@@ -220,28 +251,6 @@ module "dr2_kms_key" {
   }
 }
 
-module "ingest" {
-  source                                            = "./ingest"
-  discovery_security_group_id                       = module.discovery_inbound_https.security_group_id
-  environment                                       = local.environment
-  files_table_arn                                   = module.files_table.table_arn
-  files_table_gsi_name                              = local.files_table_batch_parent_global_secondary_index_name
-  flow_control_config                               = aws_ssm_parameter.flow_control_config
-  ingest_lock_table_arn                             = module.ingest_lock_table.table_arn
-  ingest_queue_table_arn                            = module.ingest_queue_table.table_arn
-  ingest_raw_cache_bucket_name                      = local.ingest_raw_cache_bucket_name
-  notifications_topic                               = module.dr2_notifications_sns.sns
-  outbound_cloudflare_https_access_id               = module.outbound_cloudflare_https_access.security_group_id
-  outbound_https_access_only_id                     = module.outbound_https_access_only.security_group_id
-  preservica_read_metadata_secret                   = aws_secretsmanager_secret.preservica_read_metadata
-  preservica_read_update_metadata_insert_content    = aws_secretsmanager_secret.preservica_read_update_metadata_insert_content
-  preservica_secret                                 = aws_secretsmanager_secret.preservica_secret
-  private_subnets                                   = module.vpc.private_subnets
-  external_notification_log_group_arn               = aws_cloudwatch_log_group.external_notification_log_group.arn
-  failed_ingest_step_function_event_bridge_rule_arn = module.failed_ingest_step_function_event_bridge_rule.rule_arn
-  deploy_version                                    = var.deploy_version
-}
-
 module "dr2_developer_key" {
   source   = "git::https://github.com/nationalarchives/da-terraform-modules//kms"
   key_name = "${local.environment}-kms-dr2-dev"
@@ -249,8 +258,8 @@ module "dr2_developer_key" {
     user_roles = [
       data.aws_ssm_parameter.dev_admin_role.value,
       data.aws_iam_role.org_wiz_access_role.arn,
-      module.ingest.lambdas[module.ingest.lambda_names.ingest_mapper].role,
-      module.ingest.ingest_step_function.step_function_role_arn
+      var.ingest.lambdas[var.ingest.lambda_names.ingest_mapper].role,
+      var.ingest.ingest_step_function.step_function_role_arn
     ]
     ci_roles = [local.terraform_role_arn]
     service_details = [
@@ -270,7 +279,7 @@ module "ingest_raw_cache_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_raw_cache_bucket_name
   bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.ingest.lambdas[module.ingest.lambda_names.court_document_handler].role]),
+    lambda_role_arns = jsonencode([var.ingest.lambdas[var.ingest.lambda_names.court_document_handler].role]),
     bucket_name      = local.ingest_raw_cache_bucket_name
   })
   kms_key_arn = module.dr2_kms_key.kms_key_arn
@@ -288,7 +297,7 @@ module "ingest_state_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_state_bucket_name
   bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.ingest.lambdas[module.ingest.lambda_names.ingest_mapper].role]),
+    lambda_role_arns = jsonencode([var.ingest.lambdas[var.ingest.lambda_names.ingest_mapper].role]),
     bucket_name      = local.ingest_state_bucket_name
   })
   kms_key_arn = module.dr2_developer_key.kms_key_arn
@@ -338,16 +347,6 @@ module "ingest_lock_table" {
   point_in_time_recovery_enabled = local.enable_point_in_time_recovery
 }
 
-module "ingest_queue_table" {
-  source                         = "git::https://github.com/nationalarchives/da-terraform-modules//dynamo"
-  hash_key                       = { name = "sourceSystem", type = "S" }
-  range_key                      = { name = "queuedAt", type = "S" }
-  table_name                     = local.ingest_queue_dynamo_table_name
-  server_side_encryption_enabled = false
-  deletion_protection_enabled    = true
-  point_in_time_recovery_enabled = local.enable_point_in_time_recovery
-}
-
 data "aws_ssm_parameter" "slack_token" {
   name            = "/mgmt/slack/token"
   with_decryption = true
@@ -356,7 +355,7 @@ data "aws_ssm_parameter" "slack_token" {
 resource "aws_ssm_parameter" "flow_control_config" {
   name  = "/${local.environment}/flow-control-config"
   type  = "String"
-  value = templatefile("${path.module}/templates/ssm/ingest_flow_control_config.json.tpl", {})
+  value = templatefile("${path.root}/templates/ssm/ingest_flow_control_config.json.tpl", {})
 }
 
 module "eventbridge_alarm_notifications_destination" {
@@ -369,8 +368,8 @@ module "eventbridge_alarm_notifications_destination" {
 
 module "cloudwatch_event_alarm_event_bridge_rule_alarm_only" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
-  event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
-    cloudwatch_alarms = jsonencode(flatten([[for queue in local.queues : queue.event_alarms], [module.ingest.postingest.cc_confirmer_queue_oldest_message_alarm_arn]])),
+  event_pattern = templatefile("${path.root}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
+    cloudwatch_alarms = jsonencode(flatten([[for queue in local.queues : queue.event_alarms], [var.ingest.postingest.cc_confirmer_queue_oldest_message_alarm_arn]])),
     state_value       = "ALARM"
   })
   name                = "${local.environment}-dr2-eventbridge-alarm-state-change-alarm-only"
@@ -380,7 +379,7 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only" {
       "alarmName"    = "$.detail.alarmName",
       "currentValue" = "$.detail.state.value"
     }
-    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
+    input_template = templatefile("${path.root}/templates/eventbridge/slack_message_input_template.json.tpl", {
       channel_id   = local.dev_notifications_channel_id
       slackMessage = ":warning: Cloudwatch alarm <alarmName> has entered state <currentValue>"
     })
@@ -390,7 +389,7 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only" {
 module "cloudwatch_alarm_event_bridge_rule" {
   for_each = toset(["OK", "ALARM"])
   source   = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
-  event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
+  event_pattern = templatefile("${path.root}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
     cloudwatch_alarms = jsonencode(flatten([for queue in local.queues : queue.alarms]))
     state_value       = each.value
   })
@@ -401,7 +400,7 @@ module "cloudwatch_alarm_event_bridge_rule" {
       "alarmName"    = "$.detail.alarmName",
       "currentValue" = "$.detail.state.value"
     }
-    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
+    input_template = templatefile("${path.root}/templates/eventbridge/slack_message_input_template.json.tpl", {
       channel_id   = local.dev_notifications_channel_id
       slackMessage = ":${each.value == "OK" ? "green-tick" : "alert-noflash-slow"}: Cloudwatch alarm <alarmName> has entered state <currentValue>"
     })
@@ -410,7 +409,7 @@ module "cloudwatch_alarm_event_bridge_rule" {
 
 module "guard_duty_findings_eventbridge_rule" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
-  event_pattern = templatefile("${path.module}/templates/eventbridge/source_detail_type_event_pattern.json.tpl", {
+  event_pattern = templatefile("${path.root}/templates/eventbridge/source_detail_type_event_pattern.json.tpl", {
     source = "aws.guardduty", detail_type = "GuardDuty Finding"
   })
   name                = "${local.environment}-dr2-guard-duty-notify"
@@ -422,13 +421,13 @@ module "guard_duty_findings_eventbridge_rule" {
       "region" : "$.region",
       "title" : "$.detail.title"
     }
-    input_template = templatefile("${path.module}/templates/eventbridge/guard_duty_slack_message.json.tpl", {})
+    input_template = templatefile("${path.root}/templates/eventbridge/guard_duty_slack_message.json.tpl", {})
   }
 }
 
 module "secret_rotation_eventbridge_rule" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
-  event_pattern = templatefile("${path.module}/templates/eventbridge/secrets_manager_rotation.json.tpl", {
+  event_pattern = templatefile("${path.root}/templates/eventbridge/secrets_manager_rotation.json.tpl", {
     rotation_event = "RotationFailed"
   })
   name                = "${local.environment}-dr2-failed-secrets-manager-rotation"
@@ -437,7 +436,7 @@ module "secret_rotation_eventbridge_rule" {
     input_paths = {
       "secretId" : "$.detail.additionalEventData.SecretId"
     }
-    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
+    input_template = templatefile("${path.root}/templates/eventbridge/slack_message_input_template.json.tpl", {
       channel_id   = local.dev_notifications_channel_id
       slackMessage = ":alert-noflash-slow: Secret rotation for secret `<secretId>` has failed"
     })
@@ -447,13 +446,13 @@ module "secret_rotation_eventbridge_rule" {
 module "dev_slack_message_eventbridge_rule" {
   source              = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
-  event_pattern       = templatefile("${path.module}/templates/eventbridge/custom_detail_type_event_pattern.json.tpl", { detail_type = "DR2DevMessage" })
+  event_pattern       = templatefile("${path.root}/templates/eventbridge/custom_detail_type_event_pattern.json.tpl", { detail_type = "DR2DevMessage" })
   name                = "${local.environment}-dr2-eventbridge-dev-slack-message"
   api_destination_input_transformer = {
     input_paths = {
       "slackMessage" = "$.detail.slackMessage"
     }
-    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
+    input_template = templatefile("${path.root}/templates/eventbridge/slack_message_input_template.json.tpl", {
       channel_id   = local.dev_notifications_channel_id
       slackMessage = "<slackMessage>"
     })
@@ -463,13 +462,13 @@ module "dev_slack_message_eventbridge_rule" {
 module "general_slack_message_eventbridge_rule" {
   source              = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
-  event_pattern       = templatefile("${path.module}/templates/eventbridge/custom_detail_type_event_pattern.json.tpl", { detail_type = "DR2Message" })
+  event_pattern       = templatefile("${path.root}/templates/eventbridge/custom_detail_type_event_pattern.json.tpl", { detail_type = "DR2Message" })
   name                = "${local.environment}-dr2-eventbridge-general-slack-message"
   api_destination_input_transformer = {
     input_paths = {
       "slackMessage" = "$.detail.slackMessage"
     }
-    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
+    input_template = templatefile("${path.root}/templates/eventbridge/slack_message_input_template.json.tpl", {
       channel_id   = local.general_notifications_channel_id
       slackMessage = "<slackMessage>"
     })
@@ -477,12 +476,12 @@ module "general_slack_message_eventbridge_rule" {
 }
 
 resource "aws_cloudwatch_log_resource_policy" "eventbridge_resource_policy" {
-  policy_document = templatefile("${path.module}/templates/logs/logs_resource_policy.json.tpl", { account_id = data.aws_caller_identity.current.account_id })
+  policy_document = templatefile("${path.root}/templates/logs/logs_resource_policy.json.tpl", { account_id = data.aws_caller_identity.current.account_id })
   policy_name     = "${local.environment}-dr2-trust-events-to-store-log-events"
 }
 
 resource "aws_cloudwatch_dashboard" "ingest_dashboard" {
-  dashboard_body = templatefile("${path.module}/templates/logs/ingest_dashboard.json.tpl", {
+  dashboard_body = templatefile("${path.root}/templates/logs/ingest_dashboard.json.tpl", {
     account_id                      = data.aws_caller_identity.current.account_id,
     environment                     = local.environment,
     step_function_failure_log_group = local.step_function_failure_log_group
@@ -519,10 +518,10 @@ module "discovery_inbound_https" {
 
 module "failed_ingest_step_function_event_bridge_rule" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
-  event_pattern = templatefile("${path.module}/templates/eventbridge/step_function_failed_event_pattern.json.tpl", {
-    step_function_arns = jsonencode(module.ingest.step_function_arns)
+  event_pattern = templatefile("${path.root}/templates/eventbridge/step_function_failed_event_pattern.json.tpl", {
+    step_function_arns = jsonencode(var.ingest.step_function_arns)
   })
-  name                = "${local.environment}-dr2-eventbridge-ingest-step-function-failure"
+  name                = local.step_function_failure_eventbridge_rule
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   api_destination_input_transformer = {
     input_paths = {
@@ -530,7 +529,7 @@ module "failed_ingest_step_function_event_bridge_rule" {
       "status" = "$.detail.status",
       "sfnArn" = "$.detail.stateMachineArn"
     }
-    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
+    input_template = templatefile("${path.root}/templates/eventbridge/slack_message_input_template.json.tpl", {
       channel_id   = local.dev_notifications_channel_id
       slackMessage = ":alert-noflash-slow: Step function `<sfnArn>` with name <name> has <status>"
     })
@@ -543,11 +542,11 @@ module "failed_ingest_step_function_event_bridge_rule" {
       "startDate" = "$.detail.startDate",
       "sfnArn"    = "$.detail.stateMachineArn"
     }
-    input_template = templatefile("${path.module}/templates/eventbridge/cloudwatch_message_input_template.json.tpl", {
+    input_template = templatefile("${path.root}/templates/eventbridge/cloudwatch_message_input_template.json.tpl", {
       message = "Step function `<sfnArn>` with name <name> has <status>"
     })
   }
-  lambda_target_arn = "arn:aws:lambda:eu-west-2:${data.aws_caller_identity.current.account_id}:function:${module.ingest.lambda_names.failed_notification}"
+  lambda_target_arn = "arn:aws:lambda:eu-west-2:${data.aws_caller_identity.current.account_id}:function:${var.ingest.lambda_names.failed_notification}"
 }
 
 module "dr2_ingest_parsed_court_document_event_handler_test_input_bucket" {
@@ -555,7 +554,7 @@ module "dr2_ingest_parsed_court_document_event_handler_test_input_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_parsed_court_document_event_handler_test_bucket_name
   bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.ingest.lambdas[module.ingest.lambda_names.court_document_handler].role, "arn:aws:iam::${module.tre_config.account_numbers["prod"]}:role/prod-tre-editorial-judgment-out-copier"]),
+    lambda_role_arns = jsonencode([var.ingest.lambdas[var.ingest.lambda_names.court_document_handler].role, "arn:aws:iam::${module.tre_config.account_numbers["prod"]}:role/prod-tre-editorial-judgment-out-copier"]),
     bucket_name      = local.ingest_parsed_court_document_event_handler_test_bucket_name
   })
   kms_key_arn = module.dr2_kms_key.kms_key_arn

@@ -1,10 +1,10 @@
 locals {
   environment                            = var.environment
-  ingest_state_bucket_name               = "${local.environment}-dr2-ingest-state"
+  ingest_state_bucket_name               = "${local.default_environment}-dr2-ingest-state"
   ingest_step_function_name              = "${local.environment}-dr2-ingest"
   ingest_run_workflow_step_function_name = "${local.environment}-dr2-ingest-run-workflow"
-  files_dynamo_table_name                = "${local.environment}-dr2-ingest-files"
-  ingest_lock_dynamo_table_name          = "${local.environment}-dr2-ingest-lock"
+  files_dynamo_table_name                = "${local.default_environment}-dr2-ingest-files"
+  ingest_lock_dynamo_table_name          = "${local.default_environment}-dr2-ingest-lock"
   ingest_queue_dynamo_table_name         = "${local.environment}-dr2-ingest-queue"
   ingest_lock_table_group_id_gsi_name    = "IngestLockGroupIdx"
   ingest_lock_table_hash_key             = "assetId"
@@ -42,11 +42,22 @@ locals {
     module.dr2_ingest_failure_notifications_lambda.lambda_function,
     module.dr2_ingest_workflow_monitor_lambda.lambda_function
   ]
-  lambdas_by_name    = { for lambda in local.lambdas : (lambda.function_name) => lambda }
-  code_deploy_bucket = "mgmt-dp-code-deploy"
+  lambdas_by_name     = { for lambda in local.lambdas : (lambda.function_name) => lambda }
+  code_deploy_bucket  = "mgmt-dp-code-deploy"
+  default_environment = startswith(local.environment, "DR2-") ? "intg" : local.environment
 }
 
 data "aws_caller_identity" "current" {}
+
+module "ingest_queue_table" {
+  source                         = "git::https://github.com/nationalarchives/da-terraform-modules//dynamo"
+  hash_key                       = { name = "sourceSystem", type = "S" }
+  range_key                      = { name = "queuedAt", type = "S" }
+  table_name                     = local.ingest_queue_dynamo_table_name
+  server_side_encryption_enabled = false
+  deletion_protection_enabled    = true
+  point_in_time_recovery_enabled = true
+}
 
 module "dr2_ingest_step_function" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//sfn"

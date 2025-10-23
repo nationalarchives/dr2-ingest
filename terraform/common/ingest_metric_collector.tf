@@ -17,8 +17,8 @@ module "dr2_ingest_metric_collector_lambda" {
     "${local.ingest_metric_collector_lambda_name}-policy" = templatefile("./templates/iam_policy/ingest_metric_collection_lambda_policy.json.tpl", {
       account_id                 = data.aws_caller_identity.current.account_id
       lambda_name                = local.ingest_metric_collector_lambda_name
-      workflow_step_function_arn = module.ingest.run_workflow_step_function_arn
-      ingest_queue_table_arn     = module.ingest_queue_table.table_arn
+      workflow_step_function_arn = var.ingest.run_workflow_step_function_arn
+      ingest_queue_table_arn     = var.ingest.queue_table.table_arn
     })
   }
   tags = {

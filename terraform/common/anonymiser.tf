@@ -4,7 +4,7 @@ locals {
   court_document_anonymiser_queue_arn                  = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.court_document_anonymiser_queue_name}"
   court_document_anonymiser_count                      = local.environment == "intg" ? 1 : 0
   tre_terraform_prod_config                            = module.tre_config.terraform_config["prod"]
-  ingest_parsed_court_document_event_handler_queue_url = "https://sqs.eu-west-2.amazonaws.com/${data.aws_caller_identity.current.account_id}/${module.ingest.lambda_names.court_document_handler}"
+  ingest_parsed_court_document_event_handler_queue_url = "https://sqs.eu-west-2.amazonaws.com/${data.aws_caller_identity.current.account_id}/${var.ingest.lambda_names.court_document_handler}"
 
 }
 
@@ -20,7 +20,7 @@ module "dr2_court_document_package_anonymiser_lambda" {
   policies = {
     "${local.court_document_anonymiser_lambda_name}-policy" = templatefile("./templates/iam_policy/anonymiser_lambda_policy.json.tpl", {
       anonymiser_test_input_queue         = local.court_document_anonymiser_queue_arn
-      ingest_court_document_handler_queue = module.ingest.court_document_event_handler_sqs.sqs_arn
+      ingest_court_document_handler_queue = var.ingest.court_document_event_handler_sqs.sqs_arn
       output_bucket_name                  = local.ingest_parsed_court_document_event_handler_test_bucket_name
       account_id                          = data.aws_caller_identity.current.account_id
       lambda_name                         = local.court_document_anonymiser_lambda_name
@@ -59,5 +59,5 @@ resource "aws_sns_topic_subscription" "tre_topic_subscription" {
   topic_arn            = local.tre_terraform_prod_config["da_eventbus"]
   raw_message_delivery = true
   filter_policy_scope  = "MessageBody"
-  filter_policy        = templatefile("${path.module}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})
+  filter_policy        = templatefile("${path.root}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})
 }

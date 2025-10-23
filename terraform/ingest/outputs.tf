@@ -64,3 +64,7 @@ output "tdr_preingest" {
 output "dri_preingest" {
   value = module.dri_preingest
 }
+
+output "queue_table" {
+  value = module.ingest_queue_table
+}

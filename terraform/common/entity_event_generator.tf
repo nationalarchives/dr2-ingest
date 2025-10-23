@@ -19,7 +19,7 @@ module "dr2_entity_event_generator_lambda" {
   s3_key        = replace("${var.deploy_version}/${local.entity_event_lambda_name}", "${local.environment}-dr2-", "")
   handler       = "uk.gov.nationalarchives.entityeventgenerator.Lambda::handleRequest"
   policies = {
-    "${local.entity_event_lambda_name}-policy" = templatefile("${path.module}/templates/iam_policy/entity_event_lambda_policy.json.tpl", {
+    "${local.entity_event_lambda_name}-policy" = templatefile("${path.root}/templates/iam_policy/entity_event_lambda_policy.json.tpl", {
       account_id                 = data.aws_caller_identity.current.account_id
       lambda_name                = local.entity_event_lambda_name
       dynamo_db_file_table_arn   = module.dr2_entity_event_lambda_updated_since_query_start_datetime_table.table_arn
@@ -54,7 +54,7 @@ module "dr2_entity_event_lambda_updated_since_query_start_datetime_table" {
 
 resource "aws_dynamodb_table_item" "initial_start_datetime" {
   hash_key   = "id"
-  item       = templatefile("${path.module}/templates/dynamo/initial_last_updated_item.json.tpl", {})
+  item       = templatefile("${path.root}/templates/dynamo/initial_last_updated_item.json.tpl", {})
   table_name = local.last_polled_table_name
   lifecycle {
     ignore_changes = [item]
@@ -63,7 +63,7 @@ resource "aws_dynamodb_table_item" "initial_start_datetime" {
 
 module "dr2_entity_event_generator_topic" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//sns"
-  sns_policy = templatefile("${path.module}/templates/sns/entity_event_topic_policy.json.tpl", {
+  sns_policy = templatefile("${path.root}/templates/sns/entity_event_topic_policy.json.tpl", {
     lambda_role_arn = module.dr2_entity_event_generator_lambda.lambda_role_arn
     sns_topic       = local.entity_event_topic_arn
   })

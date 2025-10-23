@@ -8,7 +8,7 @@ module "pause_ingest_lambda" {
   s3_key        = replace("${var.deploy_version}/${local.pause_ingest}", "${local.environment}-dr2-", "")
   handler       = "pause_ingest.lambda_handler"
   policies = {
-    "${local.pause_ingest}-policy" : templatefile("${path.module}/templates/iam_policy/pause_ingest_lambda_policy.json.tpl", {
+    "${local.pause_ingest}-policy" : templatefile("${path.root}/templates/iam_policy/pause_ingest_lambda_policy.json.tpl", {
       account_number = data.aws_caller_identity.current.account_id
       environment    = local.environment
       lambda_name    = local.pause_ingest
@@ -23,9 +23,9 @@ module "pause_ingest_lambda" {
   }
   plaintext_env_vars = {
     TRIGGER_ARNS = jsonencode([
-      module.ingest.tdr_preingest.aggregator_sqs.sqs_arn,
-      module.ingest.dri_preingest.aggregator_sqs.sqs_arn,
-      module.ingest.court_document_event_handler_sqs.sqs_arn
+      var.ingest.tdr_preingest.aggregator_sqs.sqs_arn,
+      var.ingest.dri_preingest.aggregator_sqs.sqs_arn,
+      var.ingest.court_document_event_handler_sqs.sqs_arn
     ])
     ENVIRONMENT = local.environment
   }

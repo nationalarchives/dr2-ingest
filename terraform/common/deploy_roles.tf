@@ -9,7 +9,7 @@ locals {
 }
 module "deploy_lambda_role" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
-  assume_role_policy = templatefile("${path.module}/templates/iam_role/github_assume_role.json.tpl", {
+  assume_role_policy = templatefile("${path.root}/templates/iam_role/github_assume_role.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
   repo_filters = jsonencode(local.all_repository_filters) })
   name = "${local.environment_title}DPGithubActionsDeployLambdaRole"
@@ -22,7 +22,7 @@ module "deploy_lambda_role" {
 module "deploy_lambda_policy" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
   name   = "${local.environment_title}DPGithubActionsDeployLambdaPolicy"
-  policy_string = templatefile("${path.module}/templates/iam_policy/deploy_lambda_policy.json.tpl", {
+  policy_string = templatefile("${path.root}/templates/iam_policy/deploy_lambda_policy.json.tpl", {
     lambda_arns = jsonencode(flatten(
       [
         module.dr2_ip_lock_checker_lambda.lambda_arn,

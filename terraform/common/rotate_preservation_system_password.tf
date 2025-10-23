@@ -33,12 +33,29 @@ module "dr2_rotate_preservation_system_password_lambda" {
 }
 
 resource "aws_lambda_permission" "rotate_secrets_permissions" {
-  for_each = toset([aws_secretsmanager_secret.preservica_secret.arn,
-    aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.arn,
-    aws_secretsmanager_secret.preservica_read_metadata.arn,
-  aws_secretsmanager_secret.preservica_read_metadata_read_content.arn])
   action        = "lambda:InvokeFunction"
   function_name = local.rotate_preservation_system_password_name
   principal     = "secretsmanager.amazonaws.com"
-  source_arn    = each.key
+  source_arn    = aws_secretsmanager_secret.preservica_secret.arn
+}
+
+resource "aws_lambda_permission" "rotate_secrets_permissions_read_update_metadata_insert_content" {
+  action        = "lambda:InvokeFunction"
+  function_name = local.rotate_preservation_system_password_name
+  principal     = "secretsmanager.amazonaws.com"
+  source_arn    = aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.arn
+}
+
+resource "aws_lambda_permission" "rotate_secrets_permissions_read_metadata" {
+  action        = "lambda:InvokeFunction"
+  function_name = local.rotate_preservation_system_password_name
+  principal     = "secretsmanager.amazonaws.com"
+  source_arn    = aws_secretsmanager_secret.preservica_read_metadata.arn
+}
+
+resource "aws_lambda_permission" "rotate_secrets_permissions_read_metadata_read_content" {
+  action        = "lambda:InvokeFunction"
+  function_name = local.rotate_preservation_system_password_name
+  principal     = "secretsmanager.amazonaws.com"
+  source_arn    = aws_secretsmanager_secret.preservica_read_metadata_read_content.arn
 }

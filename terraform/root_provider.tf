@@ -1,18 +1,3 @@
-module "config" {
-  source  = "./da-terraform-configurations"
-  project = "dr2"
-}
-
-module "tre_config" {
-  source  = "./da-terraform-configurations"
-  project = "tre"
-}
-
-module "tdr_config" {
-  source  = "./da-terraform-configurations"
-  project = "tdr"
-}
-
 terraform {
   backend "s3" {
     bucket       = "mgmt-dp-terraform-state"
@@ -27,7 +12,7 @@ provider "aws" {
   default_tags {
     tags = {
       Environment = local.environment
-      CreatedBy   = local.creator
+      CreatedBy   = "dr2-terraform-environments"
     }
   }
 }
