@@ -86,6 +86,23 @@ class Test(TestCase):
             self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
 
     @patch("discovery_client.get_title_and_description")
+    def test_create_metadata_should_create_a_metadata_object_with_title_from_discovery_containing_comma(self, mock_description):
+
+        mock_description.return_value = None, "Some information about Kew, Richmond, London"
+
+        csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
+        JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
+        data_set = pd.read_csv(StringIO(csv_data))
+        for index, row in data_set.iterrows():
+            metadata = ingest_hard_drive.create_metadata(row)
+            self.assertEqual("JS 8", metadata["Series"])
+            self.assertEqual("evid0001.pdf", metadata["Filename"])
+            self.assertEqual("3", metadata["FileReference"])
+            self.assertEqual("9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc", metadata["checksum_sha256"])
+            self.assertEqual("Some information about Kew, Richmond, London", metadata["description"])
+            self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
+
+    @patch("discovery_client.get_title_and_description")
     def test_create_metadata_should_create_a_filename_from_various_paths_independent_of_platform(self, mock_description):
 
         mock_description.return_value = None, "Some description from discovery"
@@ -193,6 +210,42 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,hdd_ingest_test_file1.
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId",  tmp1)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
         mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer")
+
+    @patch("aws_interactions.send_message")
+    @patch("aws_interactions.upload_metadata")
+    @patch("aws_interactions.upload_file")
+    def test_should_create_metadata_with_description_having_comma_in_a_quoted_field(
+            self, mock_upload_file, mock_upload_metadata, mock_send_message):
+        tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
+        with open(tmp1, "w") as f:
+            f.write("temporary file one")
+
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,checksum_md5,checksum_sha256
+JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,hdd_ingest_test_file1.txt,,some_checksum"""
+
+        tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
+        with open(tmp2, "w") as f:
+            f.write(metadata_csv_data)
+
+        args = SimpleNamespace(environment="test", input=f"{tmp2}")
+        ingest_hard_drive.upload_files(tmp2, "123456789", args)
+
+        expected_metadata = {
+            "Series": "JS 8",
+            "UUID": "someRecordId",
+            "fileId": "someFileId",
+            "description": "Description of Kew, Richmond, London",
+            "Filename": "JS-8-3.pdf",
+            "FileReference": "3",
+            "ClientSideOriginalFilepath": "hdd_ingest_test_file1.txt",
+            "checksum_sha256": "some_checksum"
+        }
+
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId", tmp1)
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache",
+                                                  "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer")
+
 
     @patch("discovery_client.get_title_and_description")
     def test_create_metadata_should_throw_exception_when_it_cannot_find_title_or_description_from_discovery(self, mock_description):

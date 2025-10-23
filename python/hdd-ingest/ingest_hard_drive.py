@@ -175,7 +175,7 @@ def run_ingest(data_set, args, is_upstream_valid):
     with open(f"{output_file}", mode="a", newline="", encoding="utf-8") as metadata_csv:
         is_metadata_valid = is_upstream_valid
         fieldnames=["Series", "UUID", "fileId", "description", "Filename", "FileReference", "ClientSideOriginalFilepath", "checksum_md5", "checksum_sha256"]
-        writer = csv.DictWriter(metadata_csv, fieldnames)
+        writer = csv.DictWriter(metadata_csv, fieldnames, quoting=csv.QUOTE_ALL)
         writer.writeheader()
         for index, row in data_set.iterrows():
             row_count += 1
