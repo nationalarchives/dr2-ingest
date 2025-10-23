@@ -3,10 +3,9 @@ import os
 import shutil
 import tempfile
 from io import StringIO
-from textwrap import dedent
 from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pandas as pd
 
