@@ -80,6 +80,10 @@ module "dr2_ingest_parsed_court_document_event_handler_lambda" {
     LOCK_DDB_TABLE     = local.ingest_lock_dynamo_table_name
     OUTPUT_BUCKET_NAME = local.ingest_raw_cache_bucket_name
   }
+  vpc_config = {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_S3.security_group_id]
+  }
   tags = {
     Name = local.ingest_parsed_court_document_event_handler_lambda_name
   }
