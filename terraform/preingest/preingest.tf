@@ -118,6 +118,10 @@ module "dr2_preingest_package_builder_lambda" {
     OUTPUT_BUCKET_NAME              = var.ingest_raw_cache_bucket_name
     SOURCE_SYSTEM                   = upper(var.source_name)
   }
+  vpc_config = {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = var.private_security_group_ids
+  }
   tags = {
     Name = local.package_builder_lambda_name
   }

@@ -21,3 +21,7 @@ variable "bucket_kms_arn" {
 }
 
 variable "copy_source_bucket_name" {}
+
+variable "private_security_group_ids" {}
+
+variable "private_subnet_ids" {}

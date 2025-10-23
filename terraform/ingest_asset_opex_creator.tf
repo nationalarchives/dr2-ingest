@@ -29,6 +29,10 @@ module "dr2_ingest_asset_opex_creator_lambda" {
     S3_ROLE_ARN                          = module.copy_tna_to_preservica_role.role_arn
 
   }
+  vpc_config = {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_S3.security_group_id]
+  }
   tags = {
     Name = local.ingest_asset_opex_creator_lambda_name
   }
