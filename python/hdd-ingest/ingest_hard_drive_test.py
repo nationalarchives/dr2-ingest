@@ -3,12 +3,11 @@ import os
 import shutil
 import tempfile
 from io import StringIO
-from pathlib import Path
+from textwrap import dedent
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
 
-import boto3
 import pandas as pd
 
 import ingest_hard_drive
@@ -32,7 +31,7 @@ class Test(TestCase):
         args = self.parser.parse_args(["-i", "some_file.csv"])
         self.assertEqual("some_file.csv", args.input)
         self.assertEqual(False, args.dry_run)
-        self.assertEqual("INTG", args.environment)
+        self.assertEqual("intg", args.environment)
 
     def test_should_treat_dry_run_param_as_true_when_no_option_is_provided(self):
         args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d"])
@@ -41,11 +40,17 @@ class Test(TestCase):
         args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "--dry_run"])
         self.assertEqual(True, args.dry_run)
 
+    def test_should_set_the_output_folder_as_temp_location_if_not_passed_as_a_parameter(self):
+        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d"])
+        self.assertEqual(tempfile.gettempdir(), args.output)
+
+
     def test_should_parse_arguments_and_set_correct_parameters_for_arguments_passed_on_command_line(self):
-        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "True"])
+        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "True", "-o" "/home/Users"])
         self.assertEqual("some_file.csv", args.input)
         self.assertTrue(args.dry_run)
         self.assertEqual("not_prod", args.environment)
+        self.assertEqual("/home/Users", args.output)
 
     def test_should_error_when_the_input_file_does_not_exist(self):
         args = argparse.Namespace(input='non_existent_file.csv', environment='not_prod', dry_run='True')
@@ -53,6 +58,16 @@ class Test(TestCase):
             ingest_hard_drive.validate_arguments(args)
 
         self.assertEqual("The input file [non_existent_file.csv] does not exist or it is not a valid file\n", str(e.exception))
+
+    def test_should_error_when_the_output_location_is_not_a_folder(self):
+        tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
+        with open(tmp1, "w") as f:
+            f.write("temporary file one")
+
+        args = argparse.Namespace(input=tmp1, environment='not_prod', dry_run='True', output="some/random/file.pdf")
+        with self.assertRaises(Exception) as e:
+            ingest_hard_drive.validate_arguments(args)
+        self.assertEqual("The output metadata location [some/random/file.pdf] does not exist or it is not a valid folder\n", str(e.exception))
 
     @patch("discovery_client.get_title_and_description")
     def test_create_metadata_should_create_a_metadata_object_from_csv_rows(self, mock_description):
@@ -114,41 +129,71 @@ class Test(TestCase):
             metadata = ingest_hard_drive.create_metadata(row)
             self.assertEqual("3a16291a00172e7af139cef48d1fe2f7", metadata["checksum_md5"])
 
-
-    @patch("ingest_hard_drive.get_account_number")
-    @patch("boto3.client")
-    def test_should_send_the_files_to_the_s3_bucket_and_send_a_message_to_the_queue(self, mock_boto, mock_account_number):
-        mock_account_number.return_value = "123456789"
-        mock_client = MagicMock()
-        mock_boto.return_value = mock_client
+    @patch("aws_interactions.send_message")
+    @patch("aws_interactions.upload_metadata")
+    @patch("aws_interactions.upload_file")
+    def test_should_send_the_files_to_the_s3_bucket_and_send_a_message_to_the_queue(self, mock_upload_file, mock_upload_metadata, mock_send_message):
         tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata = {"UUID": "someRecordId", "fileId": "someFileId"}
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,checksum_md5,checksum_sha256
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},,some_checksum""".strip()
+
+        tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
+        with open(tmp2, "w") as f:
+            f.write(metadata_csv_data)
+
         args = SimpleNamespace(environment="test", input="/home/users/input-file.csv")
-        ingest_hard_drive.upload_files(metadata, tmp1, args)
+        ingest_hard_drive.upload_files(tmp2, "123456789", args)
 
+        expected_metadata = {
+            "Series": "JS 8",
+            "UUID": "someRecordId",
+            "fileId": "someFileId",
+            "description": "SomeDescription",
+            "Filename": "JS-8-3.pdf",
+            "FileReference": "3",
+            "ClientSideOriginalFilepath": tmp1,
+            "checksum_sha256": "some_checksum"
+        }
 
-        mock_client.upload_file.assert_called_once_with(tmp1, "test-dr2-ingest-raw-cache", "someRecordId/someFileId")
-        mock_client.send_message.assert_called_once_with(QueueUrl="https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer", MessageBody="""{"assetId": "someRecordId", "bucket": "test-dr2-ingest-raw-cache"}""")
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId",  tmp1)
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer")
 
-    @patch("ingest_hard_drive.get_account_number")
-    @patch("boto3.client")
-    def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_to_the_csv_file_and_send_a_message_to_the_queue(self, mock_boto, mock_account_number):
-        mock_account_number.return_value = "123456789"
-        mock_client = MagicMock()
-        mock_boto.return_value = mock_client
+    @patch("aws_interactions.send_message")
+    @patch("aws_interactions.upload_metadata")
+    @patch("aws_interactions.upload_file")
+    def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_to_the_csv_file_and_send_a_message_to_the_queue(self, mock_upload_file, mock_upload_metadata, mock_send_message):
         tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata = {"UUID": "someRecordId", "fileId": "someFileId"}
-        args = SimpleNamespace(environment="test", input=f"{self.test_dir}/test-input.csv")
-        ingest_hard_drive.upload_files(metadata, Path(tmp1).name, args)
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,checksum_md5,checksum_sha256
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,hdd_ingest_test_file1.txt,,some_checksum"""
 
-        mock_client.upload_file.assert_called_once_with(tmp1, "test-dr2-ingest-raw-cache", "someRecordId/someFileId")
-        mock_client.send_message.assert_called_once_with(QueueUrl="https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer", MessageBody="""{"assetId": "someRecordId", "bucket": "test-dr2-ingest-raw-cache"}""")
+        tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
+        with open(tmp2, "w") as f:
+            f.write(metadata_csv_data)
+
+        args = SimpleNamespace(environment="test", input=f"{tmp2}")
+        ingest_hard_drive.upload_files(tmp2, "123456789", args)
+
+        expected_metadata = {
+            "Series": "JS 8",
+            "UUID": "someRecordId",
+            "fileId": "someFileId",
+            "description": "SomeDescription",
+            "Filename": "JS-8-3.pdf",
+            "FileReference": "3",
+            "ClientSideOriginalFilepath": "hdd_ingest_test_file1.txt",
+            "checksum_sha256": "some_checksum"
+        }
+
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId",  tmp1)
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer")
 
     @patch("discovery_client.get_title_and_description")
     def test_create_metadata_should_throw_exception_when_it_cannot_find_title_or_description_from_discovery(self, mock_description):
@@ -161,6 +206,7 @@ class Test(TestCase):
         first_row = data_set.iloc[0]
 
         with self.assertRaises(Exception) as e:
-            metadata = ingest_hard_drive.create_metadata(first_row)
+            ingest_hard_drive.create_metadata(first_row)
 
         self.assertEqual("Title and Description both are empty for 'someTestCatRef', unable to proceed with this record", str(e.exception))
+

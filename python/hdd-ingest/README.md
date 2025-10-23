@@ -1,4 +1,4 @@
-# HDD Ingest
+# Ad hoc Ingest
 
 This directory contains the scripts used for ingesting the data from hard drives that The National Archives has 
 received over the years. The scripts and process applies to the data which meets the following criteria:
@@ -7,14 +7,17 @@ received over the years. The scripts and process applies to the data which meets
 - The data has been already available to the public on Discovery.
 
 ## The process:
-![hdd-ingest-flow.png](images/hdd-ingest-flow.png)
+![adhoc-ingest-flow.png](images/adhoc-ingest-flow.png)
 
 There is a script at the centre of the ingest process which drives the generic ingest. The script receives a CSV file as an input. This CSV file contains the filenames, catalog reference, any other information and a checksum. The files are located on the hard drives or any other media which can be made accessible to the script. The script works by in these steps (marked in red in the picture)
 
 - Read the CSV file and find out the details for each file 
 - Optionally, Get additional metadata from discovery (such as Title, Description etc.)
-- Copy the file from the HDD to raw-cache bucket 
-- Create and copy the metadata json corresponding to the file
+- Generates an intermediate CSV file which has each row representing one metadata file. 
+  - This CSV is useful for users to inspect the metadata before actual ingest
+- If the user has run the script with `dry_run` set to true, the script terminates at this point, otherwise it carries on to next step 
+- Copy the file from the source to raw-cache bucket 
+- Generate metadata Json from the intermediate CSV per row and copy the metadata json to raw-cache bucket
 - Send a message to the generic ingest queue to kick start the downstream process of ingest.
 
 ## How to run the script:
