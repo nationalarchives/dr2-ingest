@@ -10,10 +10,10 @@ module "dr2_rotate_preservation_system_password_lambda" {
   policies = {
     "${local.rotate_preservation_system_password_name}-policy" = templatefile("./templates/iam_policy/rotate_preservation_system_password_policy.json.tpl", {
       secrets_manager_secret_arns = jsonencode([
-        aws_secretsmanager_secret.preservica_secret.arn,
-        aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.arn,
-        aws_secretsmanager_secret.preservica_read_metadata.arn,
-        aws_secretsmanager_secret.preservica_read_metadata_read_content.arn
+        var.secrets.preservica_secret.arn,
+        var.secrets.preservica_read_update_metadata_insert_content.arn,
+        var.secrets.preservica_read_metadata.arn,
+        var.secrets.preservica_read_metadata_read_content.arn
       ]),
       account_id  = data.aws_caller_identity.current.account_id
       lambda_name = local.rotate_preservation_system_password_name
@@ -22,7 +22,7 @@ module "dr2_rotate_preservation_system_password_lambda" {
   memory_size = local.java_lambda_memory_size
   runtime     = local.java_runtime
   vpc_config = {
-    subnet_ids         = module.vpc.private_subnets
+    subnet_ids         = var.private_subnets
     security_group_ids = local.outbound_security_group_ids
   }
   tags = {
@@ -31,10 +31,10 @@ module "dr2_rotate_preservation_system_password_lambda" {
 }
 
 resource "aws_lambda_permission" "rotate_secrets_permissions" {
-  for_each = toset([aws_secretsmanager_secret.preservica_secret.arn,
-    aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.arn,
-    aws_secretsmanager_secret.preservica_read_metadata.arn,
-  aws_secretsmanager_secret.preservica_read_metadata_read_content.arn])
+  for_each = toset([var.secrets.preservica_secret.arn,
+    var.secrets.preservica_read_update_metadata_insert_content.arn,
+    var.secrets.preservica_read_metadata.arn,
+  var.secrets.preservica_read_metadata_read_content.arn])
   action        = "lambda:InvokeFunction"
   function_name = local.rotate_preservation_system_password_name
   principal     = "secretsmanager.amazonaws.com"

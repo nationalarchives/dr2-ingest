@@ -1,3 +1,8 @@
+locals {
+  # The list comes from https://www.cloudflare.com/en-gb/ips
+  cloudflare_ip_ranges = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
+  az_count             = local.environment == "prod" ? 2 : 1
+}
 module "vpc" {
   source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
   vpc_name                  = "${local.environment}-vpc"
@@ -77,3 +82,26 @@ module "outbound_cloudflare_https_access" {
   }
 }
 
+module "discovery_inbound_https" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A security group to allow inbound access to discovery VPC endpoint from lambda security group"
+  name        = "${local.environment}-dr2-discovery-inbound-https"
+  vpc_id      = module.vpc.vpc_id
+  rules = {
+    ingress = [{
+      port              = 443
+      description       = "Inbound access from lambda security group"
+      security_group_id = module.outbound_https_access_only.security_group_id
+    }]
+  }
+}
+
+resource "aws_vpc_endpoint" "discovery" {
+  vpc_id              = module.vpc.vpc_id
+  service_name        = "com.amazonaws.vpce.eu-west-2.vpce-svc-030613f5fe9f42a77"
+  private_dns_enabled = true
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = module.vpc.private_subnets
+  security_group_ids  = [module.discovery_inbound_https.security_group_id]
+}

@@ -13,11 +13,7 @@
         "sqs:DeleteMessage"
       ],
       "Effect": "Allow",
-      "Resource": [
-        "${custodial_copy_queue}",
-        "${database_builder_queue}",
-        "${custodial_copy_confirmer_queue}"
-      ],
+      "Resource": ${queues},
       "Sid": "readSqs"
     },
     {
@@ -25,7 +21,7 @@
         "dynamodb:UpdateItem"
       ],
       "Effect": "Allow",
-      "Resource": "${postingest_table}"
+      "Resource": ${postingest_tables}
     },
     {
       "Action": [

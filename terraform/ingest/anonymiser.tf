@@ -20,7 +20,7 @@ module "dr2_court_document_package_anonymiser_lambda" {
     "${local.court_document_anonymiser_lambda_name}-policy" = templatefile("./templates/iam_policy/anonymiser_lambda_policy.json.tpl", {
       anonymiser_test_input_queue         = local.court_document_anonymiser_queue_arn
       ingest_court_document_handler_queue = local.ingest_parsed_court_document_event_handler_queue_arn
-      output_bucket_name                  = local.ingest_parsed_court_document_event_handler_test_bucket_name
+      output_bucket_name                  = var.bucket_names.ingest_parsed_court_document_event_handler_test_bucket_name
       account_id                          = data.aws_caller_identity.current.account_id
       lambda_name                         = local.court_document_anonymiser_lambda_name
       tre_bucket_arn                      = local.tre_terraform_prod_config["s3_court_document_pack_out_arn"]
@@ -30,7 +30,7 @@ module "dr2_court_document_package_anonymiser_lambda" {
   memory_size = 128
   runtime     = "provided.al2023"
   plaintext_env_vars = {
-    OUTPUT_BUCKET = local.ingest_parsed_court_document_event_handler_test_bucket_name
+    OUTPUT_BUCKET = var.bucket_names.ingest_parsed_court_document_event_handler_test_bucket_name
     OUTPUT_QUEUE  = local.ingest_parsed_court_document_event_handler_queue_url
   }
   tags = {}
@@ -48,7 +48,7 @@ module "dr2_court_document_package_anonymiser_sqs" {
   })
   redrive_maximum_receives = local.redrive_maximum_receives
   visibility_timeout       = local.visibility_timeout
-  kms_key_id               = module.dr2_kms_key.kms_key_arn
+  kms_key_id               = var.kms_key_arn
 }
 
 resource "aws_sns_topic_subscription" "tre_topic_subscription" {
@@ -58,5 +58,5 @@ resource "aws_sns_topic_subscription" "tre_topic_subscription" {
   topic_arn            = local.tre_terraform_prod_config["da_eventbus"]
   raw_message_delivery = true
   filter_policy_scope  = "MessageBody"
-  filter_policy        = templatefile("${path.module}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})
+  filter_policy        = templatefile("${path.root}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})
 }

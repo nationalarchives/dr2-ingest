@@ -1,5 +1,6 @@
 locals {
   ingest_queue_creator_name = "${local.environment}-dr2-custodial-copy-queue-creator"
+  visibility_timeout        = 180
 }
 
 module "dr2_custodial_copy_queue_creator_queue" {
@@ -20,7 +21,7 @@ module "dr2_custodial_copy_queue_creator_lambda" {
   function_name = local.ingest_queue_creator_name
   handler       = "uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda::handleRequest"
   policies = {
-    "${local.ingest_queue_creator_name}-policy" = templatefile("${path.module}/templates/iam_policy/custodial_copy_queue_creator_policy.json.tpl", {
+    "${local.ingest_queue_creator_name}-policy" = templatefile("${path.root}/templates/iam_policy/custodial_copy_queue_creator_policy.json.tpl", {
       account_id                 = data.aws_caller_identity.current.account_id
       lambda_name                = local.ingest_queue_creator_name
       custodial_copy_fifo_queue  = module.dr2_custodial_copy_queue.sqs_arn
@@ -33,11 +34,11 @@ module "dr2_custodial_copy_queue_creator_lambda" {
   runtime         = local.java_runtime
   tags            = {}
   lambda_sqs_queue_mappings = [{
-    sqs_queue_arn = module.dr2_custodial_copy_queue_creator_queue.sqs_arn
+    sqs_queue_arn = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.ingest_queue_creator_name}"
   }]
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = local.outbound_security_group_ids
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
   }
   plaintext_env_vars = {
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_metadata.name

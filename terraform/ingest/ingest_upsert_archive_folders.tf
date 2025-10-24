@@ -12,17 +12,17 @@ module "dr2_ingest_upsert_archive_folders_lambda" {
       account_id                 = data.aws_caller_identity.current.account_id
       lambda_name                = local.ingest_upsert_archive_folders_lambda_name
       dynamo_db_file_table_arn   = module.files_table.table_arn
-      secrets_manager_secret_arn = aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.arn
+      secrets_manager_secret_arn = var.secrets.preservica_read_update_metadata_insert_content.arn
     })
   }
   memory_size = local.java_lambda_memory_size
   runtime     = local.java_runtime
   plaintext_env_vars = {
     FILES_DDB_TABLE        = local.files_dynamo_table_name
-    PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.name
+    PRESERVICA_SECRET_NAME = var.secrets.preservica_read_update_metadata_insert_content.name
   }
   vpc_config = {
-    subnet_ids         = module.vpc.private_subnets
+    subnet_ids         = var.private_subnets
     security_group_ids = local.outbound_security_group_ids
   }
   reserved_concurrency = 1

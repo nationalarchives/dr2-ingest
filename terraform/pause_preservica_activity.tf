@@ -1,18 +1,20 @@
 locals {
   pause_preservica_activity = "${local.environment}-dr2-pause-preservica-activity"
+  python_runtime            = "python3.12"
+  python_lambda_memory_size = 128
 }
 module "pause_preservica_activity_lambda" {
   source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   function_name = local.pause_preservica_activity
   handler       = "pause_preservica_activity.lambda_handler"
   policies = {
-    "${local.pause_preservica_activity}-policy" : templatefile("${path.module}/templates/iam_policy/pause_preservica_activity_lambda_policy.json.tpl", {
+    "${local.pause_preservica_activity}-policy" : templatefile("${path.root}/templates/iam_policy/pause_preservica_activity_lambda_policy.json.tpl", {
       account_number       = data.aws_caller_identity.current.account_id
       environment          = local.environment
       lambda_name          = local.pause_preservica_activity,
       eventbridge_rule_arn = module.dr2_entity_event_cloudwatch_event.event_arn
       secret_arns          = jsonencode(keys(aws_secretsmanager_secret_rotation.secret_rotation))
-      secret_rotation_arn  = module.dr2_rotate_preservation_system_password_lambda.lambda_arn
+      secret_rotation_arn  = module.ingest[local.environment].rotate_secret_lambda_arn
     })
   }
   timeout_seconds = 10

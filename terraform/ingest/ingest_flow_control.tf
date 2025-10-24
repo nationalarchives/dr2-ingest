@@ -29,7 +29,7 @@ module "dr2_ingest_flow_control_lambda" {
     Name = local.ingest_flow_control_lambda_name
   }
   vpc_config = {
-    subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_only.security_group_id]
+    subnet_ids         = var.private_subnets
+    security_group_ids = [var.security_groups.outbound_https_access_only_security_group_id]
   }
 }

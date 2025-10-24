@@ -10,7 +10,7 @@ module "dr2_ingest_asset_opex_creator_lambda" {
   policies = {
     "${local.ingest_asset_opex_creator_lambda_name}-policy" = templatefile("./templates/iam_policy/ingest_asset_opex_creator_policy.json.tpl", {
       account_id                  = data.aws_caller_identity.current.account_id
-      source_bucket_name          = local.ingest_raw_cache_bucket_name
+      source_bucket_name          = var.bucket_names.ingest_raw_cache_bucket_name
       destination_bucket_name     = local.preservica_ingest_bucket
       account_id                  = data.aws_caller_identity.current.account_id
       lambda_name                 = local.ingest_asset_opex_creator_lambda_name
