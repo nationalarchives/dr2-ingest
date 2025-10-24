@@ -87,15 +87,31 @@ variable "kms_key_arn" {}
 variable "preingest" {
   type = object({
     tdr = object({
-      sfn_arn              = string
-      importer_sqs_arn     = string
-      aggregator_sqs_arn   = string
+      sfn_arn = string
+      importer_sqs = object({
+        arn          = string
+        event_alarms = any
+        alarms       = any
+      })
+      aggregator_sqs = object({
+        arn          = string
+        event_alarms = any
+        alarms       = any
+      })
       importer_lambda_name = string
     })
     dri = object({
-      sfn_arn              = string
-      importer_sqs_arn     = string
-      aggregator_sqs_arn   = string
+      sfn_arn = string
+      importer_sqs = object({
+        arn          = string
+        event_alarms = any
+        alarms       = any
+      })
+      aggregator_sqs = object({
+        arn          = string
+        event_alarms = any
+        alarms       = any
+      })
       importer_lambda_name = string
     })
   })

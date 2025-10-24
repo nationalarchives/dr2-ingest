@@ -26,7 +26,7 @@ module "dr2_e2e_tests_policy" {
   name   = "${local.e2e_tests_name}-policy"
   policy_string = templatefile("${path.root}/templates/iam_policy/e2e_tests_policy.json.tpl", {
     input_bucket_name                = var.bucket_names.ingest_raw_cache_bucket_name
-    copy_files_from_tdr_queue        = var.preingest.tdr.importer_sqs_arn
+    copy_files_from_tdr_queue        = var.preingest.tdr.importer_sqs.arn
     judgment_input_queue             = module.dr2_ingest_parsed_court_document_event_handler_sqs.sqs_arn
     preingest_sfn_arn                = var.preingest.tdr.sfn_arn
     dynamo_db_lock_table_arn         = var.ingest_lock_table.arn

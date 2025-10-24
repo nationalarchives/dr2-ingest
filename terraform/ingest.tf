@@ -48,15 +48,31 @@ module "ingest" {
   }
   preingest = {
     tdr = {
-      sfn_arn              = module.tdr_preingest[each.key].preingest_sfn_arn
-      importer_sqs_arn     = module.tdr_preingest[each.key].importer_sqs.sqs_arn
-      aggregator_sqs_arn   = module.tdr_preingest[each.key].aggregator_sqs.sqs_arn
+      sfn_arn = module.tdr_preingest[each.key].preingest_sfn_arn
+      importer_sqs = {
+        arn          = module.tdr_preingest[each.key].importer_sqs.sqs_arn
+        event_alarms = module.tdr_preingest[each.key].importer_sqs.event_alarms
+        alarms       = module.tdr_preingest[each.key].importer_sqs.alarms
+      }
+      aggregator_sqs = {
+        arn          = module.tdr_preingest[each.key].aggregator_sqs.sqs_arn
+        event_alarms = module.tdr_preingest[each.key].aggregator_sqs.event_alarms
+        alarms       = module.tdr_preingest[each.key].aggregator_sqs.alarms
+      }
       importer_lambda_name = module.tdr_preingest[each.key].importer_lambda.function_name
     }
     dri = {
-      sfn_arn              = module.dri_preingest[each.key].preingest_sfn_arn
-      importer_sqs_arn     = module.dri_preingest[each.key].importer_sqs.sqs_arn
-      aggregator_sqs_arn   = module.dri_preingest[each.key].aggregator_sqs.sqs_arn
+      sfn_arn = module.dri_preingest[each.key].preingest_sfn_arn
+      importer_sqs = {
+        arn          = module.dri_preingest[each.key].importer_sqs.sqs_arn
+        event_alarms = module.dri_preingest[each.key].importer_sqs.event_alarms
+        alarms       = module.dri_preingest[each.key].importer_sqs.alarms
+      }
+      aggregator_sqs = {
+        arn          = module.dri_preingest[each.key].aggregator_sqs.sqs_arn
+        event_alarms = module.dri_preingest[each.key].aggregator_sqs.event_alarms
+        alarms       = module.dri_preingest[each.key].aggregator_sqs.alarms
+      }
       importer_lambda_name = module.dri_preingest[each.key].importer_lambda.function_name
     }
   }

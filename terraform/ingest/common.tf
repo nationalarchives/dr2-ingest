@@ -58,6 +58,10 @@ locals {
   ], var.preingest_lambda_names, var.entity_event_lambda_names)
   queues = [
     module.dr2_ingest_parsed_court_document_event_handler_sqs,
+    var.preingest.tdr.aggregator_sqs,
+    var.preingest.tdr.importer_sqs,
+    var.preingest.dri.aggregator_sqs,
+    var.preingest.dri.importer_sqs,
     var.custodial_copy.custodial_copy_queue,
     var.custodial_copy.custodial_copy_queue_creator_queue,
     var.custodial_copy.custodial_copy_builder_queue,
