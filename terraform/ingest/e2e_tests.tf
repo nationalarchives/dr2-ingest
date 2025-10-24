@@ -26,11 +26,11 @@ module "dr2_e2e_tests_policy" {
   name   = "${local.e2e_tests_name}-policy"
   policy_string = templatefile("${path.root}/templates/iam_policy/e2e_tests_policy.json.tpl", {
     input_bucket_name                = var.ingest_raw_cache_bucket_name
-    copy_files_from_tdr_queue        = module.tdr_preingest.importer_sqs.sqs_arn
+    copy_files_from_tdr_queue        = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${var.lambda_names.preingest.tdr.importer}"
     judgment_input_queue             = module.dr2_ingest_parsed_court_document_event_handler_sqs.sqs_arn
-    preingest_sfn_arn                = module.tdr_preingest.preingest_sfn_arn
+    preingest_sfn_arn                =  "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${var.step_function_names.preingest.tdr}"
     dynamo_db_lock_table_arn         = var.ingest_lock_table_arn
     external_notifications_log_group = var.external_notification_log_group_arn
-    copy_files_from_tdr_log_group    = "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${module.tdr_preingest.importer_lambda.function_name}"
+    copy_files_from_tdr_log_group    = "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.lambda_names.preingest.tdr}"
   })
 }

@@ -1,4 +1,13 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "5.99.1"
+    }
+  }
+}
 locals {
+  account_id                                                  = data.aws_caller_identity.current.account_id
   az_count                                                    = local.environment == "prod" ? 2 : 1
   ingest_raw_cache_bucket_name                                = "${local.environment}-dr2-ingest-raw-cache"
   sample_files_bucket_name                                    = "${local.environment}-dr2-sample-files"
@@ -31,26 +40,49 @@ locals {
   sse_encryption                                              = "sse"
   visibility_timeout                                          = 180
   redrive_maximum_receives                                    = 5
-  dashboard_lambdas = concat([
+  dashboard_lambdas = [
     local.court_document_anonymiser_lambda_name,
     local.entity_event_lambda_name,
     local.get_latest_preservica_version,
+    module.common.lambda_names.ingest_asset_opex_creator,
+    module.common.lambda_names.ingest_reconciler,
+    module.common.lambda_names.failed_notification,
+    module.common.lambda_names.find_existing_asset,
+    module.common.lambda_names.folder_opex_creator,
+    module.common.lambda_names.ingest_mapper,
+    module.common.lambda_names.parent_folder_opex_creator,
+    module.common.lambda_names.court_document_handler,
     local.ingest_queue_creator_name,
+    module.common.lambda_names.start_workflow,
+    module.common.lambda_names.upsert_folders,
+    module.common.lambda_names.validate_ingest_inputs,
+    module.common.lambda_names.workflow_monitor,
     local.ip_lock_checker_lambda_name,
-    local.rotate_preservation_system_password_name
-  ], keys(module.ingest.lambdas))
+    local.rotate_preservation_system_password_name,
+    module.common.lambda_names.preingest.tdr.aggregator,
+    module.common.lambda_names.preingest.tdr.package_builder,
+    module.common.lambda_names.preingest.tdr.importer,
+    module.common.lambda_names.preingest.dri.aggregator,
+    module.common.lambda_names.preingest.dri.package_builder,
+    module.common.lambda_names.preingest.dri.importer
+  ]
   queues = concat([
     module.ingest.court_document_event_handler_sqs,
     module.dr2_custodial_copy_queue,
     module.dr2_custodial_copy_queue_creator_queue,
     module.dr2_custodial_copy_db_builder_queue,
     module.dr2_external_notifications_queue,
-  ], module.ingest.importer_sqs_queues)
+  ], module.dri_preingest.importer_sqs, module.tdr_preingest.importer_sqs)
   messages_visible_threshold = 1000000
   # The list comes from https://www.cloudflare.com/en-gb/ips
   cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
   outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
   code_deploy_bucket          = "mgmt-dp-code-deploy"
+}
+
+module "common" {
+  source      = "./common"
+  environment = local.environment
 }
 
 variable "deploy_version" {}
@@ -191,26 +223,26 @@ module "dr2_kms_key" {
   default_policy_variables = {
     user_roles_decoupled = concat([
       data.aws_iam_role.org_wiz_access_role.arn,
-      replace(module.ingest.lambdas[module.ingest.lambda_names.ingest_asset_opex_creator].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.find_existing_asset].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.validate_ingest_inputs].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.ingest_reconciler].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.folder_opex_creator].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.parent_folder_opex_creator].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.tdr_aggregator].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.ingest_mapper].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.tdr_package_builder].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.court_document_handler].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.upsert_folders].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.dri_importer].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.tdr_importer].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.dri_package_builder].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.folder_opex_creator].role, "intg-", "*"),
-      replace(module.ingest.lambdas[module.ingest.lambda_names.dri_aggregator].role, "intg-", "*"),
-      replace(module.ingest.ingest_step_function.step_function_role_arn, "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.ingest_asset_opex_creator}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.find_existing_asset}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.validate_ingest_inputs}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.ingest_reconciler}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.folder_opex_creator}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.parent_folder_opex_creator}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.preingest.tdr.aggregator}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.ingest_mapper}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.preingest.tdr.package_builder}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.preingest.dri.package_builder}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.court_document_handler}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.upsert_folders}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.preingest.dri.importer}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.preingest.dri.aggregator}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.preingest.tdr.importer}", "intg-", "*"),
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.folder_opex_creator}", "intg-", "*"),
+      # replace(module.ingest.ingest_step_function.step_function_role_arn, "intg-", "*"),
       local.tna_to_preservica_role_arn,
       local.tre_prod_judgment_role,
-    ], local.additional_user_roles, local.anonymiser_roles, module.ingest.e2e_tests_role)
+    ], local.additional_user_roles, local.anonymiser_roles),// module.ingest.e2e_tests_role)
     ci_roles = [local.terraform_role_arn]
     service_details = [
       { service_name = "cloudwatch" },
@@ -220,10 +252,15 @@ module "dr2_kms_key" {
   }
 }
 
+data "aws_ssm_parameter" "environments" {
+  name = "/${local.environment}/environments"
+}
+
 module "ingest" {
   source                                            = "./ingest"
+  for_each                                          = toset(concat([local.environment], jsondecode(data.aws_ssm_parameter.environments.value)))
   discovery_security_group_id                       = module.discovery_inbound_https.security_group_id
-  environment                                       = local.environment
+  environment                                       = each.value
   files_table_arn                                   = module.files_table.table_arn
   files_table_gsi_name                              = local.files_table_batch_parent_global_secondary_index_name
   flow_control_config                               = aws_ssm_parameter.flow_control_config
@@ -240,6 +277,9 @@ module "ingest" {
   external_notification_log_group_arn               = aws_cloudwatch_log_group.external_notification_log_group.arn
   failed_ingest_step_function_event_bridge_rule_arn = module.failed_ingest_step_function_event_bridge_rule.rule_arn
   deploy_version                                    = var.deploy_version
+  lambda_names                                      = module.common.lambda_names
+  step_function_names = module.common.step_function_names
+  table_names = module.common.lambda_names
 }
 
 module "dr2_developer_key" {
@@ -249,8 +289,8 @@ module "dr2_developer_key" {
     user_roles = [
       data.aws_ssm_parameter.dev_admin_role.value,
       data.aws_iam_role.org_wiz_access_role.arn,
-      module.ingest.lambdas[module.ingest.lambda_names.ingest_mapper].role,
-      module.ingest.ingest_step_function.step_function_role_arn
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.ingest_mapper}", "intg-", "*"),
+      # module.ingest.ingest_step_function.step_function_role_arn
     ]
     ci_roles = [local.terraform_role_arn]
     service_details = [
@@ -269,10 +309,6 @@ data "aws_ssm_parameter" "dev_admin_role" {
 module "ingest_raw_cache_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_raw_cache_bucket_name
-  bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.ingest.lambdas[module.ingest.lambda_names.court_document_handler].role]),
-    bucket_name      = local.ingest_raw_cache_bucket_name
-  })
   kms_key_arn = module.dr2_kms_key.kms_key_arn
 }
 
@@ -287,10 +323,6 @@ module "sample_files_bucket" {
 module "ingest_state_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_state_bucket_name
-  bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.ingest.lambdas[module.ingest.lambda_names.ingest_mapper].role]),
-    bucket_name      = local.ingest_state_bucket_name
-  })
   kms_key_arn = module.dr2_developer_key.kms_key_arn
 }
 
@@ -370,7 +402,7 @@ module "eventbridge_alarm_notifications_destination" {
 module "cloudwatch_event_alarm_event_bridge_rule_alarm_only" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
   event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
-    cloudwatch_alarms = jsonencode(flatten([[for queue in local.queues : queue.event_alarms], [module.ingest.postingest.cc_confirmer_queue_oldest_message_alarm_arn]])),
+    cloudwatch_alarms = jsonencode(flatten([[for queue in local.queues : queue.event_alarms], [module.postingest.cc_confirmer_queue_oldest_message_alarm_arn]])),
     state_value       = "ALARM"
   })
   name                = "${local.environment}-dr2-eventbridge-alarm-state-change-alarm-only"
@@ -547,7 +579,7 @@ module "failed_ingest_step_function_event_bridge_rule" {
       message = "Step function `<sfnArn>` with name <name> has <status>"
     })
   }
-  lambda_target_arn = "arn:aws:lambda:eu-west-2:${data.aws_caller_identity.current.account_id}:function:${module.ingest.lambda_names.failed_notification}"
+  lambda_target_arn = "arn:aws:lambda:eu-west-2:${data.aws_caller_identity.current.account_id}:function:${module.common.lambda_names.failed_notification}"
 }
 
 module "dr2_ingest_parsed_court_document_event_handler_test_input_bucket" {
@@ -555,8 +587,11 @@ module "dr2_ingest_parsed_court_document_event_handler_test_input_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_parsed_court_document_event_handler_test_bucket_name
   bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.ingest.lambdas[module.ingest.lambda_names.court_document_handler].role, "arn:aws:iam::${module.tre_config.account_numbers["prod"]}:role/prod-tre-editorial-judgment-out-copier"]),
-    bucket_name      = local.ingest_parsed_court_document_event_handler_test_bucket_name
+    lambda_role_arns = jsonencode([
+      replace("arn:aws:iam::${local.account_id}:role/${module.common.lambda_names.court_document_handler}", "intg-", "*"),
+      "arn:aws:iam::${module.tre_config.account_numbers["prod"]}:role/prod-tre-editorial-judgment-out-copier"
+    ]),
+    bucket_name = local.ingest_parsed_court_document_event_handler_test_bucket_name
   })
   kms_key_arn = module.dr2_kms_key.kms_key_arn
 }

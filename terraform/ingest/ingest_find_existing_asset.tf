@@ -1,19 +1,15 @@
-locals {
-  ingest_find_existing_asset_name = "${local.environment}-dr2-ingest-find-existing-asset"
-}
-
 module "ingest_find_existing_asset" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
-  function_name   = local.ingest_find_existing_asset_name
+  function_name   = var.lambda_names.find_existing_asset
   s3_bucket       = local.code_deploy_bucket
-  s3_key          = replace("${var.deploy_version}/${local.ingest_find_existing_asset_name}", "${local.environment}-dr2-", "")
+  s3_key          = replace("${var.deploy_version}/${var.lambda_names.find_existing_asset}", "${local.environment}-dr2-", "")
   handler         = "uk.gov.nationalarchives.ingestfindexistingasset.Lambda::handleRequest"
   timeout_seconds = 60
   policies = {
-    "${local.ingest_find_existing_asset_name}-policy" = templatefile(
+    "${var.lambda_names.find_existing_asset}-policy" = templatefile(
       "${path.root}/templates/iam_policy/ingest_find_existing_asset_policy.json.tpl", {
         account_id                 = data.aws_caller_identity.current.account_id
-        lambda_name                = local.ingest_find_existing_asset_name
+        lambda_name                = var.lambda_names.find_existing_asset
         dynamo_db_file_table_arn   = var.files_table_arn
         secrets_manager_secret_arn = var.preservica_read_metadata_secret.arn
       }
@@ -30,6 +26,6 @@ module "ingest_find_existing_asset" {
     security_group_ids = local.outbound_security_group_ids
   }
   tags = {
-    Name = local.ingest_find_existing_asset_name
+    Name = var.lambda_names.find_existing_asset
   }
 }

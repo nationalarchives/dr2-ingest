@@ -22,28 +22,7 @@ locals {
   redrive_maximum_receives               = 5
   # The list comes from https://www.cloudflare.com/en-gb/ips
   outbound_security_group_ids = [var.outbound_https_access_only_id, var.outbound_cloudflare_https_access_id]
-  lambdas = [
-    module.ingest_find_existing_asset.lambda_function,
-    module.dr2_ingest_validate_generic_ingest_inputs_lambda.lambda_function,
-    module.dr2_ingest_parsed_court_document_event_handler_lambda.lambda_function,
-    module.dr2_ingest_mapper_lambda.lambda_function,
-    module.dr2_ingest_asset_opex_creator_lambda.lambda_function,
-    module.dr2_ingest_folder_opex_creator_lambda.lambda_function,
-    module.dr2_ingest_upsert_archive_folders_lambda.lambda_function,
-    module.dr2_ingest_parent_folder_opex_creator_lambda.lambda_function,
-    module.dr2_ingest_asset_reconciler_lambda.lambda_function,
-    module.tdr_preingest.aggregator_lambda,
-    module.tdr_preingest.package_builder_lambda,
-    module.tdr_preingest.importer_lambda,
-    module.dri_preingest.aggregator_lambda,
-    module.dri_preingest.package_builder_lambda,
-    module.dri_preingest.importer_lambda,
-    module.dr2_ingest_start_workflow_lambda.lambda_function,
-    module.dr2_ingest_failure_notifications_lambda.lambda_function,
-    module.dr2_ingest_workflow_monitor_lambda.lambda_function
-  ]
-  lambdas_by_name    = { for lambda in local.lambdas : (lambda.function_name) => lambda }
-  code_deploy_bucket = "mgmt-dp-code-deploy"
+  code_deploy_bucket          = "mgmt-dp-code-deploy"
 }
 
 data "aws_caller_identity" "current" {}
@@ -53,13 +32,13 @@ module "dr2_ingest_step_function" {
   step_function_definition = templatefile("${path.root}/templates/sfn/ingest_sfn_definition.json.tpl", {
     step_function_name                                = local.ingest_step_function_name,
     account_id                                        = data.aws_caller_identity.current.account_id
-    ingest_validate_generic_ingest_inputs_lambda_name = local.ingest_validate_generic_ingest_inputs_lambda_name
-    ingest_mapper_lambda_name                         = local.ingest_mapper_lambda_name
-    ingest_find_existing_asset_name_lambda_name       = local.ingest_find_existing_asset_name
-    ingest_asset_opex_creator_lambda_name             = local.ingest_asset_opex_creator_lambda_name
-    ingest_folder_opex_creator_lambda_name            = local.ingest_folder_opex_creator_lambda_name
-    ingest_parent_folder_opex_creator_lambda_name     = local.ingest_parent_folder_opex_creator_lambda_name
-    ingest_asset_reconciler_lambda_name               = local.ingest_asset_reconciler_lambda_name
+    ingest_validate_generic_ingest_inputs_lambda_name = var.lambda_names.validate_ingest_inputs
+    ingest_mapper_lambda_name                         = var.lambda_names.ingest_mapper
+    ingest_find_existing_asset_name_lambda_name       = var.lambda_names.find_existing_asset
+    ingest_asset_opex_creator_lambda_name             = var.lambda_names.ingest_asset_opex_creator
+    ingest_folder_opex_creator_lambda_name            = var.lambda_names.folder_opex_creator
+    ingest_parent_folder_opex_creator_lambda_name     = var.lambda_names.parent_folder_opex_creator
+    ingest_asset_reconciler_lambda_name               = var.lambda_names.ingest_reconciler
     ingest_lock_table_name                            = local.ingest_lock_dynamo_table_name
     ingest_lock_table_group_id_gsi_name               = local.ingest_lock_table_group_id_gsi_name
     ingest_lock_table_hash_key                        = local.ingest_lock_table_hash_key
@@ -71,7 +50,7 @@ module "dr2_ingest_step_function" {
     ingest_queue_table_name                           = local.ingest_queue_dynamo_table_name
     ingest_flow_control_lambda_name                   = local.ingest_flow_control_lambda_name
     retry_statement                                   = local.retry_statement
-    postingest_table_name                             = module.postingest.postingest_table_name
+    postingest_table_name                             = var.table_names.postingest
   })
   step_function_name = local.ingest_step_function_name
   step_function_role_policy_attachments = {
@@ -84,9 +63,9 @@ module "dr2_ingest_run_workflow_step_function" {
   step_function_definition = templatefile("${path.root}/templates/sfn/ingest_run_workflow_sfn_definition.json.tpl", {
     step_function_name                        = local.ingest_run_workflow_step_function_name
     account_id                                = data.aws_caller_identity.current.account_id
-    ingest_upsert_archive_folders_lambda_name = local.ingest_upsert_archive_folders_lambda_name
-    ingest_start_workflow_lambda_name         = local.ingest_start_workflow_lambda_name
-    ingest_workflow_monitor_lambda_name       = local.ingest_workflow_monitor_lambda_name
+    ingest_upsert_archive_folders_lambda_name = var.lambda_names.upsert_folders
+    ingest_start_workflow_lambda_name         = var.lambda_names.start_workflow
+    ingest_workflow_monitor_lambda_name       = var.lambda_names.workflow_monitor
     retry_statement                           = local.retry_statement,
     upsert_lambda_retry_statement             = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = module.dr2_ingest_upsert_archive_folders_lambda.lambda_function.timeout, MaxAttempts = 10, BackoffRate = 1, JitterStrategy = "FULL" }])
   })
@@ -101,16 +80,16 @@ module "dr2_ingest_step_function_policy" {
   name   = "${local.environment}-dr2-ingest-step-function-policy"
   policy_string = templatefile("${path.root}/templates/iam_policy/ingest_step_function_policy.json.tpl", {
     account_id                                        = data.aws_caller_identity.current.account_id
-    ingest_validate_generic_ingest_inputs_lambda_name = local.ingest_validate_generic_ingest_inputs_lambda_name
-    ingest_mapper_lambda_name                         = local.ingest_mapper_lambda_name
-    ingest_upsert_archive_folders_lambda_name         = local.ingest_upsert_archive_folders_lambda_name
-    ingest_find_existing_asset_lambda_name            = local.ingest_find_existing_asset_name
-    ingest_asset_opex_creator_lambda_name             = local.ingest_asset_opex_creator_lambda_name
-    ingest_folder_opex_creator_lambda_name            = local.ingest_folder_opex_creator_lambda_name
-    ingest_parent_folder_opex_creator_lambda_name     = local.ingest_parent_folder_opex_creator_lambda_name
-    ingest_start_workflow_lambda_name                 = local.ingest_start_workflow_lambda_name
-    ingest_workflow_monitor_lambda_name               = local.ingest_workflow_monitor_lambda_name
-    ingest_asset_reconciler_lambda_name               = local.ingest_asset_reconciler_lambda_name
+    ingest_validate_generic_ingest_inputs_lambda_name = var.lambda_names.validate_ingest_inputs
+    ingest_mapper_lambda_name                         = var.lambda_names.ingest_mapper
+    ingest_upsert_archive_folders_lambda_name         = var.lambda_names.upsert_folders
+    ingest_find_existing_asset_lambda_name            = var.lambda_names.find_existing_asset
+    ingest_asset_opex_creator_lambda_name             = var.lambda_names.ingest_asset_opex_creator
+    ingest_folder_opex_creator_lambda_name            = var.lambda_names.folder_opex_creator
+    ingest_parent_folder_opex_creator_lambda_name     = var.lambda_names.parent_folder_opex_creator
+    ingest_start_workflow_lambda_name                 = var.lambda_names.start_workflow
+    ingest_workflow_monitor_lambda_name               = var.lambda_names.workflow_monitor
+    ingest_asset_reconciler_lambda_name               = var.lambda_names.ingest_reconciler
     ingest_flow_control_lambda_name                   = local.ingest_flow_control_lambda_name
     ingest_lock_table_name                            = local.ingest_lock_dynamo_table_name
     ingest_lock_table_group_id_gsi_name               = local.ingest_lock_table_group_id_gsi_name
@@ -121,10 +100,10 @@ module "dr2_ingest_step_function_policy" {
     ingest_run_workflow_sfn_name                      = local.ingest_run_workflow_step_function_name
     ingest_files_table_name                           = local.files_dynamo_table_name
     tna_to_preservica_role_arn                        = local.tna_to_preservica_role_arn
-    preingest_tdr_step_function_arn                   = module.tdr_preingest.preingest_sfn_arn
-    preingest_dri_step_function_arn                   = module.dri_preingest.preingest_sfn_arn
+    preingest_tdr_step_function_arn                   = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${var.step_function_names.preingest.tdr}"
+    preingest_dri_step_function_arn                   = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${var.step_function_names.preingest.dri}"
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
-    postingest_table_name                             = module.postingest.postingest_table_name
+    postingest_table_name                             = var.table_names.postingest
   })
 }
 
@@ -133,9 +112,9 @@ module "dr2_ingest_run_workflow_step_function_policy" {
   name   = "${local.environment}-dr2-ingest-run-workflow-step-function-policy"
   policy_string = templatefile("${path.root}/templates/iam_policy/ingest_run_workflow_step_function_policy.json.tpl", {
     account_id                                = data.aws_caller_identity.current.account_id
-    ingest_upsert_archive_folders_lambda_name = local.ingest_upsert_archive_folders_lambda_name
-    ingest_start_workflow_lambda_name         = local.ingest_start_workflow_lambda_name
-    ingest_workflow_monitor_lambda_name       = local.ingest_workflow_monitor_lambda_name,
+    ingest_upsert_archive_folders_lambda_name = var.lambda_names.upsert_folders
+    ingest_start_workflow_lambda_name         = var.lambda_names.start_workflow
+    ingest_workflow_monitor_lambda_name       = var.lambda_names.workflow_monitor,
     ingest_step_function_name                 = local.ingest_step_function_name
   })
 }

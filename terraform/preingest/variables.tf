@@ -23,3 +23,18 @@ variable "bucket_kms_arn" {
 variable "copy_source_bucket_name" {}
 
 variable "deploy_version" {}
+
+variable "lambda_names" {
+  type = object({
+    importer        = string
+    aggregator      = string
+    package_builder = string
+  })
+}
+
+variable "step_function_names" {
+  type = object({
+    ingest    = string
+    preingest = object({})
+  })
+}

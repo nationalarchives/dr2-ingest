@@ -1,18 +1,14 @@
-locals {
-  ingest_asset_reconciler_lambda_name = "${local.environment}-dr2-ingest-asset-reconciler"
-}
-
 module "dr2_ingest_asset_reconciler_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
-  function_name   = local.ingest_asset_reconciler_lambda_name
+  function_name   = var.lambda_names.ingest_reconciler
   s3_bucket       = local.code_deploy_bucket
-  s3_key          = replace("${var.deploy_version}/${local.ingest_asset_reconciler_lambda_name}", "${local.environment}-dr2-", "")
+  s3_key          = replace("${var.deploy_version}/${var.lambda_names.ingest_reconciler}", "${local.environment}-dr2-", "")
   handler         = "uk.gov.nationalarchives.ingestassetreconciler.Lambda::handleRequest"
   timeout_seconds = local.java_timeout_seconds
   policies = {
-    "${local.ingest_asset_reconciler_lambda_name}-policy" = templatefile("./templates/iam_policy/ingest_asset_reconciler_policy.json.tpl", {
+    "${var.lambda_names.ingest_reconciler}-policy" = templatefile("./templates/iam_policy/ingest_asset_reconciler_policy.json.tpl", {
       account_id                 = data.aws_caller_identity.current.account_id
-      lambda_name                = local.ingest_asset_reconciler_lambda_name
+      lambda_name                = var.lambda_names.ingest_reconciler
       dynamo_db_file_table_arn   = var.files_table_arn
       gsi_name                   = var.files_table_gsi_name
       dynamo_db_lock_table_arn   = var.ingest_lock_table_arn
@@ -32,7 +28,7 @@ module "dr2_ingest_asset_reconciler_lambda" {
     security_group_ids = local.outbound_security_group_ids
   }
   tags = {
-    Name = local.ingest_asset_reconciler_lambda_name
+    Name = var.lambda_names.ingest_reconciler
   }
 }
 

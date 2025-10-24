@@ -1,10 +1,8 @@
 locals {
-  ingest_parsed_court_document_event_handler_queue_name  = "${local.environment}-dr2-ingest-parsed-court-document-event-handler"
-  ingest_parsed_court_document_event_handler_lambda_name = "${local.environment}-dr2-ingest-parsed-court-document-event-handler"
-  court_document_lambda_policy_template_suffix           = local.environment == "prod" ? "_prod" : ""
-  court_document_queue_sqs_policy                        = local.environment == "prod" ? "sns_send_message_policy" : "sqs_access_policy"
-  tre_terraform_prod_config                              = module.tre_config.terraform_config["prod"]
-  tre_prod_event_bus                                     = local.tre_terraform_prod_config["da_eventbus"]
+  court_document_lambda_policy_template_suffix = local.environment == "prod" ? "_prod" : ""
+  court_document_queue_sqs_policy              = local.environment == "prod" ? "sns_send_message_policy" : "sqs_access_policy"
+  tre_terraform_prod_config                    = module.tre_config.terraform_config["prod"]
+  tre_prod_event_bus                           = local.tre_terraform_prod_config["da_eventbus"]
 }
 
 module "tre_config" {
@@ -38,10 +36,10 @@ module "copy_from_tre_bucket_policy" {
 module "dr2_ingest_parsed_court_document_event_handler_sqs" {
   source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
-  queue_name                                        = local.ingest_parsed_court_document_event_handler_queue_name
+  queue_name                                        = var.lambda_names.court_document_handler
   sqs_policy = templatefile("./templates/sqs/${local.court_document_queue_sqs_policy}.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.ingest_parsed_court_document_event_handler_queue_name
+    queue_name = var.lambda_names.court_document_handler
     topic_arn  = local.tre_prod_event_bus
   })
   redrive_maximum_receives = local.redrive_maximum_receives
@@ -52,20 +50,20 @@ module "dr2_ingest_parsed_court_document_event_handler_sqs" {
 
 module "dr2_ingest_parsed_court_document_event_handler_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
-  function_name   = local.ingest_parsed_court_document_event_handler_lambda_name
+  function_name   = var.lambda_names.court_document_handler
   s3_bucket       = local.code_deploy_bucket
-  s3_key          = replace("${var.deploy_version}/${local.ingest_parsed_court_document_event_handler_lambda_name}", "${local.environment}-dr2-", "")
+  s3_key          = replace("${var.deploy_version}/${var.lambda_names.court_document_handler}", "${local.environment}-dr2-", "")
   handler         = "uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda::handleRequest"
   timeout_seconds = 60
   lambda_sqs_queue_mappings = [
-    { sqs_queue_arn = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.ingest_parsed_court_document_event_handler_queue_name}", ignore_enabled_status = true }
+    { sqs_queue_arn = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${var.lambda_names.court_document_handler}", ignore_enabled_status = true }
   ]
   policies = {
-    "${local.ingest_parsed_court_document_event_handler_lambda_name}-policy" = templatefile("./templates/iam_policy/ingest_parsed_court_document_event_handler_lambda_policy${local.court_document_lambda_policy_template_suffix}.json.tpl", {
+    "${var.lambda_names.court_document_handler}-policy" = templatefile("./templates/iam_policy/ingest_parsed_court_document_event_handler_lambda_policy${local.court_document_lambda_policy_template_suffix}.json.tpl", {
       ingest_parsed_court_document_event_handler_queue_arn = module.dr2_ingest_parsed_court_document_event_handler_sqs.sqs_arn
       bucket_name                                          = var.ingest_raw_cache_bucket_name
       account_id                                           = data.aws_caller_identity.current.account_id
-      lambda_name                                          = local.ingest_parsed_court_document_event_handler_lambda_name
+      lambda_name                                          = var.lambda_names.court_document_handler
       step_function_arn                                    = module.dr2_ingest_step_function.step_function_arn
       tre_kms_arn                                          = module.tre_config.terraform_config["prod_s3_court_document_pack_out_kms_arn"]
       tre_bucket_arn                                       = local.tre_terraform_prod_config["s3_court_document_pack_out_arn"]
@@ -80,7 +78,7 @@ module "dr2_ingest_parsed_court_document_event_handler_lambda" {
     OUTPUT_BUCKET_NAME = var.ingest_raw_cache_bucket_name
   }
   tags = {
-    Name = local.ingest_parsed_court_document_event_handler_lambda_name
+    Name = var.lambda_names.court_document_handler
   }
 }
 

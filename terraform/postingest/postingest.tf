@@ -1,5 +1,4 @@
 locals {
-  postingest_state_table_name         = "${var.environment}-dr2-postingest-state"
   postingest_gsi_firstqueued_name     = "QueueFirstQueuedIdx"
   postingest_gsi_lastqueued_name      = "QueueLastQueuedIdx"
   custodial_copy_confirmer_queue_name = "${var.environment}-dr2-custodial-copy-confirmer"
@@ -23,7 +22,7 @@ module "postingest_state_table" {
   source                         = "git::https://github.com/nationalarchives/da-terraform-modules//dynamo"
   hash_key                       = { name = "assetId", type = "S" }
   range_key                      = { name = "batchId", type = "S" }
-  table_name                     = local.postingest_state_table_name
+  table_name                     = var.table_names.postingest
   server_side_encryption_enabled = false
   ttl_attribute_name             = "ttl"
   stream_enabled                 = true
@@ -121,7 +120,7 @@ module "dr2_state_change_lambda" {
     dead_letter_target_arn = module.dr2_state_change_lambda_dlq.sqs_arn
   }
   plaintext_env_vars = {
-    POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
+    POSTINGEST_STATE_DDB_TABLE                = var.table_names.postingest
     POSTINGEST_DDB_TABLE_BATCHPARENT_GSI_NAME = local.postingest_gsi_lastqueued_name
     OUTPUT_TOPIC_ARN                          = var.notifications_topic_arn
     POSTINGEST_QUEUES                         = jsonencode(local.postingest_queue_config)
@@ -151,7 +150,7 @@ module "dr2_message_resender_lambda" {
   memory_size = local.java_lambda_memory_size
   runtime     = local.java_runtime
   plaintext_env_vars = {
-    POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
+    POSTINGEST_STATE_DDB_TABLE                = var.table_names.postingest
     POSTINGEST_DDB_TABLE_BATCHPARENT_GSI_NAME = local.postingest_gsi_lastqueued_name
     POSTINGEST_QUEUES                         = jsonencode(local.postingest_queue_config)
   }

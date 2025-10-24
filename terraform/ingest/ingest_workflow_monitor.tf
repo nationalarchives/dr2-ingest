@@ -1,18 +1,14 @@
-locals {
-  ingest_workflow_monitor_lambda_name = "${local.environment}-dr2-ingest-workflow-monitor"
-}
-
 module "dr2_ingest_workflow_monitor_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
-  function_name   = local.ingest_workflow_monitor_lambda_name
+  function_name   = var.lambda_names.workflow_monitor
   s3_bucket       = local.code_deploy_bucket
-  s3_key          = replace("${var.deploy_version}/${local.ingest_workflow_monitor_lambda_name}", "${local.environment}-dr2-", "")
+  s3_key          = replace("${var.deploy_version}/${var.lambda_names.workflow_monitor}", "${local.environment}-dr2-", "")
   handler         = "uk.gov.nationalarchives.ingestworkflowmonitor.Lambda::handleRequest"
   timeout_seconds = local.java_timeout_seconds
   policies = {
-    "${local.ingest_workflow_monitor_lambda_name}-policy" = templatefile("./templates/iam_policy/ingest_workflow_monitor_policy.json.tpl", {
+    "${var.lambda_names.workflow_monitor}-policy" = templatefile("./templates/iam_policy/ingest_workflow_monitor_policy.json.tpl", {
       account_id                 = data.aws_caller_identity.current.account_id
-      lambda_name                = local.ingest_workflow_monitor_lambda_name
+      lambda_name                = var.lambda_names.workflow_monitor
       secrets_manager_secret_arn = var.preservica_secret.arn
     })
   }
@@ -26,6 +22,6 @@ module "dr2_ingest_workflow_monitor_lambda" {
     security_group_ids = local.outbound_security_group_ids
   }
   tags = {
-    Name = local.ingest_workflow_monitor_lambda_name
+    Name = var.lambda_names.workflow_monitor
   }
 }

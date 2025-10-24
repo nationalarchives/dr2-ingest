@@ -2,10 +2,8 @@ data "aws_caller_identity" "current" {}
 
 locals {
   environment                                  = var.environment
-  preingest_name                               = "${local.environment}-dr2-preingest-${var.source_name}"
-  aggregator_name                              = "${local.preingest_name}-aggregator"
-  aggregator_queue_arn                         = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.aggregator_name}"
-  package_builder_lambda_name                  = "${local.preingest_name}-package-builder"
+  aggregator_queue_arn                         = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${var.lambda_names.aggregator}"
+  preingest_name                               = var.step_function_names.preingest[var.source_name]
   preingest_sfn_arn                            = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${local.preingest_name}"
   ingest_sfn_arn                               = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${var.ingest_step_function_name}"
   java_runtime                                 = "java21"
@@ -23,13 +21,13 @@ locals {
 
 module "dr2_preingest_aggregator_queue" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  queue_name = local.aggregator_name
+  queue_name = var.lambda_names.aggregator
   sqs_policy = var.sns_topic_arn == null ? templatefile("${path.module}/templates/sqs_access_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.aggregator_name
+    queue_name = var.lambda_names.aggregator
     }) : templatefile("${path.module}/templates/sns_send_message_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.aggregator_name
+    queue_name = var.lambda_names.aggregator
     topic_arn  = var.sns_topic_arn
   })
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
@@ -39,9 +37,9 @@ module "dr2_preingest_aggregator_queue" {
 
 module "dr2_preingest_aggregator_lambda" {
   source                         = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
-  function_name                  = local.aggregator_name
+  function_name                  = var.lambda_names.aggregator
   s3_bucket                      = local.code_deploy_bucket
-  s3_key                         = replace("${var.deploy_version}/${local.aggregator_name}", "${local.environment}-dr2-", "")
+  s3_key                         = replace("${var.deploy_version}/${var.lambda_names.aggregator}", "${local.environment}-dr2-", "")
   handler                        = "uk.gov.nationalarchives.preingesttdraggregator.Lambda::handleRequest"
   sqs_queue_batching_window      = local.aggregator_primary_grouping_window_seconds
   sqs_queue_mapping_batch_size   = local.aggregator_invocation_batch_size
@@ -53,9 +51,9 @@ module "dr2_preingest_aggregator_lambda" {
   }]
   timeout_seconds = local.aggregator_lambda_timeout_seconds
   policies = {
-    "${local.aggregator_name}-policy" = templatefile("${path.module}/templates/preingest_aggregator_policy.json.tpl", {
+    "${var.lambda_names.aggregator}-policy" = templatefile("${path.module}/templates/preingest_aggregator_policy.json.tpl", {
       account_id                 = data.aws_caller_identity.current.account_id
-      lambda_name                = local.aggregator_name
+      lambda_name                = var.lambda_names.aggregator
       dynamo_db_lock_table_arn   = var.ingest_lock_table_arn
       preingest_sfn_arn          = local.preingest_sfn_arn
       preingest_aggregator_queue = local.aggregator_queue_arn
@@ -71,7 +69,7 @@ module "dr2_preingest_aggregator_lambda" {
     SOURCE_SYSTEM                 = upper(var.source_name)
   }
   tags = {
-    Name = local.aggregator_name
+    Name = var.lambda_names.aggregator
   }
 }
 
@@ -80,7 +78,7 @@ module "dr2_preingest_step_function" {
   step_function_definition = templatefile("${path.module}/templates/preingest_sfn_definition.json.tpl", {
     ingest_step_function_arn    = local.ingest_sfn_arn
     account_id                  = data.aws_caller_identity.current.account_id
-    package_builder_lambda_name = local.package_builder_lambda_name
+    package_builder_lambda_name = var.lambda_names.package_builder
     retry_statement             = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 6, BackoffRate = 2, JitterStrategy = "FULL" }])
   })
   step_function_name = local.preingest_name
@@ -95,21 +93,21 @@ module "dr2_preingest_step_function_policy" {
   policy_string = templatefile("${path.module}/templates/preingest_step_function_policy.json.tpl", {
     ingest_step_function_arn    = local.ingest_sfn_arn
     account_id                  = data.aws_caller_identity.current.account_id
-    package_builder_lambda_name = local.package_builder_lambda_name
+    package_builder_lambda_name = var.lambda_names.package_builder
   })
 }
 
 module "dr2_preingest_package_builder_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
-  function_name   = local.package_builder_lambda_name
+  function_name   = var.lambda_names.package_builder
   s3_bucket       = local.code_deploy_bucket
-  s3_key          = replace("${var.deploy_version}/${local.package_builder_lambda_name}", "${local.environment}-dr2-", "")
+  s3_key          = replace("${var.deploy_version}/${var.lambda_names.package_builder}", "${local.environment}-dr2-", "")
   handler         = "uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda::handleRequest"
   timeout_seconds = local.java_timeout_seconds
   policies = {
-    "${local.package_builder_lambda_name}-policy" = templatefile("${path.module}/templates/preingest_package_builder_policy.json.tpl", {
+    "${var.lambda_names.package_builder}-policy" = templatefile("${path.module}/templates/preingest_package_builder_policy.json.tpl", {
       account_id               = data.aws_caller_identity.current.account_id
-      lambda_name              = local.package_builder_lambda_name
+      lambda_name              = var.lambda_names.package_builder
       dynamo_db_lock_table_arn = var.ingest_lock_table_arn
       gsi_name                 = var.ingest_lock_table_group_id_gsi_name
       raw_cache_bucket_name    = var.ingest_raw_cache_bucket_name
@@ -124,6 +122,6 @@ module "dr2_preingest_package_builder_lambda" {
     SOURCE_SYSTEM                   = upper(var.source_name)
   }
   tags = {
-    Name = local.package_builder_lambda_name
+    Name = var.lambda_names.package_builder
   }
 }

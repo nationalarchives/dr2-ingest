@@ -1,17 +1,13 @@
-locals {
-  ingest_failure_notifications_lambda_name = "${local.environment}-dr2-ingest-failure-notifications"
-}
-
 module "dr2_ingest_failure_notifications_lambda" {
   source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=DR2-2511-do-not-ignore-filename-if-set"
-  function_name = local.ingest_failure_notifications_lambda_name
+  function_name = var.lambda_names.failed_notification
   s3_bucket     = local.code_deploy_bucket
-  s3_key        = replace("${var.deploy_version}/${local.ingest_failure_notifications_lambda_name}", "${local.environment}-dr2-", "")
+  s3_key        = replace("${var.deploy_version}/${var.lambda_names.failed_notification}", "${local.environment}-dr2-", "")
   handler       = "uk.gov.nationalarchives.ingestfailurenotifications.Lambda::handleRequest"
   policies = {
-    "${local.ingest_failure_notifications_lambda_name}-policy" = templatefile("${path.root}/templates/iam_policy/failure_notifications_policy.json.tpl", {
+    "${var.lambda_names.failed_notification}-policy" = templatefile("${path.root}/templates/iam_policy/failure_notifications_policy.json.tpl", {
       account_id               = data.aws_caller_identity.current.account_id
-      lambda_name              = local.ingest_failure_notifications_lambda_name
+      lambda_name              = var.lambda_names.failed_notification
       dynamo_db_file_table_arn = var.ingest_lock_table_arn
       gsi_name                 = local.ingest_lock_table_group_id_gsi_name
       sns_arn                  = var.notifications_topic.arn
