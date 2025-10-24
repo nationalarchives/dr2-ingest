@@ -4,3 +4,5 @@ repos:
     default_phase: commit
     hooks:
       - id: sbt-scalafmt
+        files: ^scala/
+        types_or: [scala]
