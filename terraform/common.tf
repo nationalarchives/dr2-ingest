@@ -92,22 +92,6 @@ resource "random_string" "preservica_user" {
   special = false
 }
 
-resource "aws_secretsmanager_secret" "preservica_secret" {
-  name = "${local.environment}-preservica-api-login-details-${random_string.preservica_user.result}"
-}
-
-resource "aws_secretsmanager_secret" "preservica_read_metadata_read_content" {
-  name = "${local.environment}-preservica-api-read-metadata-read-content"
-}
-
-resource "aws_secretsmanager_secret" "preservica_read_metadata" {
-  name = "${local.environment}-preservica-api-read-metadata"
-}
-
-resource "aws_secretsmanager_secret" "preservica_read_update_metadata_insert_content" {
-  name = "${local.environment}-preservica-api-read-update-metadata-insert-content"
-}
-
 resource "aws_secretsmanager_secret_rotation" "secret_rotation" {
   for_each = toset([
     aws_secretsmanager_secret.preservica_secret.id,
@@ -124,165 +108,6 @@ resource "aws_secretsmanager_secret_rotation" "secret_rotation" {
 
 resource "aws_secretsmanager_secret" "demo_preservica_secret" {
   name = "${local.environment}-demo-preservica-api-login-details-${random_string.preservica_user.result}"
-}
-
-data "aws_ssm_parameter" "slack_webhook_url" {
-  name = "/${local.environment}/slack/cloudwatch-alarm-webhook"
-}
-
-module "vpc" {
-  source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
-  vpc_name                  = "${local.environment}-vpc"
-  az_count                  = local.az_count
-  elastic_ip_allocation_ids = data.aws_eip.eip.*.id
-  use_nat_gateway           = true
-  environment               = local.environment
-  private_nacl_rules = [
-    { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 443, to_port = 443, egress = true },
-    { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = false },
-  ]
-  public_nacl_rules = [
-    { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 443, to_port = 443, egress = false },
-    { rule_no = 200, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = false },
-    { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 443, to_port = 443, egress = true },
-    { rule_no = 200, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = true },
-  ]
-}
-
-data "aws_eip" "eip" {
-  count = local.az_count
-  filter {
-    name   = "tag:Name"
-    values = ["${local.environment}-eip-${count.index}"]
-  }
-}
-
-module "outbound_https_access_only" {
-  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
-  common_tags = {}
-  description = "A security group to allow outbound access only"
-  name        = "${local.environment}-outbound-https"
-  vpc_id      = module.vpc.vpc_id
-  rules = {
-    egress = [
-      {
-        port              = 443
-        description       = "Outbound https to discovery VPC endpoint"
-        security_group_id = module.discovery_inbound_https.security_group_id
-        protocol          = "tcp"
-      },
-      {
-        port        = 443
-        description = "Outbound https to all IPs"
-        cidr_ip_v4  = "0.0.0.0/0"
-        protocol    = "tcp"
-      },
-    ]
-  }
-}
-
-resource "aws_ec2_managed_prefix_list" "cloudflare_prefix_list" {
-  address_family = "IPv4"
-  max_entries    = length(local.cloudflare_ip_ranges) + 5
-  name           = "${local.environment}-cloudflare-ranges"
-  dynamic "entry" {
-    for_each = local.cloudflare_ip_ranges
-    content {
-      cidr = entry.value
-    }
-  }
-}
-
-module "outbound_cloudflare_https_access" {
-  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
-  common_tags = {}
-  description = "A security group to allow outbound access to Cloudflare IPs only"
-  name        = "${local.environment}-outbound-https-to-cloudflare"
-  vpc_id      = module.vpc.vpc_id
-  rules = {
-    egress = [{
-      port           = 443
-      description    = "Outbound https Cloudflare access",
-      prefix_list_id = aws_ec2_managed_prefix_list.cloudflare_prefix_list.id
-      protocol       = "tcp"
-    }]
-  }
-}
-
-module "dr2_kms_key" {
-  source   = "git::https://github.com/nationalarchives/da-terraform-modules//kms"
-  key_name = "${local.environment}-kms-dr2"
-  default_policy_variables = {
-    user_roles = concat([
-      data.aws_iam_role.org_wiz_access_role.arn,
-      module.ingest_find_existing_asset.lambda_role_arn,
-      module.ingest_find_existing_asset.lambda_role_arn,
-      module.dr2_ingest_validate_generic_ingest_inputs_lambda.lambda_role_arn,
-      module.dr2_ingest_parsed_court_document_event_handler_lambda.lambda_role_arn,
-      module.dr2_ingest_mapper_lambda.lambda_role_arn,
-      module.dr2_ingest_asset_opex_creator_lambda.lambda_role_arn,
-      module.dr2_ingest_folder_opex_creator_lambda.lambda_role_arn,
-      module.dr2_ingest_upsert_archive_folders_lambda.lambda_role_arn,
-      module.dr2_ingest_parent_folder_opex_creator_lambda.lambda_role_arn,
-      module.dr2_ingest_asset_reconciler_lambda.lambda_role_arn,
-      module.dr2_ingest_step_function.step_function_role_arn,
-      module.tdr_preingest.aggregator_lambda.role,
-      module.tdr_preingest.package_builder_lambda.role,
-      module.tdr_preingest.importer_lambda.role,
-      module.dri_preingest.aggregator_lambda.role,
-      module.dri_preingest.package_builder_lambda.role,
-      module.dri_preingest.importer_lambda.role,
-      local.tna_to_preservica_role_arn,
-      local.tre_prod_judgment_role,
-    ], local.additional_user_roles, local.anonymiser_roles, local.e2e_test_roles)
-    ci_roles = [local.terraform_role_arn]
-    service_details = [
-      { service_name = "cloudwatch" },
-      { service_name = "sns", service_source_account = module.tre_config.account_numbers["prod"] },
-      { service_name = "sns" },
-    ]
-  }
-}
-
-module "dr2_developer_key" {
-  source   = "git::https://github.com/nationalarchives/da-terraform-modules//kms"
-  key_name = "${local.environment}-kms-dr2-dev"
-  default_policy_variables = {
-    user_roles = [
-      data.aws_ssm_parameter.dev_admin_role.value,
-      data.aws_iam_role.org_wiz_access_role.arn,
-      module.dr2_ingest_mapper_lambda.lambda_role_arn,
-      module.dr2_ingest_step_function.step_function_role_arn
-    ]
-    ci_roles = [local.terraform_role_arn]
-    service_details = [
-      { service_name = "s3" },
-      { service_name = "sns" },
-      { service_name = "logs.eu-west-2" },
-      { service_name = "cloudwatch" }
-    ]
-  }
-}
-
-data "aws_ssm_parameter" "dev_admin_role" {
-  name = "/${local.environment}/developer_role"
-}
-
-module "ingest_raw_cache_bucket" {
-  source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
-  bucket_name = local.ingest_raw_cache_bucket_name
-  bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.dr2_ingest_parsed_court_document_event_handler_lambda.lambda_role_arn]),
-    bucket_name      = local.ingest_raw_cache_bucket_name
-  })
-  kms_key_arn = module.dr2_kms_key.kms_key_arn
-}
-
-module "sample_files_bucket" {
-  source            = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
-  bucket_name       = local.sample_files_bucket_name
-  create_log_bucket = false
-  kms_key_arn       = module.dr2_kms_key.kms_key_arn
 }
 
 module "dr2_ingest_step_function" {
@@ -331,16 +156,6 @@ module "dr2_ingest_run_workflow_step_function" {
   step_function_role_policy_attachments = {
     step_function_policy = module.dr2_ingest_run_workflow_step_function_policy.policy_arn
   }
-}
-
-module "ingest_state_bucket" {
-  source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
-  bucket_name = local.ingest_state_bucket_name
-  bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.dr2_ingest_mapper_lambda.lambda_role_arn]),
-    bucket_name      = local.ingest_state_bucket_name
-  })
-  kms_key_arn = module.dr2_developer_key.kms_key_arn
 }
 
 module "dr2_ingest_step_function_policy" {
