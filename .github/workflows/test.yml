@@ -15,7 +15,7 @@ jobs:
       - uses: actions/dependency-review-action@40c09b7dc99638e5ddb0bfd91c1673effc064d8a
         with:
           fail-on-severity: critical
-      - uses: hashicorp/setup-terraform@c529327889820530c60b4ce5bbc8d6099e166666
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
       - run: |
           (cd terraform && terraform fmt -check --recursive)
           find . -name requirements.txt | xargs -I {} pip install -r {}
