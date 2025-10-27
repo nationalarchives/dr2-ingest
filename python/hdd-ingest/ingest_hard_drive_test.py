@@ -280,13 +280,14 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
     @patch("aws_interactions.get_account_number")
     @patch("aws_interactions.refresh_session")
     @patch("builtins.input", return_value="")
-    def test_should_call_refresh_session_twice_before_terminating(self, mock_input, mock_refresh_session, mock_get_account_number):
+    def test_should_call_refresh_session_three_times_before_terminating(self, mock_input, mock_refresh_session, mock_get_account_number):
         error_response = {"Error": {"Code": "TokenExpired", "Message": "Token has expired"}}
         mock_get_account_number.side_effect = [ClientError(error_response, "sts get identity"),
+                                               ClientError(error_response, "sts get identity"),
                                                ClientError(error_response, "sts get identity"),
                                                ClientError(error_response, "sts get identity")]
         with self.assertRaises(Exception) as e:
             ingest_hard_drive.get_account_number()
 
-        self.assertEqual(2, mock_refresh_session.call_count)
+        self.assertEqual(3, mock_refresh_session.call_count)
 

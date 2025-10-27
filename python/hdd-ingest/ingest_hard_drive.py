@@ -216,7 +216,7 @@ def run_ingest(data_set, args, is_upstream_valid):
 
 def get_account_number():
     account_number = ""
-    for attempt in range(1, 4):
+    for attempt in range(0, 4):
         try:
             account_number = aws_interactions.get_account_number()
             break
