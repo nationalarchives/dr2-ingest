@@ -8,6 +8,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 import pandas as pd
+from botocore.exceptions import ClientError
 
 import ingest_hard_drive
 
@@ -261,4 +262,31 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
             ingest_hard_drive.create_metadata(first_row)
 
         self.assertEqual("Title and Description both are empty for 'someTestCatRef', unable to proceed with this record", str(e.exception))
+
+    @patch("aws_interactions.get_account_number")
+    @patch("aws_interactions.refresh_session")
+    @patch("builtins.input", return_value="")
+    def test_should_call_refresh_session_when_a_client_error_is_thrown_when_getting_an_account_number(self, mock_input, mock_refresh_session, mock_get_account_number):
+        mock_get_account_number.return_value = "123456789"
+        ingest_hard_drive.get_account_number()
+        mock_refresh_session.assert_not_called()
+
+        error_response = {"Error": {"Code": "TokenExpired", "Message": "Token has expired"}}
+        mock_get_account_number.side_effect = [ClientError(error_response, "sts get identity"), "987654321"]
+        account_number_after_refresh = ingest_hard_drive.get_account_number()
+        mock_refresh_session.assert_called_once()
+        self.assertEqual("987654321", account_number_after_refresh)
+
+    @patch("aws_interactions.get_account_number")
+    @patch("aws_interactions.refresh_session")
+    @patch("builtins.input", return_value="")
+    def test_should_call_refresh_session_twice_before_terminating(self, mock_input, mock_refresh_session, mock_get_account_number):
+        error_response = {"Error": {"Code": "TokenExpired", "Message": "Token has expired"}}
+        mock_get_account_number.side_effect = [ClientError(error_response, "sts get identity"),
+                                               ClientError(error_response, "sts get identity"),
+                                               ClientError(error_response, "sts get identity")]
+        with self.assertRaises(Exception) as e:
+            ingest_hard_drive.get_account_number()
+
+        self.assertEqual(2, mock_refresh_session.call_count)
 

@@ -10,6 +10,7 @@ from pathlib import Path, PureWindowsPath, PurePosixPath
 
 import pandas
 import pandas as pd
+from botocore.exceptions import ClientError
 from moto.utilities.utils import str2bool
 
 import aws_interactions
@@ -202,7 +203,7 @@ def run_ingest(data_set, args, is_upstream_valid):
             sys.exit(1)
     else:
         try:
-            account_number = aws_interactions.get_account_number()
+            account_number = get_account_number()
             confirmation = get_confirmation_to_proceed(
                 f"Uploading {row_count} records to account: {account_number}, Continue? [y/n]: ")
             if confirmation:
@@ -213,7 +214,20 @@ def run_ingest(data_set, args, is_upstream_valid):
             print(e)
             sys.exit(1)
 
-
+def get_account_number():
+    account_number = ""
+    for attempt in range(1, 4):
+        try:
+            account_number = aws_interactions.get_account_number()
+            break
+        except ClientError as client_error:
+            if attempt == 3:
+                raise Exception(f"Unable to proceed because: {client_error}. Terminating the process.")
+            else:
+                print(f"An error caused due to: {client_error}")
+                input("Fix the error and press any key to continue")
+                aws_interactions.refresh_session()
+    return account_number
 
 def main():
     args = build_argument_parser().parse_args()
