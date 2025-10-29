@@ -58,7 +58,7 @@ If `source` is `aws.events`
 This event comes from the EventBridge Schedule which runs this lambda periodically. It's there to remind us if the ingest is still paused.
 
 If any of the lambda triggers are still disabled or if `maxConcurrency` in the flow control config is still 0
-then send a message to Slack to say that the ingest is still paused. Otherwise do nothing. 
+then send a message to Slack to say that the ingest is still paused, otherwise do nothing.
 
 [Link to the infrastructure code](https://github.com/nationalarchives/dp-terraform-environments)
 

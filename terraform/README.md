@@ -114,8 +114,26 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
 
 ### Troubleshooting:
 
-If you get the message starting with `Failed to unlock state: failed to delete the lock file...`, ask the person in the
+1. If you get the message starting with `Failed to unlock state: failed to delete the lock file...`, ask the person in the
 `Who:` section (of the message) if it is alright to unlock the state, if it is, run `terraform force-unlock [ID]`.
+
+1. If after running `aws sts assume-role --role-arn arn:aws:iam::[account number]:role/[terraform role] --role-session-name run-terraform`,
+you get this error `An error occurred (ExpiredToken) when calling the AssumeRole operation: The security token included in the request is expired`,
+it's probably because you've already got credentials set in your environment variables, so run
+`unset AWS_SECRET_ACCESS_KEY && unset AWS_ACCESS_KEY_ID && unset AWS_SESSION_TOKEN` and run again
+
+1. If you get this error:
+    ```
+   │ Error: Unsupported argument
+   │
+   │   on root_provider.tf line 3, in module "config":
+   │    3:   project = "dr2"
+   │
+   │ An argument named "project" is not expected here.
+    ```
+   and the `da-terraform-configurations` subdirectory is empty, run `git submodule update --init --recursive`
+
+1. For any other error, try running `terraform get -update` (if it hasn't been run already)
 
 ## Further Information
 
