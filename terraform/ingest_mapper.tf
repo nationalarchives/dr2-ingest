@@ -24,7 +24,7 @@ module "dr2_ingest_mapper_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_S3.security_group_id]
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id]
   }
   tags = {
     Name = local.ingest_mapper_lambda_name
