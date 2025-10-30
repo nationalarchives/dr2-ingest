@@ -20,6 +20,10 @@ module "dr2_ingest_parent_folder_opex_creator_lambda" {
     DESTINATION_BUCKET = local.preservica_ingest_bucket
     S3_ROLE_ARN        = module.copy_tna_to_preservica_role.role_arn
   }
+  vpc_config = {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id]
+  }
   tags = {
     Name = local.ingest_parent_folder_opex_creator_lambda_name
   }
