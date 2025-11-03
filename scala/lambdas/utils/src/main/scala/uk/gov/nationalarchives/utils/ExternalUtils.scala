@@ -314,7 +314,7 @@ object ExternalUtils {
   }
 
   enum SourceSystem:
-    case TDR, DRI, `TRE: FCL Parser workflow`, ADHOC
+    case TDR, DRI, `TRE: FCL Parser workflow`, `Ad hoc ingest`
 
   enum MessageType:
     override def toString: String = this match
