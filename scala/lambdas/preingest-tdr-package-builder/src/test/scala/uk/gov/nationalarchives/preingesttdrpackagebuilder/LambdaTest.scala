@@ -82,7 +82,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     fileRef <- Gen.asciiStr
     groupId <- Gen.asciiStr
     batchId <- Gen.alphaStr
-    filePath <- Gen.nonEmptyListOf(Gen.alphaStr).suchThat(_.size >= 2).map(s => s"/${s.mkString("/")}")
+    filePath <- Gen.nonEmptyListOf(Gen.nonEmptyStringOf(Gen.alphaChar)).suchThat(_.size >= 2).map(s => s"/${s.mkString("/")}")
     (potentialTdrRef, potentialDriBatchRef) <- tdrOrDriBatchGen
     description <- Gen.option(Gen.nonEmptyStringOf(Gen.asciiChar))
   } yield TestData(fileId, series, body, date, potentialTdrRef, fileName, fileSize, List(checksum), fileRef, groupId, batchId, filePath, potentialDriBatchRef, description)

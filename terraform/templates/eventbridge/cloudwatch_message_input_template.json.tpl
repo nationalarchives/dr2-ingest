@@ -1,0 +1,4 @@
+{
+  "timestamp" : <startDate>,
+  "message": "${message}"
+}

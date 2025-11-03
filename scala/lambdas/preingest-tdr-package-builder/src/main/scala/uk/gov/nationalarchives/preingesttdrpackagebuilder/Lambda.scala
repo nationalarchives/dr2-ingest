@@ -56,8 +56,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                 .orElse(firstPackageMetadata.driBatchReference)
                 .getOrElse(defaultFolderName)
             )
-            res <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
-              val files: List[FileMetadataObject] = packageMetadataList.zipWithIndex.map { (packageMetadata, idx) =>
+            metadataObjects <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
+              val fileMetadataObjs: List[FileMetadataObject] = packageMetadataList.zipWithIndex.map { (packageMetadata, idx) =>
                 val s3File = s3FilesMap(packageMetadata.fileId)
                 FileMetadataObject(
                   packageMetadata.fileId,
@@ -73,16 +73,16 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                 )
               }
 
-              val contentFolder = contentFolderMap.get(contentFolderKey)
-              if contentFolder.isDefined then (contentFolderMap, assetMetadata.copy(parentId = contentFolder.map(_.id)) :: files)
+              val potentialContentFolder = contentFolderMap.get(contentFolderKey)
+              if potentialContentFolder.isDefined then (contentFolderMap, assetMetadata.copy(parentId = potentialContentFolder.map(_.id)) :: fileMetadataObjs)
               else
                 val contentFolderId = dependencies.uuidGenerator()
                 val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, contentFolderKey, Option(firstPackageMetadata.series), Nil)
                 val updatedMap = contentFolderMap + (contentFolderKey -> contentFolderMetadata)
-                val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id))) ++ files
+                val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id))) ++ fileMetadataObjs
                 (updatedMap, allMetadata)
             }
-          } yield res
+          } yield metadataObjects
 
           packageMetadataList match {
             case head :: Nil  => createMetadataObjects(head, head.filename, head.originalFilePath)
@@ -124,15 +124,15 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     }
 
     def processPackageMetadata(
-        metadataArr: Array[Byte],
+        metadataByteArr: Array[Byte],
         fileLocation: URI,
         potentialMessageId: Option[String],
         contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
     ): IO[List[MetadataObject]] = {
       val metadataId = dependencies.uuidGenerator()
       for {
-        nonMetadataObjects <- processNonMetadataObjects(metadataArr, fileLocation, metadataId, potentialMessageId, contentFolderCell)
-        metadataFiles <- processMetadataFiles(metadataArr, fileLocation, metadataId)
+        nonMetadataObjects <- processNonMetadataObjects(metadataByteArr, fileLocation, metadataId, potentialMessageId, contentFolderCell)
+        metadataFiles <- processMetadataFiles(metadataByteArr, fileLocation, metadataId)
       } yield metadataFiles :: nonMetadataObjects
     }
 
@@ -144,8 +144,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         .map(_.toStreamBuffered[IO](bufferSize))
         .flatMap(_.compile.toList)
         .map(_.toArray.flatMap(_.array()))
-        .flatMap { metadataArr =>
-          processPackageMetadata(metadataArr, fileLocation, potentialMessageId, contentFolderCell)
+        .flatMap { metadataByteArray =>
+          processPackageMetadata(metadataByteArray, fileLocation, potentialMessageId, contentFolderCell)
         }
     }
 

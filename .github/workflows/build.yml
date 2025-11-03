@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+    paths-ignore: ["docs/**"]
 permissions:
   id-token: write
   contents: write
@@ -13,9 +14,9 @@ jobs:
       next-version: ${{ steps.next-tag.outputs.next-version }}
     steps:
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
-      - uses: sbt/setup-sbt@17575ea4e18dd928fe5968dbe32294b97923d65b
+      - uses: sbt/setup-sbt@3e125ece5c3e5248e18da9ed8d2cce3d335ec8dd
       - name: Configure AWS credentials from management account
-        uses: aws-actions/configure-aws-credentials@a03048d87541d1d9fcf2ecf528a4a65ba9bd7838 # v5.0.0
+        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
         with:
           role-to-assume: arn:aws:iam::${{ secrets.MANAGEMENT_ACCOUNT }}:role/MgmtDPGithubCodeDeploy
           aws-region: eu-west-2
@@ -34,7 +35,11 @@ jobs:
           cp preingest-tdr-importer target/outputs/preingest-dri-importer
           cp preingest-tdr-importer target/outputs/preingest-hdd-importer
           zip -jA ingest-metric-collector python/lambdas/ingest-metric-collector/ingest_metric_collector.py
+          zip -jA pause-ingest python/lambdas/pause-ingest/pause_ingest.py
+          zip -jA pause-preservica-activity python/lambdas/pause-preservica-activity/pause_preservica_activity.py
           cp ingest-metric-collector target/outputs
+          cp pause-ingest target/outputs
+          cp pause-preservica-activity target/outputs
           cd target/outputs
           aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
           git tag ${{ steps.next-tag.outputs.next-version }}

@@ -1,6 +1,7 @@
 name: DR2 Run Lambda Tests
 on:
   pull_request:
+    paths-ignore: ["docs/**"]
 permissions:
   id-token: write
   contents: write
@@ -9,12 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
-      - uses: sbt/setup-sbt@17575ea4e18dd928fe5968dbe32294b97923d65b
+      - uses: sbt/setup-sbt@3e125ece5c3e5248e18da9ed8d2cce3d335ec8dd
       - uses: scalacenter/sbt-dependency-submission@64084844d2b0a9b6c3765f33acde2fbe3f5ae7d3
-      - uses: actions/dependency-review-action@595b5aeba73380359d98a5e087f648dbb0edce1b
+      - uses: actions/dependency-review-action@40c09b7dc99638e5ddb0bfd91c1673effc064d8a
         with:
           fail-on-severity: critical
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
       - run: |
+          (cd terraform && terraform fmt -check --recursive)
           find . -name requirements.txt | xargs -I {} pip install -r {}
           AWS_DEFAULT_REGION=eu-west-2 pytest
           sbt e2eTests/scalafmtCheckAll scalafmtCheckAll test
