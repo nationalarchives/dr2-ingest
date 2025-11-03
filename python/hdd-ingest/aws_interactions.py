@@ -19,11 +19,11 @@ def upload_metadata(asset_id, bucket, metadata):
 
 def upload_file(asset_id, bucket, file_id, file_path):
     s3_client = session.client("s3")
-    s3_client.upload_file(file_path, bucket, f'{asset_id}/{file_id}')
+    s3_client.upload_file(file_path, bucket, f"{asset_id}/{file_id}")
 
 def send_message(asset_id, bucket, queue_url):
     sqs_client = session.client("sqs", config=config)
-    sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps({'assetId': asset_id, 'bucket': bucket}))
+    sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps({"assetId": asset_id, "bucket": bucket}))
 
 def refresh_session():
     global session

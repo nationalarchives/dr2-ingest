@@ -199,7 +199,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         case SourceSystem.DRI =>
           List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
             packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
-        case SourceSystem.HDD => List(IdField("UpstreamSystemReference", packageMetadata.fileReference))
+        case SourceSystem.ADHOC => List(IdField("UpstreamSystemReference", packageMetadata.fileReference))
         case _ => Nil
       }
       AssetMetadataObject(

@@ -26,10 +26,10 @@ lazy val ingestLambdasRoot = (project in file("."))
     postingestMessageResender,
     preingestTdrAggregator,
     preingestDriAggregator,
-    preingestHddAggregator,
+    preingestAdhocAggregator,
     preIngestTdrPackageBuilder,
     preingestDriPackageBuilder,
-    preingestHddPackageBuilder,
+    preingestAdhocPackageBuilder,
     rotatePreservationSystemPassword,
     startWorkflow
   )
@@ -312,10 +312,10 @@ lazy val preingestDriPackageBuilder = (project in file("preingest-tdr-package-bu
   .dependsOn(utils, dynamoFormatters)
   .settings(packageBuilderSettings)
 
-lazy val preingestHddPackageBuilder = (project in file("preingest-tdr-package-builder"))
+lazy val preingestAdhocPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(
-    name := "preingest-hdd-package-builder",
-    target := (preIngestTdrPackageBuilder / baseDirectory).value / "target" / "preingest-hdd-package-builder"
+    name := "preingest-adhoc-package-builder",
+    target := (preIngestTdrPackageBuilder / baseDirectory).value / "target" / "preingest-adhoc-package-builder"
   )
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
@@ -341,10 +341,10 @@ lazy val preingestDriAggregator = (project in file("preingest-tdr-aggregator"))
   .dependsOn(utils)
   .settings(aggregatorSettings)
 
-lazy val preingestHddAggregator = (project in file("preingest-tdr-aggregator"))
+lazy val preingestAdhocAggregator = (project in file("preingest-tdr-aggregator"))
   .settings(
-    name := "preingest-hdd-aggregator",
-    target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-hdd-aggregator"
+    name := "preingest-adhoc-aggregator",
+    target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-adhoc-aggregator"
   )
   .settings(commonSettings)
   .dependsOn(utils)

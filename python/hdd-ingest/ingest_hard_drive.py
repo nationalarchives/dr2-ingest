@@ -61,7 +61,7 @@ def validate_arguments(args):
 
     return True
 
-def create_metadata(row):
+def create_metadata(row, args):
     catalog_ref = row["catRef"].strip()
     file_path = row["fileName"].strip()
     title, description = discovery_client.get_title_and_description(catalog_ref)
@@ -82,7 +82,7 @@ def create_metadata(row):
     }
     sha256_checksum = row["checksum"].strip()
     if not sha256_checksum:
-        metadata["checksum_md5"] = create_md5_hash(file_path)
+        metadata["checksum_md5"] = create_md5_hash(get_absolute_file_path(args.input, file_path))
         metadata["checksum_sha256"] = ""
     else:
         metadata["checksum_md5"] = ""
@@ -181,7 +181,7 @@ def run_ingest(data_set, args, is_upstream_valid):
         for index, row in data_set.iterrows():
             row_count += 1
             try:
-                metadata = create_metadata(row)
+                metadata = create_metadata(row, args)
                 writer.writerow(metadata)
                 if row_count % 100 == 0:
                     metadata_csv.flush()

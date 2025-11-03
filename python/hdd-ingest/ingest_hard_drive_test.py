@@ -71,14 +71,13 @@ class Test(TestCase):
 
     @patch("discovery_client.get_title_and_description")
     def test_create_metadata_should_create_a_metadata_object_from_csv_rows(self, mock_description):
-
         mock_description.return_value = None, "Some description from discovery"
 
         csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
         JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = ingest_hard_drive.create_metadata(row)
+            metadata = ingest_hard_drive.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("JS 8", metadata["Series"])
             self.assertEqual("evid0001.pdf", metadata["Filename"])
             self.assertEqual("3", metadata["FileReference"])
@@ -95,7 +94,7 @@ class Test(TestCase):
         JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = ingest_hard_drive.create_metadata(row)
+            metadata = ingest_hard_drive.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("JS 8", metadata["Series"])
             self.assertEqual("evid0001.pdf", metadata["Filename"])
             self.assertEqual("3", metadata["FileReference"])
@@ -105,7 +104,6 @@ class Test(TestCase):
 
     @patch("discovery_client.get_title_and_description")
     def test_create_metadata_should_create_a_filename_from_various_paths_independent_of_platform(self, mock_description):
-
         mock_description.return_value = None, "Some description from discovery"
 
         csv_data = """catRef,fileName,checksum
@@ -118,7 +116,7 @@ class Test(TestCase):
         JS 8/8,c:/abcd/evid0001.pdf,windows_absolute_path_forward_slash"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = ingest_hard_drive.create_metadata(row)
+            metadata = ingest_hard_drive.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("evid0001.pdf", metadata["Filename"])
 
     @patch("discovery_client.get_title_and_description")
@@ -130,7 +128,7 @@ class Test(TestCase):
             JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = ingest_hard_drive.create_metadata(row)
+            metadata = ingest_hard_drive.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("Some title", metadata["description"])
 
 
@@ -143,7 +141,7 @@ class Test(TestCase):
         JS 8/3,duplicate_value_allowed_here,{tmp1},,another"""
         data_set = pd.read_csv(StringIO(csv_data), dtype={"checksum": str}, keep_default_na=False)
         for index, row in data_set.iterrows():
-            metadata = ingest_hard_drive.create_metadata(row)
+            metadata = ingest_hard_drive.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("3a16291a00172e7af139cef48d1fe2f7", metadata["checksum_md5"])
 
     @patch("aws_interactions.send_message")
@@ -259,7 +257,7 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
         first_row = data_set.iloc[0]
 
         with self.assertRaises(Exception) as e:
-            ingest_hard_drive.create_metadata(first_row)
+            ingest_hard_drive.create_metadata(first_row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
 
         self.assertEqual("Title and Description both are empty for 'someTestCatRef', unable to proceed with this record", str(e.exception))
 
