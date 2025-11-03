@@ -90,6 +90,16 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     dynamoResult.head should equal("2023-06-05T00:00+01:00", 2)
   }
 
+  "handler" should "write a startAt argument of original startAt plus the length of updated entities" in {
+    val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
+    val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
+    val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
+    val entitiesUpdated = EntitiesUpdated(false, (1 to 15).map(_ => generateEntity).toList)
+    val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entitiesUpdated, List(generateEventAction(eventActionTime)), dynamoResponse, startCount = 56)
+
+    dynamoResult.head should equal("2023-06-05T00:00+01:00", 71)
+  }
+
   "handler" should "filter out ignored event types" in {
     val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
     val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
