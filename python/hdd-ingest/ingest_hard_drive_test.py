@@ -60,7 +60,7 @@ class Test(TestCase):
         self.assertEqual("The input file [non_existent_file.csv] does not exist or it is not a valid file\n", str(e.exception))
 
     def test_should_error_when_the_output_location_is_not_a_folder(self):
-        tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
+        tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
@@ -135,7 +135,7 @@ class Test(TestCase):
 
 
     def test_create_metadata_should_create_an_md5_hash_if_checksum_is_missing_from_the_input(self):
-        tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
+        tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
@@ -150,7 +150,7 @@ class Test(TestCase):
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
     def test_should_send_the_files_to_the_s3_bucket_and_send_a_message_to_the_queue(self, mock_upload_file, mock_upload_metadata, mock_send_message):
-        tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
+        tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
@@ -177,18 +177,18 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},,some_checksum"
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId",  tmp1)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer")
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
     def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_to_the_csv_file_and_send_a_message_to_the_queue(self, mock_upload_file, mock_upload_metadata, mock_send_message):
-        tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
+        tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
         metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,checksum_md5,checksum_sha256
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,hdd_ingest_test_file1.txt,,some_checksum"""
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,some_checksum"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -204,25 +204,25 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,hdd_ingest_test_file1.
             "description": "SomeDescription",
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
-            "ClientSideOriginalFilepath": "hdd_ingest_test_file1.txt",
+            "ClientSideOriginalFilepath": "ad_hoc_ingest_test_file1.txt",
             "checksum_sha256": "some_checksum"
         }
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId",  tmp1)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer")
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
     def test_should_create_metadata_with_description_having_comma_in_a_quoted_field(
             self, mock_upload_file, mock_upload_metadata, mock_send_message):
-        tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
+        tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
         metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,checksum_md5,checksum_sha256
-JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,hdd_ingest_test_file1.txt,,some_checksum"""
+JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,some_checksum"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -238,14 +238,14 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
             "description": "Description of Kew, Richmond, London",
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
-            "ClientSideOriginalFilepath": "hdd_ingest_test_file1.txt",
+            "ClientSideOriginalFilepath": "ad_hoc_ingest_test_file1.txt",
             "checksum_sha256": "some_checksum"
         }
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId", tmp1)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
         mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache",
-                                                  "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-hdd-importer")
+                                                  "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
 
     @patch("discovery_client.get_title_and_description")

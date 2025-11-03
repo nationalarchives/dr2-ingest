@@ -112,7 +112,7 @@ def get_confirmation_to_proceed(prompt="Are you sure?"):
 def upload_files(output_file, account_number, args):
     environment = args.environment
     bucket = f"{environment}-dr2-ingest-raw-cache"
-    queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-hdd-importer"
+    queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-adhoc-importer"
 
     upload_data_set = pd.read_csv(output_file, dtype=str, keep_default_na=False)
     for index, row in upload_data_set.iterrows():

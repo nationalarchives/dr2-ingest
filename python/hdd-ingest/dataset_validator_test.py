@@ -15,13 +15,13 @@ from dataset_validator import Js8Validator
 class Test(TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
-        tmp1 = os.path.join(self.test_dir, "hdd_ingest_test_file1.txt")
+        tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
-        tmp2 = os.path.join(self.test_dir, "hdd_ingest_test_file2.txt")
+        tmp2 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file2.txt")
         with open(tmp2, "w") as f:
             f.write("temporary file two")
-        tmp3 = os.path.join(self.test_dir, "hdd_ingest_test_file3.txt")
+        tmp3 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file3.txt")
         with open(tmp3, "w") as f:
             f.write("temporary file three")
 
