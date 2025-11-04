@@ -44,7 +44,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
         dASnsDBClient,
         eventTriggeredDatetime
       )
-      _ <- IO.println(numOfRecentlyUpdatedEntities)
       _ <-
         if numOfRecentlyUpdatedEntities > 0 then
           publishUpdatedEntitiesAndUpdateDateTime(
