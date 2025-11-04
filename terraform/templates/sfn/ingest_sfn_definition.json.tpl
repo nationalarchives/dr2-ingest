@@ -132,7 +132,7 @@
       "Resource": "arn:aws:states:::states:startExecution.waitForTaskToken",
       "Parameters": {
         "StateMachineArn": "arn:aws:states:eu-west-2:${account_id}:stateMachine:${ingest_run_workflow_sfn_name}",
-        "Name.$": "States.Format('{}-{}', $$.Execution.Name, States.UUID())",
+        "Name.$": "States.Format('{}-{}', States.ArrayGetItem(States.StringSplit($$.Execution.Name, '_'), 0), States.UUID())",
         "Input.$": "States.JsonMerge($, States.StringToJson(States.Format('\\{\"{}\":\"{}\",\"{}\":\"{}\"\\}', 'AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID', $$.Execution.Id, 'taskToken', $$.Task.Token)), false)"
       },
       "Retry": ${retry_statement},

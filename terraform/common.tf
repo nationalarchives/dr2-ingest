@@ -61,7 +61,10 @@ locals {
     module.tdr_preingest.importer_lambda.function_name,
     module.dri_preingest.aggregator_lambda.function_name,
     module.dri_preingest.package_builder_lambda.function_name,
-    module.dri_preingest.importer_lambda.function_name
+    module.dri_preingest.importer_lambda.function_name,
+    module.adhoc_preingest.aggregator_lambda.function_name,
+    module.adhoc_preingest.package_builder_lambda.function_name,
+    module.adhoc_preingest.importer_lambda.function_name
   ]
   queues = [
     module.dr2_ingest_parsed_court_document_event_handler_sqs,
@@ -70,7 +73,8 @@ locals {
     module.dr2_custodial_copy_db_builder_queue,
     module.dr2_external_notifications_queue,
     module.tdr_preingest.importer_sqs,
-    module.dri_preingest.importer_sqs
+    module.dri_preingest.importer_sqs,
+    module.adhoc_preingest.importer_sqs
   ]
   retry_statement            = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 6, BackoffRate = 2, JitterStrategy = "FULL" }])
   messages_visible_threshold = 1000000
@@ -232,6 +236,9 @@ module "dr2_kms_key" {
       module.dri_preingest.aggregator_lambda.role,
       module.dri_preingest.package_builder_lambda.role,
       module.dri_preingest.importer_lambda.role,
+      module.adhoc_preingest.aggregator_lambda.role,
+      module.adhoc_preingest.package_builder_lambda.role,
+      module.adhoc_preingest.importer_lambda.role,
       local.tna_to_preservica_role_arn,
       local.tre_prod_judgment_role,
     ], local.additional_user_roles, local.anonymiser_roles, local.e2e_test_roles)
@@ -370,6 +377,7 @@ module "dr2_ingest_step_function_policy" {
     tna_to_preservica_role_arn                        = local.tna_to_preservica_role_arn
     preingest_tdr_step_function_arn                   = module.tdr_preingest.preingest_sfn_arn
     preingest_dri_step_function_arn                   = module.dri_preingest.preingest_sfn_arn
+    preingest_adhoc_step_function_arn                 = module.dri_preingest.preingest_sfn_arn
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
     postingest_table_name                             = module.postingest.postingest_table_name
   })
@@ -508,6 +516,7 @@ module "failed_ingest_step_function_event_bridge_rule" {
       module.dr2_ingest_step_function.step_function_arn,
       module.tdr_preingest.preingest_sfn_arn,
       module.dri_preingest.preingest_sfn_arn,
+      module.adhoc_preingest.preingest_sfn_arn,
       module.dr2_ingest_run_workflow_step_function.step_function_arn
     ])
   })
