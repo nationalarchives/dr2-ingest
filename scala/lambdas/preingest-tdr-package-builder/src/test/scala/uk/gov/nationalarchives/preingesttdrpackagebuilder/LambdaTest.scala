@@ -310,7 +310,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     ex.getMessage should equal("Error uploading /metadata.json to cacheBucket")
   }
 
-  "lambda handler" should "return a hardcoded value of 'Record' if neither the consignment reference nor DRI reference are set" in {
+  "lambda handler" should "return a hardcoded value of 'Records' if neither the consignment reference nor DRI reference are set" in {
     val assetId = UUID.randomUUID
     val fileId = UUID.randomUUID
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
@@ -322,7 +322,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val metadataObjects: List[MetadataObject] = s3Contents(s"/metadata.json").asInstanceOf[List[MetadataObject]]
     val contentFolderMetadataObjects = metadataObjects.collect { case contentFolderMetadataObject: ContentFolderMetadataObject => contentFolderMetadataObject }
     contentFolderMetadataObjects.size should be(1)
-    contentFolderMetadataObjects.head.name should be("Record")
+    contentFolderMetadataObjects.head.name should be("Records")
 
   }
 
