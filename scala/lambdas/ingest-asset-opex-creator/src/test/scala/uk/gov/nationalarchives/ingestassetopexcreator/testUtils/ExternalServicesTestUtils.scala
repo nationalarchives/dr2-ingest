@@ -196,7 +196,7 @@ object ExternalServicesTestUtils:
             <IngestDateTime>{ingestDateTime}</IngestDateTime>
             <OriginalFiles></OriginalFiles>
             <OriginalMetadataFiles></OriginalMetadataFiles>
-            <TransferDateTime>{asset.transferCompleteDatetime}</TransferDateTime>
+            <TransferDateTime>{asset.transferCompleteDatetime.getOrElse("")}</TransferDateTime>
             <TransferringBody>{asset.transferringBody.getOrElse("")}</TransferringBody>
             <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
             <UpstreamSystemRef>upstreamSystemReference</UpstreamSystemRef>

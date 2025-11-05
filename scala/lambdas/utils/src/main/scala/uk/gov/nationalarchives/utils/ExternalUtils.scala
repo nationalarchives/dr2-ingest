@@ -178,7 +178,7 @@ object ExternalUtils {
     override def apply(c: HCursor): Result[AssetMetadataObject] = convertToFailFast(decodeAccumulating(c))
 
     def toSourceSystem(c: HCursor, sourceSystem: String): Either[DecodingFailure, SourceSystem] = {
-      Try(SourceSystem.fromDisplayName(sourceSystem).getOrElse(throw new NoSuchElementException(s"Invalid element from display name: $sourceSystem")))
+      Try(SourceSystem.fromDisplayName(sourceSystem).getOrElse(throw new NoSuchElementException(s"Invalid display name encountered for source system: $sourceSystem")))
         .toEither.left.map(err => DecodingFailure(err.getMessage, c.history))
     }
 
@@ -322,8 +322,8 @@ object ExternalUtils {
     case ADHOC extends SourceSystem("Ad hoc ingest")
 
     override def toString: String = display
-  
-  object SourceSystem:  
+
+  object SourceSystem:
     def fromDisplayName(displayName: String): Option[SourceSystem] =
       values.find(_.display == displayName)
 

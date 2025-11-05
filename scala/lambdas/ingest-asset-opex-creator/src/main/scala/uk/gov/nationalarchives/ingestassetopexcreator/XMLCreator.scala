@@ -94,7 +94,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
               <OriginalMetadataFiles>
                 {asset.originalMetadataFiles.map(originalMetadataFile => <File>{originalMetadataFile}</File>)}
               </OriginalMetadataFiles>
-              <TransferDateTime>{transferCompleteDatetime}</TransferDateTime>
+              <TransferDateTime>{transferCompleteDatetime.getOrElse("")}</TransferDateTime>
               <TransferringBody>{asset.transferringBody.getOrElse("")}</TransferringBody>
               <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
               <UpstreamSystemRef>{identifiers.find(_.identifierName == "UpstreamSystemReference").map(_.value).getOrElse("")}</UpstreamSystemRef>
