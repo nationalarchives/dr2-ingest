@@ -5,7 +5,7 @@
       "Sid": "allow-callers-from-specific-account",
       "Effect": "Allow",
       "Principal": "*",
-      "Action": "*",
+      "Action": "dynamodb:*",
       "Resource": "*",
       "Condition": {
         "StringEquals": {

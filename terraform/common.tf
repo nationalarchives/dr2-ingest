@@ -147,7 +147,8 @@ module "vpc" {
     { rule_no = 200, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = true },
   ]
   s3_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/s3_endpoint_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id, preservica_ingest_bucket = local.preservica_ingest_bucket
+    account_id               = data.aws_caller_identity.current.account_id,
+    preservica_ingest_bucket = local.preservica_ingest_bucket
   })
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id
