@@ -75,24 +75,28 @@ class Lambda extends LambdaRunner[ScheduledEvent, Int, Config, Dependencies] {
       currentStart = updatedSinceResponse.startAt
       entitiesUpdated <- entitiesClient.entitiesUpdatedSince(updatedSinceAsDate, currentStart)
       recentlyUpdatedEntities = entitiesUpdated.entities
-      _ <- logger.info(s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate with startAt $currentStart")
-      potentialUpdateRequest <-
+      _ <- logger.info(
+        s"There were ${recentlyUpdatedEntities.length} entities updated since $updatedSinceAsDate, of which ${recentlyUpdatedEntities.count(_.deleted)} were deleted, with startAt $currentStart"
+      )
+      potentialNextUpdateRequest <-
         if recentlyUpdatedEntities.nonEmpty && (entitiesUpdated.hasNext || recentlyUpdatedEntities.forall(_.deleted)) then
           // If there is another page, return the updatedSinceAsDate in order to get the next page of results.
           // If all entities are deleted, we can't get the event actions so return the same updatedSinceAsDate.
-          IO.pure(Option(UpdateRequest(updatedSinceAsDate.toOffsetDateTime, updatedSinceResponse.startAt + recentlyUpdatedEntities.length)))
+          IO.some(NextUpdateRequest(updatedSinceAsDate.toOffsetDateTime, updatedSinceResponse.startAt + recentlyUpdatedEntities.length))
         else if recentlyUpdatedEntities.nonEmpty then
           val lastUpdatedEntity: Entity = recentlyUpdatedEntities.filterNot(_.deleted).last
           entitiesClient.entityEventActions(lastUpdatedEntity).map { entityEventActions =>
-            Some(UpdateRequest(entityEventActions.filterNot(ev => ignoredEventTypes.contains(ev.eventType)).head.dateOfEvent.toOffsetDateTime, 0))
+            entityEventActions
+              .find(ev => !ignoredEventTypes.contains(ev.eventType))
+              .map(ev => NextUpdateRequest(ev.dateOfEvent.toOffsetDateTime, 0))
           }
         else IO.none
 
       count <-
-        if potentialUpdateRequest.exists(_.lastDate.isBefore(eventTriggeredDatetime)) then
-          val updateDateAttributeValue = AttributeValue.builder().s(potentialUpdateRequest.get.lastDate.toString).build()
-          val nextStart = potentialUpdateRequest.get.startAt
-          val startAttributeValue = AttributeValue.builder.n(nextStart.toString).build()
+        if potentialNextUpdateRequest.exists(_.lastDate.isBefore(eventTriggeredDatetime)) then
+          val nextUpdateRequest = potentialNextUpdateRequest.get
+          val updateDateAttributeValue = AttributeValue.builder().s(nextUpdateRequest.lastDate.toString).build()
+          val startAttributeValue = AttributeValue.builder.n(nextUpdateRequest.startAt.toString).build()
           val updateDateRequest = DADynamoDbRequest(
             config.lastEventActionTableName,
             dateItemPrimaryKeyAndValue,
@@ -144,7 +148,7 @@ object Lambda {
   case class CompactEntity(id: String, deleted: Boolean)
   private case class PartitionKey(id: String)
   case class GetItemsResponse(eventDatetime: String, startAt: Int)
-  case class UpdateRequest(lastDate: OffsetDateTime, startAt: Int)
+  private case class NextUpdateRequest(lastDate: OffsetDateTime, startAt: Int)
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], daSNSClient: DASNSClient[IO], daDynamoDBClient: DADynamoDBClient[IO])
 }

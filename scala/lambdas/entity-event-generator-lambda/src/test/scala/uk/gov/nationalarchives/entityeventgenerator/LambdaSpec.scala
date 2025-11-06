@@ -132,6 +132,26 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     lambdaResult.value should equal(1)
   }
 
+  "handler" should "do nothing if all of the event actions have an ignored type" in {
+    val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
+    val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
+    val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
+    val entitiesUpdated = EntitiesUpdated(false, List(generateEntity))
+    val eventActions = List(
+      EventAction(UUID.randomUUID, "Download", ZonedDateTime.parse("2023-07-05T00:00:00.000000+01:00")),
+      EventAction(UUID.randomUUID, "Characterise", ZonedDateTime.parse("2023-08-05T00:00:00.000000+01:00")),
+      EventAction(UUID.randomUUID, "VirusCheck", ZonedDateTime.parse("2023-09-05T00:00:00.000000+01:00"))
+    )
+
+    val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entitiesUpdated, eventActions, dynamoResponse)
+
+    dynamoResult.head should equal("2023-06-06T20:39:53.377170+01:00", 0)
+
+    snsResult.isEmpty should equal(true)
+
+    lambdaResult.value should equal(0)
+  }
+
   "handler" should "not update the datetime or send a message if there was an error getting the datetime" in {
     val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
     val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, EntitiesUpdated(false, Nil), Nil, Nil, Errors(getItemsError = true).some)
