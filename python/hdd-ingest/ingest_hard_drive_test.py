@@ -107,7 +107,7 @@ class Test(TestCase):
         mock_description.return_value = None, "Some description from discovery"
 
         csv_data = """catRef,fileName,checksum
-        JS 8/3,d:\\js\\3\\1\\evid0001.pdf,windows_absolute_path 
+        JS 8/3,d:\\js\\3\\1\\evid0001.pdf,windows_absolute_path
         JS 8/4,c:\\evid0001.pdf,windows_absolute_path_at_root
         JS 8/5,c:\old_folder\evid0001.pdf,windows_absolute_path_single_slash
         JS 8/6,/home/users/evid0001.pdf,unix_absolute_path
@@ -209,6 +209,42 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId",  tmp1)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
         mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+
+    @patch("aws_interactions.send_message")
+    @patch("aws_interactions.upload_metadata")
+    @patch("aws_interactions.upload_file")
+    def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_with_mixed_forward_and_back_slashes(
+            self, mock_upload_file, mock_upload_metadata, mock_send_message):
+        tmp1 = os.path.join(self.test_dir, "folder1/folder2/folder3/ad_hoc_ingest_test_file1.txt")
+        os.makedirs(os.path.dirname(tmp1), exist_ok=True)
+        with open(tmp1, "w") as f:
+            f.write("temporary file one")
+
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,checksum_md5,checksum_sha256
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt,,some_checksum"""
+
+        tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
+        with open(tmp2, "w") as f:
+            f.write(metadata_csv_data)
+
+        args = SimpleNamespace(environment="test", input=f"{tmp2}")
+        ingest_hard_drive.upload_files(tmp2, "123456789", args)
+
+        expected_metadata = {
+            "Series": "JS 8",
+            "UUID": "someRecordId",
+            "fileId": "someFileId",
+            "description": "SomeDescription",
+            "Filename": "JS-8-3.pdf",
+            "FileReference": "3",
+            "ClientSideOriginalFilepath": "folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt",
+            "checksum_sha256": "some_checksum"
+        }
+
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId", tmp1)
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache",
+                                                  "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_message")
     @patch("aws_interactions.upload_metadata")
