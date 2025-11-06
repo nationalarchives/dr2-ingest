@@ -241,7 +241,7 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
             }
           else startTaskBasedOnProbability(flowControlConfig.sourceSystems)
         else if !flowControlConfig.enabled then
-          logInfo("Max concurrency reached, terminating lambda", executionStarter) >>
+          logInfo("Flow control is disabled, terminating lambda", executionStarter) >>
             IO.pure("FLOW_CONTROL_DISABLED")
         else
           logInfo("Max concurrency reached, terminating lambda", executionStarter) >>
