@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "allow-callers-from-specific-account",
+      "Sid": "allowCallersFromSpecificAccount",
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:*",
@@ -14,7 +14,7 @@
       }
     },
     {
-      "Sid": "allow-calls-to-preservica-bucket",
+      "Sid": "allowCallsToPreservicaBucket",
       "Effect": "Allow",
       "Principal": "*",
       "Action": [
