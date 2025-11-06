@@ -125,7 +125,7 @@ object ExternalUtils {
               ("transferringBody", transferringBody.map(Json.fromString).getOrElse(Null)),
               ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
               ("upstreamSystem", Json.fromString(upstreamSystem.toString)),
-              ("digitalAssetSource", Json.fromString(digitalAssetSource.toString)),
+              ("digitalAssetSource", Json.fromString(digitalAssetSource)),
               ("digitalAssetSubtype", digitalAssetSubtype.map(Json.fromString).getOrElse(Null)),
               ("correlationId", correlationId.map(Json.fromString).getOrElse(Null)),
               ("filePath", Json.fromString(filePath))

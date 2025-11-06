@@ -52,7 +52,7 @@ class TestMigrate(unittest.TestCase):
             "x-fmt/123", "uuid-def", "fileid-xyz", "/test/file2",
             json.dumps([{"SHA256": "test"}]),
             "series1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
-            "filename.txt", "fileref", "meta", "1", "1", "1", "BornDigital"
+            "filename.txt", "fileref", "meta", "1", "1", "1", "Surrogate"
         ]
         rows = [row_fmt, row_x_fmt]
 
@@ -74,11 +74,12 @@ class TestMigrate(unittest.TestCase):
             metadata_bytes = bytes_request.getvalue()
             metadata = json.loads(metadata_bytes.decode("utf-8"))[0]
             metadata_uuid = rows[idx][1]
+            expected_digital_asset_source = "BornDigital" if idx == 0 else "Surrogate"
 
             self.assertEqual(metadata["UUID"], metadata_uuid)
             self.assertEqual(metadata["Series"], "series1")
             self.assertEqual(metadata["checksum_sha256"], "abc123")
-            self.assertEqual(metadata["sourceSystem"], "BornDigital")
+            self.assertEqual(metadata["digitalAssetSource"], expected_digital_asset_source)
             self.assertEqual(metadata["sortOrder"], "1")
             self.assertEqual(bucket, "testenv-dr2-ingest-raw-cache")
             self.assertEqual(object_key, f"{metadata_uuid}.metadata")

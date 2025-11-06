@@ -87,7 +87,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     filePath <- Gen.nonEmptyListOf(Gen.nonEmptyStringOf(Gen.alphaChar)).suchThat(_.size >= 2).map(s => s"/${s.mkString("/")}")
     (potentialTdrRef, potentialDriBatchRef) <- tdrOrDriBatchGen
     description <- Gen.option(Gen.nonEmptyStringOf(Gen.asciiChar))
-    sortOrder <- Gen.choose(0, 10)
+    potentialSortOrder <- Gen.option(Gen.choose(0, 10))
     sourceSystem <- Gen.option(Gen.oneOf("Born Digital", "Surrogate"))
   } yield TestData(
     fileId,
@@ -104,7 +104,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     filePath,
     potentialDriBatchRef,
     description,
-    Option(sortOrder),
+    potentialSortOrder,
     sourceSystem
   )
 
@@ -171,8 +171,9 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val contentFolderMetadataObject = metadataObjects.collect { case contentFolderMetadataObject: ContentFolderMetadataObject => contentFolderMetadataObject }.head
     val assetMetadataObject = metadataObjects.collect { case assetMetadataObject: AssetMetadataObject => assetMetadataObject }.head
     val fileMetadataObjects = metadataObjects.collect { case fileMetadataObject: FileMetadataObject => fileMetadataObject }
-    val fileObjects = fileMetadataObjects.filterNot(_.name.endsWith("-metadata.json"))
-    val metadataFileMetadataObject = fileMetadataObjects.filter(_.name.endsWith("-metadata.json")).head
+    val (metadataFileMetadataObject, fileObjects) = fileMetadataObjects.partition(_.name.endsWith("-metadata.json")) match {
+      case (a, b) => (a.head, b)
+    }
     val expectedContentFolderName = testData.tdrRef.getOrElse(testData.driBatchRef.get)
     val expectedTitle =
       if allTestData.length > 1 then
@@ -210,13 +211,13 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     testData.tdrRef.map(tdrRef => checkIdField("ConsignmentReference", tdrRef))
     checkIdField("RecordID", tdrFileId.toString)
 
-    allTestData.foreach { testData =>
+    allTestData.zipWithIndex.foreach { (testData, idx) =>
       val potentialFileObject = fileObjects.find(_.id == testData.fileId)
       potentialFileObject.isDefined should equal(true)
       val fileObject = potentialFileObject.get
       fileObject.parentId should equal(Option(tdrFileId))
       fileObject.title should equal(testData.fileName.fileString)
-      fileObject.sortOrder should equal(testData.sortOrder.getOrElse(1))
+      fileObject.sortOrder should equal(testData.sortOrder.getOrElse(idx + 1))
       fileObject.name should equal(testData.fileName.fileString)
       fileObject.fileSize should equal(testData.fileSize)
       fileObject.representationType should equal(RepresentationType.Preservation)
@@ -225,7 +226,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       fileObject.checksums should equal(testData.checksums)
     }
 
-    val metadataSortOrder = allTestData.map(_.sortOrder).max.getOrElse(2)
+    val metadataSortOrder = allTestData.map(_.sortOrder).max.getOrElse(fileObjects.size + 1)
     metadataFileMetadataObject.parentId should equal(Option(tdrFileId))
     metadataFileMetadataObject.title should equal(s"$tdrFileId-metadata")
     metadataFileMetadataObject.sortOrder should equal(metadataSortOrder)

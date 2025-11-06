@@ -118,7 +118,7 @@ def migrate():
                 "FileReference": row[column_indexes["FILEREFERENCE"]],
                 "metadata": str(row[column_indexes["METADATA"]]),
                 "ClientSideOriginalFilepath": file_path,
-                "sourceSystem": security_tag,
+                "digitalAssetSource": security_tag,
                 "sortOrder": sort_order,
             }
             if consignment_reference:

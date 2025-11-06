@@ -199,19 +199,19 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
         case _ => Nil
       }
-      val assetSourceSystem = packageMetadata.sourceSystem.getOrElse("Born Digital")
+      val digitalAssetSource = packageMetadata.digitalAssetSource.getOrElse("Born Digital")
       AssetMetadataObject(
         assetId,
         None,
         fileName,
         assetId.toString,
-        if assetSourceSystem == "Surrogate" then Nil else originalFiles,
+        if digitalAssetSource == "Surrogate" then Nil else originalFiles,
         List(metadataId),
         packageMetadata.description,
         packageMetadata.transferringBody,
         LocalDateTime.parse(packageMetadata.transferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
         config.sourceSystem,
-        assetSourceSystem,
+        digitalAssetSource,
         None,
         originalFilePath,
         potentialMessageId,
@@ -292,7 +292,7 @@ object Lambda:
       originalFilePath: String,
       driBatchReference: Option[String],
       sortOrder: Option[Int],
-      sourceSystem: Option[String]
+      digitalAssetSource: Option[String]
   )
 
   type LockTableMessage = NotificationMessage
