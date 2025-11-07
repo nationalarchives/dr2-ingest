@@ -226,7 +226,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       fileObject.checksums should equal(testData.checksums)
     }
 
-    val metadataSortOrder = allTestData.map(_.sortOrder).max.getOrElse(fileObjects.size + 1)
+    val metadataSortOrder = allTestData.flatMap(_.sortOrder).maxOption.getOrElse(fileObjects.size + 1)
     metadataFileMetadataObject.parentId should equal(Option(tdrFileId))
     metadataFileMetadataObject.title should equal(s"$tdrFileId-metadata")
     metadataFileMetadataObject.sortOrder should equal(metadataSortOrder)
