@@ -63,7 +63,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                   packageMetadata.fileId,
                   Option(assetMetadata.id),
                   packageMetadata.filename,
-                  idx + 1,
+                  packageMetadata.sortOrder.getOrElse(idx + 1),
                   packageMetadata.filename,
                   s3File.size(),
                   Preservation,
@@ -112,7 +112,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           metadataId,
           Option(firstPackageMetadata.UUID),
           s"${firstPackageMetadata.UUID}-metadata",
-          2,
+          packageMetadataList.flatMap(_.sortOrder).maxOption.getOrElse(packageMetadataList.length + 1),
           s"${firstPackageMetadata.UUID}-metadata.json",
           metadataFileSize,
           Preservation,
@@ -202,18 +202,19 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         case SourceSystem.ADHOC => List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}"))
         case _ => Nil
       }
+      val digitalAssetSource = packageMetadata.digitalAssetSource.getOrElse("Born Digital")
       AssetMetadataObject(
         assetId,
         None,
         fileName,
         assetId.toString,
-        originalFiles,
+        if digitalAssetSource == "Surrogate" then Nil else originalFiles,
         List(metadataId),
         packageMetadata.description,
         packageMetadata.transferringBody,
         packageMetadata.transferInitiatedDatetime.map{dt => LocalDateTime.parse(dt.replace(" ", "T")).atOffset(ZoneOffset.UTC)},
         config.sourceSystem,
-        "Born Digital",
+        digitalAssetSource,
         None,
         originalFilePath,
         potentialMessageId,
@@ -261,6 +262,8 @@ object Lambda:
       fileReference <- c.downField("FileReference").as[String]
       filePath <- c.downField("ClientSideOriginalFilepath").as[String]
       driBatchReference <- c.downField("driBatchReference").as[Option[String]]
+      sortOrder <- c.downField("sortOrder").as[Option[Int]]
+      digitalAssetSource <- c.downField("digitalAssetSource").as[Option[String]]
     yield PackageMetadata(
       series,
       uuid,
@@ -273,7 +276,9 @@ object Lambda:
       checksums,
       fileReference,
       filePath,
-      driBatchReference
+      driBatchReference,
+      sortOrder,
+      digitalAssetSource
     )
 
   case class PackageMetadata(
@@ -288,7 +293,9 @@ object Lambda:
       checksums: List[Checksum],
       fileReference: String,
       originalFilePath: String,
-      driBatchReference: Option[String]
+      driBatchReference: Option[String],
+      sortOrder: Option[Int],
+      digitalAssetSource: Option[String]
   )
 
   type LockTableMessage = NotificationMessage

@@ -287,7 +287,7 @@ object ExternalUtils {
       originalMetadataFiles: List[UUID],
       description: Option[String],
       transferringBody: Option[String],
-      transferCompleteDatetime: Option[OffsetDateTime],
+      transferCompleteDatetime: OffsetDateTime,
       upstreamSystem: SourceSystem,
       digitalAssetSource: String,
       digitalAssetSubtype: Option[String],

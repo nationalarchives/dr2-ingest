@@ -23,7 +23,7 @@ class XMLCreatorTest extends AnyFlatSpec {
   private def verifyXmlEqual(xmlStringOne: String, xmlStringTwo: String) =
     Utility.trim(XML.loadString(xmlStringOne)) should equal(Utility.trim(XML.loadString(xmlStringTwo)))
 
-  val expectedOpexXml: Elem =
+  def expectedOpexXml(includeOriginalFiles: Boolean = true): Elem =
     <opex:OPEXMetadata xmlns:opex={opexNamespace}>
       <opex:Transfer>
         <opex:SourceID>90730c77-8faa-4dbf-b20d-bba1046dac87</opex:SourceID>
@@ -57,9 +57,13 @@ class XMLCreatorTest extends AnyFlatSpec {
             <DigitalAssetSource>digitalAssetSource</DigitalAssetSource>
             <DigitalAssetSubtype>digitalAssetSubtype</DigitalAssetSubtype>
             <IngestDateTime>{ingestDateTime}</IngestDateTime>
-            <OriginalFiles>
-              <File>dec2b921-20e3-41e8-a299-f3cbc13131a2</File>
-            </OriginalFiles>
+            {
+      if includeOriginalFiles then
+        <OriginalFiles>
+                  <File>dec2b921-20e3-41e8-a299-f3cbc13131a2</File>
+                </OriginalFiles>
+      else ()
+    }
             <OriginalMetadataFiles>
               <File>3f42e3f2-fffe-4fe9-87f7-262e95b86d75</File>
             </OriginalMetadataFiles>
@@ -207,7 +211,7 @@ class XMLCreatorTest extends AnyFlatSpec {
   "createOpex" should "create the correct opex xml with identifiers" in {
     val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
     val xml = XMLCreator(ingestDateTime).createOpex(asset, children, 4, identifiers, Unknown).unsafeRunSync()
-    verifyXmlEqual(xml, expectedOpexXml)
+    verifyXmlEqual(xml, expectedOpexXml())
   }
 
   "createOpex" should "create the opex xml with empty digital asset subtype element " in {
@@ -216,7 +220,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       potentialDigitalAssetSubtype = None
     )
     val xml = XMLCreator(ingestDateTime).createOpex(assetWithoutDigitalAssetSubType, children, 4, identifiers, Unknown).unsafeRunSync()
-    val expectedOpexXmlWithoutDigitalAssetSubType = expectedOpexXml.toString.replace("<DigitalAssetSubtype>digitalAssetSubtype</DigitalAssetSubtype>", "<DigitalAssetSubtype/>")
+    val expectedOpexXmlWithoutDigitalAssetSubType = expectedOpexXml().toString.replace("<DigitalAssetSubtype>digitalAssetSubtype</DigitalAssetSubtype>", "<DigitalAssetSubtype/>")
 
     verifyXmlEqual(xml, expectedOpexXmlWithoutDigitalAssetSubType)
   }
@@ -230,7 +234,7 @@ class XMLCreatorTest extends AnyFlatSpec {
       )
       val xml = XMLCreator(ingestDateTime).createOpex(assetWithTitleWithChars, children, 4, identifiers, Unknown).unsafeRunSync()
       val expectedOpexXmlWithNewTitle =
-        expectedOpexXml.toString.replace(
+        expectedOpexXml().toString.replace(
           "<opex:Title>title</opex:Title>",
           """<opex:Title>Title_with_ASCII_Chars_!&quot;#$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~</opex:Title>"""
         )
@@ -244,9 +248,17 @@ class XMLCreatorTest extends AnyFlatSpec {
       val assetWithTitleWithChars = asset.copy(potentialTitle = Some("A title     with   spaces  in            it"))
       val xml = XMLCreator(ingestDateTime).createOpex(assetWithTitleWithChars, children, 4, identifiers, Unknown).unsafeRunSync()
       val expectedOpexXmlWithNewTitle =
-        expectedOpexXml.toString.replace("<opex:Title>title</opex:Title>", "<opex:Title>A title     with   spaces  in            it</opex:Title>")
+        expectedOpexXml().toString.replace("<opex:Title>title</opex:Title>", "<opex:Title>A title     with   spaces  in            it</opex:Title>")
       verifyXmlEqual(xml, expectedOpexXmlWithNewTitle)
     }
+
+  "createOpex" should "not add the original files element if the original files list on the asset is empty" in {
+    val identifiers = List(Identifier("Test1", "Value1"), Identifier("Test2", "Value2"), Identifier("UpstreamSystemReference", "testSystemRef2"))
+
+    val xml = XMLCreator(ingestDateTime).createOpex(asset.copy(originalFiles = Nil), children, 4, identifiers, Unknown).unsafeRunSync()
+
+    verifyXmlEqual(xml, expectedOpexXml(includeOriginalFiles = false))
+  }
 
   "createXip" should "create the correct xip xml" in {
     val xml = XMLCreator(ingestDateTime).createXip(asset, children, Unknown).unsafeRunSync()

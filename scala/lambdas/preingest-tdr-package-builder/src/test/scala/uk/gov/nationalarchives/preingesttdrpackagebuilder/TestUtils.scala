@@ -41,7 +41,9 @@ object TestUtils:
       m.driBatchReference.map(d => ("driBatchReference", Json.fromString(d))),
       ("Filename", Json.fromString(m.filename)).some,
       ("FileReference", Json.fromString(m.fileReference)).some,
-      ("ClientSideOriginalFilepath", Json.fromString(m.originalFilePath)).some
+      ("ClientSideOriginalFilepath", Json.fromString(m.originalFilePath)).some,
+      m.sortOrder.map(s => ("sortOrder", Json.fromInt(s))),
+      m.digitalAssetSource.map(s => ("digitalAssetSource", Json.fromString(s)))
     ).flatten ++ checksums
     Json.obj(metadataObjectFields*)
   }
