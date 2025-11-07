@@ -14,13 +14,13 @@ import java.util.UUID
 class LambdaSpec extends AnyFlatSpec with EitherValues {
 
   "handler" should "update dynamo and send the sns messages" in {
-    val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
+    val inputEvent = event("2023-06-08T00:00:00.000000+01:00")
     val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
-    val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
+    val eventActionTime = "2023-06-07T00:00:00.000000+01:00"
     val entitiesUpdated = EntitiesUpdated(false, List(generateEntity))
     val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entitiesUpdated, List(generateEventAction(eventActionTime)), dynamoResponse)
 
-    dynamoResult.head should equal("2023-06-05T00:00+01:00", 1)
+    dynamoResult.head should equal("2023-06-07T00:00+01:00", 0)
 
     snsResult.head.deleted should equal(false)
     snsResult.head.id should equal(s"io:${entitiesUpdated.entities.head.ref}")
@@ -54,14 +54,14 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     lambdaResult.value should equal(2)
   }
 
-  "handler" should "not increment the startAt argument, update the event datetime and send all messages if some entities are deleted and there is no next page" in {
+  "handler" should "set the startAt argument to zero, update the event datetime and send all messages if some entities are deleted and there is no next page" in {
     val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
     val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
     val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
     val entitiesUpdated = EntitiesUpdated(false, generateEntity :: List(generateEntity, generateEntity).map(_.copy(deleted = true)))
     val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entitiesUpdated, List(generateEventAction(eventActionTime)), dynamoResponse)
 
-    dynamoResult.head should equal("2023-06-05T00:00+01:00", 3)
+    dynamoResult.head should equal("2023-06-05T00:00+01:00", 0)
 
     snsResult.length should equal(3)
 
@@ -87,17 +87,27 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
     val entitiesUpdated = EntitiesUpdated(false, List(generateEntity))
     val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entitiesUpdated, List(generateEventAction(eventActionTime)), dynamoResponse, startCount = 1)
 
-    dynamoResult.head should equal("2023-06-05T00:00+01:00", 2)
+    dynamoResult.head should equal("2023-06-05T00:00+01:00", 0)
   }
 
-  "handler" should "write a startAt argument of original startAt plus the length of updated entities" in {
+  "handler" should "write a startAt argument of original startAt plus the length of updated entities if there is a next page" in {
+    val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
+    val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
+    val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
+    val entitiesUpdated = EntitiesUpdated(true, (1 to 15).map(_ => generateEntity).toList)
+    val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entitiesUpdated, List(generateEventAction(eventActionTime)), dynamoResponse, startCount = 56)
+
+    dynamoResult.head should equal("2023-06-06T20:39:53.377170+01:00", 71)
+  }
+
+  "handler" should "write a startAt argument of zero if there is no next page and not all entities are deleted" in {
     val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
     val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
     val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
     val entitiesUpdated = EntitiesUpdated(false, (1 to 15).map(_ => generateEntity).toList)
     val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entitiesUpdated, List(generateEventAction(eventActionTime)), dynamoResponse, startCount = 56)
 
-    dynamoResult.head should equal("2023-06-05T00:00+01:00", 71)
+    dynamoResult.head should equal("2023-06-05T00:00+01:00", 0)
   }
 
   "handler" should "filter out ignored event types" in {
@@ -114,12 +124,32 @@ class LambdaSpec extends AnyFlatSpec with EitherValues {
 
     val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entitiesUpdated, eventActions, dynamoResponse)
 
-    dynamoResult.head should equal("2023-06-05T00:00+01:00", 1)
+    dynamoResult.head should equal("2023-06-05T00:00+01:00", 0)
 
     snsResult.head.deleted should equal(false)
     snsResult.head.id should equal(s"io:${entitiesUpdated.entities.head.ref}")
 
     lambdaResult.value should equal(1)
+  }
+
+  "handler" should "do nothing if all of the event actions have an ignored type" in {
+    val inputEvent = event("2023-06-07T00:00:00.000000+01:00")
+    val dynamoResponse = List("2023-06-06T20:39:53.377170+01:00")
+    val eventActionTime = "2023-06-05T00:00:00.000000+01:00"
+    val entitiesUpdated = EntitiesUpdated(false, List(generateEntity))
+    val eventActions = List(
+      EventAction(UUID.randomUUID, "Download", ZonedDateTime.parse("2023-07-05T00:00:00.000000+01:00")),
+      EventAction(UUID.randomUUID, "Characterise", ZonedDateTime.parse("2023-08-05T00:00:00.000000+01:00")),
+      EventAction(UUID.randomUUID, "VirusCheck", ZonedDateTime.parse("2023-09-05T00:00:00.000000+01:00"))
+    )
+
+    val (dynamoResult, snsResult, lambdaResult) = runLambda(inputEvent, entitiesUpdated, eventActions, dynamoResponse)
+
+    dynamoResult.head should equal("2023-06-06T20:39:53.377170+01:00", 0)
+
+    snsResult.isEmpty should equal(true)
+
+    lambdaResult.value should equal(0)
   }
 
   "handler" should "not update the datetime or send a message if there was an error getting the datetime" in {
