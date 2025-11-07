@@ -105,7 +105,7 @@ class TestMigrate(unittest.TestCase):
             "fmt/123", "uuid-abc", "fileid-xyz", "/test/file1",
             json.dumps([{"SHA256": "test"}]),
             "series1", "desc1", "desc2", "2021-01-01", None, None,
-            "filename.txt", "fileref", "meta", "1", "1", "1", "BornDigital"
+            "filename.txt", "fileref", "meta", 1, 1, 1, "BornDigital"
         ]
         setup_test(mock_checksum, mock_connect, mock_create_skeleton, [row])
 
