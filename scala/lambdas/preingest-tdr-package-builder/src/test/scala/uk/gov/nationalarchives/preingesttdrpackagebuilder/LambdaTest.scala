@@ -30,22 +30,22 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   private def checksum(fingerprint: String) = List(Checksum("sha256", fingerprint))
 
   case class TestData(
-                       fileId: UUID,
-                       series: String,
-                       body: Option[String],
-                       date: String,
-                       tdrRef: Option[String],
-                       fileName: FileName,
-                       fileSize: Long,
-                       checksums: List[Checksum],
-                       fileRef: String,
-                       groupId: String,
-                       batchId: String,
-                       filePath: String,
-                       driBatchRef: Option[String],
-                       description: Option[String],
-                       sortOrder: Option[Int],
-                       digitalAssetSource: Option[String]
+      fileId: UUID,
+      series: String,
+      body: Option[String],
+      date: String,
+      tdrRef: Option[String],
+      fileName: FileName,
+      fileSize: Long,
+      checksums: List[Checksum],
+      fileRef: String,
+      groupId: String,
+      batchId: String,
+      filePath: String,
+      driBatchRef: Option[String],
+      description: Option[String],
+      sortOrder: Option[Int],
+      digitalAssetSource: Option[String]
   )
   val dateGen: Gen[String] = for {
     year <- Gen.posNum[Int]
