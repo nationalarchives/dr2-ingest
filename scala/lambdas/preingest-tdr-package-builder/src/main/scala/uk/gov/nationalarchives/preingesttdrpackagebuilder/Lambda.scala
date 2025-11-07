@@ -105,7 +105,6 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         firstPackageMetadata <- IO.fromOption(packageMetadataList.headOption)(new Exception("The metadata list is empty"))
       } yield {
         val metadataFileSize = metadataArr.length
-
         FileMetadataObject(
           metadataId,
           Option(firstPackageMetadata.UUID),
@@ -260,7 +259,7 @@ object Lambda:
       filePath <- c.downField("ClientSideOriginalFilepath").as[String]
       driBatchReference <- c.downField("driBatchReference").as[Option[String]]
       sortOrder <- c.downField("sortOrder").as[Option[Int]]
-      sourceSystem <- c.downField("sourceSystem").as[Option[String]]
+      digitalAssetSource <- c.downField("digitalAssetSource").as[Option[String]]
     yield PackageMetadata(
       series,
       uuid,
@@ -275,7 +274,7 @@ object Lambda:
       filePath,
       driBatchReference,
       sortOrder,
-      sourceSystem
+      digitalAssetSource
     )
 
   case class PackageMetadata(

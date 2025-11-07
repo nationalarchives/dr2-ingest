@@ -30,22 +30,22 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   private def checksum(fingerprint: String) = List(Checksum("sha256", fingerprint))
 
   case class TestData(
-      fileId: UUID,
-      series: String,
-      body: Option[String],
-      date: String,
-      tdrRef: Option[String],
-      fileName: FileName,
-      fileSize: Long,
-      checksums: List[Checksum],
-      fileRef: String,
-      groupId: String,
-      batchId: String,
-      filePath: String,
-      driBatchRef: Option[String],
-      description: Option[String],
-      sortOrder: Option[Int],
-      sourceSystem: Option[String]
+                       fileId: UUID,
+                       series: String,
+                       body: Option[String],
+                       date: String,
+                       tdrRef: Option[String],
+                       fileName: FileName,
+                       fileSize: Long,
+                       checksums: List[Checksum],
+                       fileRef: String,
+                       groupId: String,
+                       batchId: String,
+                       filePath: String,
+                       driBatchRef: Option[String],
+                       description: Option[String],
+                       sortOrder: Option[Int],
+                       digitalAssetSource: Option[String]
   )
   val dateGen: Gen[String] = for {
     year <- Gen.posNum[Int]
@@ -88,7 +88,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     (potentialTdrRef, potentialDriBatchRef) <- tdrOrDriBatchGen
     description <- Gen.option(Gen.nonEmptyStringOf(Gen.asciiChar))
     potentialSortOrder <- Gen.option(Gen.choose(0, 10))
-    sourceSystem <- Gen.option(Gen.oneOf("Born Digital", "Surrogate"))
+    digitalAssetSource <- Gen.option(Gen.oneOf("Born Digital", "Surrogate"))
   } yield TestData(
     fileId,
     series,
@@ -105,7 +105,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     potentialDriBatchRef,
     description,
     potentialSortOrder,
-    sourceSystem
+    digitalAssetSource
   )
 
   val testListDataGen: Gen[List[TestData]] = Gen.nonEmptyListOf(testDataGen)
@@ -140,7 +140,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       testData.filePath,
       testData.driBatchRef,
       testData.sortOrder,
-      testData.sourceSystem
+      testData.digitalAssetSource
     )
 
     val testData = allTestData.head
@@ -187,7 +187,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     contentFolderMetadataObject.parentId should equal(None)
     contentFolderMetadataObject.series should equal(Option(testData.series))
 
-    val expectedOriginalFiles = if testData.sourceSystem.contains("Surrogate") then Nil else allTestData.map(_.fileId).sorted
+    val expectedOriginalFiles = if testData.digitalAssetSource.contains("Surrogate") then Nil else allTestData.map(_.fileId).sorted
     assetMetadataObject.id should equal(tdrFileId)
     assetMetadataObject.parentId should equal(Option(uuidList(1)))
     assetMetadataObject.title should equal(expectedTitle)
@@ -198,7 +198,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     assetMetadataObject.transferringBody should equal(testData.body)
     assetMetadataObject.transferCompleteDatetime should equal(LocalDateTime.parse(testData.date.replace(" ", "T")).atOffset(ZoneOffset.UTC))
     assetMetadataObject.upstreamSystem should equal(TDR)
-    assetMetadataObject.digitalAssetSource should equal(testData.sourceSystem.getOrElse("Born Digital"))
+    assetMetadataObject.digitalAssetSource should equal(testData.digitalAssetSource.getOrElse("Born Digital"))
     assetMetadataObject.digitalAssetSubtype should equal(None)
     assetMetadataObject.correlationId should equal(potentialLockTableMessageId)
 
