@@ -110,7 +110,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           metadataId,
           Option(firstPackageMetadata.UUID),
           s"${firstPackageMetadata.UUID}-metadata",
-          packageMetadataList.map(_.sortOrder).max.getOrElse(packageMetadataList.length + 1),
+          packageMetadataList.flatMap(_.sortOrder).maxOption.getOrElse(packageMetadataList.length + 1),
           s"${firstPackageMetadata.UUID}-metadata.json",
           metadataFileSize,
           Preservation,
