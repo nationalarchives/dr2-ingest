@@ -31,8 +31,10 @@ SELECT
     fp.PUID AS PUID,
 CAST( REGEXP_SUBSTR(x.XMLCLOB, '<tna:batchIdentifier rdf:datatype="xs:string">(.*?)</tna:batchIdentifier>', 1 , 1, NULL, 1) AS VARCHAR(200)) AS DRIBATCHREFERENCE,
 CAST(REGEXP_SUBSTR(x.XMLCLOB, '<tna:tdrConsignmentRef rdf:datatype="xs:string">(.*?)</tna:tdrConsignmentRef>', 1, 1, NULL, 1) AS VARCHAR(200)) AS CONSIGNMENTREFERENCE,
+CAST(CAST(REGEXP_SUBSTR(x.XMLCLOB, '<tna:ordinal rdf:datatype="xs:decimal">(.*?)</tna:ordinal>', 1, 1, NULL, 1) AS VARCHAR(200)) AS NUMBER) AS SORTORDER,
 dum.MANIFESTATIONRELREF,
-dum.TYPEREF
+dum.TYPEREF,
+du.SECURITYTAG
 FROM
     DIGITALFILE df
 JOIN file_location ON
