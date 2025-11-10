@@ -200,7 +200,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
             packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
         case SourceSystem.ADHOC => List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}"))
-        case _ => Nil
+        case _                  => Nil
       }
       val digitalAssetSource = packageMetadata.digitalAssetSource.getOrElse("Born Digital")
       AssetMetadataObject(
@@ -212,7 +212,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         List(metadataId),
         packageMetadata.description,
         packageMetadata.transferringBody,
-        packageMetadata.transferInitiatedDatetime.map{dt => LocalDateTime.parse(dt.replace(" ", "T")).atOffset(ZoneOffset.UTC)},
+        packageMetadata.transferInitiatedDatetime.map { dt => LocalDateTime.parse(dt.replace(" ", "T")).atOffset(ZoneOffset.UTC) },
         config.sourceSystem,
         digitalAssetSource,
         None,

@@ -178,8 +178,9 @@ object ExternalUtils {
     override def apply(c: HCursor): Result[AssetMetadataObject] = convertToFailFast(decodeAccumulating(c))
 
     def toSourceSystem(c: HCursor, sourceSystem: String): Either[DecodingFailure, SourceSystem] = {
-      Try(SourceSystem.fromDisplayName(sourceSystem).getOrElse(throw new NoSuchElementException(s"Invalid display name encountered for source system: $sourceSystem")))
-        .toEither.left.map(err => DecodingFailure(err.getMessage, c.history))
+      Try(
+        SourceSystem.fromDisplayName(sourceSystem).getOrElse(throw new NoSuchElementException(s"Invalid display name encountered for source system: $sourceSystem"))
+      ).toEither.left.map(err => DecodingFailure(err.getMessage, c.history))
     }
 
     override def decodeAccumulating(c: HCursor): AccumulatingResult[AssetMetadataObject] = {
@@ -318,7 +319,7 @@ object ExternalUtils {
   enum SourceSystem(val display: String):
     case TDR extends SourceSystem("TDR")
     case DRI extends SourceSystem("DRI")
-    case`TRE: FCL Parser workflow` extends SourceSystem("TRE: FCL Parser workflow")
+    case `TRE: FCL Parser workflow` extends SourceSystem("TRE: FCL Parser workflow")
     case ADHOC extends SourceSystem("Ad hoc ingest")
 
     override def toString: String = display
@@ -326,7 +327,6 @@ object ExternalUtils {
   object SourceSystem:
     def fromDisplayName(displayName: String): Option[SourceSystem] =
       values.find(_.display == displayName)
-
 
   enum MessageType:
     override def toString: String = this match

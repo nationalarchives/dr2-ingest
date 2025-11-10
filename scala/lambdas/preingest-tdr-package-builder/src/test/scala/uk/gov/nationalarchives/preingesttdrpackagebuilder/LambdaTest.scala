@@ -335,7 +335,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
-    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), Option("ABC-123"), "test.txt", checksum(""), "", "", None, None, None))
+    val packageMetadata =
+      List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), Option("ABC-123"), "test.txt", checksum(""), "", "", None, None, None))
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
     val ex = intercept[Throwable] {
       runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)
