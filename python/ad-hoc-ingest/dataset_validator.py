@@ -83,4 +83,7 @@ def get_absolute_file_path(input_path, relative_or_absolute_file_path):
     if Path(relative_or_absolute_file_path).is_absolute():
         return str(relative_or_absolute_file_path)
     else:
-        return str((input_file_path.parent / relative_or_absolute_file_path).resolve())
+        normalised_relative_path = os.path.normpath(relative_or_absolute_file_path.replace("\\", "/"))
+        full_path = Path(input_file_path.parent / normalised_relative_path).resolve()
+        return str(full_path)
+

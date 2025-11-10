@@ -194,8 +194,6 @@ def run_ingest(data_set, args, is_upstream_valid):
 
         metadata_csv.flush()
 
-    print(f"The metadata to be uploaded is saved to '{output_file}'.")
-
     if is_dry_run:
         if is_metadata_valid:
             print("Validations completed successfully, please proceed to ingest")
@@ -203,6 +201,7 @@ def run_ingest(data_set, args, is_upstream_valid):
             print("Please fix the errors identified during validation before continuing further")
             sys.exit(1)
     else:
+        print(f"The metadata to be uploaded is saved to '{output_file}'.")
         try:
             account_number = get_account_number()
             confirmation = get_confirmation_to_proceed(
