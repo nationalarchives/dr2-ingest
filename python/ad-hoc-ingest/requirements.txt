@@ -1,3 +1,2 @@
-#test requirements used during build and runtime requirements used by deploy
--r requirements-test.txt
--r requirements-runtime.txt
+boto3
+pandas
