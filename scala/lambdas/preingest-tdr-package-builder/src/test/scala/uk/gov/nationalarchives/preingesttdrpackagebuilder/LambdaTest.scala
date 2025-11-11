@@ -399,6 +399,25 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     assetMetadataObject.idFields.find(_.name == "formerRefTNA").map(_.value).get should equal("AB 8/4/6")
   }
 
+  "lambda handler" should "not include former reference in the asset metadata when it is missing from package " in {
+    val assetId = UUID.randomUUID
+    val fileId = UUID.randomUUID
+    val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
+    val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
+
+    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None, None, None, None, Some("AB 8/4/6")))
+    val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
+    val adhocConfig: Config = Config("", "", "cacheBucket", 1, ADHOC)
+    val (s3Contents, output) = runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, config = adhocConfig)
+    val metadataObjects: List[MetadataObject] = s3Contents(s"/metadata.json").asInstanceOf[List[MetadataObject]]
+    val assetMetadataObjects = metadataObjects.collect { case assetMetadataObject: AssetMetadataObject => assetMetadataObject }
+    assetMetadataObjects.size should be(1)
+    val assetMetadataObject = assetMetadataObjects.head
+    assetMetadataObject.upstreamSystem should be(ADHOC)
+    assetMetadataObject.idFields should not contain "formerRefDept"
+    assetMetadataObject.idFields.find(_.name == "formerRefTNA").map(_.value).get should equal("AB 8/4/6")
+  }
+
   "lambda handler" should "return an error if the dynamo query fails" in {
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create("s3://bucket/key")).asJson.noSpaces
 
