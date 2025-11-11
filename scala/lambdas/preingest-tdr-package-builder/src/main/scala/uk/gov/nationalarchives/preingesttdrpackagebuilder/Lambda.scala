@@ -199,7 +199,9 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         case SourceSystem.DRI =>
           List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
             packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
-        case SourceSystem.ADHOC => List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}"))
+        case SourceSystem.ADHOC => List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
+          packageMetadata.formerRefDept.map(frd => List(IdField("formerRefDept", frd))).getOrElse(Nil) ++
+          packageMetadata.formerRefTNA.map(frt => List(IdField("formerRefTNA", frt))).getOrElse(Nil)
         case _                  => Nil
       }
       val digitalAssetSource = packageMetadata.digitalAssetSource.getOrElse("Born Digital")
@@ -264,6 +266,8 @@ object Lambda:
       driBatchReference <- c.downField("driBatchReference").as[Option[String]]
       sortOrder <- c.downField("sortOrder").as[Option[Int]]
       digitalAssetSource <- c.downField("digitalAssetSource").as[Option[String]]
+      formerRefDept <- c.downField("formerRefDept").as[Option[String]]
+      formerRefTNA <- c.downField("formerRefTNA").as[Option[String]]
     yield PackageMetadata(
       series,
       uuid,
@@ -278,7 +282,9 @@ object Lambda:
       filePath,
       driBatchReference,
       sortOrder,
-      digitalAssetSource
+      digitalAssetSource,
+      formerRefDept,
+      formerRefTNA
     )
 
   case class PackageMetadata(
@@ -295,7 +301,9 @@ object Lambda:
       originalFilePath: String,
       driBatchReference: Option[String],
       sortOrder: Option[Int],
-      digitalAssetSource: Option[String]
+      digitalAssetSource: Option[String],
+      formerRefDept: Option[String],
+      formerRefTNA: Option[String]
   )
 
   type LockTableMessage = NotificationMessage

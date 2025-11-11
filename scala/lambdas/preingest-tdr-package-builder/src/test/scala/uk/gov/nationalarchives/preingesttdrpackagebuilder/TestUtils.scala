@@ -43,7 +43,9 @@ object TestUtils:
       ("FileReference", Json.fromString(m.fileReference)).some,
       ("ClientSideOriginalFilepath", Json.fromString(m.originalFilePath)).some,
       m.sortOrder.map(s => ("sortOrder", Json.fromInt(s))),
-      m.digitalAssetSource.map(s => ("digitalAssetSource", Json.fromString(s)))
+      m.digitalAssetSource.map(s => ("digitalAssetSource", Json.fromString(s))),
+      m.formerRefDept.map(frd => ("formerRefDept", Json.fromString(frd))),
+      m.formerRefTNA.map(frt => ("formerRefTNA", Json.fromString(frt)))
     ).flatten ++ checksums
     Json.obj(metadataObjectFields*)
   }
