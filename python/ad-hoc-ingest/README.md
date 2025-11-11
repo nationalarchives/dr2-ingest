@@ -25,11 +25,6 @@ The script needs to be run from a machine on web domain which has access to the 
 to Discovery to get some metadata for the records. It also needs to connect to AWS services to upload the file into 
 S3 bucket and send a message to <env>-dr2-preingest-dri-importer queue to trigger the copy lambda.
 
-### Environment variables
-| Name            | Description                                                              |
-|-----------------|--------------------------------------------------------------------------|
-| ACCOUNT_NUMBER  | The DR2 account number of the environment you are ingesting to           |
-
 ### Script Arguments 
 | Name               | Description                                                                       |
 |--------------------|-----------------------------------------------------------------------------------|
