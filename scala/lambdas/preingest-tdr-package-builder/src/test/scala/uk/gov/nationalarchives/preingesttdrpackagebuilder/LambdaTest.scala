@@ -371,7 +371,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
-    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None, None, None, None, None))
+    val packageMetadata =
+      List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None, None, None, None, None))
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
     val (s3Contents, output) = runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects)
     val metadataObjects: List[MetadataObject] = s3Contents(s"/metadata.json").asInstanceOf[List[MetadataObject]]
@@ -386,7 +387,26 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
-    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None, None, None, Some("TS245.ABCD.25-1"), Some("AB 8/4/6")))
+    val packageMetadata = List(
+      PackageMetadata(
+        "",
+        assetId,
+        fileId,
+        None,
+        Option(""),
+        Option("2024-10-04 10:00:00"),
+        None,
+        "test.txt",
+        checksum(""),
+        "",
+        "",
+        None,
+        None,
+        None,
+        Some("TS245.ABCD.25-1"),
+        Some("AB 8/4/6")
+      )
+    )
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
     val adhocConfig: Config = Config("", "", "cacheBucket", 1, ADHOC)
     val (s3Contents, output) = runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, config = adhocConfig)
@@ -405,7 +425,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
-    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None, None, None, None, Some("AB 8/4/6")))
+    val packageMetadata =
+      List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None, None, None, None, Some("AB 8/4/6")))
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
     val adhocConfig: Config = Config("", "", "cacheBucket", 1, ADHOC)
     val (s3Contents, output) = runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, config = adhocConfig)
@@ -427,21 +448,21 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     ex.getMessage should equal("Dynamo has returned an error")
   }
 
-    private def runHandler(
-                            uuidIterator: () => UUID = () => UUID.randomUUID,
-                            initialS3Objects: Map[String, S3Objects] = Map.empty,
-                            initialDynamoObjects: List[IngestLockTableItem] = Nil,
-                            input: Input = Input("TST-123", "", 1, 1),
-                            downloadError: Boolean = false,
-                            uploadError: Boolean = false,
-                            queryError: Boolean = false,
-                            config: Config = config
-                          ): (Map[String, S3Objects], Output) = {
-      (for {
-        initialS3Objects <- Ref.of[IO, Map[String, S3Objects]](initialS3Objects)
-        initialDynamoObjects <- Ref.of[IO, List[IngestLockTableItem]](initialDynamoObjects)
-        dependencies = Dependencies(mockDynamoClient(initialDynamoObjects, queryError), mockS3(initialS3Objects, downloadError, uploadError), uuidIterator)
-        output <- new Lambda().handler(input, config, dependencies)
-        s3Objects <- initialS3Objects.get
-      } yield (s3Objects, output)).unsafeRunSync()
-    }
+  private def runHandler(
+      uuidIterator: () => UUID = () => UUID.randomUUID,
+      initialS3Objects: Map[String, S3Objects] = Map.empty,
+      initialDynamoObjects: List[IngestLockTableItem] = Nil,
+      input: Input = Input("TST-123", "", 1, 1),
+      downloadError: Boolean = false,
+      uploadError: Boolean = false,
+      queryError: Boolean = false,
+      config: Config = config
+  ): (Map[String, S3Objects], Output) = {
+    (for {
+      initialS3Objects <- Ref.of[IO, Map[String, S3Objects]](initialS3Objects)
+      initialDynamoObjects <- Ref.of[IO, List[IngestLockTableItem]](initialDynamoObjects)
+      dependencies = Dependencies(mockDynamoClient(initialDynamoObjects, queryError), mockS3(initialS3Objects, downloadError, uploadError), uuidIterator)
+      output <- new Lambda().handler(input, config, dependencies)
+      s3Objects <- initialS3Objects.get
+    } yield (s3Objects, output)).unsafeRunSync()
+  }
