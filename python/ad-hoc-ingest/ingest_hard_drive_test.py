@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pandas as pd
 from botocore.exceptions import ClientError
-
+from discovery_client import CollectionInfo, RecordDetails
 import ingest_hard_drive
 
 
@@ -70,8 +70,10 @@ class Test(TestCase):
         self.assertEqual("The output metadata location [some/random/file.pdf] does not exist or it is not a valid folder\n", str(e.exception))
 
     @patch("discovery_client.get_title_and_description")
-    def test_create_metadata_should_create_a_metadata_object_from_csv_rows(self, mock_description):
-        mock_description.return_value = None, "Some description from discovery"
+    @patch("discovery_client.get_former_references")
+    def test_create_metadata_should_create_a_metadata_object_from_csv_rows(self, mock_former_references, mock_description):
+        mock_former_references.return_value = RecordDetails("A", "B")
+        mock_description.return_value = CollectionInfo("some_id", None, "Some description from discovery")
 
         csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
         JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
@@ -86,9 +88,12 @@ class Test(TestCase):
             self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
 
     @patch("discovery_client.get_title_and_description")
-    def test_create_metadata_should_create_a_metadata_object_with_title_from_discovery_containing_comma(self, mock_description):
-
-        mock_description.return_value = None, "Some information about Kew, Richmond, London"
+    @patch("discovery_client.get_former_references")
+    def test_create_metadata_should_create_a_metadata_object_with_title_from_discovery_containing_comma(self,
+                                                                                                     mock_former_references,
+                                                                                                     mock_collection_info):
+        mock_former_references.return_value = RecordDetails("dept_ref", "tna_ref")
+        mock_collection_info.return_value = CollectionInfo("some_id", None, "Some information about Kew, Richmond, London")
 
         csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
         JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
@@ -103,8 +108,10 @@ class Test(TestCase):
             self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
 
     @patch("discovery_client.get_title_and_description")
-    def test_create_metadata_should_create_a_filename_from_various_paths_independent_of_platform(self, mock_description):
-        mock_description.return_value = None, "Some description from discovery"
+    @patch("discovery_client.get_former_references")
+    def test_create_metadata_should_create_a_filename_from_various_paths_independent_of_platform(self, mock_former_references, mock_collection_info):
+        mock_former_references.return_value = RecordDetails("dept_ref", "tna_ref")
+        mock_collection_info.return_value = CollectionInfo("some_id", None, "Some description from discovery")
 
         csv_data = """catRef,fileName,checksum
         JS 8/3,d:\\js\\3\\1\\evid0001.pdf,windows_absolute_path
@@ -120,9 +127,10 @@ class Test(TestCase):
             self.assertEqual("evid0001.pdf", metadata["Filename"])
 
     @patch("discovery_client.get_title_and_description")
-    def test_create_metadata_should_use_title_when_title_is_available_from_discovery(self, mock_description):
-
-        mock_description.return_value = "Some title", "Some description from discovery"
+    @patch("discovery_client.get_former_references")
+    def test_create_metadata_should_use_title_when_title_is_available_from_discovery(self, mock_former_references, mock_collection_info):
+        mock_former_references.return_value = RecordDetails("A", "B")
+        mock_collection_info.return_value = CollectionInfo("some_id", "Some title", "Some description from discovery")
 
         csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
             JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
@@ -152,8 +160,8 @@ class Test(TestCase):
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,checksum_md5,checksum_sha256
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},,some_checksum""".strip()
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_ref,,some_checksum""".strip()
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -170,6 +178,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},,some_checksum"
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
             "ClientSideOriginalFilepath": tmp1,
+            "formerRefDept": "dept_ref",
+            "formerRefTNA": "tna_ref",
             "checksum_sha256": "some_checksum"
         }
 
@@ -185,8 +195,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},,some_checksum"
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,checksum_md5,checksum_sha256
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,some_checksum"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -203,6 +213,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
             "ClientSideOriginalFilepath": "ad_hoc_ingest_test_file1.txt",
+            "formerRefDept": "dept_ref",
+            "formerRefTNA": "tna_ref",
             "checksum_sha256": "some_checksum"
         }
 
@@ -220,8 +232,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,checksum_md5,checksum_sha256
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt,,some_checksum"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -238,6 +250,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
             "ClientSideOriginalFilepath": "folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt",
+            "formerRefDept": "dept_ref",
+            "formerRefTNA": "tna_ref",
             "checksum_sha256": "some_checksum"
         }
 
@@ -255,8 +269,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,checksum_md5,checksum_sha256
-JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,some_checksum"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256
+JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,AB 1/2/3,,some_checksum"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -273,6 +287,7 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
             "ClientSideOriginalFilepath": "ad_hoc_ingest_test_file1.txt",
+            "formerRefTNA": "AB 1/2/3",
             "checksum_sha256": "some_checksum"
         }
 
@@ -283,9 +298,10 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
 
 
     @patch("discovery_client.get_title_and_description")
-    def test_create_metadata_should_throw_exception_when_it_cannot_find_title_or_description_from_discovery(self, mock_description):
-
-        mock_description.return_value = "", ""
+    @patch("discovery_client.get_former_references")
+    def test_create_metadata_should_throw_exception_when_it_cannot_find_title_or_description_from_discovery(self, mock_former_ref, mock_description):
+        mock_former_ref.return_value = RecordDetails("A", "B")
+        mock_description.return_value = CollectionInfo("some_id", "", "")
 
         csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
             someTestCatRef,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
