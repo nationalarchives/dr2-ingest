@@ -225,7 +225,7 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
       _ <- writeTaskToQueueTable(flowControlConfig)
       runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
       taskSuccessExecutor <-
-        if runningExecutions.size < flowControlConfig.maxConcurrency then
+        if runningExecutions.size < flowControlConfig.maxConcurrency && flowControlConfig.enabled then
           if flowControlConfig.hasReservedChannels then
             val executionsMap = runningExecutions.map(_.split("_").head).groupBy(identity).view.mapValues(_.size).toMap
             startTaskOnReservedChannel(flowControlConfig.sourceSystems, executionsMap, flowControlConfig, "").flatMap { taskExecutorName =>
@@ -240,6 +240,9 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
                   IO.pure(executionStarter)
             }
           else startTaskBasedOnProbability(flowControlConfig.sourceSystems)
+        else if !flowControlConfig.enabled then
+          logInfo("Flow control is disabled, terminating lambda", executionStarter) >>
+            IO.pure("FLOW_CONTROL_DISABLED")
         else
           logInfo("Max concurrency reached, terminating lambda", executionStarter) >>
             IO.pure(executionStarter)
@@ -322,7 +325,7 @@ object Lambda {
     require(probability >= 0 && probability <= 100, "Probability must be between 0 and 100")
   }
 
-  case class FlowControlConfig(maxConcurrency: Int, sourceSystems: List[SourceSystem]) {
+  case class FlowControlConfig(maxConcurrency: Int, sourceSystems: List[SourceSystem], enabled: Boolean) {
     lazy private val reservedChannelsCount: Int = sourceSystems.map(_.reservedChannels).sum
     lazy private val probabilityTotal: Int = sourceSystems.map(_.probability).sum
     require(maxConcurrency > 0, s"The max concurrency must be greater than 0, currently it is $maxConcurrency")

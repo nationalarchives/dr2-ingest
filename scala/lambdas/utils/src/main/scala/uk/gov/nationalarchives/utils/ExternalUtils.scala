@@ -315,7 +315,7 @@ object ExternalUtils {
 
   enum SourceSystem:
     case TDR, DRI, `TRE: FCL Parser workflow`
-
+    
   enum MessageType:
     override def toString: String = this match
       case IngestUpdate   => "preserve.digital.asset.ingest.update"
