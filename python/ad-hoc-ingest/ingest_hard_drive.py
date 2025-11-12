@@ -226,7 +226,7 @@ def run_ingest(data_set, args, is_upstream_valid):
     else:
         print(f"The metadata to be uploaded is saved to '{output_file}'.")
         try:
-            account_number = "12345" #get_account_number()
+            account_number = get_account_number()
             confirmation = get_confirmation_to_proceed(
                 f"Uploading {row_count} records to account: {account_number}, Continue? [y/n]: ")
             if confirmation:
