@@ -34,6 +34,7 @@ import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   lazy private val bufferSize = 1024 * 5
+  val defaultFolderName = "Records"
 
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
@@ -50,8 +51,10 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           def createMetadataObjects(firstPackageMetadata: PackageMetadata, fileName: String, originalFilePath: String) = for {
             assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId, packageMetadataList.map(_.fileId))
             s3FilesMap <- listS3Objects(fileLocation.getHost, assetMetadata.id)
-            contentFolderKey <- IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
-              new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
+            contentFolderKey <- IO.pure(
+              firstPackageMetadata.consignmentReference
+                .orElse(firstPackageMetadata.driBatchReference)
+                .getOrElse(defaultFolderName)
             )
             metadataObjects <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
               val fileMetadataObjs: List[FileMetadataObject] = packageMetadataList.zipWithIndex.map { (packageMetadata, idx) =>
@@ -196,6 +199,10 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         case SourceSystem.DRI =>
           List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
             packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
+        case SourceSystem.ADHOC =>
+          List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
+            packageMetadata.formerRefDept.map(frd => List(IdField("formerRefDept", frd))).getOrElse(Nil) ++
+            packageMetadata.formerRefTNA.map(frt => List(IdField("formerRefTNA", frt))).getOrElse(Nil)
         case _ => Nil
       }
       val digitalAssetSource = packageMetadata.digitalAssetSource.getOrElse("Born Digital")
@@ -208,7 +215,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         List(metadataId),
         packageMetadata.description,
         packageMetadata.transferringBody,
-        LocalDateTime.parse(packageMetadata.transferInitiatedDatetime.replace(" ", "T")).atOffset(ZoneOffset.UTC),
+        packageMetadata.transferInitiatedDatetime.map { dt => LocalDateTime.parse(dt.replace(" ", "T")).atOffset(ZoneOffset.UTC) },
         config.sourceSystem,
         digitalAssetSource,
         None,
@@ -251,7 +258,7 @@ object Lambda:
       fileId <- c.downField("fileId").as[UUID]
       description <- c.downField("description").as[Option[String]]
       transferringBody <- c.downField("TransferringBody").as[Option[String]]
-      transferInitiatedDatetime <- c.downField("TransferInitiatedDatetime").as[String]
+      transferInitiatedDatetime <- c.downField("TransferInitiatedDatetime").as[Option[String]]
       consignmentReference <- c.downField("ConsignmentReference").as[Option[String]]
       fileName <- c.downField("Filename").as[String]
       checksums <- getChecksums(c)
@@ -260,6 +267,8 @@ object Lambda:
       driBatchReference <- c.downField("driBatchReference").as[Option[String]]
       sortOrder <- c.downField("sortOrder").as[Option[Int]]
       digitalAssetSource <- c.downField("digitalAssetSource").as[Option[String]]
+      formerRefDept <- c.downField("formerRefDept").as[Option[String]]
+      formerRefTNA <- c.downField("formerRefTNA").as[Option[String]]
     yield PackageMetadata(
       series,
       uuid,
@@ -274,7 +283,9 @@ object Lambda:
       filePath,
       driBatchReference,
       sortOrder,
-      digitalAssetSource
+      digitalAssetSource,
+      formerRefDept,
+      formerRefTNA
     )
 
   case class PackageMetadata(
@@ -283,7 +294,7 @@ object Lambda:
       fileId: UUID,
       description: Option[String],
       transferringBody: Option[String],
-      transferInitiatedDatetime: String,
+      transferInitiatedDatetime: Option[String],
       consignmentReference: Option[String],
       filename: String,
       checksums: List[Checksum],
@@ -291,7 +302,9 @@ object Lambda:
       originalFilePath: String,
       driBatchReference: Option[String],
       sortOrder: Option[Int],
-      digitalAssetSource: Option[String]
+      digitalAssetSource: Option[String],
+      formerRefDept: Option[String],
+      formerRefTNA: Option[String]
   )
 
   type LockTableMessage = NotificationMessage

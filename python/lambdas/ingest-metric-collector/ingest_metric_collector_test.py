@@ -1,7 +1,9 @@
 import unittest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
+
 import ingest_metric_collector
+
 
 class TestLambdaFunction(unittest.TestCase):
 

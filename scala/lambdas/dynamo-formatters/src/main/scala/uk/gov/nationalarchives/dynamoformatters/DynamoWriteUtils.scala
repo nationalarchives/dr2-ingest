@@ -39,7 +39,6 @@ object DynamoWriteUtils {
     DynamoObject {
       commonFieldsToMap(assetDynamoItem) ++
         Map(
-          "transferCompleteDatetime" -> DynamoValue.fromString(assetDynamoItem.transferCompleteDatetime.toString),
           "upstreamSystem" -> DynamoValue.fromString(assetDynamoItem.upstreamSystem),
           "digitalAssetSource" -> DynamoValue.fromString(assetDynamoItem.digitalAssetSource),
           "originalFiles" -> DynamoValue.fromStrings(assetDynamoItem.originalFiles.map(_.toString)),
@@ -47,6 +46,7 @@ object DynamoWriteUtils {
           ingestedPreservica -> DynamoValue.fromString(assetDynamoItem.ingestedPreservica.toString),
           ingestedCustodialCopy -> DynamoValue.fromString(assetDynamoItem.ingestedCustodialCopy.toString)
         ) ++ (if (assetDynamoItem.skipIngest) Map("skipIngest" -> DynamoValue.fromBoolean(assetDynamoItem.skipIngest)) else Map())
+        ++ assetDynamoItem.transferCompleteDatetime.map(tcd => Map(transferCompleteDatetime -> DynamoValue.fromString(tcd.toString))).getOrElse(Map())
         ++ assetDynamoItem.correlationId.map(id => Map(correlationId -> DynamoValue.fromString(id))).getOrElse(Map())
         ++ assetDynamoItem.potentialDigitalAssetSubtype.map(subType => Map(digitalAssetSubtype -> DynamoValue.fromString(subType))).getOrElse(Map())
         ++ assetDynamoItem.transferringBody.map(tb => Map(transferringBody -> DynamoValue.fromString(tb))).getOrElse(Map())

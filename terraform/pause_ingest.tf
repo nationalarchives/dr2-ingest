@@ -23,6 +23,7 @@ module "pause_ingest_lambda" {
     TRIGGER_ARNS = jsonencode([
       module.tdr_preingest.aggregator_sqs.sqs_arn,
       module.dri_preingest.aggregator_sqs.sqs_arn,
+      module.adhoc_preingest.aggregator_sqs.sqs_arn,
       module.dr2_ingest_parsed_court_document_event_handler_sqs.sqs_arn
     ])
     ENVIRONMENT = local.environment
