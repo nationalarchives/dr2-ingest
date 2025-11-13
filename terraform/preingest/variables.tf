@@ -29,3 +29,7 @@ variable "additional_importer_lambda_policies" {
 variable "additional_importer_lambda_env_vars" {
   default = {}
 }
+
+variable "private_security_group_ids" {}
+
+variable "private_subnet_ids" {}
