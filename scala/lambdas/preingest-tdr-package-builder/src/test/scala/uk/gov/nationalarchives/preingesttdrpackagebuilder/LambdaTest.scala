@@ -14,6 +14,7 @@ import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.TestUtils.{*, given}
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.TDR
+import uk.gov.nationalarchives.utils.NaturalSorting.{natural, given}
 
 import java.net.URI
 import java.time.{Instant, LocalDateTime, ZoneOffset}
@@ -178,7 +179,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val expectedTitle =
       if allTestData.length > 1 then
         allTestData.head.description match
-          case Some(description) => description.split(" ").slice(0, 14).mkString(" ") + "..."
+          case Some(description)  => description.split(" ").slice(0, 14).mkString(" ") + (if description.length > 14 then "..." else "")
           case None              => "Untitled"
       else testData.fileName.fileString
 
@@ -211,7 +212,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     testData.tdrRef.map(tdrRef => checkIdField("ConsignmentReference", tdrRef))
     checkIdField("RecordID", tdrFileId.toString)
 
-    allTestData.zipWithIndex.foreach { (testData, idx) =>
+    allTestData.sortBy(p => natural(p.fileName.fileString)).zipWithIndex.foreach { (testData, idx) =>
       val potentialFileObject = fileObjects.find(_.id == testData.fileId)
       potentialFileObject.isDefined should equal(true)
       val fileObject = potentialFileObject.get

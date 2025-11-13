@@ -24,3 +24,24 @@ module "dri_preingest" {
   copy_source_bucket_name             = local.ingest_raw_cache_bucket_name
 }
 
+module "pa_preingest" {
+  source                              = "./preingest"
+  environment                         = local.environment
+  ingest_lock_dynamo_table_name       = local.ingest_lock_dynamo_table_name
+  ingest_lock_table_arn               = module.ingest_lock_table.table_arn
+  ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
+  ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
+  ingest_step_function_name           = local.ingest_step_function_name
+  source_name                         = "pa"
+  copy_source_bucket_name             = "hop-production"
+  additional_importer_lambda_policies = {
+    "${local.environment}-dr2-preingest-pa-importer-assume-role" = templatefile("${path.module}/templates/iam_policy/preingest_pa_importer_additional_permissions.json.tpl", {
+      pa_migration_role = module.config.terraform_config["parliament_files_role"]
+    })
+  }
+  additional_importer_lambda_env_vars = {
+    ROLE_TO_ASSUME = module.config.terraform_config["parliament_files_role"]
+    FILES_BUCKET   = "hop-production"
+  }
+}
+

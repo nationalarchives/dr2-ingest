@@ -8,6 +8,7 @@ locals {
   visibility_timeout        = 180
   redrive_maximum_receives  = 5
 }
+
 module "dr2_importer_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   description     = "A lambda to validate incoming metadata and copy the files to the DR2 S3 bucket for ${upper(var.source_name)}"
@@ -17,7 +18,7 @@ module "dr2_importer_lambda" {
   lambda_sqs_queue_mappings = [
     { sqs_queue_arn = local.importer_queue_arn, ignore_enabled_status = true }
   ]
-  policies = {
+  policies = merge({
     "${local.importer_name}-policy" = var.bucket_kms_arn == null ? templatefile("${path.module}/templates/copy_files_no_kms_policy.json.tpl", {
       copy_files_queue_arn  = local.importer_queue_arn
       raw_cache_bucket_name = var.ingest_raw_cache_bucket_name
@@ -34,14 +35,17 @@ module "dr2_importer_lambda" {
       lambda_name           = local.importer_name
       kms_arn               = var.bucket_kms_arn
     })
-  }
+  }, var.additional_importer_lambda_policies)
   memory_size = local.python_lambda_memory_size
   runtime     = local.python_runtime
-  plaintext_env_vars = {
-    OUTPUT_BUCKET_NAME = var.ingest_raw_cache_bucket_name
-    OUTPUT_QUEUE_URL   = module.dr2_preingest_aggregator_queue.sqs_queue_url
-    SOURCE_SYSTEM      = var.source_name
-  }
+  plaintext_env_vars = merge(
+    {
+      OUTPUT_BUCKET_NAME = var.ingest_raw_cache_bucket_name
+      OUTPUT_QUEUE_URL   = module.dr2_preingest_aggregator_queue.sqs_queue_url
+      SOURCE_SYSTEM      = var.source_name
+    },
+    var.additional_importer_lambda_env_vars
+  )
   tags = {
     Name = local.importer_name
   }

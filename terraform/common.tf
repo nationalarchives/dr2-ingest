@@ -238,8 +238,12 @@ module "dr2_kms_key" {
       module.dri_preingest.aggregator_lambda.role,
       module.dri_preingest.package_builder_lambda.role,
       module.dri_preingest.importer_lambda.role,
+      module.pa_preingest.aggregator_lambda.role,
+      module.pa_preingest.package_builder_lambda.role,
+      module.pa_preingest.importer_lambda.role,
       local.tna_to_preservica_role_arn,
       local.tre_prod_judgment_role,
+      module.config.terraform_config["parliament_files_role"],
     ], local.additional_user_roles, local.anonymiser_roles, local.e2e_test_roles)
     ci_roles = [local.terraform_role_arn]
     service_details = [
@@ -278,7 +282,7 @@ module "ingest_raw_cache_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_raw_cache_bucket_name
   bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.dr2_ingest_parsed_court_document_event_handler_lambda.lambda_role_arn]),
+    lambda_role_arns = jsonencode([module.config.terraform_config["parliament_files_role"]]),
     bucket_name      = local.ingest_raw_cache_bucket_name
   })
   kms_key_arn = module.dr2_kms_key.kms_key_arn

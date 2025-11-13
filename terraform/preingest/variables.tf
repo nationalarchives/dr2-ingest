@@ -21,3 +21,11 @@ variable "bucket_kms_arn" {
 }
 
 variable "copy_source_bucket_name" {}
+
+variable "additional_importer_lambda_policies" {
+  default = {}
+}
+
+variable "additional_importer_lambda_env_vars" {
+  default = {}
+}
