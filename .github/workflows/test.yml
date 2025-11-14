@@ -1,7 +1,9 @@
 name: DR2 Run Lambda Tests
 on:
   pull_request:
-    paths-ignore: ["docs/**"]
+    paths-ignore:
+      - "docs/**"
+      - "**/README.md"
 permissions:
   id-token: write
   contents: write
@@ -20,7 +22,7 @@ jobs:
           (cd terraform && terraform fmt -check --recursive)
           find . -name requirements.txt | xargs -I {} pip install -r {}
           AWS_DEFAULT_REGION=eu-west-2 pytest
-          sbt e2eTests/scalafmtCheckAll scalafmtCheckAll test
+          sbt scalafmtCheckAll test
           (cd kotlin/e2e-tests/lib && gradle test)
 
 
