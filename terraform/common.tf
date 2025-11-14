@@ -37,8 +37,7 @@ locals {
   visibility_timeout                                   = 180
   redrive_maximum_receives                             = 5
   ingest_run_workflow_sfn_arn                          = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${local.ingest_run_workflow_step_function_name}"
-  dashboard_lambdas = [
-    local.court_document_anonymiser_lambda_name,
+  dashboard_lambdas = concat([
     local.entity_event_lambda_name,
     local.get_latest_preservica_version,
     local.ingest_asset_opex_creator_lambda_name,
@@ -62,7 +61,7 @@ locals {
     module.dri_preingest.aggregator_lambda.function_name,
     module.dri_preingest.package_builder_lambda.function_name,
     module.dri_preingest.importer_lambda.function_name
-  ]
+  ], local.environment == "intg" ? [local.court_document_anonymiser_lambda_name] : [])
   queues = [
     module.dr2_ingest_parsed_court_document_event_handler_sqs,
     module.dr2_custodial_copy_queue,
@@ -147,6 +146,13 @@ module "vpc" {
     { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 443, to_port = 443, egress = true },
     { rule_no = 200, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = true },
   ]
+  s3_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/s3_endpoint_policy.json.tpl", {
+    account_id               = data.aws_caller_identity.current.account_id,
+    preservica_ingest_bucket = local.preservica_ingest_bucket
+  })
+  dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
+    account_id = data.aws_caller_identity.current.account_id
+  })
 }
 
 data "aws_eip" "eip" {
@@ -154,6 +160,28 @@ data "aws_eip" "eip" {
   filter {
     name   = "tag:Name"
     values = ["${local.environment}-eip-${count.index}"]
+  }
+}
+
+data "aws_ec2_managed_prefix_list" "s3_prefix_list" {
+  name = "com.amazonaws.eu-west-2.s3"
+}
+
+module "outbound_https_access_for_s3" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A  security group to allow outbound HTTPS only to S3"
+  name        = "${local.environment}-outbound-https-to-s3"
+  vpc_id      = module.vpc.vpc_id
+  rules = {
+    egress = [
+      {
+        port           = 443
+        description    = "Outbound https for S3 access"
+        prefix_list_id = data.aws_ec2_managed_prefix_list.s3_prefix_list.id
+        protocol       = "tcp"
+      }
+    ]
   }
 }
 

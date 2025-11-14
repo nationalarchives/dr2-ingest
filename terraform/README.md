@@ -55,7 +55,7 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
 
     * TF_VAR_account_number=*[account number of the environment to update]*
 
-3. Initialize Terraform (if not done so previously):
+3. Initialise Terraform (if not done so previously):
 
    ```
    [location of project] $ terraform init
