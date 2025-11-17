@@ -10,6 +10,8 @@ module "tdr_preingest" {
   source_name                         = "tdr"
   bucket_kms_arn                      = module.tdr_config.terraform_config["${local.environment}_s3_export_bucket_kms_key_arn"]
   copy_source_bucket_name             = "tdr-export-${local.environment}"
+  private_security_group_ids          = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id]
+  private_subnet_ids                  = module.vpc.private_subnets
 }
 
 module "dri_preingest" {
@@ -22,6 +24,8 @@ module "dri_preingest" {
   ingest_step_function_name           = local.ingest_step_function_name
   source_name                         = "dri"
   copy_source_bucket_name             = local.ingest_raw_cache_bucket_name
+  private_security_group_ids          = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id]
+  private_subnet_ids                  = module.vpc.private_subnets
 }
 
 module "adhoc_preingest" {
