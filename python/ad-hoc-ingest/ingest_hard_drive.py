@@ -6,9 +6,8 @@ import sys
 import tempfile
 import uuid
 from datetime import datetime
-from pathlib import Path, PureWindowsPath, PurePosixPath, PurePath
+from pathlib import Path, PureWindowsPath, PurePosixPath
 
-import time
 import pandas
 import pandas as pd
 from botocore.exceptions import ClientError
@@ -135,6 +134,7 @@ def upload_files(output_file, account_number, args):
     for counter, (index, row) in enumerate(upload_data_set.iterrows(), start=1):
         asset_id = row["UUID"]
         file_id = row["fileId"]
+        client_side_path = row["ClientSideOriginalFilepath"]
         metadata = {
             "Series": row["Series"],
             "UUID": asset_id,
@@ -142,7 +142,7 @@ def upload_files(output_file, account_number, args):
             "description": row["description"],
             "Filename": row["Filename"],
             "FileReference": row["FileReference"],
-            "ClientSideOriginalFilepath": row["ClientSideOriginalFilepath"]
+            "ClientSideOriginalFilepath": client_side_path
         }
         if row["formerRefDept"] != "":
             metadata["formerRefDept"] = row["formerRefDept"]
@@ -153,9 +153,21 @@ def upload_files(output_file, account_number, args):
         else:
             metadata["checksum_sha256"] = row["checksum_sha256"]
 
-        aws_interactions.upload_file(asset_id, bucket, file_id, get_absolute_file_path(args.input, row["ClientSideOriginalFilepath"]))
-        aws_interactions.upload_metadata(asset_id, bucket, metadata)
-        aws_interactions.send_message(asset_id, bucket, queue_url)
+        for attempt in range(0,4):
+            try:
+                aws_interactions.upload_file(asset_id, bucket, file_id, get_absolute_file_path(args.input, client_side_path))
+                aws_interactions.upload_metadata(asset_id, bucket, metadata)
+                aws_interactions.send_message(asset_id, bucket, queue_url)
+                break
+            except ClientError as client_error:
+                if attempt == 3:
+                    print(f"Exceeded, number of attempts to recover from error, terminating at file: '{file_id}' from location: '{client_side_path}'")
+                    raise Exception(f"Unable to proceed because: {client_error}. Terminating the process.")
+                else:
+                    print(f"An error caused due to: {client_error}")
+                    input("Fix the error and press any key to continue")
+                    aws_interactions.refresh_session()
+
         if counter % 10 == 0:
             print(f"Uploaded ${counter} of ${total}")
 
