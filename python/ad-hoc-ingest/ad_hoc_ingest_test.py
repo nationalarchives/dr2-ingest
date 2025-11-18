@@ -10,12 +10,12 @@ from unittest.mock import patch
 import pandas as pd
 from botocore.exceptions import ClientError
 from discovery_client import CollectionInfo, RecordDetails
-import ingest_hard_drive
+import ad_hoc_ingest
 
 
 class Test(TestCase):
     def setUp(self):
-        self.parser = ingest_hard_drive.build_argument_parser()
+        self.parser = ad_hoc_ingest.build_argument_parser()
         self.test_dir = tempfile.mkdtemp()
 
     def tearDown(self):
@@ -55,7 +55,7 @@ class Test(TestCase):
     def test_should_error_when_the_input_file_does_not_exist(self):
         args = argparse.Namespace(input='non_existent_file.csv', environment='not_prod', dry_run='True')
         with self.assertRaises(Exception) as e:
-            ingest_hard_drive.validate_arguments(args)
+            ad_hoc_ingest.validate_arguments(args)
 
         self.assertEqual("The input file [non_existent_file.csv] does not exist or it is not a valid file\n", str(e.exception))
 
@@ -66,7 +66,7 @@ class Test(TestCase):
 
         args = argparse.Namespace(input=tmp1, environment='not_prod', dry_run='True', output="some/random/file.pdf")
         with self.assertRaises(Exception) as e:
-            ingest_hard_drive.validate_arguments(args)
+            ad_hoc_ingest.validate_arguments(args)
         self.assertEqual("The output metadata location [some/random/file.pdf] does not exist or it is not a valid folder\n", str(e.exception))
 
     @patch("discovery_client.get_title_and_description")
@@ -79,7 +79,7 @@ class Test(TestCase):
         JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = ingest_hard_drive.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = ad_hoc_ingest.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("JS 8", metadata["Series"])
             self.assertEqual("evid0001.pdf", metadata["Filename"])
             self.assertEqual("3", metadata["FileReference"])
@@ -99,7 +99,7 @@ class Test(TestCase):
         JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = ingest_hard_drive.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = ad_hoc_ingest.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("JS 8", metadata["Series"])
             self.assertEqual("evid0001.pdf", metadata["Filename"])
             self.assertEqual("3", metadata["FileReference"])
@@ -123,7 +123,7 @@ class Test(TestCase):
         JS 8/8,c:/abcd/evid0001.pdf,windows_absolute_path_forward_slash"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = ingest_hard_drive.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = ad_hoc_ingest.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("evid0001.pdf", metadata["Filename"])
 
     @patch("discovery_client.get_title_and_description")
@@ -136,7 +136,7 @@ class Test(TestCase):
             JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = ingest_hard_drive.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = ad_hoc_ingest.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("Some title", metadata["description"])
 
 
@@ -149,7 +149,7 @@ class Test(TestCase):
         JS 8/3,duplicate_value_allowed_here,{tmp1},,another"""
         data_set = pd.read_csv(StringIO(csv_data), dtype={"checksum": str}, keep_default_na=False)
         for index, row in data_set.iterrows():
-            metadata = ingest_hard_drive.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = ad_hoc_ingest.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("3a16291a00172e7af139cef48d1fe2f7", metadata["checksum_md5"])
 
     @patch("aws_interactions.send_message")
@@ -168,7 +168,7 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
             f.write(metadata_csv_data)
 
         args = SimpleNamespace(environment="test", input="/home/users/input-file.csv")
-        ingest_hard_drive.upload_files(tmp2, "123456789", args)
+        ad_hoc_ingest.upload_files(tmp2, "123456789", args)
 
         expected_metadata = {
             "Series": "JS 8",
@@ -203,7 +203,7 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
             f.write(metadata_csv_data)
 
         args = SimpleNamespace(environment="test", input=f"{tmp2}")
-        ingest_hard_drive.upload_files(tmp2, "123456789", args)
+        ad_hoc_ingest.upload_files(tmp2, "123456789", args)
 
         expected_metadata = {
             "Series": "JS 8",
@@ -240,7 +240,7 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
             f.write(metadata_csv_data)
 
         args = SimpleNamespace(environment="test", input=f"{tmp2}")
-        ingest_hard_drive.upload_files(tmp2, "123456789", args)
+        ad_hoc_ingest.upload_files(tmp2, "123456789", args)
 
         expected_metadata = {
             "Series": "JS 8",
@@ -277,7 +277,7 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
             f.write(metadata_csv_data)
 
         args = SimpleNamespace(environment="test", input=f"{tmp2}")
-        ingest_hard_drive.upload_files(tmp2, "123456789", args)
+        ad_hoc_ingest.upload_files(tmp2, "123456789", args)
 
         expected_metadata = {
             "Series": "JS 8",
@@ -309,7 +309,7 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
         first_row = data_set.iloc[0]
 
         with self.assertRaises(Exception) as e:
-            ingest_hard_drive.create_metadata(first_row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            ad_hoc_ingest.create_metadata(first_row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
 
         self.assertEqual("Title and Description both are empty for 'someTestCatRef', unable to proceed with this record", str(e.exception))
 
@@ -318,12 +318,12 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
     @patch("builtins.input", return_value="")
     def test_should_call_refresh_session_when_a_client_error_is_thrown_when_getting_an_account_number(self, mock_input, mock_refresh_session, mock_get_account_number):
         mock_get_account_number.return_value = "123456789"
-        ingest_hard_drive.get_account_number()
+        ad_hoc_ingest.get_account_number()
         mock_refresh_session.assert_not_called()
 
         error_response = {"Error": {"Code": "TokenExpired", "Message": "Token has expired"}}
         mock_get_account_number.side_effect = [ClientError(error_response, "sts get identity"), "987654321"]
-        account_number_after_refresh = ingest_hard_drive.get_account_number()
+        account_number_after_refresh = ad_hoc_ingest.get_account_number()
         mock_refresh_session.assert_called_once()
         self.assertEqual("987654321", account_number_after_refresh)
 
@@ -337,7 +337,7 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
                                                ClientError(error_response, "sts get identity"),
                                                ClientError(error_response, "sts get identity")]
         with self.assertRaises(Exception) as e:
-            ingest_hard_drive.get_account_number()
+            ad_hoc_ingest.get_account_number()
 
         self.assertEqual(3, mock_refresh_session.call_count)
 
