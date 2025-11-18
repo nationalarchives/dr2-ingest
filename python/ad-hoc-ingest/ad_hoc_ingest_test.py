@@ -46,7 +46,7 @@ class Test(TestCase):
 
 
     def test_should_parse_arguments_and_set_correct_parameters_for_arguments_passed_on_command_line(self):
-        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "True", "-o" "/home/Users"])
+        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "True", "-o", "/home/Users"])
         self.assertEqual("some_file.csv", args.input)
         self.assertTrue(args.dry_run)
         self.assertEqual("not_prod", args.environment)
