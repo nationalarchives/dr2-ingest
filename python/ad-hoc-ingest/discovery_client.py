@@ -27,18 +27,6 @@ def get_response_from_operation(operation, query_param):
     response = requests.get(url)
     return response
 
-# def get_record_details(identifier):
-#     return get_response_from_operation(REC_DETAILS_OPERATION, identifier)
-#
-# def get_record_collection(citable_reference):
-#     operation = "records/v1/collection/{query}"
-#     param = {"query": citable_reference}
-#     query_encoded = quote(param["query"])
-#     url = f"{BASE_URL}/{operation.format(query=query_encoded)}"
-#
-#     response = requests.get(url)
-#     return response
-
 def get_former_references(identifier):
     response = get_response_from_operation(REC_DETAILS_OPERATION, identifier)
     if response.status_code == 200:
