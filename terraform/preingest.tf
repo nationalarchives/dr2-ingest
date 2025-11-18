@@ -28,6 +28,8 @@ module "dri_preingest" {
   private_subnet_ids                  = module.vpc.private_subnets
 }
 
+// Subnets and security groups aren't specified as we don't want this lambda in the VPC
+// The PA bucket is in a different region which we can't access through the gateway endpoint.
 module "pa_preingest" {
   source                              = "./preingest"
   environment                         = local.environment
@@ -47,7 +49,6 @@ module "pa_preingest" {
     ROLE_TO_ASSUME = local.parliament_ingest_role
     FILES_BUCKET   = module.config.terraform_config["parliament_bucket"]
   }
-  private_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id]
-  private_subnet_ids         = module.vpc.private_subnets
+  python_lambda_timeout = 300
 }
 
