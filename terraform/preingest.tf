@@ -28,6 +28,8 @@ module "dri_preingest" {
   private_subnet_ids                  = module.vpc.private_subnets
 }
 
+// Subnets and security groups aren't specified as we don't want this lambda in the VPC
+// The PA bucket is in a different region which we can't access through the gateway endpoint.
 module "pa_preingest" {
   source                              = "./preingest"
   environment                         = local.environment
@@ -37,7 +39,7 @@ module "pa_preingest" {
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
   source_name                         = "pa"
-  copy_source_bucket_name             = "hop-production"
+  copy_source_bucket_name             = module.config.terraform_config["parliament_bucket"]
   additional_importer_lambda_policies = {
     "${local.environment}-dr2-preingest-pa-importer-assume-role" = templatefile("${path.module}/templates/iam_policy/preingest_pa_importer_additional_permissions.json.tpl", {
       pa_migration_role = local.parliament_ingest_role
@@ -45,9 +47,8 @@ module "pa_preingest" {
   }
   additional_importer_lambda_env_vars = {
     ROLE_TO_ASSUME = local.parliament_ingest_role
-    FILES_BUCKET   = "hop-production"
+    FILES_BUCKET   = module.config.terraform_config["parliament_bucket"]
   }
-  private_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id]
-  private_subnet_ids         = module.vpc.private_subnets
+  python_lambda_timeout = 300
 }
 

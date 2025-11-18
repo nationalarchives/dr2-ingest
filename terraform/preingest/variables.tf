@@ -30,6 +30,14 @@ variable "additional_importer_lambda_env_vars" {
   default = {}
 }
 
-variable "private_security_group_ids" {}
+variable "private_security_group_ids" {
+  default = []
+}
 
-variable "private_subnet_ids" {}
+variable "private_subnet_ids" {
+  default = []
+}
+
+variable "python_lambda_timeout" {
+  default = 30
+}
