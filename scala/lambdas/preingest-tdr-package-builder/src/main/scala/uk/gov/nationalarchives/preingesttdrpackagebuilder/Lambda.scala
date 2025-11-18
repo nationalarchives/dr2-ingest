@@ -22,7 +22,9 @@ import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.utils.ExternalUtils.RepresentationType.Preservation
+import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.`Parliament Migration`
 import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.utils.NaturalSorting.{natural, given}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
 import java.net.URI
@@ -54,7 +56,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
             )
             metadataObjects <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
-              val fileMetadataObjs: List[FileMetadataObject] = packageMetadataList.zipWithIndex.map { (packageMetadata, idx) =>
+              val fileMetadataObjs: List[FileMetadataObject] = packageMetadataList.sortBy(p => natural(p.filename)).zipWithIndex.map { (packageMetadata, idx) =>
                 val s3File = s3FilesMap(packageMetadata.fileId)
                 FileMetadataObject(
                   packageMetadata.fileId,
@@ -215,7 +217,10 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         originalFilePath,
         potentialMessageId,
         List(
-          IdField("Code", s"${packageMetadata.series}/${packageMetadata.fileReference}"),
+          IdField(
+            "Code",
+            if config.sourceSystem == `Parliament Migration` then packageMetadata.fileReference else s"${packageMetadata.series}/${packageMetadata.fileReference}"
+          ),
           IdField("RecordID", assetId.toString)
         ) ++ sourceSpecificIdentifiers ++ packageMetadata.consignmentReference.map(consignmentRef => List(IdField("ConsignmentReference", consignmentRef))).getOrElse(Nil)
       )
@@ -229,11 +234,11 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
 
   private def descriptionToFileName(description: Option[String]) =
     description match
-      case Some(value) => value.split(" ").slice(0, 14).mkString(" ") + "..."
+      case Some(value) => value.split(" ").slice(0, 14).mkString(" ") + (if value.length > 14 then "..." else "")
       case None        => "Untitled"
 
   private def getParentPath(path: String) =
-    Path.of(path).getParent.toString
+    Option(Path.of(path).getParent).map(_.toString).getOrElse(path)
 
   private def decodePackageMetadata(json: String): IO[List[PackageMetadata]] =
     IO.fromEither(decode[List[PackageMetadata]](json))

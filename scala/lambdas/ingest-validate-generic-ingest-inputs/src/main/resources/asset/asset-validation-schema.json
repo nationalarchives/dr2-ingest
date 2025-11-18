@@ -81,7 +81,6 @@
     "series": {
       "$comment": "(Optional) If the Asset is the top-level entry in the JSON, then it will have a Series",
       "type": "string",
-      "pattern": "^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown|MOCK1 123)$",
       "minLength": 1
     },
     "correlationId": {
