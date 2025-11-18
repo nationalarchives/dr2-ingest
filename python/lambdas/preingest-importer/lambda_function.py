@@ -23,9 +23,8 @@ def lambda_handler(event, context):
         try:
             file_objects = assert_objects_exist_in_bucket(source_bucket, asset_id)
             validate_metadata(source_bucket, metadata_file_id)
-            transfer_files = [f['Key'] for f in file_objects if not f['Key'].endswith(".metadata")]
+            transfer_files = [f['Key'] for f in file_objects]
             copy_objects(destination_bucket, transfer_files, source_bucket)
-            copy_objects(destination_bucket, [metadata_file_id], source_bucket)
             potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
             sqs_body = {"id": asset_id, "location": f"s3://{destination_bucket}/{metadata_file_id}"}
             sqs_body.update(potential_message_id)
