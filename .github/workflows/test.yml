@@ -19,7 +19,8 @@ jobs:
       - run: |
           (cd terraform && terraform fmt -check --recursive)
           find . -name requirements.txt | xargs -I {} pip install -r {}
-          AWS_REGION=eu-west-2 find python/lambdas -type d -mindepth 1 -maxdepth 1 -exec pytest {} \;
+          export AWS_REGION=eu-west-2
+          find python/lambdas -type d -mindepth 1 -maxdepth 1 -exec pytest {} \; -o -quit
           sbt e2eTests/scalafmtCheckAll scalafmtCheckAll test
           (cd kotlin/e2e-tests/lib && gradle test)
 
