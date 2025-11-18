@@ -112,6 +112,10 @@ object ExternalUtils {
           assetMetadataIdFields
         ) =>
       val convertListOfUuidsToJsonStrArray = (fileUuids: List[UUID]) => fileUuids.map(fileUuid => Json.fromString(fileUuid.toString))
+      val upstreamSystemValue = upstreamSystem match {
+        case SourceSystem.PA => "Parliament Migration"
+        case other => other.toString
+      }
       jsonFromMetadataObject(id, parentId, Option(title), Type.Asset, name)
         .deepMerge {
           Json.fromFields(convertIdFieldsToJson(assetMetadataIdFields))
@@ -124,7 +128,7 @@ object ExternalUtils {
               ("description", description.map(Json.fromString).getOrElse(Null)),
               ("transferringBody", transferringBody.map(Json.fromString).getOrElse(Null)),
               ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
-              ("upstreamSystem", Json.fromString(upstreamSystem.toString)),
+              ("upstreamSystem", Json.fromString(upstreamSystemValue)),
               ("digitalAssetSource", Json.fromString(digitalAssetSource)),
               ("digitalAssetSubtype", digitalAssetSubtype.map(Json.fromString).getOrElse(Null)),
               ("correlationId", correlationId.map(Json.fromString).getOrElse(Null)),
@@ -178,7 +182,11 @@ object ExternalUtils {
     override def apply(c: HCursor): Result[AssetMetadataObject] = convertToFailFast(decodeAccumulating(c))
 
     def toSourceSystem(c: HCursor, sourceSystem: String): Either[DecodingFailure, SourceSystem] =
-      Try(SourceSystem.valueOf(sourceSystem)).toEither.left.map(err => DecodingFailure(err.getMessage, c.history))
+      Try {
+        if sourceSystem == "Parliament Migration" then
+          SourceSystem.PA
+        else SourceSystem.valueOf(sourceSystem)
+      }.toEither.left.map(err => DecodingFailure(err.getMessage, c.history))
 
     override def decodeAccumulating(c: HCursor): AccumulatingResult[AssetMetadataObject] = {
       (
@@ -314,7 +322,7 @@ object ExternalUtils {
   }
 
   enum SourceSystem:
-    case TDR, DRI, `TRE: FCL Parser workflow`, `Parliament Migration`
+    case TDR, DRI, `TRE: FCL Parser workflow`, PA
     
   enum MessageType:
     override def toString: String = this match

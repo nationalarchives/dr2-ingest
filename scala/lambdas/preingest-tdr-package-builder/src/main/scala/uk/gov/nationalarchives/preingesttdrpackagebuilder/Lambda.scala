@@ -22,7 +22,7 @@ import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.utils.ExternalUtils.RepresentationType.Preservation
-import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.`Parliament Migration`
+import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.PA
 import uk.gov.nationalarchives.utils.LambdaRunner
 import uk.gov.nationalarchives.utils.NaturalSorting.{natural, given}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
@@ -219,7 +219,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         List(
           IdField(
             "Code",
-            if config.sourceSystem == `Parliament Migration` then packageMetadata.fileReference else s"${packageMetadata.series}/${packageMetadata.fileReference}"
+            if config.sourceSystem == PA then packageMetadata.fileReference else s"${packageMetadata.series}/${packageMetadata.fileReference}"
           ),
           IdField("RecordID", assetId.toString)
         ) ++ sourceSpecificIdentifiers ++ packageMetadata.consignmentReference.map(consignmentRef => List(IdField("ConsignmentReference", consignmentRef))).getOrElse(Nil)
