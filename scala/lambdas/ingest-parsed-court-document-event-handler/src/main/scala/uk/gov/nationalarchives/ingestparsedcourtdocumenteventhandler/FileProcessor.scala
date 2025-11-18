@@ -120,7 +120,6 @@ class FileProcessor(
         Option(folderId),
         fileInfo.fileName,
         tdrUuid,
-        List(fileInfo.id),
         List(metadataFileInfo.id),
         potentialJudgmentName,
         Option(treMetadata.parameters.TDR.`Source-Organization`),

@@ -125,7 +125,6 @@ object ExternalServicesTestUtils:
     "digitalAssetSource",
     None,
     Nil,
-    Nil,
     true,
     true,
     List(Identifier("UpstreamSystemReference", "upstreamSystemReference")),
