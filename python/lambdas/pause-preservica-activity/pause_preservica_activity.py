@@ -1,9 +1,10 @@
 import os
 import json
 import boto3
+from botocore.config import Config
 
-eventbridge = boto3.client("events")
-secretsmanager = boto3.client("secretsmanager")
+eventbridge = boto3.client("events", config=Config(region_name="eu-west-2"))
+secretsmanager = boto3.client("secretsmanager", config=Config(region_name="eu-west-2"))
 
 
 def send_eventbridge_message(detail):
