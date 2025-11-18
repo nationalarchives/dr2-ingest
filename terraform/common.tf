@@ -80,6 +80,7 @@ locals {
   # The list comes from https://www.cloudflare.com/en-gb/ips
   cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
   outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
+  tdr_export_bucket           = "tdr-export-${local.environment}"
 }
 
 data "aws_iam_role" "org_wiz_access_role" {
@@ -153,6 +154,8 @@ module "vpc" {
   s3_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/s3_endpoint_policy.json.tpl", {
     account_id               = data.aws_caller_identity.current.account_id,
     preservica_ingest_bucket = local.preservica_ingest_bucket
+    tdr_export_bucket        = local.tdr_export_bucket
+    tre_export_bucket_arn    = local.tre_terraform_prod_config["s3_court_document_pack_out_arn"]
   })
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id
