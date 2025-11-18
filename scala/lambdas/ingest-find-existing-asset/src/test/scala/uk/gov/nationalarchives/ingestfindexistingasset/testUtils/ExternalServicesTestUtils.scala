@@ -45,7 +45,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
     digitalAssetSource,
     Option(digitalAssetSubtype),
     Nil,
-    Nil,
     true,
     true,
     Nil,

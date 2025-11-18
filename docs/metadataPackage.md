@@ -68,7 +68,6 @@ flowchart LR;
 | digitalAssetSubtype      | no       | The subtype of digital asset. E.g. `FCL`                                                                                      |
 | id                       | yes      | A unique identifier for this asset.                                                                                           |
 | id\_\*                   | no\*\*\* | Sets an identifier in the Preservation System. E.g. `id_Code` becomes the `Code` identifier.                                  |
-| originalFiles            | yes\*\*  | A JSON array of file `id`s that make up the asset as transferred.                                                             |
 | originalMetadataFiles    | yes\*\*  | A JSON array of file `id`s that make up the asset metadata as transferred.                                                    |
 | parentId                 | yes\*    | The `id` of the object's parent (also within this JSON file).                                                                 |
 | series                   | yes\*    | If the item is a root node in this ingest package set this to the series reference the item should ingest under or `Unknown`. |

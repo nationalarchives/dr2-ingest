@@ -48,7 +48,6 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
       assetIdentifier: UUID,
       docxIdentifier: UUID,
       metadataFileIdentifier: UUID,
-      originalFiles: List[String],
       originalMetadataFilesOne: List[String]
   )
   case class MetadataResponse(metadata: String, identifiersOne: Identifiers, identifiersTwo: Identifiers)
@@ -62,8 +61,6 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
     val docxIdentifierTwo = UUID.randomUUID()
     val metadataFileIdentifierOne = UUID.randomUUID()
     val metadataFileIdentifierTwo = UUID.randomUUID()
-    val originalFilesOne = List(UUID.randomUUID(), UUID.randomUUID()).map(_.toString)
-    val originalFilesTwo = List(UUID.randomUUID(), UUID.randomUUID()).map(_.toString)
     val originalMetadataFilesOne = List(UUID.randomUUID(), UUID.randomUUID()).map(_.toString)
     val originalMetadataFilesTwo = List(UUID.randomUUID(), UUID.randomUUID()).map(_.toString)
 
@@ -78,7 +75,6 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
          | "type":"Asset",
          | "name":"TestAssetName",
          | "fileSize":null,
-         | "originalFiles": ${write(originalFilesOne)},
          | "originalMetadataFiles": ${write(originalMetadataFilesOne)}
          |},
          |{
@@ -88,7 +84,6 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
          | "type":"Asset",
          | "name":"TestAssetName",
          | "fileSize":null,
-         | "originalFiles": ${write(originalFilesTwo)},
          | "originalMetadataFiles": ${write(originalMetadataFilesTwo)}
          |},
          |{"id":"$docxIdentifierOne","parentId":"$assetIdentifierOne","title":"Test","type":"File","name":"Test.docx","fileSize":1, "customMetadataAttribute1": "customMetadataValue1"},
@@ -99,8 +94,8 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
 
     MetadataResponse(
       metadata,
-      Identifiers(folderIdentifierOne, assetIdentifierOne, docxIdentifierOne, metadataFileIdentifierOne, originalFilesOne, originalMetadataFilesOne),
-      Identifiers(folderIdentifierTwo, assetIdentifierTwo, docxIdentifierTwo, metadataFileIdentifierTwo, originalFilesTwo, originalMetadataFilesTwo)
+      Identifiers(folderIdentifierOne, assetIdentifierOne, docxIdentifierOne, metadataFileIdentifierOne, originalMetadataFilesOne),
+      Identifiers(folderIdentifierTwo, assetIdentifierTwo, docxIdentifierTwo, metadataFileIdentifierTwo, originalMetadataFilesTwo)
     )
   }
 
@@ -126,7 +121,6 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
     num("ttl").get should equal(expectedTable.ttl)
     str("type") should equal(expectedTable.`type`.toString)
     strOpt("customMetadataAttribute1") should equal(expectedTable.customMetadataAttribute1)
-    list("originalFiles") should equal(expectedTable.originalFiles)
     list("originalMetadataFiles") should equal(expectedTable.originalMetadataFiles)
   }
 

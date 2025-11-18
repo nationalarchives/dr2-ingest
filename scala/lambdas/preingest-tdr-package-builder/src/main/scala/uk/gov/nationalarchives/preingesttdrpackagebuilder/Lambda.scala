@@ -50,7 +50,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       decodePackageMetadata(jsonString)
         .flatMap { packageMetadataList =>
           def createMetadataObjects(firstPackageMetadata: PackageMetadata, fileName: String, originalFilePath: String) = for {
-            assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId, packageMetadataList.map(_.fileId))
+            assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId)
             s3FilesMap <- listS3Objects(fileLocation.getHost, assetMetadata.id)
             contentFolderKey <- IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
               new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
@@ -189,8 +189,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         fileName: String,
         originalFilePath: String,
         metadataId: UUID,
-        potentialMessageId: Option[String],
-        originalFiles: List[UUID]
+        potentialMessageId: Option[String]
     ): IO[AssetMetadataObject] = IO.pure {
       val assetId = packageMetadata.UUID
       val sourceSpecificIdentifiers = config.sourceSystem match {
@@ -206,7 +205,6 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         None,
         fileName,
         assetId.toString,
-        if digitalAssetSource == "Surrogate" then Nil else originalFiles,
         List(metadataId),
         packageMetadata.description,
         packageMetadata.transferringBody,
