@@ -14,7 +14,7 @@
       }
     },
     {
-      "Sid": "allowCallsToPreservicaBucket",
+      "Sid": "allowCallsToOtherAccountBuckets",
       "Effect": "Allow",
       "Principal": "*",
       "Action": [
