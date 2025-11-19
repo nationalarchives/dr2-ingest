@@ -52,9 +52,12 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           def createMetadataObjects(firstPackageMetadata: PackageMetadata, fileName: String, originalFilePath: String) = for {
             assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId)
             s3FilesMap <- listS3Objects(fileLocation.getHost, assetMetadata.id)
-            contentFolderKey <- IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
-              new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
-            )
+            contentFolderKey <- config.sourceSystem match {
+              case SourceSystem.PA => IO.pure("Records")
+              case _ => IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
+                new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
+              )
+            }
             metadataObjects <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
               val fileMetadataObjs: List[FileMetadataObject] = packageMetadataList.sortBy(p => natural(p.filename)).zipWithIndex.map { (packageMetadata, idx) =>
                 val s3File = s3FilesMap(packageMetadata.fileId)
