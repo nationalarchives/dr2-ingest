@@ -16,7 +16,6 @@ from moto.utilities.utils import str2bool
 import aws_interactions
 import dataset_validator
 import discovery_client
-from dataset_validator import Js8Validator
 
 
 def build_argument_parser():
@@ -280,7 +279,7 @@ def main():
     is_valid = True
     is_dry_run = False if args.dry_run == False else True
     try:
-        is_valid = dataset_validator.validate_dataset(Js8Validator(), data_set, str(input_file_path), is_dry_run)
+        is_valid = dataset_validator.validate_dataset(dataset_validator.Js8Validator(), data_set, str(input_file_path), is_dry_run)
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 
