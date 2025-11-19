@@ -100,9 +100,6 @@ This means we don't have to hold the whole json object in memory at any point, o
     "name": "https://example.com/id/court/2023/"
   },
   {
-    "originalFiles": [
-      "c7e6b27f-5778-4da8-9b83-1b64bbccbd03"
-    ],
     "originalMetadataFiles": [
       "61ac0166-ccdf-48c4-800f-29e5fba2efda"
     ],
