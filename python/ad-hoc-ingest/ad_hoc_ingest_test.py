@@ -57,7 +57,7 @@ class Test(TestCase):
         with self.assertRaises(Exception) as e:
             ad_hoc_ingest.validate_arguments(args)
 
-        self.assertEqual("The input file [non_existent_file.csv] does not exist or it is not a valid file\n", str(e.exception))
+        self.assertEqual("Either the input file [non_existent_file.csv] does not exist or it is not a valid file\n", str(e.exception))
 
     def test_validate_arguments_should_error_when_the_output_location_is_not_a_folder(self):
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
@@ -67,7 +67,7 @@ class Test(TestCase):
         args = argparse.Namespace(input=tmp1, environment='not_prod', dry_run='True', output="some/random/file.pdf")
         with self.assertRaises(Exception) as e:
             ad_hoc_ingest.validate_arguments(args)
-        self.assertEqual("The output metadata location [some/random/file.pdf] does not exist or it is not a valid folder\n", str(e.exception))
+        self.assertEqual("Either the output metadata location [some/random/file.pdf] does not exist or it is not a valid folder\n", str(e.exception))
 
     @patch("discovery_client.get_title_and_description")
     @patch("discovery_client.get_former_references")
@@ -152,7 +152,7 @@ class Test(TestCase):
             metadata = ad_hoc_ingest.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("3a16291a00172e7af139cef48d1fe2f7", metadata["checksum_md5"])
 
-    @patch("aws_interactions.send_message")
+    @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
     def test_should_send_the_files_to_the_s3_bucket_and_send_a_message_to_the_queue(self, mock_upload_file, mock_upload_metadata, mock_send_message):
@@ -187,7 +187,7 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
         mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
-    @patch("aws_interactions.send_message")
+    @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
     def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_to_the_csv_file_and_send_a_message_to_the_queue(self, mock_upload_file, mock_upload_metadata, mock_send_message):
@@ -222,7 +222,7 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
         mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
-    @patch("aws_interactions.send_message")
+    @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
     def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_with_mixed_forward_and_back_slashes(
@@ -260,7 +260,7 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
         mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache",
                                                   "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
-    @patch("aws_interactions.send_message")
+    @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
     def test_should_create_metadata_with_description_having_comma_in_a_quoted_field(

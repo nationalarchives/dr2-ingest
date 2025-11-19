@@ -146,7 +146,7 @@ def upload_files(output_file, account_number, args):
             try:
                 aws_interactions.upload_file(asset_id, bucket, file_id, get_absolute_file_path(args.input, client_side_path))
                 aws_interactions.upload_metadata(asset_id, bucket, metadata)
-                aws_interactions.send_message(asset_id, bucket, queue_url)
+                aws_interactions.send_sqs_message(asset_id, bucket, queue_url)
                 break
             except ClientError as client_error:
                 if attempt == 3:
