@@ -20,7 +20,7 @@ class Test(TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.test_dir)
-    def test_should_fail_when_mandatory_argument_is_missing(self):
+    def test_parse_args_should_fail_when_mandatory_argument_is_missing(self):
         with self.assertRaises(SystemExit):
             self.parser.parse_args([])
 
@@ -52,14 +52,14 @@ class Test(TestCase):
         self.assertEqual("not_prod", args.environment)
         self.assertEqual("/home/Users", args.output)
 
-    def test_should_error_when_the_input_file_does_not_exist(self):
+    def test_validate_arguments_should_error_when_the_input_file_does_not_exist(self):
         args = argparse.Namespace(input='non_existent_file.csv', environment='not_prod', dry_run='True')
         with self.assertRaises(Exception) as e:
             ad_hoc_ingest.validate_arguments(args)
 
         self.assertEqual("The input file [non_existent_file.csv] does not exist or it is not a valid file\n", str(e.exception))
 
-    def test_should_error_when_the_output_location_is_not_a_folder(self):
+    def test_validate_arguments_should_error_when_the_output_location_is_not_a_folder(self):
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
@@ -128,7 +128,7 @@ class Test(TestCase):
 
     @patch("discovery_client.get_title_and_description")
     @patch("discovery_client.get_former_references")
-    def test_create_metadata_should_use_title_when_title_is_available_from_discovery(self, mock_former_references, mock_collection_info):
+    def test_create_metadata_should_use_title_as_description_when_title_is_available_from_discovery(self, mock_former_references, mock_collection_info):
         mock_former_references.return_value = RecordDetails("A", "B")
         mock_collection_info.return_value = CollectionInfo("some_id", "Some title", "Some description from discovery")
 

@@ -8,7 +8,7 @@ which meets the following criteria:
 - The data has been already available to the public on Discovery.
 
 ## The process:
-![adhoc-ingest-flow.png](images/adhoc-ingest-flow.png)
+![ad-hoc-ingest-flow.png](images/ad-hoc-ingest-flow.png)
 
 There is a script (ad_hoc_ingest.py) at the centre of the ingest process which drives the generic ingest. The script receives a CSV file as an input. 
 This input CSV file contains the filenames, catalog reference, a checksum and any other information. The files are 

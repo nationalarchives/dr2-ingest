@@ -3,10 +3,15 @@
     "properties": {
         "Series": {"type": "string"},
         "UUID": {"type": "string", "format": "uuid"},
+        "fileId": {"type": "string"},
         "description": {"type": ["string", "null"]},
-        "ConsignmentReference": {"type": "string"},
         "Filename": {"type": "string"},
-        "FileReference": {"type": "string"}
+        "FileReference": {"type": "string"},
+        "ClientSideOriginalFilepath": {"type": "string"},
+        "formerRefDept": {"type": "string"},
+        "formerRefTNA": {"type": "string"},
+        "checksum_sha256": {"type": "string"},
+        "checksum_md5":  {"type": "string"}
     },
     "required": [
         "Series",

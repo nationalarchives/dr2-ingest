@@ -18,19 +18,20 @@ import dataset_validator
 import discovery_client
 
 
+
 def build_argument_parser():
     parser = argparse.ArgumentParser(
-        description="Process an input file to schedule corresponding ingests ",
+        description="Process an input CSV file to schedule corresponding ingests ",
         add_help=False
     )
     parser.add_argument(
         "-i", "--input",
         required=True,
-        help="A CSV file containing details of the records to ingest, it must have columns (catRef, fileName, checksum)"
+        help="A CSV file containing details of the records to ingest. It must have columns (catRef, fileName, checksum)"
     )
     parser.add_argument(
         "-e", "--environment",
-        help="Environment where the ingest is taking place (e.g. intg or prd)",
+        help="Environment where the ingest is taking place (e.g. intg or prod)",
         default="intg"
     )
     parser.add_argument(
@@ -48,17 +49,15 @@ def build_argument_parser():
     )
     return parser
 
-# Validations of the parameters passed to the script.
 def validate_arguments(args):
     input_file_path = Path(args.input)
     if not (input_file_path.exists() and input_file_path.is_file()):
-        raise Exception(f"The input file [{input_file_path}] does not exist or it is not a valid file\n")
+        raise Exception(f"Either the input file [{input_file_path}] does not exist or it is not a valid file\n")
 
     output_metadata_folder = Path(args.output)
     if not (output_metadata_folder.exists() and output_metadata_folder.is_dir()):
-        raise Exception(f"The output metadata location [{output_metadata_folder}] does not exist or it is not a valid folder\n")
+        raise Exception(f"Either the output metadata location [{output_metadata_folder}] does not exist or it is not a valid folder\n")
 
-    return True
 
 def create_metadata(row, args):
     catalog_ref = row["catRef"].strip()
@@ -70,7 +69,7 @@ def create_metadata(row, args):
         raise Exception(f"Title and Description both are empty for '{catalog_ref}', unable to proceed with this record")
 
     description_to_use = collection_info.title if collection_info.title is not None else collection_info.description
-    series = row["catRef"].split("/")[0].strip()
+    series = catalog_ref.split("/")[0].strip()
     metadata = {
         "Series": series,
         "UUID": str(uuid.uuid4()),
@@ -81,17 +80,10 @@ def create_metadata(row, args):
         "ClientSideOriginalFilepath": file_path,
     }
     former_ref_dept = former_references.formerRefDept
-    if former_ref_dept is None:
-        metadata["formerRefDept"] = ""
-    else:
-        metadata["formerRefDept"] = former_ref_dept
+    metadata["formerRefDept"] = "" if former_ref_dept is None else former_ref_dept
 
     former_ref_tna = former_references.formerRefTNA
-    if former_ref_tna is None:
-        metadata["formerRefTNA"] = ""
-    else:
-        metadata["formerRefTNA"] = former_ref_tna
-
+    metadata["formerRefTNA"] = "" if former_ref_tna is None else former_ref_tna
 
     sha256_checksum = row["checksum"].strip()
     if not sha256_checksum:
@@ -116,16 +108,14 @@ def create_md5_hash(file_path, chunk_size=8192):
     return md5.hexdigest()
 
 def get_confirmation_to_proceed(prompt="Are you sure?"):
-    confirmation = input(f"{prompt}").strip().lower()
-    if confirmation in ("y", "yes"):
-        return True
-    else:
-        return False
+    confirmation = input(prompt).strip().lower()
+    return confirmation in {"y", "yes"}
 
 def upload_files(output_file, account_number, args):
     environment = args.environment
+    region = aws_interactions.get_region()
     bucket = f"{environment}-dr2-ingest-raw-cache"
-    queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-adhoc-importer"
+    queue_url = f"https://sqs.{region}.amazonaws.com/{account_number}/{environment}-dr2-preingest-adhoc-importer"
 
     upload_data_set = pd.read_csv(output_file, dtype=str, keep_default_na=False)
     total = len(upload_data_set)
@@ -160,11 +150,11 @@ def upload_files(output_file, account_number, args):
                 break
             except ClientError as client_error:
                 if attempt == 3:
-                    print(f"Exceeded, number of attempts to recover from error, terminating at file: '{file_id}' from location: '{client_side_path}'")
+                    print(f"Exceeded number of attempts to recover from error; terminating at file: '{file_id}' from location: '{client_side_path}'")
                     raise Exception(f"Unable to proceed because: {client_error}. Terminating the process.")
                 else:
-                    print(f"An error caused due to: {client_error}")
-                    input("Fix the error and press any key to continue")
+                    print(f"An error occurred due to: {client_error}")
+                    input("Fix the error and press 'Enter' to continue")
                     aws_interactions.refresh_session()
 
         if counter % 10 == 0:
@@ -190,7 +180,7 @@ def is_folder_writable(output_folder):
         return False
 
 
-def run_ingest(data_set, args, is_upstream_valid):
+def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
     data_set: pandas.DataFrame
     is_dry_run = False if args.dry_run == False else True
 
@@ -205,15 +195,15 @@ def run_ingest(data_set, args, is_upstream_valid):
         sys.exit(1)
 
     prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = os.path.join(output_folder, f"{prefix}_proposed_ingest.csv")
+    output_metadata_file = os.path.join(output_folder, f"{prefix}_proposed_ingest.csv")
 
     row_count = 0
-    with open(f"{output_file}", mode="a", newline="", encoding="utf-8") as metadata_csv:
+    with open(output_metadata_file, mode="a", newline="", encoding="utf-8") as metadata_csv:
         is_metadata_valid = is_upstream_valid
         fieldnames=["Series", "UUID", "fileId", "description", "Filename", "FileReference", "ClientSideOriginalFilepath", "formerRefDept", "formerRefTNA", "checksum_md5", "checksum_sha256"]
         writer = csv.DictWriter(metadata_csv, fieldnames, quoting=csv.QUOTE_ALL)
         writer.writeheader()
-        for index, row in data_set.iterrows():
+        for _, row in data_set.iterrows():
             row_count += 1
             try:
                 metadata = create_metadata(row, args)
@@ -226,8 +216,6 @@ def run_ingest(data_set, args, is_upstream_valid):
                 if not is_dry_run:
                     sys.exit(1)
 
-        metadata_csv.flush()
-
     if is_dry_run:
         if is_metadata_valid:
             print("Validations completed successfully, please proceed to ingest")
@@ -235,13 +223,13 @@ def run_ingest(data_set, args, is_upstream_valid):
             print("Please fix the errors identified during validation before continuing further")
             sys.exit(1)
     else:
-        print(f"The metadata to be uploaded is saved to '{output_file}'.")
+        print(f"The metadata to be uploaded is saved to '{output_metadata_file}'.")
         try:
             account_number = get_account_number()
             confirmation = get_confirmation_to_proceed(
-                f"Uploading {row_count} records to account: {account_number}, Continue? [y/n]: ")
+                f"Uploading {row_count} records to environment: '{args.environment}', Continue? [y/n]: ")
             if confirmation:
-                upload_files(output_file, account_number, args)
+                upload_files(output_metadata_file, account_number, args)
             else:
                 sys.exit(0)
         except Exception as e:
@@ -269,9 +257,8 @@ def main():
 
     input_file_path = Path(args.input)
     if input_file_path.suffix.lower() == ".csv":
-        # read all values as str and empty values to be kept as str
         data_set = pd.read_csv(input_file_path, dtype=str, keep_default_na=False)
-    elif input_file_path.suffix.lower() in [".xls", ".xlsx"]:
+    elif input_file_path.suffix.lower() in {".xls", ".xlsx"}:
         data_set = pd.read_excel(input_file_path)
     else:
         raise Exception("Unsupported input file format. Only CSV and Excel (xls, xlsx) files are supported for input")
@@ -283,7 +270,7 @@ def main():
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 
-    run_ingest(data_set, args, is_valid)
+    upload_files_to_ingest_bucket(data_set, args, is_valid)
 
     if not is_dry_run:
         print("Upload finished successfully")
