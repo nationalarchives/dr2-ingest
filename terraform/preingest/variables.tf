@@ -41,3 +41,7 @@ variable "private_subnet_ids" {
 variable "python_lambda_timeout" {
   default = 30
 }
+
+variable "importer_visibility_timeout" {
+  default = 180
+}

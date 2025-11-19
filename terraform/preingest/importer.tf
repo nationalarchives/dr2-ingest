@@ -68,7 +68,7 @@ module "dr2_importer_sqs" {
   })
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   redrive_maximum_receives                          = local.redrive_maximum_receives
-  visibility_timeout                                = local.visibility_timeout
+  visibility_timeout                                = var.importer_visibility_timeout
   encryption_type                                   = local.sse_encryption
 }
 
