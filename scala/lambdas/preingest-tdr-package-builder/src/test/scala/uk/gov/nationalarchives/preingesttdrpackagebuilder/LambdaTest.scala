@@ -187,12 +187,10 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     contentFolderMetadataObject.parentId should equal(None)
     contentFolderMetadataObject.series should equal(Option(testData.series))
 
-    val expectedOriginalFiles = if testData.digitalAssetSource.contains("Surrogate") then Nil else allTestData.map(_.fileId).sorted
     assetMetadataObject.id should equal(tdrFileId)
     assetMetadataObject.parentId should equal(Option(uuidList(1)))
     assetMetadataObject.title should equal(expectedTitle)
     assetMetadataObject.name should equal(tdrFileId.toString)
-    assetMetadataObject.originalFiles.sorted should equal(expectedOriginalFiles)
     assetMetadataObject.originalMetadataFiles should equal(List(uuidList.head))
     assetMetadataObject.description should equal(testData.description)
     assetMetadataObject.transferringBody should equal(testData.body)

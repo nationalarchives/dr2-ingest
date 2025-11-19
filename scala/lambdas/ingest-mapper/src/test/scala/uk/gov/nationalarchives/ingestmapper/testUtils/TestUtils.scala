@@ -20,7 +20,6 @@ object TestUtils {
       checksumSha256: Option[String] = None,
       fileExtension: Option[String] = None,
       customMetadataAttribute1: Option[String] = None,
-      originalFiles: List[String] = Nil,
       originalMetadataFiles: List[String] = Nil
   )
 }

@@ -306,7 +306,6 @@ class FileProcessorTest extends AnyFlatSpec with TableDrivenPropertyChecks {
                   Option(folderId),
                   expectedAssetTitle,
                   tdrUuid,
-                  List(fileId),
                   List(metadataId),
                   treName,
                   Option("test-organisation"),

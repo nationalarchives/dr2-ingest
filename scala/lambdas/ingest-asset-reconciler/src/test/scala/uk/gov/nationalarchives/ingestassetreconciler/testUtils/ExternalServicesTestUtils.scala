@@ -162,7 +162,6 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
     digitalAssetSource,
     Option(digitalAssetSubtype),
     Nil,
-    Nil,
     true,
     true,
     Nil,
