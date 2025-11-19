@@ -44,7 +44,7 @@ def process_series_and_catalogue_reference(metadata):
     series = metadata["Series"]
     file_reference = metadata["FileReference"]
     metadata["FileReference"] = modify_reference(file_reference)
-    metadata["Series"] = modify_reference(series).replace("/", " ")
+    metadata["Series"] = modify_reference(series)
 
 def modify_reference(field):
     if " " in field:
