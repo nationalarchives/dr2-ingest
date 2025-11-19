@@ -65,7 +65,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       upstreamSystem -> fromS("testUpstreamSystem"),
       digitalAssetSource -> fromS("testDigitalAssetSource"),
       digitalAssetSubtype -> fromS("testDigitalAssetSubtype"),
-      originalFiles -> generateListAttributeValue("dec2b921-20e3-41e8-a299-f3cbc13131a2"),
       originalMetadataFiles -> generateListAttributeValue("3f42e3f2-fffe-4fe9-87f7-262e95b86d75"),
       title -> fromS("testTitle"),
       ingestedPreservica -> fromS("true"),
@@ -101,7 +100,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
           (upstreamSystem, "testUpstreamSystem"),
           (digitalAssetSource, "testDigitalAssetSource"),
           (digitalAssetSubtype, "testDigitalAssetSubtype"),
-          (originalFiles, "dec2b921-20e3-41e8-a299-f3cbc13131a2"),
           (originalMetadataFiles, "3f42e3f2-fffe-4fe9-87f7-262e95b86d75"),
           (filePath, "/a/file/path")
         ) ++ baseFields
@@ -250,11 +248,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       File
     ),
     (
-      invalidListOfStringsValue(originalFiles, Asset),
-      "'originalFiles': missing",
-      Asset
-    ),
-    (
       stringValueInListIsNotConvertable(originalMetadataFiles, Asset),
       "'originalMetadataFiles': could not be converted to desired type: java.lang.RuntimeException: Cannot parse " +
         "notAUuid for field originalMetadataFiles into class java.util.UUID",
@@ -376,7 +369,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     assetRow.upstreamSystem should equal("testUpstreamSystem")
     assetRow.digitalAssetSource should equal("testDigitalAssetSource")
     assetRow.potentialDigitalAssetSubtype.get should equal("testDigitalAssetSubtype")
-    assetRow.originalFiles should equal(List(UUID.fromString("dec2b921-20e3-41e8-a299-f3cbc13131a2")))
     assetRow.originalMetadataFiles should equal(List(UUID.fromString("3f42e3f2-fffe-4fe9-87f7-262e95b86d75")))
     assetRow.potentialTitle.get should equal("testTitle")
     assetRow.potentialDescription.get should equal("testDescription")
@@ -490,7 +482,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
   "assetItemFormat write" should "write all mandatory fields and ignore any optional ones" in {
     val uuid = UUID.randomUUID()
-    val originalFilesUuid = UUID.randomUUID()
     val originalMetadataFilesUuid = UUID.randomUUID()
     val dynamoItem = AssetDynamoItem(
       batchId,
@@ -504,7 +495,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       upstreamSystem,
       digitalAssetSource,
       None,
-      List(originalFilesUuid),
       List(originalMetadataFilesUuid),
       true,
       true,
@@ -523,7 +513,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(transferCompleteDatetime).s() should equal("2023-06-01T00:00Z")
     resultMap(upstreamSystem).s() should equal(upstreamSystem)
     resultMap(digitalAssetSource).s() should equal(digitalAssetSource)
-    resultMap(originalFiles).ss().asScala.toList should equal(List(originalFilesUuid.toString))
     resultMap(originalMetadataFiles).ss().asScala.toList should equal(List(originalMetadataFilesUuid.toString))
     resultMap(ingestedPreservica).s() should equal("true")
     resultMap(ingestedCustodialCopy).s() should equal("true")
@@ -872,7 +861,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
   private def generateAssetDynamoItem(
       uuid: UUID = UUID.randomUUID(),
-      originalFilesUuid: UUID = UUID.randomUUID(),
       originalMetadataFilesUuid: UUID = UUID.randomUUID(),
       ingestedPreservica: Boolean = true,
       skipIngest: Boolean = true
@@ -891,7 +879,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       upstreamSystem,
       digitalAssetSource,
       Option(digitalAssetSubtype),
-      List(originalFilesUuid),
       List(originalMetadataFilesUuid),
       ingestedPreservica,
       true,

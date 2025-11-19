@@ -88,13 +88,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
               <DigitalAssetSource>{asset.digitalAssetSource}</DigitalAssetSource>
               <DigitalAssetSubtype>{asset.potentialDigitalAssetSubtype.getOrElse("")}</DigitalAssetSubtype>
               <IngestDateTime>{ingestDateTime}</IngestDateTime>
-              {
-          if asset.originalFiles.nonEmpty then
-            <OriginalFiles>
-                  {asset.originalFiles.map(originalFile => <File>{originalFile}</File>)}
-                </OriginalFiles>
-          else ()
-        }
+              {}
               <OriginalMetadataFiles>
                 {asset.originalMetadataFiles.map(originalMetadataFile => <File>{originalMetadataFile}</File>)}
               </OriginalMetadataFiles>

@@ -65,7 +65,6 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         Option(folderId),
         "Test.docx",
         "24190792-a2e5-43a0-a9e9-6a0580905d90",
-        List(fileId),
         List(metadataFileId),
         Some("test"),
         Option("test-organisation"),

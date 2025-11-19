@@ -74,7 +74,7 @@ class LambdaTest extends AnyFlatSpec {
       TestResponses(metadataResponse.identifiersTwo, List(2, 3), "Unknown"),
       TestResponses(metadataResponse.identifiersOne, List(0, 1), "A 1")
     ).foreach { testResponse =>
-      val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalFiles, originalMetadataFiles) = Tuple.fromProductTyped(testResponse.dynamoResponse)
+      val (folderIdentifier, assetIdentifier, docxIdentifier, metadataIdentifier, originalMetadataFiles) = Tuple.fromProductTyped(testResponse.dynamoResponse)
       val departmentUuid = UUID.fromString(uuids(testResponse.uuidIndices.head))
       val seriesUuid = UUID.fromString(uuids(testResponse.uuidIndices.last))
       val expectedDepartment = testResponse.series.split(" ").head
@@ -143,7 +143,6 @@ class LambdaTest extends AnyFlatSpec {
           None,
           2,
           fixedTimeInSecs,
-          originalFiles = originalFiles,
           originalMetadataFiles = originalMetadataFiles
         )
       )

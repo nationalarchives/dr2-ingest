@@ -99,7 +99,6 @@ object ExternalUtils {
           parentId,
           title,
           name,
-          originalFilesUuids,
           originalMetadataFilesUuids,
           description,
           transferringBody,
@@ -119,7 +118,6 @@ object ExternalUtils {
         .deepMerge {
           Json
             .obj(
-              ("originalFiles", Json.fromValues(convertListOfUuidsToJsonStrArray(originalFilesUuids))),
               ("originalMetadataFiles", Json.fromValues(convertListOfUuidsToJsonStrArray(originalMetadataFilesUuids))),
               ("description", description.map(Json.fromString).getOrElse(Null)),
               ("transferringBody", transferringBody.map(Json.fromString).getOrElse(Null)),
@@ -189,7 +187,6 @@ object ExternalUtils {
         c.downField("parentId").as[Option[UUID]].toValidatedNel,
         c.downField("title").as[String].toValidatedNel,
         c.downField("name").as[String].toValidatedNel,
-        c.downField("originalFiles").as[List[UUID]].toValidatedNel,
         c.downField("originalMetadataFiles").as[List[UUID]].toValidatedNel,
         c.downField("description").as[Option[String]].toValidatedNel,
         c.downField("transferringBody").as[Option[String]].toValidatedNel,
@@ -284,7 +281,6 @@ object ExternalUtils {
       parentId: Option[UUID],
       title: String,
       name: String,
-      originalFiles: List[UUID],
       originalMetadataFiles: List[UUID],
       description: Option[String],
       transferringBody: Option[String],

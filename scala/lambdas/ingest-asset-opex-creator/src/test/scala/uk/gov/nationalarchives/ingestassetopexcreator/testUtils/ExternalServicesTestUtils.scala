@@ -128,7 +128,6 @@ object ExternalServicesTestUtils:
     "upstreamSystem",
     "digitalAssetSource",
     None,
-    List(UUID.fromString("0a0e6c1e-b188-4df4-9bd8-aa97db12e1ab")),
     Nil,
     true,
     true,
@@ -194,9 +193,6 @@ object ExternalServicesTestUtils:
             <DigitalAssetSource>{asset.digitalAssetSource}</DigitalAssetSource>
             <DigitalAssetSubtype/>
             <IngestDateTime>{ingestDateTime}</IngestDateTime>
-            <OriginalFiles>
-              <File>0a0e6c1e-b188-4df4-9bd8-aa97db12e1ab</File>
-            </OriginalFiles>
             <OriginalMetadataFiles></OriginalMetadataFiles>
             <TransferDateTime>{asset.transferCompleteDatetime.getOrElse("")}</TransferDateTime>
             <TransferringBody>{asset.transferringBody.getOrElse("")}</TransferringBody>

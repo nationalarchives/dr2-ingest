@@ -41,7 +41,6 @@ object DynamoWriteUtils {
         Map(
           "upstreamSystem" -> DynamoValue.fromString(assetDynamoItem.upstreamSystem),
           "digitalAssetSource" -> DynamoValue.fromString(assetDynamoItem.digitalAssetSource),
-          "originalFiles" -> DynamoValue.fromStrings(assetDynamoItem.originalFiles.map(_.toString)),
           "originalMetadataFiles" -> DynamoValue.fromStrings(assetDynamoItem.originalMetadataFiles.map(_.toString)),
           ingestedPreservica -> DynamoValue.fromString(assetDynamoItem.ingestedPreservica.toString),
           ingestedCustodialCopy -> DynamoValue.fromString(assetDynamoItem.ingestedCustodialCopy.toString)
