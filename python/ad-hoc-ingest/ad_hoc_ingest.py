@@ -266,7 +266,7 @@ def main():
     is_valid = True
     is_dry_run = False if args.dry_run == False else True
     try:
-        is_valid = dataset_validator.validate_dataset(dataset_validator.Js8Validator(), data_set, str(input_file_path), is_dry_run)
+        is_valid = dataset_validator.validate_dataset(data_set, str(input_file_path), is_dry_run)
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 

@@ -9,7 +9,6 @@ from unittest import TestCase
 import pandas as pd
 
 import dataset_validator
-from dataset_validator import Js8Validator
 
 
 class Test(TestCase):
@@ -35,7 +34,7 @@ class Test(TestCase):
         shutil.rmtree(self.test_dir)
 
     def test_should_contain_required_columns(self):
-        is_valid = dataset_validator.validate_dataset(Js8Validator(), self.valid_data_set, "/some/dummy/file.csv")
+        is_valid = dataset_validator.validate_dataset(self.valid_data_set, "/some/dummy/file.csv")
         self.assertEqual(True, is_valid)
 
     def test_should_throw_an_exception_when_one_of_the_required_columns_is_missing(self):
@@ -44,9 +43,9 @@ class Test(TestCase):
         JS 8/4,d:\\js\\3\\1\\evid0002.pdf"""
         data_set = pd.read_csv(StringIO(csv_data))
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(Js8Validator(), data_set, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
 
-        self.assertEqual("Input file is missing one or more of the required columns: ['catRef', 'fileName', 'checksum']", str(e.exception))
+        self.assertEqual("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')", str(e.exception))
 
     def test_should_throw_an_exception_when_the_columns_have_duplicate_entries(self):
         csv_data = """catRef,fileName,checksum
@@ -55,7 +54,7 @@ class Test(TestCase):
         JS 8/5,d:\\js\\3\\1\\evid0001.pdf,c74daf9d9a4063bdfbf1fd234ac529d120203e04af7c4e60b3236c76f37fff90"""
         data_set = pd.read_csv(StringIO(csv_data))
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(Js8Validator(), data_set, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
 
         self.assertEqual("The column 'fileName' has duplicate entries", str(e.exception))
 
@@ -66,7 +65,7 @@ class Test(TestCase):
         JS 8/5,d:\\js\\3\\1\\evid0003.pdf,checksum_three,same_value"""
         data_set = pd.read_csv(StringIO(csv_data))
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(Js8Validator(), data_set, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
 
         self.assertEqual("The column 'fileName' has empty entries", str(e.exception))
 
@@ -76,7 +75,7 @@ class Test(TestCase):
             {"catRef": "JS 8/7", "someOtherColumn": "","fileName": "/tmp/non-existent-file2.txt","checksum": "checksum_five","anotherColumn": "no_data"}])
         erroneous_dataset = pd.concat([self.valid_data_set, additional_row], ignore_index=True)
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(Js8Validator(), erroneous_dataset, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv")
 
         self.assertEqual("Failed to locate following files: /tmp/non-existent-file1.txt,/tmp/non-existent-file2.txt", str(e.exception))
 
@@ -86,7 +85,7 @@ class Test(TestCase):
             {"catRef": "JS 8/7", "someOtherColumn": "","fileName": "non-existent-file2.txt","checksum": "checksum_five","anotherColumn": "no_data"}])
         erroneous_dataset = pd.concat([self.valid_data_set, additional_row], ignore_index=True)
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(Js8Validator(), erroneous_dataset, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv")
 
         self.assertEqual("Failed to locate following files: /some/dummy/non-existent-file1.txt,/some/dummy/non-existent-file2.txt", str(e.exception))
 
@@ -98,10 +97,10 @@ class Test(TestCase):
 
         console_out = io.StringIO()
         with redirect_stdout(console_out):
-            is_valid = dataset_validator.validate_dataset(Js8Validator(), data_set, "/some/dummy/file.csv", True)
+            is_valid = dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", True)
 
         self.assertFalse(is_valid)
-        self.assertEqual("Input file is missing one or more of the required columns: ['catRef', 'fileName', 'checksum']", console_out.getvalue().strip())
+        self.assertEqual("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')", console_out.getvalue().strip())
 
     def test_should_report_multiple_validation_failures_across_spreadsheet_structure_validation(self):
         csv_data = """catRef,fileName,checksum
@@ -112,7 +111,7 @@ class Test(TestCase):
         data_set = pd.read_csv(StringIO(csv_data))
         console_out = io.StringIO()
         with redirect_stdout(console_out):
-            is_valid = dataset_validator.validate_dataset(Js8Validator(), data_set, "/some/dummy/file.csv", True)
+            is_valid = dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", True)
 
         self.assertFalse(is_valid)
         self.assertEqual("The column 'checksum' has duplicate entries\nThe column 'fileName' has empty entries", console_out.getvalue().strip())

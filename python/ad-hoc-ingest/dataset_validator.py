@@ -12,60 +12,51 @@ import pandas
 # 4) File paths given at filePath must exist
 ####
 
-class Js8Validator:
-    REQUIRED_COLUMNS = ["catRef", "fileName", "checksum"]
-    UNIQUE_COLUMNS = ["catRef", "fileName", "checksum"]
-    NON_EMPTY_COLUMNS = ["catRef", "fileName"]
+REQUIRED_COLUMNS = ("catRef", "fileName", "checksum")
+UNIQUE_COLUMNS = ("catRef", "fileName", "checksum")
+NON_EMPTY_COLUMNS = ("catRef", "fileName")
 
-    def validate_dataset(self, data_set, input_file_path, is_dry_run):
-        validation_fail = False
-        data_set: pandas.DataFrame
-        columns = data_set.columns
+def validate_dataset(data_set, input_file_path, is_dry_run = False):
+    validation_fail = False
+    data_set: pandas.DataFrame
+    columns = data_set.columns
 
-        if not set(self.REQUIRED_COLUMNS).issubset(columns):
-            validation_fail = True
-            throw_or_report(f"Input file is missing one or more of the required columns: {self.REQUIRED_COLUMNS}", is_dry_run)
+    if not set(REQUIRED_COLUMNS).issubset(columns):
+        validation_fail = True
+        throw_or_report(f"Input file is missing one or more of the required columns: {REQUIRED_COLUMNS}", is_dry_run)
 
-        for col in columns:
-            if col in self.UNIQUE_COLUMNS:
-                if not data_set[col].is_unique:
-                    validation_fail = True
-                    throw_or_report(f"The column '{col}' has duplicate entries", is_dry_run)
+    for col in columns:
+        if col in UNIQUE_COLUMNS:
+            if not data_set[col].is_unique:
+                validation_fail = True
+                throw_or_report(f"The column '{col}' has duplicate entries", is_dry_run)
 
-        for col in columns:
-            if col in self.NON_EMPTY_COLUMNS:
-                if data_set[col].isnull().any():
-                    validation_fail = True
-                    throw_or_report(f"The column '{col}' has empty entries", is_dry_run)
+    for col in columns:
+        if col in NON_EMPTY_COLUMNS:
+            if data_set[col].isnull().any():
+                validation_fail = True
+                throw_or_report(f"The column '{col}' has empty entries", is_dry_run)
 
-        if validation_fail:
-            return False
+    if validation_fail:
+        return False
 
-        # Validate the correctness of data in each individual row (e.g. does the file exist?)
-        data_set: pandas.DataFrame
-        all_files_exist = True
-        missing_files = []
-        for _, row in data_set.iterrows():
-            file_path = get_absolute_file_path(input_file_path, row["fileName"].strip())
-            if not os.path.exists(file_path):
-                missing_files.append(file_path)
-                all_files_exist = False
+    # Validate the correctness of data in each individual row (e.g. does the file exist?)
+    data_set: pandas.DataFrame
+    all_files_exist = True
+    missing_files = []
+    for _, row in data_set.iterrows():
+        file_path = get_absolute_file_path(input_file_path, row["fileName"].strip())
+        if not os.path.exists(file_path):
+            missing_files.append(file_path)
+            all_files_exist = False
 
-        if not all_files_exist:
-            validation_fail = True
-            throw_or_report("Failed to locate following files: " + ",".join(missing_files), is_dry_run)
+    if not all_files_exist:
+        validation_fail = True
+        throw_or_report("Failed to locate following files: " + ",".join(missing_files), is_dry_run)
 
-        return not validation_fail
-
+    return not validation_fail
 
 
-####
-# This method validates data in the CSV file. This simply offloads the validation to a series specific validator
-# that is passed into the method as a parameter. Thus, we can continue to use the same method from ingest script
-# and implement different validators based on series to be ingested
-####
-def validate_dataset(series_validator, data_set, input_file_path, is_dry_run=False):
-    return series_validator.validate_dataset(data_set, input_file_path, is_dry_run)
 
 
 def throw_or_report(param, is_dry_run):
