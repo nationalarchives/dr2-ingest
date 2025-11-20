@@ -200,8 +200,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
         case SourceSystem.ADHOC =>
           List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
-            packageMetadata.formerRefDept.map(frd => List(IdField("formerRefDept", frd))).getOrElse(Nil) ++
-            packageMetadata.formerRefTNA.map(frt => List(IdField("formerRefTNA", frt))).getOrElse(Nil)
+            packageMetadata.formerRefDept.map(frd => List(IdField("FormerRefDept", frd))).getOrElse(Nil) ++
+            packageMetadata.formerRefTNA.map(frt => List(IdField("FormerRefTNA", frt))).getOrElse(Nil)
         case _ => Nil
       }
       val digitalAssetSource = packageMetadata.digitalAssetSource.getOrElse("Born Digital")
