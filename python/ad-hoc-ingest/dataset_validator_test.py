@@ -47,6 +47,26 @@ class Test(TestCase):
 
         self.assertEqual("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')", str(e.exception))
 
+        csv_data = """fileName, checksum
+        JS 8/3,d:\\js\\3\\1\\evid0001.pdf
+        JS 8/4,d:\\js\\3\\1\\evid0002.pdf"""
+        data_set = pd.read_csv(StringIO(csv_data))
+        with self.assertRaises(Exception) as e:
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+
+        self.assertEqual("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')",
+                         str(e.exception))
+
+        csv_data = """catRef, checksum
+        JS 8/3,d:\\js\\3\\1\\evid0001.pdf
+        JS 8/4,d:\\js\\3\\1\\evid0002.pdf"""
+        data_set = pd.read_csv(StringIO(csv_data))
+        with self.assertRaises(Exception) as e:
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+
+        self.assertEqual("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')",
+                         str(e.exception))
+
     def test_should_throw_an_exception_when_the_columns_have_duplicate_entries(self):
         csv_data = """catRef,fileName,checksum
         JS 8/3,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc
@@ -58,6 +78,16 @@ class Test(TestCase):
 
         self.assertEqual("The column 'fileName' has duplicate entries", str(e.exception))
 
+        csv_data = """catRef,fileName,checksum
+        JS 8/3,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc
+        JS 8/3,d:\\js\\3\\1\\evid0002.pdf,
+        JS 8/5,d:\\js\\3\\1\\evid0003.pdf,c74daf9d9a4063bdfbf1fd234ac529d120203e04af7c4e60b3236c76f37fff90"""
+        data_set = pd.read_csv(StringIO(csv_data))
+        with self.assertRaises(Exception) as e:
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+
+        self.assertEqual("The column 'catRef' has duplicate entries", str(e.exception))
+
     def test_should_not_allow_empty_values_in_columns_that_should_not_have_empty_values(self):
         csv_data = """catRef,fileName,checksum,duplicate_column
         JS 8/3,d:\\js\\3\\1\\evid0001.pdf,checksum_one,same_value
@@ -68,6 +98,19 @@ class Test(TestCase):
             dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
 
         self.assertEqual("The column 'fileName' has empty entries", str(e.exception))
+
+        data_list = [
+            {"catRef": "JS 8/3", "fileName": "d:\\js\\3\\1\\evid0001.pdf", "checksum": "checksum_one"},
+            {"catRef": None, "fileName": "d:\\js\\3\\1\\evid0002.pdf", "checksum": "checksum_two"},
+        ]
+
+        data_set = pd.DataFrame(data_list)
+        print(data_set)
+        print(data_set['catRef'].isnull().any())
+        with self.assertRaises(Exception) as e:
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+
+        self.assertEqual("The column 'catRef' has empty entries", str(e.exception))
 
     def test_should_throw_an_exception_when_one_or_more_files_are_missing(self):
         additional_row = pd.DataFrame([
@@ -114,5 +157,5 @@ class Test(TestCase):
             is_valid = dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", True)
 
         self.assertFalse(is_valid)
-        self.assertEqual("The column 'checksum' has duplicate entries\nThe column 'fileName' has empty entries", console_out.getvalue().strip())
+        self.assertEqual("The column 'fileName' has empty entries\nThe column 'checksum' has duplicate entries", console_out.getvalue().strip())
 

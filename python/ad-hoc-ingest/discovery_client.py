@@ -1,8 +1,9 @@
-import re
 from dataclasses import dataclass
 from urllib.parse import quote
 
 import requests
+from bs4 import BeautifulSoup
+
 
 @dataclass
 class CollectionInfo:
@@ -44,11 +45,11 @@ def get_title_and_description(citable_reference):
         data = response.json()
         assets = data.get("assets")
         if not assets:
-            return "", ""
+            return CollectionInfo("", None, None)
         first_asset = assets[0]
         # description includes HTML tags that we need to strip
         description_html = first_asset.get("scopeContent").get("description")
-        description = re.sub(r"<.*?>", "", description_html)
+        description = BeautifulSoup(description_html, "html.parser").get_text()
         title = first_asset.get("title")
         identifier = first_asset.get("id")
         return CollectionInfo(identifier, title, description)
@@ -61,10 +62,3 @@ def is_discovery_api_reachable():
     url = f"{BASE_URL}/{operation}"
     response = requests.get(url)
     return response.status_code == 200
-
-
-def main():
-    print("Error: Only expected to use as a module")
-
-if __name__ == "__main__":
-    main()

@@ -15,42 +15,10 @@ import ad_hoc_ingest
 
 class Test(TestCase):
     def setUp(self):
-        self.parser = ad_hoc_ingest.build_argument_parser()
         self.test_dir = tempfile.mkdtemp()
 
     def tearDown(self):
         shutil.rmtree(self.test_dir)
-    def test_parse_args_should_fail_when_mandatory_argument_is_missing(self):
-        with self.assertRaises(SystemExit):
-            self.parser.parse_args([])
-
-        with self.assertRaises(SystemExit):
-            self.parser.parse_args(["-i"])
-
-    def test_should_parse_mandatory_arguments_and_return_default_for_optional_arguments(self):
-        args = self.parser.parse_args(["-i", "some_file.csv"])
-        self.assertEqual("some_file.csv", args.input)
-        self.assertEqual(False, args.dry_run)
-        self.assertEqual("intg", args.environment)
-
-    def test_should_treat_dry_run_param_as_true_when_no_option_is_provided(self):
-        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d"])
-        self.assertEqual(True, args.dry_run)
-
-        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "--dry_run"])
-        self.assertEqual(True, args.dry_run)
-
-    def test_should_set_the_output_folder_as_temp_location_if_not_passed_as_a_parameter(self):
-        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d"])
-        self.assertEqual(tempfile.gettempdir(), args.output)
-
-
-    def test_should_parse_arguments_and_set_correct_parameters_for_arguments_passed_on_command_line(self):
-        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "True", "-o", "/home/Users"])
-        self.assertEqual("some_file.csv", args.input)
-        self.assertTrue(args.dry_run)
-        self.assertEqual("not_prod", args.environment)
-        self.assertEqual("/home/Users", args.output)
 
     def test_validate_arguments_should_error_when_the_input_file_does_not_exist(self):
         args = argparse.Namespace(input='non_existent_file.csv', environment='not_prod', dry_run='True')
@@ -59,24 +27,41 @@ class Test(TestCase):
 
         self.assertEqual("Either the input file [non_existent_file.csv] does not exist or it is not a valid file\n", str(e.exception))
 
+        args = argparse.Namespace(input=self.test_dir, environment='not_prod', dry_run='True')
+        with self.assertRaises(Exception) as e:
+            ad_hoc_ingest.validate_arguments(args)
+
+        self.assertEqual(f"Either the input file [{self.test_dir}] does not exist or it is not a valid file\n",
+                         str(e.exception))
+
     def test_validate_arguments_should_error_when_the_output_location_is_not_a_folder(self):
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        args = argparse.Namespace(input=tmp1, environment='not_prod', dry_run='True', output="some/random/file.pdf")
+        args = argparse.Namespace(input=tmp1, environment='not_prod', dry_run='True', output="some/random/folder")
         with self.assertRaises(Exception) as e:
             ad_hoc_ingest.validate_arguments(args)
-        self.assertEqual("Either the output metadata location [some/random/file.pdf] does not exist or it is not a valid folder\n", str(e.exception))
+        self.assertEqual("Either the output metadata location [some/random/folder] does not exist or it is not a valid folder\n", str(e.exception))
+
+        tmp2 = os.path.join(self.test_dir, "output.txt")
+        with open(tmp2, "w") as f:
+            f.write("temporary output one")
+
+        args = argparse.Namespace(input=tmp1, environment='not_prod', dry_run='True', output=tmp2)
+        with self.assertRaises(Exception) as e:
+            ad_hoc_ingest.validate_arguments(args)
+        self.assertEqual(f"Either the output metadata location [{tmp2}] does not exist or it is not a valid folder\n", str(e.exception))
+
 
     @patch("discovery_client.get_title_and_description")
     @patch("discovery_client.get_former_references")
     def test_create_metadata_should_create_a_metadata_object_from_csv_rows(self, mock_former_references, mock_description):
-        mock_former_references.return_value = RecordDetails("A", "B")
+        mock_former_references.return_value = RecordDetails("Dept Ref", "TNA Ref")
         mock_description.return_value = CollectionInfo("some_id", None, "Some description from discovery")
 
         csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
-        JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
+        JS 8 / 3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
             metadata = ad_hoc_ingest.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
@@ -86,13 +71,15 @@ class Test(TestCase):
             self.assertEqual("9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc", metadata["checksum_sha256"])
             self.assertEqual("Some description from discovery", metadata["description"])
             self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
+            self.assertEqual("TNA Ref", metadata["formerRefTNA"])
+            self.assertEqual("Dept Ref", metadata["formerRefDept"])
 
     @patch("discovery_client.get_title_and_description")
     @patch("discovery_client.get_former_references")
     def test_create_metadata_should_create_a_metadata_object_with_title_from_discovery_containing_comma(self,
                                                                                                      mock_former_references,
                                                                                                      mock_collection_info):
-        mock_former_references.return_value = RecordDetails("dept_ref", "tna_ref")
+        mock_former_references.return_value = RecordDetails("Dept Ref", "TNA Ref")
         mock_collection_info.return_value = CollectionInfo("some_id", None, "Some information about Kew, Richmond, London")
 
         csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
@@ -106,6 +93,8 @@ class Test(TestCase):
             self.assertEqual("9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc", metadata["checksum_sha256"])
             self.assertEqual("Some information about Kew, Richmond, London", metadata["description"])
             self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
+            self.assertEqual("TNA Ref", metadata["formerRefTNA"])
+            self.assertEqual("Dept Ref", metadata["formerRefDept"])
 
     @patch("discovery_client.get_title_and_description")
     @patch("discovery_client.get_former_references")
@@ -138,6 +127,21 @@ class Test(TestCase):
         for index, row in data_set.iterrows():
             metadata = ad_hoc_ingest.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("Some title", metadata["description"])
+
+
+    @patch("discovery_client.get_title_and_description")
+    @patch("discovery_client.get_former_references")
+    def test_create_metadata_should_not_create_dept_ref_when_it_does_not_exist(self, mock_former_references, mock_collection_info):
+        mock_former_references.return_value = RecordDetails(None, "TNA Ref")
+        mock_collection_info.return_value = CollectionInfo("some_id", "Some title", "Some description from discovery")
+
+        csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
+            JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
+        data_set = pd.read_csv(StringIO(csv_data))
+        for index, row in data_set.iterrows():
+            metadata = ad_hoc_ingest.create_metadata(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            self.assertEqual("TNA Ref", metadata["formerRefTNA"])
+            self.assertEqual("", metadata["formerRefDept"])
 
 
     def test_create_metadata_should_create_an_md5_hash_if_checksum_is_missing_from_the_input(self):

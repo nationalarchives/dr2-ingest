@@ -18,6 +18,18 @@ class Test(TestCase):
         self.assertEqual(None, collection_info.title)
 
     @patch("requests.get")
+    def test_should_return_empty_title_description_when_assets_cannot_be_found(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"no_assets": [{"scopeContent": {"placeNames": [], "description": "<scopecontent><p><br>Some long description for testing.</p></scopecontent>", "title": None}}]}
+        mock_request.return_value = mock_response
+
+        collection_info = discovery_client.get_title_and_description("AB 1/2")
+        self.assertEqual("", collection_info.identifier)
+        self.assertEqual(None, collection_info.description)
+        self.assertEqual(None, collection_info.title)
+
+    @patch("requests.get")
     def test_should_raise_an_exception_when_unable_to_find_title_or_description_from_discovery(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 404

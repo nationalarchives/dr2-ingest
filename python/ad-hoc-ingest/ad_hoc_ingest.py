@@ -1,4 +1,3 @@
-import argparse
 import csv
 import hashlib
 import os
@@ -11,43 +10,12 @@ from pathlib import Path, PureWindowsPath, PurePosixPath
 import pandas
 import pandas as pd
 from botocore.exceptions import ClientError
-from moto.utilities.utils import str2bool
 
 import aws_interactions
 import dataset_validator
 import discovery_client
+import argument_parser_builder
 
-
-
-def build_argument_parser():
-    parser = argparse.ArgumentParser(
-        description="Process an input CSV file to schedule corresponding ingests ",
-        add_help=False
-    )
-    parser.add_argument(
-        "-i", "--input",
-        required=True,
-        help="A CSV file containing details of the records to ingest. It must have columns (catRef, fileName, checksum)"
-    )
-    parser.add_argument(
-        "-e", "--environment",
-        help="Environment where the ingest is taking place (e.g. intg or prod)",
-        default="intg"
-    )
-    parser.add_argument(
-        "-d", "--dry_run",
-        nargs="?",
-        const=True,
-        type=str2bool,
-        help="Value of 'True' indicates that the tool will only validate inputs, without actually running an ingest",
-        default=False
-    )
-    parser.add_argument(
-        "-o", "--output",
-        help="Name of the folder to store a CSV file representing generated metadata for this ingest",
-        default=tempfile.gettempdir()
-    )
-    return parser
 
 def validate_arguments(args):
     input_file_path = Path(args.input)
@@ -76,7 +44,7 @@ def create_metadata(row, args):
         "fileId": str(uuid.uuid4()),
         "description": description_to_use,
         "Filename": get_filename_from_cross_platform_path(file_path),
-        "FileReference": catalog_ref.removeprefix(f"{series}/"),
+        "FileReference": catalog_ref.removeprefix(f"{series}").strip().removeprefix("/").strip(),
         "ClientSideOriginalFilepath": file_path,
     }
     former_ref_dept = former_references.formerRefDept
@@ -182,7 +150,6 @@ def is_folder_writable(output_folder):
 
 def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
     data_set: pandas.DataFrame
-    is_dry_run = False if args.dry_run == False else True
 
     is_discovery_available = discovery_client.is_discovery_api_reachable()
     if not is_discovery_available:
@@ -213,10 +180,10 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
             except Exception as e:
                 is_metadata_valid = False
                 print(f"Error creating metadata: {e}")
-                if not is_dry_run:
+                if not args.dry_run:
                     sys.exit(1)
 
-    if is_dry_run:
+    if args.dry_run:
         if is_metadata_valid:
             print("Validations completed successfully, please proceed to ingest")
         else:
@@ -252,7 +219,7 @@ def get_account_number():
     return account_number
 
 def main():
-    args = build_argument_parser().parse_args()
+    args = argument_parser_builder.build().parse_args()
     validate_arguments(args)
 
     input_file_path = Path(args.input)
@@ -263,16 +230,14 @@ def main():
     else:
         raise Exception("Unsupported input file format. Only CSV and Excel (xls, xlsx) files are supported for input")
 
-    is_valid = True
-    is_dry_run = False if args.dry_run == False else True
     try:
-        is_valid = dataset_validator.validate_dataset(data_set, str(input_file_path), is_dry_run)
+        is_valid = dataset_validator.validate_dataset(data_set, str(input_file_path), args.dry_run)
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 
     upload_files_to_ingest_bucket(data_set, args, is_valid)
 
-    if not is_dry_run:
+    if not args.dry_run:
         print("Upload finished successfully")
 
 if __name__ == "__main__":
