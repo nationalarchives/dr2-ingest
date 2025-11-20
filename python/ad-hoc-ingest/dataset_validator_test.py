@@ -46,7 +46,7 @@ class Test(TestCase):
         with self.assertRaises(Exception) as e:
             dataset_validator.validate_dataset(Js8Validator(), data_set, "/some/dummy/file.csv")
 
-        self.assertEqual("Input spreadsheet is missing one or more of the required columns: ['catRef', 'fileName', 'checksum']", str(e.exception))
+        self.assertEqual("Input file is missing one or more of the required columns: ['catRef', 'fileName', 'checksum']", str(e.exception))
 
     def test_should_throw_an_exception_when_the_columns_have_duplicate_entries(self):
         csv_data = """catRef,fileName,checksum
@@ -101,7 +101,7 @@ class Test(TestCase):
             is_valid = dataset_validator.validate_dataset(Js8Validator(), data_set, "/some/dummy/file.csv", True)
 
         self.assertFalse(is_valid)
-        self.assertEqual("Input spreadsheet is missing one or more of the required columns: ['catRef', 'fileName', 'checksum']", console_out.getvalue().strip())
+        self.assertEqual("Input file is missing one or more of the required columns: ['catRef', 'fileName', 'checksum']", console_out.getvalue().strip())
 
     def test_should_report_multiple_validation_failures_across_spreadsheet_structure_validation(self):
         csv_data = """catRef,fileName,checksum
