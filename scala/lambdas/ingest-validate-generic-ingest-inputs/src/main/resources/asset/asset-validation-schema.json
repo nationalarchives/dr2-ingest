@@ -3,13 +3,6 @@
   "title": "Asset validation",
   "description": "All Assets that are checked by this schema must have these properties",
   "properties": {
-    "originalFiles": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      }
-    },
     "originalMetadataFiles": {
       "type": "array",
       "items": {

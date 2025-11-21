@@ -48,7 +48,6 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
       item.value.get("checksumSha256").map(_.str) should equal(expectedTableItem.checksumSha256)
       item.value.get("fileExtension").flatMap(_.strOpt) should equal(expectedTableItem.fileExtension)
       item.value.get("customMetadataAttribute1").flatMap(_.strOpt) should equal(expectedTableItem.customMetadataAttribute1)
-      item.value.get("originalFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTableItem.originalFiles)
       item.value.get("originalMetadataFiles").map(_.arr.toList).getOrElse(Nil).map(_.str) should equal(expectedTableItem.originalMetadataFiles)
     }
   }
@@ -102,11 +101,11 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
           val metadata =
             s"""[
            |{"id":"$folderIdTwo","parentId":null,"title":"TestTitle2","type":"ArchiveFolder","name":"TestName2","fileSize":null, "series": null},
-           |{"id":"$assetIdTwo","parentId":"$folderIdTwo","title":"TestAssetTitle2","type":"Asset","name":"TestAssetName2","fileSize":null, "originalFiles" : ["$fileIdTwo"], "originalMetadataFiles": ["$metadataFileTwo"], "customMetadataAttribute1": "customMetadataAttributeValue"},
+           |{"id":"$assetIdTwo","parentId":"$folderIdTwo","title":"TestAssetTitle2","type":"Asset","name":"TestAssetName2","fileSize":null, "originalMetadataFiles": ["$metadataFileTwo"], "customMetadataAttribute1": "customMetadataAttributeValue"},
            |{"id":"$fileIdTwo","parentId":"$assetIdTwo","title":"Test2","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
            |{"id":"$metadataFileTwo","parentId":"$assetIdTwo","title":"","type":"File","name":"TEST2-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"},
            |{"id":"$folderIdOne","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "series": null},
-           |{"id":"$assetIdOne","parentId":"$folderIdOne","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalFiles" : ["$fileIdOne"], "originalMetadataFiles": ["$metadataFileOne"], "customMetadataAttribute1": "customMetadataAttributeValue"},
+           |{"id":"$assetIdOne","parentId":"$folderIdOne","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalMetadataFiles": ["$metadataFileOne"], "customMetadataAttribute1": "customMetadataAttributeValue"},
            |{"id":"$fileIdOne","parentId":"$assetIdOne","title":"Test","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
            |{"id":"$metadataFileOne","parentId":"$assetIdOne","title":"","type":"File","name":"TEST-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"}
            |]
@@ -158,7 +157,6 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
               2,
               expectedTimeInSecs,
               customMetadataAttribute1 = Option("customMetadataAttributeValue"),
-              originalFiles = List(fileIdOne.toString),
               originalMetadataFiles = List(metadataFileOne.toString)
             )
           )
