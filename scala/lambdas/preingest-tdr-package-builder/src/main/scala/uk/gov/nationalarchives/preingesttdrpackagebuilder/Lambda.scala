@@ -34,7 +34,10 @@ import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   lazy private val bufferSize = 1024 * 5
-  val defaultFolderName = "Records"
+  private val defaultFolderName = "Records"
+  private val formerRefTnaIdKey = "FormerRefTNA"
+  private val formerRefDeptIdKey = "FormerRefDept"
+  private val upstreamSystemRefIdKey = "UpstreamSystemReference"
 
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
@@ -194,14 +197,14 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     ): IO[AssetMetadataObject] = IO.pure {
       val assetId = packageMetadata.UUID
       val sourceSpecificIdentifiers = config.sourceSystem match {
-        case SourceSystem.TDR => List(IdField("BornDigitalRef", packageMetadata.fileReference), IdField("UpstreamSystemReference", packageMetadata.fileReference))
+        case SourceSystem.TDR => List(IdField("BornDigitalRef", packageMetadata.fileReference), IdField(upstreamSystemRefIdKey, packageMetadata.fileReference))
         case SourceSystem.DRI =>
-          List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
+          List(IdField(upstreamSystemRefIdKey, s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
             packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
         case SourceSystem.ADHOC =>
-          List(IdField("UpstreamSystemReference", s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
-            packageMetadata.formerRefDept.map(frd => List(IdField("FormerRefDept", frd))).getOrElse(Nil) ++
-            packageMetadata.formerRefTNA.map(frt => List(IdField("FormerRefTNA", frt))).getOrElse(Nil)
+          List(IdField(upstreamSystemRefIdKey, s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
+            packageMetadata.formerRefDept.map(frd => List(IdField(formerRefDeptIdKey, frd))).getOrElse(Nil) ++
+            packageMetadata.formerRefTNA.map(frt => List(IdField(formerRefTnaIdKey, frt))).getOrElse(Nil)
         case _ => Nil
       }
       val digitalAssetSource = packageMetadata.digitalAssetSource.getOrElse("Born Digital")
