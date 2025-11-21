@@ -32,6 +32,7 @@ import java.nio.ByteBuffer
 import java.nio.file.Path
 import java.time.{LocalDateTime, ZoneOffset}
 import java.util.UUID
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
@@ -234,9 +235,17 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       .map(_ => new Output(input.batchId, input.groupId, URI.create(s"s3://${config.rawCacheBucket}/${input.batchId}/metadata.json"), input.retryCount, ""))
   }
 
+  private def truncate(s: String) = {
+    @tailrec
+    def truncateArray(arr: Array[String]): Array[String] =
+      if arr.isEmpty || arr.dropRight(1).mkString(" ").length < 100 then arr
+      else truncateArray(arr.dropRight(1))
+    if s.length < 100 then s else s"${truncateArray(s.split(" ")).mkString(" ")}..."
+  }
+
   private def descriptionToFileName(description: Option[String]) =
     description match
-      case Some(value) => value.split(" ").slice(0, 14).mkString(" ") + (if value.length > 14 then "..." else "")
+      case Some(value) => truncate(value)
       case None        => "Untitled"
 
   private def getParentPath(path: String) =
