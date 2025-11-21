@@ -1,20 +1,19 @@
 import csv
-import hashlib
 import os
 import sys
 import tempfile
-import uuid
 from datetime import datetime
-from pathlib import Path, PureWindowsPath, PurePosixPath
+from pathlib import Path
 
 import pandas
 import pandas as pd
 from botocore.exceptions import ClientError
 
+import argument_parser_builder
 import aws_interactions
 import dataset_validator
 import discovery_client
-import argument_parser_builder
+import metadata_creator
 
 
 def validate_arguments(args):
@@ -25,59 +24,6 @@ def validate_arguments(args):
     output_metadata_folder = Path(args.output)
     if not (output_metadata_folder.exists() and output_metadata_folder.is_dir()):
         raise Exception(f"Either the output metadata location [{output_metadata_folder}] does not exist or it is not a valid folder\n")
-
-
-def create_metadata(row, args):
-    catalog_ref = row["catRef"].strip()
-    file_path = row["fileName"].strip()
-    collection_info = discovery_client.get_title_and_description(catalog_ref)
-    former_references = discovery_client.get_former_references(collection_info.identifier)
-
-    if not collection_info.title and not collection_info.description:
-        raise Exception(f"Title and Description both are empty for '{catalog_ref}', unable to proceed with this record")
-
-    description_to_use = collection_info.title if collection_info.title is not None else collection_info.description
-    series = catalog_ref.split("/")[0].strip()
-    metadata = {
-        "Series": series,
-        "UUID": str(uuid.uuid4()),
-        "fileId": str(uuid.uuid4()),
-        "description": description_to_use,
-        "Filename": get_filename_from_cross_platform_path(file_path),
-        "FileReference": catalog_ref.removeprefix(f"{series}").strip().removeprefix("/").strip(),
-        "ClientSideOriginalFilepath": file_path,
-    }
-    former_ref_dept = former_references.formerRefDept
-    metadata["formerRefDept"] = "" if former_ref_dept is None else former_ref_dept
-
-    former_ref_tna = former_references.formerRefTNA
-    metadata["formerRefTNA"] = "" if former_ref_tna is None else former_ref_tna
-
-    sha256_checksum = row["checksum"].strip()
-    if not sha256_checksum:
-        metadata["checksum_md5"] = create_md5_hash(get_absolute_file_path(args.input, file_path))
-        metadata["checksum_sha256"] = ""
-    else:
-        metadata["checksum_md5"] = ""
-        metadata["checksum_sha256"] = sha256_checksum
-    return metadata
-
-def get_filename_from_cross_platform_path(path_str):
-    if "\\" in path_str or ":" in path_str: #maybe Windows path
-        return PureWindowsPath(path_str).name.strip()
-    else :
-        return PurePosixPath(path_str).name.strip()
-
-def create_md5_hash(file_path, chunk_size=8192):
-    md5 = hashlib.md5()
-    with open(file_path, "rb") as the_file:   # open in binary mode
-        for chunk in iter(lambda: the_file.read(chunk_size), b""):
-            md5.update(chunk)
-    return md5.hexdigest()
-
-def get_confirmation_to_proceed(prompt="Are you sure?"):
-    confirmation = input(prompt).strip().lower()
-    return confirmation in {"y", "yes"}
 
 def upload_files(output_file, account_number, args):
     environment = args.environment
@@ -92,27 +38,11 @@ def upload_files(output_file, account_number, args):
         asset_id = row["UUID"]
         file_id = row["fileId"]
         client_side_path = row["ClientSideOriginalFilepath"]
-        metadata = {
-            "Series": row["Series"],
-            "UUID": asset_id,
-            "fileId": file_id,
-            "description": row["description"],
-            "Filename": row["Filename"],
-            "FileReference": row["FileReference"],
-            "ClientSideOriginalFilepath": client_side_path
-        }
-        if row["formerRefDept"] != "":
-            metadata["formerRefDept"] = row["formerRefDept"]
-        if row["formerRefTNA"] != "":
-            metadata["formerRefTNA"] = row["formerRefTNA"]
-        if row["checksum_sha256"] == "":
-            metadata["checksum_md5"] = row["checksum_md5"]
-        else:
-            metadata["checksum_sha256"] = row["checksum_sha256"]
+        metadata = metadata_creator.create_metadata_for_upload(row)
 
         for attempt in range(0,4):
             try:
-                aws_interactions.upload_file(asset_id, bucket, file_id, get_absolute_file_path(args.input, client_side_path))
+                aws_interactions.upload_file(asset_id, bucket, file_id, metadata_creator.get_absolute_file_path(args.input, client_side_path))
                 aws_interactions.upload_metadata(asset_id, bucket, metadata)
                 aws_interactions.send_sqs_message(asset_id, bucket, queue_url)
                 break
@@ -128,34 +58,9 @@ def upload_files(output_file, account_number, args):
         if counter % 10 == 0:
             print(f"Uploaded ${counter} of ${total}")
 
-# the path in the input file may be relative to the input csv
-def get_absolute_file_path(input_path, relative_or_absolute_file_path):
-    input_file_path = Path(input_path).resolve()
-
-    if Path(relative_or_absolute_file_path).is_absolute():
-        return str(relative_or_absolute_file_path)
-    else:
-        normalised_relative_path = os.path.normpath(relative_or_absolute_file_path.replace("\\", "/"))
-        full_path = Path(input_file_path.parent / normalised_relative_path).resolve()
-        return str(full_path)
-
-def is_folder_writable(output_folder):
-    try:
-        testfile = tempfile.TemporaryFile(dir=output_folder)
-        testfile.close()
-        return True
-    except (OSError, PermissionError):
-        return False
-
 
 def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
     data_set: pandas.DataFrame
-
-    is_discovery_available = discovery_client.is_discovery_api_reachable()
-    if not is_discovery_available:
-        print("Discovery API is not available for getting metadata information, terminating process")
-        sys.exit(1)
-
     output_folder = args.output
     if not is_folder_writable(output_folder):
         print(f"Unable to write to the output location: '{output_folder}', please make sure that you have necessary permissions for that folder")
@@ -163,25 +68,7 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
 
     prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_metadata_file = os.path.join(output_folder, f"{prefix}_proposed_ingest.csv")
-
-    row_count = 0
-    with open(output_metadata_file, mode="a", newline="", encoding="utf-8") as metadata_csv:
-        is_metadata_valid = is_upstream_valid
-        fieldnames=["Series", "UUID", "fileId", "description", "Filename", "FileReference", "ClientSideOriginalFilepath", "formerRefDept", "formerRefTNA", "checksum_md5", "checksum_sha256"]
-        writer = csv.DictWriter(metadata_csv, fieldnames, quoting=csv.QUOTE_ALL)
-        writer.writeheader()
-        for _, row in data_set.iterrows():
-            row_count += 1
-            try:
-                metadata = create_metadata(row, args)
-                writer.writerow(metadata)
-                if row_count % 100 == 0:
-                    metadata_csv.flush()
-            except Exception as e:
-                is_metadata_valid = False
-                print(f"Error creating metadata: {e}")
-                if not args.dry_run:
-                    sys.exit(1)
+    is_metadata_valid, row_count = write_intermediate_csv(args, data_set, is_upstream_valid, output_metadata_file)
 
     if args.dry_run:
         if is_metadata_valid:
@@ -203,6 +90,28 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
             print(e)
             sys.exit(1)
 
+
+def write_intermediate_csv(args, data_set, is_upstream_valid, output_metadata_file):
+    row_count = 0
+    with open(output_metadata_file, mode="a", newline="", encoding="utf-8") as intermediate_metadata_csv:
+        is_metadata_valid = is_upstream_valid
+        fieldnames = metadata_creator.get_field_names()
+        writer = csv.DictWriter(intermediate_metadata_csv, fieldnames, quoting=csv.QUOTE_ALL)
+        writer.writeheader()
+        for _, row in data_set.iterrows():
+            row_count += 1
+            try:
+                metadata_dict = metadata_creator.create_intermediate_metadata_dict(row, args)
+                writer.writerow(metadata_dict)
+                if row_count % 100 == 0:
+                    intermediate_metadata_csv.flush()
+            except Exception as e:
+                is_metadata_valid = False
+                print(f"Error creating metadata: {e}")
+                if not args.dry_run:
+                    sys.exit(1)
+    return is_metadata_valid, row_count
+
 def get_account_number():
     account_number = ""
     for attempt in range(0, 4):
@@ -214,9 +123,22 @@ def get_account_number():
                 raise Exception(f"Unable to proceed because: {client_error}. Terminating the process.")
             else:
                 print(f"An error caused due to: {client_error}")
-                input("Fix the error and press any key to continue")
+                input("Fix the error and press enter to continue")
                 aws_interactions.refresh_session()
     return account_number
+
+def get_confirmation_to_proceed(prompt="Are you sure?"):
+    confirmation = input(prompt).strip().lower()
+    return confirmation in {"y", "yes"}
+
+def is_folder_writable(output_folder):
+    try:
+        testfile = tempfile.TemporaryFile(dir=output_folder)
+        testfile.close()
+        return True
+    except (OSError, PermissionError):
+        return False
+
 
 def main():
     args = argument_parser_builder.build().parse_args()
@@ -234,6 +156,11 @@ def main():
         is_valid = dataset_validator.validate_dataset(data_set, str(input_file_path), args.dry_run)
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
+
+    is_discovery_available = discovery_client.is_discovery_api_reachable()
+    if not is_discovery_available:
+        print("Discovery API is not available for getting metadata information, terminating process")
+        sys.exit(1)
 
     upload_files_to_ingest_bucket(data_set, args, is_valid)
 
