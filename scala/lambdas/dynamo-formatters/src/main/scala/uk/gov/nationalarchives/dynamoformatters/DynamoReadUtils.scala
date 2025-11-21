@@ -6,18 +6,16 @@ import org.scanamo.*
 import org.scanamo.generic.semiauto.*
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue.Type.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.*
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 
+import java.lang
+import java.net.URI
 import java.time.OffsetDateTime
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 import scala.reflect.{ClassTag, classTag}
-import DynamoFormatters.Type.*
-import DynamoFormatters.FileRepresentationType.*
-import DynamoFormatters.*
-
-import java.lang
-import java.net.URI
-import java.time.Instant
 
 class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
 
@@ -70,11 +68,7 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     getPotentialStringValue(description),
     stringToType(getPotentialStringValue(typeField)),
     getPotentialStringValue(transferringBody),
-    stringToScalaType[OffsetDateTime](
-      transferCompleteDatetime,
-      getPotentialStringValue(transferCompleteDatetime),
-      OffsetDateTime.parse
-    ),
+    getPotentialStringValue(transferCompleteDatetime).map(OffsetDateTime.parse),
     getValidatedMandatoryAttributeAsString(upstreamSystem),
     getValidatedMandatoryAttributeAsString(digitalAssetSource),
     getPotentialStringValue(digitalAssetSubtype),
@@ -304,7 +298,6 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     (
       allValidatedFileTableAttributes.batchId,
       allValidatedFileTableAttributes.id,
-      allValidatedFileTableAttributes.transferCompleteDatetime,
       allValidatedFileTableAttributes.upstreamSystem,
       allValidatedFileTableAttributes.digitalAssetSource,
       allValidatedFileTableAttributes.originalMetadataFiles,
@@ -316,7 +309,6 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       (
           batchId,
           id,
-          transferCompletedDatetime,
           upstreamSystem,
           digitalAssetSource,
           originalMetadataFiles,
@@ -333,7 +325,7 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
           allValidatedFileTableAttributes.potentialTitle,
           allValidatedFileTableAttributes.potentialDescription,
           allValidatedFileTableAttributes.transferringBody,
-          transferCompletedDatetime,
+          allValidatedFileTableAttributes.transferCompleteDatetime,
           upstreamSystem,
           digitalAssetSource,
           allValidatedFileTableAttributes.potentialDigitalAssetSubtype,

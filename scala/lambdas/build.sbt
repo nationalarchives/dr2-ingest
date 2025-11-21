@@ -26,8 +26,10 @@ lazy val ingestLambdasRoot = (project in file("."))
     postingestMessageResender,
     preingestTdrAggregator,
     preingestDriAggregator,
+    preingestAdHocAggregator,
     preIngestTdrPackageBuilder,
     preingestDriPackageBuilder,
+    preingestAdHocPackageBuilder,
     rotatePreservationSystemPassword,
     startWorkflow
   )
@@ -310,6 +312,15 @@ lazy val preingestDriPackageBuilder = (project in file("preingest-tdr-package-bu
   .dependsOn(utils, dynamoFormatters)
   .settings(packageBuilderSettings)
 
+lazy val preingestAdHocPackageBuilder = (project in file("preingest-tdr-package-builder"))
+  .settings(
+    name := "preingest-ad-hoc-package-builder",
+    target := (preIngestTdrPackageBuilder / baseDirectory).value / "target" / "preingest-ad-hoc-package-builder"
+  )
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(packageBuilderSettings)
+
 lazy val aggregatorSettings = libraryDependencies ++= Seq(
   dynamoClient,
   sfnClient
@@ -325,6 +336,15 @@ lazy val preingestDriAggregator = (project in file("preingest-tdr-aggregator"))
   .settings(
     name := "preingest-dri-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-dri-aggregator"
+  )
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(aggregatorSettings)
+
+lazy val preingestAdHocAggregator = (project in file("preingest-tdr-aggregator"))
+  .settings(
+    name := "preingest-ad-hoc-aggregator",
+    target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-ad-hoc-aggregator"
   )
   .settings(commonSettings)
   .dependsOn(utils)

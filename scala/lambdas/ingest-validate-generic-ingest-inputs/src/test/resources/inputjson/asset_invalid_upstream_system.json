@@ -20,6 +20,6 @@
     }
   ],
   "expectedErrors": [
-    "enum uk.gov.nationalarchives.utils.ExternalUtils$.SourceSystem has no case with name: InvalidSystem"
+    "Invalid display name encountered for source system: InvalidSystem"
   ]
 }

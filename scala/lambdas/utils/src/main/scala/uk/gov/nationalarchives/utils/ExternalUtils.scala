@@ -121,7 +121,7 @@ object ExternalUtils {
               ("originalMetadataFiles", Json.fromValues(convertListOfUuidsToJsonStrArray(originalMetadataFilesUuids))),
               ("description", description.map(Json.fromString).getOrElse(Null)),
               ("transferringBody", transferringBody.map(Json.fromString).getOrElse(Null)),
-              ("transferCompleteDatetime", Json.fromString(transferCompleteDatetime.toString)),
+              ("transferCompleteDatetime", transferCompleteDatetime.map(dt => Json.fromString(dt.toString)).getOrElse(Null)),
               ("upstreamSystem", Json.fromString(upstreamSystem.toString)),
               ("digitalAssetSource", Json.fromString(digitalAssetSource)),
               ("digitalAssetSubtype", digitalAssetSubtype.map(Json.fromString).getOrElse(Null)),
@@ -175,8 +175,11 @@ object ExternalUtils {
   given Decoder[AssetMetadataObject] = new Decoder[AssetMetadataObject]:
     override def apply(c: HCursor): Result[AssetMetadataObject] = convertToFailFast(decodeAccumulating(c))
 
-    def toSourceSystem(c: HCursor, sourceSystem: String): Either[DecodingFailure, SourceSystem] =
-      Try(SourceSystem.valueOf(sourceSystem)).toEither.left.map(err => DecodingFailure(err.getMessage, c.history))
+    def toSourceSystem(c: HCursor, sourceSystem: String): Either[DecodingFailure, SourceSystem] = {
+      Try(
+        SourceSystem.fromDisplayName(sourceSystem).getOrElse(throw new NoSuchElementException(s"Invalid display name encountered for source system: $sourceSystem"))
+      ).toEither.left.map(err => DecodingFailure(err.getMessage, c.history))
+    }
 
     override def decodeAccumulating(c: HCursor): AccumulatingResult[AssetMetadataObject] = {
       (
@@ -187,7 +190,7 @@ object ExternalUtils {
         c.downField("originalMetadataFiles").as[List[UUID]].toValidatedNel,
         c.downField("description").as[Option[String]].toValidatedNel,
         c.downField("transferringBody").as[Option[String]].toValidatedNel,
-        c.downField("transferCompleteDatetime").as[String].toValidatedNel.map(OffsetDateTime.parse),
+        c.downField("transferCompleteDatetime").as[Option[OffsetDateTime]].toValidatedNel,
         c.downField("upstreamSystem").as[String].flatMap(str => toSourceSystem(c, str)).toValidatedNel,
         c.downField("digitalAssetSource").as[String].toValidatedNel,
         c.downField("digitalAssetSubtype").as[Option[String]].toValidatedNel,
@@ -281,7 +284,7 @@ object ExternalUtils {
       originalMetadataFiles: List[UUID],
       description: Option[String],
       transferringBody: Option[String],
-      transferCompleteDatetime: OffsetDateTime,
+      transferCompleteDatetime: Option[OffsetDateTime],
       upstreamSystem: SourceSystem,
       digitalAssetSource: String,
       digitalAssetSubtype: Option[String],
@@ -309,9 +312,18 @@ object ExternalUtils {
     }
   }
 
-  enum SourceSystem:
-    case TDR, DRI, `TRE: FCL Parser workflow`
-    
+  enum SourceSystem(val display: String):
+    case TDR extends SourceSystem("TDR")
+    case DRI extends SourceSystem("DRI")
+    case `TRE: FCL Parser workflow` extends SourceSystem("TRE: FCL Parser workflow")
+    case ADHOC extends SourceSystem("Ad hoc ingest")
+
+    override def toString: String = display
+
+  object SourceSystem:
+    def fromDisplayName(displayName: String): Option[SourceSystem] =
+      values.find(_.display == displayName)
+
   enum MessageType:
     override def toString: String = this match
       case IngestUpdate   => "preserve.digital.asset.ingest.update"

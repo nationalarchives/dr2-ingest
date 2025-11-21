@@ -15,6 +15,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentat
 import java.net.URI
 import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
+import scala.Console.in
 import scala.jdk.CollectionConverters.*
 
 class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherValues {
@@ -192,11 +193,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       ArchiveFolder
     ),
     (
-      missingFieldsAttributeValue(Asset, transferCompleteDatetime),
-      "'transferCompleteDatetime': missing",
-      Asset
-    ),
-    (
       missingFieldsAttributeValue(Asset, childCount),
       "'childCount': missing",
       Asset
@@ -255,12 +251,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       stringValueInListIsNotConvertable(originalMetadataFiles, Asset),
       "'originalMetadataFiles': could not be converted to desired type: java.lang.RuntimeException: Cannot parse " +
         "notAUuid for field originalMetadataFiles into class java.util.UUID",
-      Asset
-    ),
-    (
-      stringValueIsNotConvertible(transferCompleteDatetime, Asset),
-      "'transferCompleteDatetime': could not be converted to desired type: java.lang.RuntimeException: Cannot parse " +
-        "notAConvertibleString for field transferCompleteDatetime into class java.time.OffsetDateTime",
       Asset
     ),
     (
@@ -375,7 +365,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     assetRow.potentialParentPath.get should equal("testParentPath")
     assetRow.`type` should equal(Asset)
     assetRow.transferringBody.get should equal("testTransferringBody")
-    assetRow.transferCompleteDatetime should equal(OffsetDateTime.parse("2023-06-01T00:00Z"))
+    assetRow.transferCompleteDatetime.get should equal(OffsetDateTime.parse("2023-06-01T00:00Z"))
     assetRow.upstreamSystem should equal("testUpstreamSystem")
     assetRow.digitalAssetSource should equal("testDigitalAssetSource")
     assetRow.potentialDigitalAssetSubtype.get should equal("testDigitalAssetSubtype")
@@ -501,7 +491,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       None,
       None,
       Option(transferringBody),
-      OffsetDateTime.parse("2023-06-01T00:00Z"),
+      Option(OffsetDateTime.parse("2023-06-01T00:00Z")),
       upstreamSystem,
       digitalAssetSource,
       None,
@@ -885,7 +875,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       Option(title),
       Option(description),
       Option(transferringBody),
-      OffsetDateTime.parse("2023-06-01T00:00Z"),
+      Option(OffsetDateTime.parse("2023-06-01T00:00Z")),
       upstreamSystem,
       digitalAssetSource,
       Option(digitalAssetSubtype),

@@ -36,14 +36,16 @@ object TestUtils:
       ("fileId", Json.fromString(m.fileId.toString)).some,
       m.description.map(d => ("description", Json.fromString(d))),
       m.transferringBody.map(t => ("TransferringBody", Json.fromString(t))),
-      ("TransferInitiatedDatetime", Json.fromString(m.transferInitiatedDatetime)).some,
+      m.transferInitiatedDatetime.map(dt => ("TransferInitiatedDatetime", Json.fromString(dt))),
       m.consignmentReference.map(c => ("ConsignmentReference", Json.fromString(c))),
       m.driBatchReference.map(d => ("driBatchReference", Json.fromString(d))),
       ("Filename", Json.fromString(m.filename)).some,
       ("FileReference", Json.fromString(m.fileReference)).some,
       ("ClientSideOriginalFilepath", Json.fromString(m.originalFilePath)).some,
       m.sortOrder.map(s => ("sortOrder", Json.fromInt(s))),
-      m.digitalAssetSource.map(s => ("digitalAssetSource", Json.fromString(s)))
+      m.digitalAssetSource.map(s => ("digitalAssetSource", Json.fromString(s))),
+      m.formerRefDept.map(frd => ("formerRefDept", Json.fromString(frd))),
+      m.formerRefTNA.map(frt => ("formerRefTNA", Json.fromString(frt)))
     ).flatten ++ checksums
     Json.obj(metadataObjectFields*)
   }

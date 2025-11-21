@@ -68,7 +68,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         List(metadataFileId),
         Some("test"),
         Option("test-organisation"),
-        OffsetDateTime.parse("2023-10-31T13:40:54Z"),
+        Option(OffsetDateTime.parse("2023-10-31T13:40:54Z")),
         `TRE: FCL Parser workflow`,
         "Born Digital",
         Option("FCL"),
