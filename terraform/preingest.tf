@@ -28,7 +28,7 @@ module "dri_preingest" {
   private_subnet_ids                  = module.vpc.private_subnets
 }
 
-module "adhoc_preingest" {
+module "ad_hoc_preingest" {
   source                              = "./preingest"
   environment                         = local.environment
   ingest_lock_dynamo_table_name       = local.ingest_lock_dynamo_table_name
@@ -36,7 +36,7 @@ module "adhoc_preingest" {
   ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
-  source_name                         = "adhoc"
+  source_name                         = "ad_hoc"
   copy_source_bucket_name             = local.ingest_raw_cache_bucket_name
 }
 
