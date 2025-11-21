@@ -28,3 +28,33 @@ module "dri_preingest" {
   private_subnet_ids                  = module.vpc.private_subnets
 }
 
+// Subnets and security groups aren't specified as we don't want this lambda in the VPC
+// The PA bucket is in a different region which we can't access through the gateway endpoint.
+module "pa_preingest" {
+  source                              = "./preingest"
+  environment                         = local.environment
+  ingest_lock_dynamo_table_name       = local.ingest_lock_dynamo_table_name
+  ingest_lock_table_arn               = module.ingest_lock_table.table_arn
+  ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
+  ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
+  ingest_step_function_name           = local.ingest_step_function_name
+  source_name                         = "pa"
+  copy_source_bucket_name             = module.config.terraform_config["parliament_bucket"]
+  additional_importer_lambda_policies = {
+    "${local.environment}-dr2-preingest-pa-importer-assume-role" = templatefile("${path.module}/templates/iam_policy/preingest_pa_importer_additional_permissions.json.tpl", {
+      pa_migration_role = local.parliament_ingest_role
+    })
+  }
+  additional_importer_lambda_env_vars = {
+    ROLE_TO_ASSUME = local.parliament_ingest_role
+    FILES_BUCKET   = module.config.terraform_config["parliament_bucket"]
+  }
+  importer_lambda = {
+    visibility_timeout = 900
+    timeout            = 900
+    handler            = "uk.gov.nationalarchives.preingestpaimporter.Lambda::handleRequest"
+    runtime            = local.java_runtime
+    memory_size        = 2048
+  }
+}
+
