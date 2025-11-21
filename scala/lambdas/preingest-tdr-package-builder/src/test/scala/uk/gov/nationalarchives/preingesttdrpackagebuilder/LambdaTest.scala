@@ -413,8 +413,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     assetMetadataObjects.size should be(1)
     val assetMetadataObject = assetMetadataObjects.head
     assetMetadataObject.upstreamSystem should be(ADHOC)
-    assetMetadataObject.idFields.find(_.name == "formerRefDept").map(_.value).get should equal("TS245.ABCD.25-1")
-    assetMetadataObject.idFields.find(_.name == "formerRefTNA").map(_.value).get should equal("AB 8/4/6")
+    assetMetadataObject.idFields.find(_.name == "FormerRefDept").map(_.value).get should equal("TS245.ABCD.25-1")
+    assetMetadataObject.idFields.find(_.name == "FormerRefTNA").map(_.value).get should equal("AB 8/4/6")
   }
 
   "lambda handler" should "not include former reference in the asset metadata when it is missing from package " in {
@@ -433,8 +433,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     assetMetadataObjects.size should be(1)
     val assetMetadataObject = assetMetadataObjects.head
     assetMetadataObject.upstreamSystem should be(ADHOC)
-    assetMetadataObject.idFields should not contain "formerRefDept"
-    assetMetadataObject.idFields.find(_.name == "formerRefTNA").map(_.value).get should equal("AB 8/4/6")
+    assetMetadataObject.idFields should not contain "FormerRefDept"
+    assetMetadataObject.idFields.find(_.name == "FormerRefTNA").map(_.value).get should equal("AB 8/4/6")
   }
 
   "lambda handler" should "return an error if the dynamo query fails" in {
