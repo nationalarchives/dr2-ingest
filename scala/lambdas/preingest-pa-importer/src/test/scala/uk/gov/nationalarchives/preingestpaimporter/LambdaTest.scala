@@ -13,7 +13,7 @@ import uk.gov.nationalarchives.preingestpaimporter.TestUtils.*
 import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with EitherValues {
-  
+
   "lambda" should "copy the files to s3 and upload the modified json" in {
     val uuid = UUID.randomUUID
     val fileId = UUID.randomUUID

@@ -70,9 +70,11 @@ object TestUtils {
 
   def testSqsClient(ref: Ref[IO, List[Message]], potentialErrors: Option[Errors]): DASQSClient[IO] = new DASQSClient[IO] {
     override def sendMessage[T <: Product](queueUrl: String)(message: T, potentialFifoConfiguration: Option[DASQSClient.FifoQueueConfiguration], delaySeconds: Int)(using
-                                                                                                                                                                    enc: Encoder[T]
+        enc: Encoder[T]
     ): IO[SendMessageResponse] =
-      error(potentialErrors.exists(_.sendMessage), "Send message failed") >> ref.update(current => message.asInstanceOf[Message] :: current).map(_ => SendMessageResponse.builder.build)
+      error(potentialErrors.exists(_.sendMessage), "Send message failed") >> ref
+        .update(current => message.asInstanceOf[Message] :: current)
+        .map(_ => SendMessageResponse.builder.build)
 
     override def receiveMessages[T](queueUrl: String, maxNumberOfMessages: Int)(using dec: Decoder[T]): IO[List[DASQSClient.MessageResponse[T]]] = IO.stub
 
@@ -99,6 +101,5 @@ object TestUtils {
       message <- messageRef.get
     yield Output(handlerResponse, metadataMap, copy, message)
   }.unsafeRunSync()
-
 
 }
