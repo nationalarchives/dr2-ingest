@@ -408,7 +408,7 @@ module "dr2_ingest_step_function_policy" {
     tna_to_preservica_role_arn                        = local.tna_to_preservica_role_arn
     preingest_tdr_step_function_arn                   = module.tdr_preingest.preingest_sfn_arn
     preingest_dri_step_function_arn                   = module.dri_preingest.preingest_sfn_arn
-    preingest_adhoc_step_function_arn                 = module.dri_preingest.preingest_sfn_arn
+    preingest_adhoc_step_function_arn                 = module.adhoc_preingest.preingest_sfn_arn
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
     postingest_table_name                             = module.postingest.postingest_table_name
   })
