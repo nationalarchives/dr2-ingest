@@ -49,7 +49,12 @@ module "pa_preingest" {
     ROLE_TO_ASSUME = local.parliament_ingest_role
     FILES_BUCKET   = module.config.terraform_config["parliament_bucket"]
   }
-  python_lambda_timeout       = 900
-  importer_visibility_timeout = 900
+  importer_lambda = {
+    visibility_timeout = 900
+    timeout            = 900
+    handler            = "uk.gov.nationalarchives.preingestpaimporter.Lambda::handleRequest"
+    runtime            = local.java_runtime
+    memory_size        = 2048
+  }
 }
 

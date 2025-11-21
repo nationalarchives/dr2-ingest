@@ -1,19 +1,16 @@
 locals {
-  importer_name             = "${local.environment}-dr2-preingest-${var.source_name}-importer"
-  importer_queue_arn        = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.importer_name}"
-  python_runtime            = "python3.12"
-  python_lambda_memory_size = 128
-  sse_encryption            = "sse"
-  visibility_timeout        = 180
-  redrive_maximum_receives  = 5
+  importer_name            = "${local.environment}-dr2-preingest-${var.source_name}-importer"
+  importer_queue_arn       = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.importer_name}"
+  sse_encryption           = "sse"
+  visibility_timeout       = 180
+  redrive_maximum_receives = 5
 }
-
 module "dr2_importer_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   description     = "A lambda to validate incoming metadata and copy the files to the DR2 S3 bucket for ${upper(var.source_name)}"
   function_name   = local.importer_name
-  handler         = "lambda_function.lambda_handler"
-  timeout_seconds = var.python_lambda_timeout
+  handler         = var.importer_lambda.handler
+  timeout_seconds = var.importer_lambda.timeout
   lambda_sqs_queue_mappings = [
     { sqs_queue_arn = local.importer_queue_arn, ignore_enabled_status = true }
   ]
@@ -35,8 +32,8 @@ module "dr2_importer_lambda" {
       kms_arn               = var.bucket_kms_arn
     })
   }, var.additional_importer_lambda_policies)
-  memory_size = local.python_lambda_memory_size
-  runtime     = local.python_runtime
+  memory_size = var.importer_lambda.memory_size
+  runtime     = var.importer_lambda.runtime
   plaintext_env_vars = merge(
     {
       OUTPUT_BUCKET_NAME = var.ingest_raw_cache_bucket_name
@@ -68,7 +65,7 @@ module "dr2_importer_sqs" {
   })
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   redrive_maximum_receives                          = local.redrive_maximum_receives
-  visibility_timeout                                = var.importer_visibility_timeout
+  visibility_timeout                                = var.importer_lambda.visibility_timeout
   encryption_type                                   = local.sse_encryption
 }
 

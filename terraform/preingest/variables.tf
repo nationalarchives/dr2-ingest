@@ -38,10 +38,20 @@ variable "private_subnet_ids" {
   default = []
 }
 
-variable "python_lambda_timeout" {
-  default = 30
-}
+variable "importer_lambda" {
+  type = object({
+    timeout            = number
+    visibility_timeout = number
+    handler            = string
+    runtime            = string
+    memory_size        = number
+  })
+  default = {
+    timeout            = 180
+    visibility_timeout = 300
+    handler            = "lambda_function.lambda_handler"
+    runtime            = "python3.12"
+    memory_size        = 128
 
-variable "importer_visibility_timeout" {
-  default = 180
+  }
 }
