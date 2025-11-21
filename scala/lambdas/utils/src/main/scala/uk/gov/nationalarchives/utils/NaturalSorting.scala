@@ -29,5 +29,5 @@ object NaturalSorting:
         Normalizer.Form.NFD).replaceAll("\\p{InCombiningDiacriticalMarks}", "")
       .replaceAll("^(the|a|an) ", "")
       .flatMap(replacements.apply)
-      .split(s"\\s+|(?=[0-9])(?<=[^0-9])|(?=[^0-9])(?<=[0-9])")
+      .split("\\s+|(?=[0-9])(?<=[^0-9])|(?=[^0-9])(?<=[0-9])") //Split by whitespace or by digit and non-digit boundaries
   }

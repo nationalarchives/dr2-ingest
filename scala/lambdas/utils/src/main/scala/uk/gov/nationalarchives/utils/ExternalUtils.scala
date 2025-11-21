@@ -179,11 +179,11 @@ object ExternalUtils {
   given Decoder[AssetMetadataObject] = new Decoder[AssetMetadataObject]:
     override def apply(c: HCursor): Result[AssetMetadataObject] = convertToFailFast(decodeAccumulating(c))
 
-    def toSourceSystem(c: HCursor, sourceSystem: String): Either[DecodingFailure, SourceSystem] =
+    def toSourceSystem(c: HCursor, upstreamSystem: String): Either[DecodingFailure, SourceSystem] =
       Try {
-        if sourceSystem == "Parliament Migration" then
+        if upstreamSystem == "Parliament Migration" then
           SourceSystem.PA
-        else SourceSystem.valueOf(sourceSystem)
+        else SourceSystem.valueOf(upstreamSystem)
       }.toEither.left.map(err => DecodingFailure(err.getMessage, c.history))
 
     override def decodeAccumulating(c: HCursor): AccumulatingResult[AssetMetadataObject] = {

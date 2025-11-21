@@ -92,7 +92,7 @@ object DiscoveryService {
       }
 
       override def getDiscoveryCollectionAssets(potentialSeries: Option[String]): F[DepartmentAndSeriesCollectionAssets] = {
-        val potentialDepartment = potentialSeries.flatMap  { series =>
+        val potentialDepartment = potentialSeries.flatMap { series =>
           (if series.contains("/") then series.split("/") else series.split(" ")).headOption
         }
         for {
