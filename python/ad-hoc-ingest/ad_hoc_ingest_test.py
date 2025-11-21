@@ -108,7 +108,7 @@ class Test(TestCase):
         JS 8/5,c:\old_folder\evid0001.pdf,windows_absolute_path_single_slash
         JS 8/6,/home/users/evid0001.pdf,unix_absolute_path
         JS 8/7,c:evid0001.pdf,windows_no_slashes
-        JS 8/7,\a\b\evid0001.pdf,windows_relative_single_slash
+        JS 8/7,\\a\\b\\evid0001.pdf,windows_relative_single_slash
         JS 8/8,c:/abcd/evid0001.pdf,windows_absolute_path_forward_slash"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():

@@ -105,8 +105,6 @@ class Test(TestCase):
         ]
 
         data_set = pd.DataFrame(data_list)
-        print(data_set)
-        print(data_set['catRef'].isnull().any())
         with self.assertRaises(Exception) as e:
             dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
 

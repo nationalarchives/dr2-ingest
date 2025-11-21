@@ -4,9 +4,8 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from samba.dcerpc.lsa import String
-
 import argument_parser_builder
+
 
 class Test(TestCase):
     def setUp(self):
