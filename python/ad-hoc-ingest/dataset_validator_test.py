@@ -143,6 +143,24 @@ class Test(TestCase):
         self.assertFalse(is_valid)
         self.assertEqual("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')", console_out.getvalue().strip())
 
+    def test_should_report_when_there_is_duplicate_checksum_but_still_call_the_dataset_as_valid(self):
+        tmp4 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file4.txt")
+        with open(tmp4, "w") as f:
+            f.write("temporary file one")
+
+        row_with_duplicate_checksum = pd.DataFrame([
+            {"catRef": "JS 8/6", "someOtherColumn": "","fileName": f"{tmp4}","checksum": "c74daf9d9a4063bdfbf1fd234ac529d120203e04af7c4e60b3236c76f37fff90","anotherColumn": "some_data"}])
+
+        erroneous_dataset = pd.concat([self.valid_data_set, row_with_duplicate_checksum], ignore_index=True)
+
+        console_out = io.StringIO()
+        with redirect_stdout(console_out):
+            is_valid = dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv", True)
+
+        self.assertTrue(is_valid)
+        self.assertEqual("The column 'checksum' has duplicate entries", console_out.getvalue().strip())
+
+
     def test_should_report_multiple_validation_failures_across_spreadsheet_structure_validation(self):
         csv_data = """catRef,fileName,checksum
         JS 8/3,/missing/evid0001.pdf,checksum_one
@@ -156,4 +174,21 @@ class Test(TestCase):
 
         self.assertFalse(is_valid)
         self.assertEqual("The column 'fileName' has empty entries\nThe column 'checksum' has duplicate entries", console_out.getvalue().strip())
+
+    def test_should_report_when_a_file_is_empty_but_still_call_the_dataset_as_valid(self):
+        tmp4 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file4.txt")
+        with open(tmp4, "w") as f:
+            f.write("")
+
+        row_with_duplicate_checksum = pd.DataFrame([
+            {"catRef": "JS 8/6", "someOtherColumn": "","fileName": f"{tmp4}","checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","anotherColumn": "some_data"}])
+
+        erroneous_dataset = pd.concat([self.valid_data_set, row_with_duplicate_checksum], ignore_index=True)
+
+        console_out = io.StringIO()
+        with redirect_stdout(console_out):
+            is_valid = dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv", True)
+
+        self.assertTrue(is_valid)
+        self.assertEqual(f"Following files are empty: {tmp4}", console_out.getvalue().strip())
 
