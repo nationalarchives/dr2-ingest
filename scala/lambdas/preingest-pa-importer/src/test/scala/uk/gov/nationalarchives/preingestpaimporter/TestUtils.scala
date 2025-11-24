@@ -96,7 +96,11 @@ object TestUtils {
       metadataRef <- Ref.of[IO, Map[String, String]](keyToMetadata)
       copyRef <- Ref.of[IO, List[TestCopy]](Nil)
       messageRef <- Ref.of[IO, List[Message]](Nil)
-      dependencies = Dependencies(testExternalS3Client(copyRef, keyToMetadata, potentialErrors), testDR2S3Client(metadataRef, potentialErrors), testSqsClient(messageRef, potentialErrors))
+      dependencies = Dependencies(
+        testExternalS3Client(copyRef, keyToMetadata, potentialErrors),
+        testDR2S3Client(metadataRef, potentialErrors),
+        testSqsClient(messageRef, potentialErrors)
+      )
       handlerResponse <- new Lambda().handler(sqsEvent, config, dependencies).attempt
       metadataMap <- metadataRef.get
       copy <- copyRef.get
