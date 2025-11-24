@@ -49,10 +49,6 @@ object TestUtils {
     IO.raiseWhen(isError)(new Exception(message))
 
   def testDR2S3Client(ref: Ref[IO, Map[String, String]], potentialErrors: Option[Errors]): TestS3Client = new TestS3Client:
-    override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = {
-      error(potentialErrors.exists(_.download), "Download failed") >>
-        ref.get.map(metadata => Flux.just(ByteBuffer.wrap(metadata(key).getBytes)))
-    }
 
     override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] =
       for
@@ -62,11 +58,16 @@ object TestUtils {
         _ <- ref.update(currentMap => currentMap + (key -> json.asJson.noSpaces))
       yield CompletedUpload.builder.response(PutObjectResponse.builder.build).build
 
-  def testExternalS3Client(ref: Ref[IO, List[TestCopy]], potentialErrors: Option[Errors]): TestS3Client = new TestS3Client:
+  def testExternalS3Client(ref: Ref[IO, List[TestCopy]], metadata: Map[String, String], potentialErrors: Option[Errors]): TestS3Client = new TestS3Client:
     override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] =
       error(potentialErrors.exists(_.copy), "Copy failed") >> ref
         .update(current => TestCopy(sourceBucket, sourceKey, destinationBucket, destinationKey) :: current)
         .map(_ => CompletedCopy.builder.response(CopyObjectResponse.builder.build).build)
+
+    override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = {
+      error(potentialErrors.exists(_.download), "Download failed") >>
+        IO.pure(Flux.just(ByteBuffer.wrap(metadata(key).getBytes)))
+    }
 
   def testSqsClient(ref: Ref[IO, List[Message]], potentialErrors: Option[Errors]): DASQSClient[IO] = new DASQSClient[IO] {
     override def sendMessage[T <: Product](queueUrl: String)(message: T, potentialFifoConfiguration: Option[DASQSClient.FifoQueueConfiguration], delaySeconds: Int)(using
@@ -90,11 +91,12 @@ object TestUtils {
     sqsMessage.setBody(s"""{"metadataLocation":"s3://bucket/$s3Key"}""")
     sqsEvent.setRecords(List(sqsMessage).asJava)
     val config = Config("outputBucketName", "outputQueueUrl", "roleToAssume", "filesBucket")
+    val keyToMetadata = Map(s3Key.toString -> metadata)
     for
-      metadataRef <- Ref.of[IO, Map[String, String]](Map(s3Key.toString -> metadata))
+      metadataRef <- Ref.of[IO, Map[String, String]](keyToMetadata)
       copyRef <- Ref.of[IO, List[TestCopy]](Nil)
       messageRef <- Ref.of[IO, List[Message]](Nil)
-      dependencies = Dependencies(testExternalS3Client(copyRef, potentialErrors), testDR2S3Client(metadataRef, potentialErrors), testSqsClient(messageRef, potentialErrors))
+      dependencies = Dependencies(testExternalS3Client(copyRef, keyToMetadata, potentialErrors), testDR2S3Client(metadataRef, potentialErrors), testSqsClient(messageRef, potentialErrors))
       handlerResponse <- new Lambda().handler(sqsEvent, config, dependencies).attempt
       metadataMap <- metadataRef.get
       copy <- copyRef.get

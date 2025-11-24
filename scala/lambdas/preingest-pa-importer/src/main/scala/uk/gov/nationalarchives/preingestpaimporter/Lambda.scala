@@ -41,7 +41,7 @@ class Lambda extends LambdaRunner[SQSEvent, List[Unit], Config, Dependencies]:
     event.getRecords.asScala.toList.traverse { record =>
       for
         body <- IO.fromEither(decode[Body](record.getBody))
-        download <- dependencies.dr2S3Client
+        download <- dependencies.externalS3Client
           .download(body.metadataLocation.getHost, body.metadataLocation.getPath.drop(1))
         metadataString <- download.publisherToStream
           .flatMap(b => Stream.chunk(Chunk.byteBuffer(b)))
@@ -116,11 +116,10 @@ object Lambda:
     for location <- c.downField("metadataLocation").as[String]
     yield Body(URI.create(location))
 
-  given Encoder[Message] = (message: Message) => {
+  given Encoder[Message] = (message: Message) =>
     Json.fromJsonObject(
       JsonObject("id" -> Json.fromString(message.id.toString), "location" -> Json.fromString(message.location))
     )
-  }
 
   given Encoder[Data] = (data: Data) => {
     Json.fromJsonObject(
