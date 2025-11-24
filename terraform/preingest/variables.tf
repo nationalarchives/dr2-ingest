@@ -22,6 +22,36 @@ variable "bucket_kms_arn" {
 
 variable "copy_source_bucket_name" {}
 
-variable "private_security_group_ids" {}
+variable "additional_importer_lambda_policies" {
+  default = {}
+}
 
-variable "private_subnet_ids" {}
+variable "additional_importer_lambda_env_vars" {
+  default = {}
+}
+
+variable "private_security_group_ids" {
+  default = []
+}
+
+variable "private_subnet_ids" {
+  default = []
+}
+
+variable "importer_lambda" {
+  type = object({
+    timeout            = number
+    visibility_timeout = number
+    handler            = string
+    runtime            = string
+    memory_size        = number
+  })
+  default = {
+    timeout            = 180
+    visibility_timeout = 300
+    handler            = "lambda_function.lambda_handler"
+    runtime            = "python3.12"
+    memory_size        = 128
+
+  }
+}
