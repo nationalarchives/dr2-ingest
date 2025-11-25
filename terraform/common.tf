@@ -77,6 +77,7 @@ locals {
   cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
   outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
   tdr_export_bucket           = "tdr-export-${local.environment}"
+  parliament_ingest_role      = module.config.terraform_config[local.environment]["parliament_ingest_role"]
 }
 
 data "aws_iam_role" "org_wiz_access_role" {
@@ -263,8 +264,12 @@ module "dr2_kms_key" {
       module.dri_preingest.aggregator_lambda.role,
       module.dri_preingest.package_builder_lambda.role,
       module.dri_preingest.importer_lambda.role,
+      module.pa_preingest.aggregator_lambda.role,
+      module.pa_preingest.package_builder_lambda.role,
+      module.pa_preingest.importer_lambda.role,
       local.tna_to_preservica_role_arn,
       local.tre_prod_judgment_role,
+      local.parliament_ingest_role,
     ], local.additional_user_roles, local.anonymiser_roles, local.e2e_test_roles)
     ci_roles = [local.terraform_role_arn]
     service_details = [
@@ -303,7 +308,7 @@ module "ingest_raw_cache_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_raw_cache_bucket_name
   bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.dr2_ingest_parsed_court_document_event_handler_lambda.lambda_role_arn]),
+    lambda_role_arns = jsonencode([local.parliament_ingest_role]),
     bucket_name      = local.ingest_raw_cache_bucket_name
   })
   kms_key_arn = module.dr2_kms_key.kms_key_arn
