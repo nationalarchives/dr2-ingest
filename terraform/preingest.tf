@@ -1,3 +1,6 @@
+locals {
+  pa_source_bucket = "pa-migration-files-bucket"
+}
 module "tdr_preingest" {
   source                              = "./preingest"
   environment                         = local.environment
@@ -39,7 +42,7 @@ module "pa_preingest" {
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
   source_name                         = "pa"
-  copy_source_bucket_name             = module.config.terraform_config["parliament_bucket"]
+  copy_source_bucket_name             = local.pa_source_bucket
   additional_importer_lambda_policies = {
     "${local.environment}-dr2-preingest-pa-importer-assume-role" = templatefile("${path.module}/templates/iam_policy/preingest_pa_importer_additional_permissions.json.tpl", {
       pa_migration_role = local.parliament_ingest_role
@@ -47,7 +50,7 @@ module "pa_preingest" {
   }
   additional_importer_lambda_env_vars = {
     ROLE_TO_ASSUME = local.parliament_ingest_role
-    FILES_BUCKET   = module.config.terraform_config["parliament_bucket"]
+    FILES_BUCKET   = local.pa_source_bucket
   }
   importer_lambda = {
     visibility_timeout = 900
