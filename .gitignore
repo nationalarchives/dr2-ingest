@@ -39,3 +39,5 @@ build/
 .gradle/
 .kotlin/
 kotlin/e2e-tests/gradle/wrapper/
+
+scala/lambdas/preingest-pa-importer/src/main/resources/metadata-schema.json

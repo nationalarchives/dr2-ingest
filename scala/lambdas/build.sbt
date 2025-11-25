@@ -1,6 +1,8 @@
 import Dependencies.*
 import uk.gov.nationalarchives.sbt.Log4j2MergePlugin.log4j2MergeStrategy
 
+import java.nio.file.{Files, StandardCopyOption}
+
 ThisBuild / organization := "uk.gov.nationalarchives"
 name := "lambdas"
 
@@ -22,6 +24,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestUpsertArchiveFolders,
     ingestValidateGenericIngestInputs,
     ingestWorkflowMonitor,
+    preingestPaImporter,
     postIngestStateChangeHandler,
     postingestMessageResender,
     preingestTdrAggregator,
@@ -66,6 +69,29 @@ lazy val commonSettings = Seq(
     "AWS_LAMBDA_FUNCTION_NAME" -> "test"
   )
 )
+
+lazy val copySchema = taskKey[Unit]("Copies the PA json schema file to the resources directory")
+
+lazy val preingestPaImporter = (project in file("preingest-pa-importer"))
+  .settings(name := baseDirectory.value.getName)
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(
+    copySchema := {
+      val schemaLocation = baseDirectory.value / "../../../" / "common" / "preingest-pa" / "metadata-schema.json"
+      Files.copy(schemaLocation.toPath,  (Compile / resourceDirectory).value.toPath.resolve("metadata-schema.json"), StandardCopyOption.REPLACE_EXISTING)
+    },
+    libraryDependencies ++= Seq(
+      fs2Core,
+      fs2Reactive,
+      jsonSchemaValidator,
+      s3Client,
+      sqsClient,
+      reactorTest % Test,
+    ),
+    Compile / compile := (Compile / compile).dependsOn(copySchema).value,
+    Test / compile := (Test / compile).dependsOn(copySchema).value
+  )
 
 lazy val ingestMapper = (project in file("ingest-mapper"))
   .settings(name := baseDirectory.value.getName)
