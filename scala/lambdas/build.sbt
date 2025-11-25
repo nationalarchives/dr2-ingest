@@ -87,7 +87,8 @@ lazy val preingestPaImporter = (project in file("preingest-pa-importer"))
       sqsClient,
       reactorTest % Test,
     ),
-    Compile / compile := (Compile / compile).dependsOn(copySchema).value
+    Compile / compile := (Compile / compile).dependsOn(copySchema).value,
+    Test / compile := (Test / compile).dependsOn(copySchema).value
   )
 
 lazy val ingestMapper = (project in file("ingest-mapper"))
