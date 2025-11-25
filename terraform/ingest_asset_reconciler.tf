@@ -27,7 +27,7 @@ module "dr2_ingest_asset_reconciler_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = local.outbound_security_group_ids
+    security_group_ids = flatten([local.outbound_security_group_ids, [module.outbound_https_access_for_dynamo_db.security_group_id]])
   }
   tags = {
     Name = local.ingest_asset_reconciler_lambda_name

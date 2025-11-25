@@ -39,6 +39,10 @@ module "dr2_get_latest_preservica_version_lambda" {
     OUTPUT_TOPIC_ARN       = local.latest_preservica_version_event_topic_arn
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.demo_preservica_secret.name
   }
+  vpc_config = {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
+  }
 }
 
 module "get_latest_preservica_version_lambda_dr2_preservica_version_table" {

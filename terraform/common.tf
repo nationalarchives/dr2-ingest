@@ -171,6 +171,10 @@ data "aws_ec2_managed_prefix_list" "s3_prefix_list" {
   name = "com.amazonaws.eu-west-2.s3"
 }
 
+data "aws_ec2_managed_prefix_list" "dynamo_db_prefix_list" {
+  name = "com.amazonaws.eu-west-2.dynamodb"
+}
+
 module "outbound_https_access_for_s3" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
   common_tags = {}
@@ -183,6 +187,24 @@ module "outbound_https_access_for_s3" {
         port           = 443
         description    = "Outbound https for S3 access"
         prefix_list_id = data.aws_ec2_managed_prefix_list.s3_prefix_list.id
+        protocol       = "tcp"
+      }
+    ]
+  }
+}
+
+module "outbound_https_access_for_dynamo_db" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A  security group to allow outbound HTTPS only to DynamoDB"
+  name        = "${local.environment}-outbound-https-to-dynamodb"
+  vpc_id      = module.vpc.vpc_id
+  rules = {
+    egress = [
+      {
+        port           = 443
+        description    = "Outbound https for DynamoDB access"
+        prefix_list_id = data.aws_ec2_managed_prefix_list.dynamo_db_prefix_list.id
         protocol       = "tcp"
       }
     ]
