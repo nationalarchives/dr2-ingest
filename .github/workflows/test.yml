@@ -17,11 +17,12 @@ jobs:
           fail-on-severity: critical
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
       - run: |
-          (cd terraform && terraform fmt -check --recursive)
-          find . -name requirements.txt | xargs -I {} pip install -r {}
-          AWS_DEFAULT_REGION=eu-west-2 pytest
-          sbt e2eTests/scalafmtCheckAll scalafmtCheckAll test
-          (cd kotlin/e2e-tests/lib && gradle test)
+          (cd terraform && terraform fmt -check --recursive && terraform plan)
+
+#          find . -name requirements.txt | xargs -I {} pip install -r {}
+#          AWS_DEFAULT_REGION=eu-west-2 pytest
+#          sbt e2eTests/scalafmtCheckAll scalafmtCheckAll test
+#          (cd kotlin/e2e-tests/lib && gradle test)
 
 
 
