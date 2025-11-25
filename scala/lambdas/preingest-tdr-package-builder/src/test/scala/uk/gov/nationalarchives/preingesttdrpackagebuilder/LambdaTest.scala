@@ -14,11 +14,13 @@ import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.TestUtils.{*, given}
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.TDR
+import uk.gov.nationalarchives.utils.NaturalSorting.{natural, given}
 
 import java.net.URI
 import java.time.{Instant, LocalDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+import scala.annotation.tailrec
 
 class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   val config: Config = Config("", "", "cacheBucket", 1, TDR)
@@ -178,7 +180,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val expectedTitle =
       if allTestData.length > 1 then
         allTestData.head.description match
-          case Some(description) => description.split(" ").slice(0, 14).mkString(" ") + "..."
+          case Some(description) => truncate(description)
           case None              => "Untitled"
       else testData.fileName.fileString
 
@@ -209,7 +211,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     testData.tdrRef.map(tdrRef => checkIdField("ConsignmentReference", tdrRef))
     checkIdField("RecordID", tdrFileId.toString)
 
-    allTestData.zipWithIndex.foreach { (testData, idx) =>
+    allTestData.sortBy(p => natural(p.fileName.fileString)).zipWithIndex.foreach { (testData, idx) =>
       val potentialFileObject = fileObjects.find(_.id == testData.fileId)
       potentialFileObject.isDefined should equal(true)
       val fileObject = potentialFileObject.get
@@ -370,4 +372,13 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       output <- new Lambda().handler(input, config, dependencies)
       s3Objects <- initialS3Objects.get
     } yield (s3Objects, output)).unsafeRunSync()
+  }
+
+  private def truncate(s: String) = {
+    @tailrec
+    def truncateArray(arr: Array[String]): Array[String] =
+      if arr.isEmpty || arr.dropRight(1).mkString(" ").length < 100 then arr
+      else truncateArray(arr.dropRight(1))
+
+    if s.length < 100 then s else s"${truncateArray(s.split(" ")).mkString(" ")}..."
   }
