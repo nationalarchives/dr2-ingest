@@ -30,6 +30,6 @@ module "dr2_ingest_flow_control_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_only.security_group_id]
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   }
 }
