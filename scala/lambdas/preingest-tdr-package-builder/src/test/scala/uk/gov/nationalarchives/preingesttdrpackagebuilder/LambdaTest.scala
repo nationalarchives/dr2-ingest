@@ -49,7 +49,9 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       sortOrder: Option[Int],
       digitalAssetSource: Option[String],
       formerRefDept: Option[String],
-      formerRefTNA: Option[String]
+      formerRefTNA: Option[String],
+      iaid: Option[String],
+      upstreamSystem: SourceSystem
   )
   val dateGen: Gen[String] = for {
     year <- Gen.posNum[Int]
@@ -106,6 +108,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     digitalAssetSource <- Gen.option(Gen.oneOf("Born Digital", "Surrogate"))
     formerRefDept <- Gen.option(formerRefDeptGen)
     formerRefTNA <- Gen.option(formerRefTNAGen)
+    iaid <- Gen.option(Gen.nonEmptyStringOf(Gen.asciiChar))
+    upstreamSystem <- Gen.oneOf(SourceSystem.values.toList)
   } yield TestData(
     fileId,
     series,
@@ -124,7 +128,9 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     potentialSortOrder,
     digitalAssetSource,
     formerRefDept,
-    formerRefTNA
+    formerRefTNA,
+    iaid,
+    upstreamSystem
   )
 
   val testListDataGen: Gen[List[TestData]] = Gen.nonEmptyListOf(testDataGen)
@@ -161,7 +167,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       testData.sortOrder,
       testData.digitalAssetSource,
       testData.formerRefDept,
-      testData.formerRefTNA
+      testData.formerRefTNA,
+      testData.iaid
     )
 
     val testData = allTestData.head
@@ -184,7 +191,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       IngestLockTableItem(UUID.randomUUID(), testData.groupId, lockTableMessageAsString, dateTimeNow.toString)
     }
     val input = Input(testData.groupId, testData.batchId, 1, 2)
-    val (s3Contents, output) = runHandler(uuidIterator, initialS3Objects, initialDynamoObjects, input)
+    val (s3Contents, output) = runHandler(uuidIterator, initialS3Objects, initialDynamoObjects, input, config = config.copy(sourceSystem = testData.upstreamSystem))
 
     def stripFileExtension(title: String) = if title.contains(".") then title.substring(0, title.lastIndexOf('.')) else title
 
@@ -195,7 +202,10 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val (metadataFileMetadataObject, fileObjects) = fileMetadataObjects.partition(_.name.endsWith("-metadata.json")) match {
       case (a, b) => (a.head, b)
     }
-    val expectedContentFolderName = testData.tdrRef.getOrElse(testData.driBatchRef.get)
+    val expectedContentFolderName = testData.upstreamSystem match {
+      case SourceSystem.ADHOC | SourceSystem.PA => "Records"
+      case _                                    => testData.tdrRef.getOrElse(testData.driBatchRef.get)
+    }
     val expectedTitle =
       if allTestData.length > 1 then
         allTestData.head.description match
@@ -216,7 +226,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     assetMetadataObject.description should equal(testData.description)
     assetMetadataObject.transferringBody should equal(testData.body)
     checkDateTimeOptionFieldEquals(testData.date, assetMetadataObject.transferCompleteDatetime)
-    assetMetadataObject.upstreamSystem should equal(TDR)
+    assetMetadataObject.upstreamSystem should equal(testData.upstreamSystem)
     assetMetadataObject.digitalAssetSource should equal(testData.digitalAssetSource.getOrElse("Born Digital"))
     assetMetadataObject.digitalAssetSubtype should equal(None)
     assetMetadataObject.correlationId should equal(potentialLockTableMessageId)
@@ -231,14 +241,19 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       }
     }
 
-    def checkIdField(name: String, value: String) =
+    def checkIdField(name: String, value: String): Unit =
       assetMetadataObject.idFields.find(_.name == name).map(_.value).get should equal(value)
 
-    checkIdField("Code", s"${testData.series}/${testData.fileRef}")
-    checkIdField("UpstreamSystemReference", testData.fileRef)
-    checkIdField("BornDigitalRef", testData.fileRef)
-    testData.tdrRef.map(tdrRef => checkIdField("ConsignmentReference", tdrRef))
+    checkIdField("Code", if testData.upstreamSystem == SourceSystem.PA then testData.fileRef else s"${testData.series}/${testData.fileRef}")
+    if List(SourceSystem.DRI, SourceSystem.ADHOC).contains(testData.upstreamSystem)
+    then checkIdField("UpstreamSystemReference", s"${testData.series}/${testData.fileRef}")
+    else if testData.upstreamSystem == SourceSystem.TDR then checkIdField("UpstreamSystemReference", testData.fileRef)
+
+    if testData.upstreamSystem == SourceSystem.TDR then checkIdField("BornDigitalRef", testData.fileRef)
+    testData.tdrRef.foreach(tdrRef => checkIdField("ConsignmentReference", tdrRef))
     checkIdField("RecordID", tdrFileId.toString)
+
+    if List(SourceSystem.ADHOC, SourceSystem.PA).contains(testData.upstreamSystem) && testData.iaid.isDefined then checkIdField("discoveryIAID", testData.iaid.get)
 
     allTestData.sortBy(p => natural(p.fileName.fileString)).zipWithIndex.foreach { (testData, idx) =>
       val potentialFileObject = fileObjects.find(_.id == testData.fileId)
@@ -292,6 +307,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       checksum("checksum"),
       "reference",
       "/path/to/file.txt",
+      None,
       None,
       None,
       None,
@@ -357,7 +373,27 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
     val packageMetadata =
-      List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), Option("ABC-123"), "test.txt", checksum(""), "", "", None, None, None, None, None))
+      List(
+        PackageMetadata(
+          "",
+          assetId,
+          fileId,
+          None,
+          Option(""),
+          Option("2024-10-04 10:00:00"),
+          Option("ABC-123"),
+          "test.txt",
+          checksum(""),
+          "",
+          "",
+          None,
+          None,
+          None,
+          None,
+          None,
+          None
+        )
+      )
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
     val ex = intercept[Throwable] {
       runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)
@@ -372,7 +408,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
     val packageMetadata =
-      List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None, None, None, None, None))
+      List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None, None, None, None, None, None))
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
     val adhocConfig: Config = Config("", "", "cacheBucket", 1, ADHOC)
     val (s3Contents, output) = runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, config = adhocConfig)
@@ -405,7 +441,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
         None,
         None,
         Some("TS245.ABCD.25-1"),
-        Some("AB 8/4/6")
+        Some("AB 8/4/6"),
+        None
       )
     )
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
@@ -427,7 +464,27 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
     val packageMetadata =
-      List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None, None, None, None, Some("AB 8/4/6")))
+      List(
+        PackageMetadata(
+          "",
+          assetId,
+          fileId,
+          None,
+          Option(""),
+          Option("2024-10-04 10:00:00"),
+          None,
+          "test.txt",
+          checksum(""),
+          "",
+          "",
+          None,
+          None,
+          None,
+          None,
+          Some("AB 8/4/6"),
+          None
+        )
+      )
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
     val adhocConfig: Config = Config("", "", "cacheBucket", 1, ADHOC)
     val (s3Contents, output) = runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, config = adhocConfig)

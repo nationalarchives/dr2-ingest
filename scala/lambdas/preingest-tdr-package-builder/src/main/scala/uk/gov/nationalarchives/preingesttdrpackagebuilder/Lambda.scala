@@ -41,6 +41,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   private val formerRefTnaIdKey = "FormerRefTNA"
   private val formerRefDeptIdKey = "FormerRefDept"
   private val upstreamSystemRefIdKey = "UpstreamSystemReference"
+  private val discoveryIaidKey = "discoveryIAID"
 
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
@@ -206,10 +207,13 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         case SourceSystem.DRI =>
           List(IdField(upstreamSystemRefIdKey, s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
             packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
+        case SourceSystem.PA =>
+          packageMetadata.IAID.map(iaid => IdField(discoveryIaidKey, iaid)).toList
         case SourceSystem.ADHOC =>
           List(IdField(upstreamSystemRefIdKey, s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
             packageMetadata.formerRefDept.map(frd => List(IdField(formerRefDeptIdKey, frd))).getOrElse(Nil) ++
-            packageMetadata.formerRefTNA.map(frt => List(IdField(formerRefTnaIdKey, frt))).getOrElse(Nil)
+            packageMetadata.formerRefTNA.map(frt => List(IdField(formerRefTnaIdKey, frt))).getOrElse(Nil) ++
+            packageMetadata.IAID.map(iaid => IdField(discoveryIaidKey, iaid)).toList
         case _ => Nil
       }
       val digitalAssetSource = packageMetadata.digitalAssetSource.getOrElse("Born Digital")
@@ -286,6 +290,7 @@ object Lambda:
       digitalAssetSource <- c.downField("digitalAssetSource").as[Option[String]]
       formerRefDept <- c.downField("formerRefDept").as[Option[String]]
       formerRefTNA <- c.downField("formerRefTNA").as[Option[String]]
+      iaid <- c.downField("IAID").as[Option[String]]
     yield PackageMetadata(
       series,
       uuid,
@@ -302,7 +307,8 @@ object Lambda:
       sortOrder,
       digitalAssetSource,
       formerRefDept,
-      formerRefTNA
+      formerRefTNA,
+      iaid
     )
 
   case class PackageMetadata(
@@ -321,7 +327,8 @@ object Lambda:
       sortOrder: Option[Int],
       digitalAssetSource: Option[String],
       formerRefDept: Option[String],
-      formerRefTNA: Option[String]
+      formerRefTNA: Option[String],
+      IAID: Option[String]
   )
 
   type LockTableMessage = NotificationMessage

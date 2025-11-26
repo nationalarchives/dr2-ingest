@@ -30,7 +30,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
         "digitalAssetSource",
         "clientSideOriginalFilepath",
         "consignmentReference",
-        "checksum"
+        "checksum",
+        "iaid"
       )
     )
 
@@ -49,6 +50,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     uploadedMetadata.clientSideOriginalFilepath should equal("clientSideOriginalFilepath")
     uploadedMetadata.consignmentReference should equal("consignmentReference")
     uploadedMetadata.checksum should equal("checksum")
+    uploadedMetadata.iaid should equal("iaid")
 
     val copyResponse = output.copy.head
     copyResponse.sourceBucket should equal("filesBucket")
@@ -80,7 +82,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
         "digitalAssetSource",
         "clientSideOriginalFilepath",
         "consignmentReference",
-        "checksum"
+        "checksum",
+        "iaid"
       )
     )
 
