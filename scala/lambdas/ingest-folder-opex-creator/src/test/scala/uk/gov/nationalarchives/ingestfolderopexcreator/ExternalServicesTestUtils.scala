@@ -120,7 +120,7 @@ object ExternalServicesTestUtils:
     None,
     None,
     Option("Body"),
-    OffsetDateTime.parse("2023-06-01T00:00Z"),
+    Option(OffsetDateTime.parse("2023-06-01T00:00Z")),
     "upstreamSystem",
     "digitalAssetSource",
     None,
