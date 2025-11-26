@@ -33,7 +33,7 @@ object TestUtils:
     val metadataObjectFields = List(
       ("Series", Json.fromString(m.series)).some,
       ("UUID", Json.fromString(m.UUID.toString)).some,
-      ("fileId", Json.fromString(m.fileId.toString)).some,
+      m.fileId.map(_.toString).map(f => ("fileId", Json.fromString(f))),
       m.description.map(d => ("description", Json.fromString(d))),
       m.transferringBody.map(t => ("TransferringBody", Json.fromString(t))),
       ("TransferInitiatedDatetime", Json.fromString(m.transferInitiatedDatetime)).some,

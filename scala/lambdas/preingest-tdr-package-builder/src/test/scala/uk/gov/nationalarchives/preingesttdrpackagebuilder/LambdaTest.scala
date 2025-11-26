@@ -32,7 +32,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   private def checksum(fingerprint: String) = List(Checksum("sha256", fingerprint))
 
   case class TestData(
-      fileId: UUID,
+      fileId: Option[UUID],
       series: String,
       body: Option[String],
       date: String,
@@ -78,7 +78,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   val testDataGen: Gen[TestData] = for {
     series <- Gen.asciiStr
     body <- Gen.option(Gen.asciiStr)
-    fileId <- Gen.uuid
+    fileId <- Gen.option(Gen.uuid)
     date <- dateGen
     fileName <- fileNameGen
     fileSize <- Gen.posNum[Long]
@@ -158,13 +158,16 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       .unsafeRunSync()
 
     val potentialLockTableMessageId = Some("messageId")
-    val initialS3Objects = allTestData.map(testData => s"$tdrFileId/${testData.fileId}" -> MockTdrFile(testData.fileSize)).toMap ++ Map(s"$tdrFileId.metadata" -> packageMetadata)
+    val initialS3Objects = allTestData.zipWithIndex.map {
+      case (testData, idx) => s"$tdrFileId/${testData.fileId.getOrElse(uuidList(idx))}" -> MockTdrFile(testData.fileSize)
+    }.toMap ++ Map(s"$tdrFileId.metadata" -> packageMetadata)
 
     val initialDynamoObjects = allTestData.map { testData =>
       val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$tdrFileId.metadata"), potentialLockTableMessageId).asJson.noSpaces
       IngestLockTableItem(UUID.randomUUID(), testData.groupId, lockTableMessageAsString, dateTimeNow.toString)
     }
     val input = Input(testData.groupId, testData.batchId, 1, 2)
+    val handlerConfig = if testData.fileId.isEmpty then config else config.copy(sourceSystem = SourceSystem.DRI)
     val (s3Contents, output) = runHandler(uuidIterator, initialS3Objects, initialDynamoObjects, input)
 
     def stripFileExtension(title: String) = if title.contains(".") then title.substring(0, title.lastIndexOf('.')) else title
@@ -212,7 +215,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     checkIdField("RecordID", tdrFileId.toString)
 
     allTestData.sortBy(p => natural(p.fileName.fileString)).zipWithIndex.foreach { (testData, idx) =>
-      val potentialFileObject = fileObjects.find(_.id == testData.fileId)
+      val potentialFileObject = fileObjects.find(fo => fo.id == testData.fileId || uuidList.contains(fo.id))
       potentialFileObject.isDefined should equal(true)
       val fileObject = potentialFileObject.get
       fileObject.parentId should equal(Option(tdrFileId))
@@ -254,7 +257,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     def packageMetadata(consignmentReference: String, fileId: UUID) = PackageMetadata(
       "TST 123",
       tdrAssetId,
-      fileId,
+      Option(fileId),
       None,
       Option("body"),
       "2024-10-18 00:00:01",
@@ -325,7 +328,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
-    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), "2024-10-04 10:00:00", Option("ABC-123"), "test.txt", checksum(""), "", "", None, None, None))
+    val packageMetadata = List(PackageMetadata("", assetId, Option(fileId), None, Option(""), "2024-10-04 10:00:00", Option("ABC-123"), "test.txt", checksum(""), "", "", None, None, None))
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
     val ex = intercept[Throwable] {
       runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)
@@ -339,7 +342,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
     val initialDynamoObjects = List(IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessageAsString, dateTimeNow.toString))
 
-    val packageMetadata = List(PackageMetadata("", assetId, fileId, None, Option(""), "2024-10-04 10:00:00", None, "test.txt", checksum(""), "", "", None, None, None))
+    val packageMetadata = List(PackageMetadata("", assetId, Option(fileId), None, Option(""), "2024-10-04 10:00:00", None, "test.txt", checksum(""), "", "", None, None, None))
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
     val ex = intercept[Throwable] {
       runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, uploadError = true)
@@ -363,13 +366,14 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       input: Input = Input("TST-123", "", 1, 1),
       downloadError: Boolean = false,
       uploadError: Boolean = false,
-      queryError: Boolean = false
+      queryError: Boolean = false,
+      handlerConfig: Config = config                  
   ): (Map[String, S3Objects], Output) = {
     (for {
       initialS3Objects <- Ref.of[IO, Map[String, S3Objects]](initialS3Objects)
       initialDynamoObjects <- Ref.of[IO, List[IngestLockTableItem]](initialDynamoObjects)
       dependencies = Dependencies(mockDynamoClient(initialDynamoObjects, queryError), mockS3(initialS3Objects, downloadError, uploadError), uuidIterator)
-      output <- new Lambda().handler(input, config, dependencies)
+      output <- new Lambda().handler(input, handlerConfig, dependencies)
       s3Objects <- initialS3Objects.get
     } yield (s3Objects, output)).unsafeRunSync()
   }

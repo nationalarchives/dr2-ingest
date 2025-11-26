@@ -23,7 +23,7 @@ import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.utils.ExternalUtils.RepresentationType.Preservation
 import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.PA
-import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.utils.{ExternalUtils, LambdaRunner}
 import uk.gov.nationalarchives.utils.NaturalSorting.{natural, given}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
@@ -61,20 +61,29 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                 )
             }
             metadataObjects <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
-              val fileMetadataObjs: List[FileMetadataObject] = packageMetadataList.sortBy(p => natural(p.filename)).zipWithIndex.map { (packageMetadata, idx) =>
-                val s3File = s3FilesMap(packageMetadata.fileId)
-                FileMetadataObject(
-                  packageMetadata.fileId,
-                  Option(assetMetadata.id),
-                  packageMetadata.filename,
-                  packageMetadata.sortOrder.getOrElse(idx + 1),
-                  packageMetadata.filename,
-                  s3File.size(),
-                  Preservation,
-                  1,
-                  URI.create(s"s3://${fileLocation.getHost}/${s3File.key()}"),
-                  packageMetadata.checksums
-                )
+              val fileMetadataObjs: List[FileMetadataObject] = packageMetadataList.sortBy(p => natural(p.filename)).zipWithIndex.flatMap { (packageMetadata, idx) =>
+                (config.sourceSystem match {
+                  case ExternalUtils.SourceSystem.TDR => s3FilesMap.headOption
+                  case _ =>
+                    for
+                      fileId <- packageMetadata.fileId
+                      s3File <- s3FilesMap.get(fileId)
+                    yield fileId -> s3File
+                }).map { case (fileId, s3File) =>
+                  FileMetadataObject(
+                    fileId,
+                    Option(assetMetadata.id),
+                    packageMetadata.filename,
+                    packageMetadata.sortOrder.getOrElse(idx + 1),
+                    packageMetadata.filename,
+                    s3File.size(),
+                    Preservation,
+                    1,
+                    URI.create(s"s3://${fileLocation.getHost}/${s3File.key()}"),
+                    packageMetadata.checksums
+                  )
+                }
+
               }
 
               val potentialContentFolder = contentFolderMap.get(contentFolderKey)
@@ -264,7 +273,7 @@ object Lambda:
     for
       series <- c.downField("Series").as[String]
       uuid <- c.downField("UUID").as[UUID]
-      fileId <- c.downField("fileId").as[UUID]
+      fileId <- c.downField("fileId").as[Option[UUID]]
       description <- c.downField("description").as[Option[String]]
       transferringBody <- c.downField("TransferringBody").as[Option[String]]
       transferInitiatedDatetime <- c.downField("TransferInitiatedDatetime").as[String]
@@ -296,7 +305,7 @@ object Lambda:
   case class PackageMetadata(
       series: String,
       UUID: UUID,
-      fileId: UUID,
+      fileId: Option[UUID],
       description: Option[String],
       transferringBody: Option[String],
       transferInitiatedDatetime: String,
