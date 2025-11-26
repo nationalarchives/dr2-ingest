@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 @dataclass
 class CollectionInfo:
-    identifier: str
+    iaid: str
     title: str | None
     description: str | None
 

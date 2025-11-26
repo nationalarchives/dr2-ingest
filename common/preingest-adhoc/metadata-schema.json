@@ -11,7 +11,8 @@
         "formerRefDept": {"type": "string"},
         "formerRefTNA": {"type": "string"},
         "checksum_sha256": {"type": "string"},
-        "checksum_md5":  {"type": "string"}
+        "checksum_md5":  {"type": "string"},
+        "IAID": {"type":  "string"}
     },
     "required": [
         "Series",
