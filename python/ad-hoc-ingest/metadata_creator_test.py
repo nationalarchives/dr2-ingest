@@ -37,6 +37,7 @@ class Test(TestCase):
             self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
             self.assertEqual("TNA Ref", metadata["formerRefTNA"])
             self.assertEqual("Dept Ref", metadata["formerRefDept"])
+            self.assertEqual("some_id", metadata["IAID"])
 
     @patch("discovery_client.get_title_and_description")
     @patch("discovery_client.get_former_references")
@@ -59,6 +60,7 @@ class Test(TestCase):
             self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
             self.assertEqual("TNA Ref", metadata["formerRefTNA"])
             self.assertEqual("Dept Ref", metadata["formerRefDept"])
+            self.assertEqual("some_id", metadata["IAID"])
 
     @patch("discovery_client.get_title_and_description")
     @patch("discovery_client.get_former_references")

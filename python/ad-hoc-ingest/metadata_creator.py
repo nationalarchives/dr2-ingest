@@ -9,7 +9,8 @@ def create_intermediate_metadata_dict(row, args):
     catalog_ref = row["catRef"].strip()
     file_path = row["fileName"].strip()
     collection_info = discovery_client.get_title_and_description(catalog_ref)
-    former_references = discovery_client.get_former_references(collection_info.identifier)
+    discovery_iaid = collection_info.iaid
+    former_references = discovery_client.get_former_references(collection_info.iaid)
 
     if not collection_info.title and not collection_info.description:
         raise Exception(f"Title and Description both are empty for '{catalog_ref}', unable to proceed with this record")
@@ -24,6 +25,7 @@ def create_intermediate_metadata_dict(row, args):
         "Filename": get_filename_from_cross_platform_path(file_path),
         "FileReference": catalog_ref.removeprefix(f"{series}").strip().removeprefix("/").strip(),
         "ClientSideOriginalFilepath": file_path,
+        "IAID": discovery_iaid,
     }
     former_ref_dept = former_references.formerRefDept
     metadata["formerRefDept"] = "" if former_ref_dept is None else former_ref_dept
@@ -48,7 +50,8 @@ def create_metadata_for_upload(row):
         "description": row["description"],
         "Filename": row["Filename"],
         "FileReference": row["FileReference"],
-        "ClientSideOriginalFilepath": row["ClientSideOriginalFilepath"]
+        "ClientSideOriginalFilepath": row["ClientSideOriginalFilepath"],
+        "IAID": row["IAID"]
     }
     if row["formerRefDept"] != "":
         metadata["formerRefDept"] = row["formerRefDept"]

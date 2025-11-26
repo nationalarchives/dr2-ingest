@@ -25,7 +25,7 @@ class Test(TestCase):
         mock_request.return_value = mock_response
 
         collection_info = discovery_client.get_title_and_description("AB 1/2")
-        self.assertEqual("", collection_info.identifier)
+        self.assertEqual("", collection_info.iaid)
         self.assertEqual(None, collection_info.description)
         self.assertEqual(None, collection_info.title)
 

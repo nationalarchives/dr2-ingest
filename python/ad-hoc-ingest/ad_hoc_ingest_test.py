@@ -60,8 +60,8 @@ class Test(TestCase):
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_ref,,some_checksum""".strip()
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_ref,,some_checksum,some_iaid""".strip()
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -80,7 +80,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
             "ClientSideOriginalFilepath": tmp1,
             "formerRefDept": "dept_ref",
             "formerRefTNA": "tna_ref",
-            "checksum_sha256": "some_checksum"
+            "checksum_sha256": "some_checksum",
+            "IAID": "some_iaid"
         }
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId",  tmp1)
@@ -95,8 +96,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum,some_iaid"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -115,7 +116,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
             "ClientSideOriginalFilepath": "ad_hoc_ingest_test_file1.txt",
             "formerRefDept": "dept_ref",
             "formerRefTNA": "tna_ref",
-            "checksum_sha256": "some_checksum"
+            "checksum_sha256": "some_checksum",
+            "IAID": "some_iaid"
         }
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId",  tmp1)
@@ -132,8 +134,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum,some_iaid"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -152,7 +154,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
             "ClientSideOriginalFilepath": "folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt",
             "formerRefDept": "dept_ref",
             "formerRefTNA": "tna_ref",
-            "checksum_sha256": "some_checksum"
+            "checksum_sha256": "some_checksum",
+            "IAID": "some_iaid"
         }
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId", tmp1)
@@ -169,8 +172,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256
-JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,AB 1/2/3,,some_checksum"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
+JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,AB 1/2/3,,some_checksum,some_iaid"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -188,7 +191,8 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
             "FileReference": "3",
             "ClientSideOriginalFilepath": "ad_hoc_ingest_test_file1.txt",
             "formerRefTNA": "AB 1/2/3",
-            "checksum_sha256": "some_checksum"
+            "checksum_sha256": "some_checksum",
+            "IAID": "some_iaid"
         }
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId", tmp1)
