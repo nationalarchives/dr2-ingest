@@ -374,7 +374,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val packageMetadata =
       List(PackageMetadata("", assetId, fileId, None, Option(""), Option("2024-10-04 10:00:00"), None, "test.txt", checksum(""), "", "", None, None, None, None, None))
     val initialS3Objects = Map(s"$assetId.metadata" -> packageMetadata.asJson.noSpaces, s"$assetId/$fileId" -> MockTdrFile(1))
-    val (s3Contents, output) = runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects)
+    val adhocConfig: Config = Config("", "", "cacheBucket", 1, ADHOC)
+    val (s3Contents, output) = runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, config = adhocConfig)
     val metadataObjects: List[MetadataObject] = s3Contents(s"/metadata.json").asInstanceOf[List[MetadataObject]]
     val contentFolderMetadataObjects = metadataObjects.collect { case contentFolderMetadataObject: ContentFolderMetadataObject => contentFolderMetadataObject }
     contentFolderMetadataObjects.size should be(1)
