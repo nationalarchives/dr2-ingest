@@ -47,32 +47,34 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
 
 ## Running Terraform Project Locally
 
-**NOTE: Running Terraform locally should only be used to check the Terraform plan. Updating the DR2 environments should only ever be done through GitHub actions**
+**NOTE: Running Terraform locally should only be used to check the Terraform plan. Updating the DR2 environments should only ever be done through GitHub Actions**
 
 1. Clone DR2 Environments project to local machine: https://github.com/nationalarchives/dr2-terraform-environments and navigate to the directory
 
-2. Set the following Terraform environment variables on the local environment:
+2. (In the `dr2-terraform-environments` directory) clone DR2 Configurations: https://github.com/nationalarchives/da-terraform-configurations
+
+3. Set the following Terraform environment variables on the local environment:
 
     * TF_VAR_account_number=*[account number of the environment to update]*
 
-3. Initialise Terraform (if not done so previously):
+4. Initialise Terraform (if not done so previously):
 
    ```
    [location of project] $ terraform init
    ```
 
-4. To ensure the modules are up-to-date, run
+5. To ensure the modules are up-to-date, run
    ```
    [location of project] $ terraform get -update
    ```
-5. To ensure that the terraform configuration is up-to-date, run
+6. To ensure that the terraform configuration is up-to-date, run
    ```
    [location of project] $ cd da-terraform-configurations
    [location of project/da-terraform-configurations] $ git pull
    [location of project/da-terraform-configurations] $ cd ..
    ```
 
-6. Make your terraform changes
+7. Make your terraform changes
    1. Add/update a `.tf` file to the root of this project (might be best to copy an existing `.tf` file as a base)
       * If you are creating a Lambda, add its arn to the `deploy_lambda_policy` module in the `deploy_roles.tf` file at the root of this project
    2. Add/update an IAM policy, depending on the change you are making
@@ -84,12 +86,12 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
    4. If item created needs a KMS key, add it to the `dr2_kms_key` module in the `common.tf` file
    5. If this is a lambda which needs to be added to the ingest dashboard, add the lambda name to `local.dashboard_lambdas` in `common.tf`
 
-7. (Optional) To quickly validate the changes you made, run
+8. (Optional) To quickly validate the changes you made, run
    ```
    [location of project] $ terraform validate
    ```
 
-8. Run Terraform to view changes that will be made to the DR2 environment AWS resources
+9. Run Terraform to view changes that will be made to the DR2 environment AWS resources
     1. Make sure your credentials (for the environment that you are interested in) are valid/still valid first (the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN)
     2. If you have the AWS CLI installed:
         1. run `aws sso login --profile [account name where credentials are] && export AWS_PROFILE=[account name where credentials are]`
@@ -104,7 +106,7 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
       [location of project] $ terraform plan
       ```
 
-9. Run `terraform fmt --recursive` to properly format your Terraform changes before pushing to a branch.
+10. Run `terraform fmt --recursive` to properly format your Terraform changes before pushing to a branch.
 
 ### Troubleshooting:
 
