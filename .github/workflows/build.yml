@@ -5,7 +5,7 @@ on:
       - main
     paths-ignore:
       - "docs/**"
-      - "**/README.md"
+      - "**/*.md"
 permissions:
   id-token: write
   contents: write
