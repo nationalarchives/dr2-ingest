@@ -2,20 +2,13 @@ import Dependencies.*
 ThisBuild / scalaVersion := "3.7.3"
 
 lazy val root = (project in file("."))
-  .aggregate(e2eTestsSpec, ingestLambdasRoot)
+  .aggregate(ingestLambdasRoot)
   .settings(
     name := "ingest",
     scalaVersion := "3.7.3"
   )
 
 lazy val ingestLambdasRoot = project in file("./scala/lambdas")
-
-lazy val e2eTestsSpec = (project in file("./scala/e2e-tests/spec"))
-  .settings(testsSettings)
-  .dependsOn(e2eTests % "test->test")
-
-lazy val e2eTests = (project in file("./scala/e2e-tests/tests"))
-  .settings(testsSettings)
 
 lazy val testsSettings = Seq(
   publish / skip := true,

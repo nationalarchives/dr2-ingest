@@ -3,7 +3,9 @@ on:
   push:
     branches:
       - main
-    paths-ignore: ["docs/**"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
 permissions:
   id-token: write
   contents: write
