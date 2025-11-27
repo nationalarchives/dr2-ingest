@@ -75,7 +75,6 @@ The lambda doesn't return anything, it writes objects to S3 and starts a Step Fu
     "name": "https://example.com/id/court/2023/"
   },
   {
-    "originalFiles": ["c7e6b27f-5778-4da8-9b83-1b64bbccbd03"],
     "originalMetadataFiles": ["61ac0166-ccdf-48c4-800f-29e5fba2efda"],
     "description": "test",
     "id_ConsignmentReference": "test-identifier",

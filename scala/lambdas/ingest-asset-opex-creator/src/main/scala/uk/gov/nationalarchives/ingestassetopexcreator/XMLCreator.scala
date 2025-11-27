@@ -34,7 +34,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
       securityTag: SecurityTag
   ): IO[String] = {
     val transferCompleteDatetime = asset.transferCompleteDatetime
-    IO.raiseWhen(transferCompleteDatetime.isAfter(ingestDateTime))(new Exception("'ingestDateTime' is before 'transferCompleteDatetime'!")).map { _ =>
+    IO.raiseWhen(transferCompleteDatetime.exists(_.isAfter(ingestDateTime)))(new Exception("'ingestDateTime' is before 'transferCompleteDatetime'!")).map { _ =>
       val xml =
         <opex:OPEXMetadata xmlns:opex={opexNamespace}>
           <opex:Transfer>
@@ -88,17 +88,11 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
               <DigitalAssetSource>{asset.digitalAssetSource}</DigitalAssetSource>
               <DigitalAssetSubtype>{asset.potentialDigitalAssetSubtype.getOrElse("")}</DigitalAssetSubtype>
               <IngestDateTime>{ingestDateTime}</IngestDateTime>
-              {
-          if asset.originalFiles.nonEmpty then
-            <OriginalFiles>
-                  {asset.originalFiles.map(originalFile => <File>{originalFile}</File>)}
-                </OriginalFiles>
-          else ()
-        }
+              {}
               <OriginalMetadataFiles>
                 {asset.originalMetadataFiles.map(originalMetadataFile => <File>{originalMetadataFile}</File>)}
               </OriginalMetadataFiles>
-              <TransferDateTime>{transferCompleteDatetime}</TransferDateTime>
+              <TransferDateTime>{transferCompleteDatetime.getOrElse("")}</TransferDateTime>
               <TransferringBody>{asset.transferringBody.getOrElse("")}</TransferringBody>
               <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
               <UpstreamSystemRef>{identifiers.find(_.identifierName == "UpstreamSystemReference").map(_.value).getOrElse("")}</UpstreamSystemRef>

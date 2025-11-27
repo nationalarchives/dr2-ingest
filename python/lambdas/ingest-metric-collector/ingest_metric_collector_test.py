@@ -1,7 +1,9 @@
 import unittest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
+
 import ingest_metric_collector
+
 
 class TestLambdaFunction(unittest.TestCase):
 
@@ -40,8 +42,8 @@ class TestLambdaFunction(unittest.TestCase):
         mock_boto_client.return_value = mock_sfn
 
         metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2-")
-        # Should return one metric with 0 executions
-        self.assertEqual(4, len(metrics)) #1 for running executions and 3 for each source system
+
+        self.assertEqual(6, len(metrics))
         self.assertEqual(0, metrics[0]["Value"])
 
 
@@ -92,7 +94,7 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2")
 
-        self.assertEqual(6, len(metrics)) # expect 6 as we have 3 source systems with 2 entries for each
+        self.assertEqual(10, len(metrics))
         for m in metrics:
             self.assertEqual(0, m["Value"])
 
@@ -123,7 +125,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_boto_client.return_value = mock_dynamo
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2")
-        self.assertEqual(6, len(metrics))
+        self.assertEqual(10, len(metrics))
 
         # IngestsQueued should be 1
         queued_metric = [m for m in metrics if m["MetricName"] == "IngestsQueued"]
@@ -133,7 +135,11 @@ class TestLambdaFunction(unittest.TestCase):
                 self.assertEqual(1, m["Value"])
             elif ss == "COURTDOC":
                 self.assertEqual(0, m["Value"])
+            elif ss == "ADHOC":
+                self.assertEqual(0, m["Value"])
             elif ss == "DEFAULT":
+                self.assertEqual(0, m["Value"])
+            elif ss == "PA":
                 self.assertEqual(0, m["Value"])
             else:
                 self.fail(f"This should never happen: Unexpected source system {ss}")
@@ -146,7 +152,11 @@ class TestLambdaFunction(unittest.TestCase):
                 self.assertAlmostEqual(60, m["Value"], delta=2)
             elif ss == "COURTDOC":
                 self.assertEqual(0, m["Value"])
+            elif ss == "ADHOC":
+                self.assertEqual(0, m["Value"])
             elif ss == "DEFAULT":
+                self.assertEqual(0, m["Value"])
+            elif ss == "PA":
                 self.assertEqual(0, m["Value"])
             else:
                 self.fail(f"This should never happen: Unexpected source system {ss}")

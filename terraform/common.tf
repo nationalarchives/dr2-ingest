@@ -60,7 +60,10 @@ locals {
     module.tdr_preingest.importer_lambda.function_name,
     module.dri_preingest.aggregator_lambda.function_name,
     module.dri_preingest.package_builder_lambda.function_name,
-    module.dri_preingest.importer_lambda.function_name
+    module.dri_preingest.importer_lambda.function_name,
+    module.ad_hoc_preingest.aggregator_lambda.function_name,
+    module.ad_hoc_preingest.package_builder_lambda.function_name,
+    module.ad_hoc_preingest.importer_lambda.function_name
   ], local.environment == "intg" ? [local.court_document_anonymiser_lambda_name] : [])
   queues = [
     module.dr2_ingest_parsed_court_document_event_handler_sqs,
@@ -69,13 +72,16 @@ locals {
     module.dr2_custodial_copy_db_builder_queue,
     module.dr2_external_notifications_queue,
     module.tdr_preingest.importer_sqs,
-    module.dri_preingest.importer_sqs
+    module.dri_preingest.importer_sqs,
+    module.ad_hoc_preingest.importer_sqs
   ]
   retry_statement            = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 6, BackoffRate = 2, JitterStrategy = "FULL" }])
   messages_visible_threshold = 1000000
   # The list comes from https://www.cloudflare.com/en-gb/ips
   cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
   outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
+  tdr_export_bucket           = "tdr-export-${local.environment}"
+  parliament_ingest_role      = module.config.terraform_config[local.environment]["parliament_ingest_role"]
 }
 
 data "aws_iam_role" "org_wiz_access_role" {
@@ -149,6 +155,8 @@ module "vpc" {
   s3_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/s3_endpoint_policy.json.tpl", {
     account_id               = data.aws_caller_identity.current.account_id,
     preservica_ingest_bucket = local.preservica_ingest_bucket
+    tdr_export_bucket        = local.tdr_export_bucket
+    tre_export_bucket_arn    = local.tre_terraform_prod_config["s3_court_document_pack_out_arn"]
   })
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id
@@ -260,8 +268,15 @@ module "dr2_kms_key" {
       module.dri_preingest.aggregator_lambda.role,
       module.dri_preingest.package_builder_lambda.role,
       module.dri_preingest.importer_lambda.role,
+      module.ad_hoc_preingest.aggregator_lambda.role,
+      module.ad_hoc_preingest.package_builder_lambda.role,
+      module.ad_hoc_preingest.importer_lambda.role,
+      module.pa_preingest.aggregator_lambda.role,
+      module.pa_preingest.package_builder_lambda.role,
+      module.pa_preingest.importer_lambda.role,
       local.tna_to_preservica_role_arn,
       local.tre_prod_judgment_role,
+      local.parliament_ingest_role,
     ], local.additional_user_roles, local.anonymiser_roles, local.e2e_test_roles)
     ci_roles = [local.terraform_role_arn]
     service_details = [
@@ -300,7 +315,7 @@ module "ingest_raw_cache_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_raw_cache_bucket_name
   bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.dr2_ingest_parsed_court_document_event_handler_lambda.lambda_role_arn]),
+    lambda_role_arns = jsonencode([local.parliament_ingest_role]),
     bucket_name      = local.ingest_raw_cache_bucket_name
   })
   kms_key_arn = module.dr2_kms_key.kms_key_arn
@@ -398,6 +413,7 @@ module "dr2_ingest_step_function_policy" {
     tna_to_preservica_role_arn                        = local.tna_to_preservica_role_arn
     preingest_tdr_step_function_arn                   = module.tdr_preingest.preingest_sfn_arn
     preingest_dri_step_function_arn                   = module.dri_preingest.preingest_sfn_arn
+    preingest_adhoc_step_function_arn                 = module.ad_hoc_preingest.preingest_sfn_arn
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
     postingest_table_name                             = module.postingest.postingest_table_name
   })
@@ -536,6 +552,7 @@ module "failed_ingest_step_function_event_bridge_rule" {
       module.dr2_ingest_step_function.step_function_arn,
       module.tdr_preingest.preingest_sfn_arn,
       module.dri_preingest.preingest_sfn_arn,
+      module.ad_hoc_preingest.preingest_sfn_arn,
       module.dr2_ingest_run_workflow_step_function.step_function_arn
     ])
   })

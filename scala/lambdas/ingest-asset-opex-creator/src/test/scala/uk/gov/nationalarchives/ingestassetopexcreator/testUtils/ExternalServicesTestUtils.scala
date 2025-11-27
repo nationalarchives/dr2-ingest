@@ -124,11 +124,10 @@ object ExternalServicesTestUtils:
     None,
     None,
     Option("Body"),
-    OffsetDateTime.parse("2023-06-01T00:00Z"),
+    Option(OffsetDateTime.parse("2023-06-01T00:00Z")),
     "upstreamSystem",
     "digitalAssetSource",
     None,
-    List(UUID.fromString("0a0e6c1e-b188-4df4-9bd8-aa97db12e1ab")),
     Nil,
     true,
     true,
@@ -194,11 +193,8 @@ object ExternalServicesTestUtils:
             <DigitalAssetSource>{asset.digitalAssetSource}</DigitalAssetSource>
             <DigitalAssetSubtype/>
             <IngestDateTime>{ingestDateTime}</IngestDateTime>
-            <OriginalFiles>
-              <File>0a0e6c1e-b188-4df4-9bd8-aa97db12e1ab</File>
-            </OriginalFiles>
             <OriginalMetadataFiles></OriginalMetadataFiles>
-            <TransferDateTime>{asset.transferCompleteDatetime}</TransferDateTime>
+            <TransferDateTime>{asset.transferCompleteDatetime.getOrElse("")}</TransferDateTime>
             <TransferringBody>{asset.transferringBody.getOrElse("")}</TransferringBody>
             <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
             <UpstreamSystemRef>upstreamSystemReference</UpstreamSystemRef>

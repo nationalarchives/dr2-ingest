@@ -9,10 +9,8 @@
     "Attempt to decode value on failed cursor: DownField(filePath)",
     "Attempt to decode value on failed cursor: DownField(id)",
     "Attempt to decode value on failed cursor: DownField(name)",
-    "Attempt to decode value on failed cursor: DownField(originalFiles)",
     "Attempt to decode value on failed cursor: DownField(originalMetadataFiles)",
     "Attempt to decode value on failed cursor: DownField(title)",
-    "Attempt to decode value on failed cursor: DownField(transferCompleteDatetime)",
     "Attempt to decode value on failed cursor: DownField(upstreamSystem)"
   ]
 }

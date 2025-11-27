@@ -14,7 +14,7 @@
       }
     },
     {
-      "Sid": "allowCallsToPreservicaBucket",
+      "Sid": "allowCallsToOtherAccountBuckets",
       "Effect": "Allow",
       "Principal": "*",
       "Action": [
@@ -24,7 +24,11 @@
       ],
       "Resource": [
         "arn:aws:s3:::${preservica_ingest_bucket}",
-        "arn:aws:s3:::${preservica_ingest_bucket}/*"
+        "arn:aws:s3:::${preservica_ingest_bucket}/*",
+        "arn:aws:s3:::${tdr_export_bucket}",
+        "arn:aws:s3:::${tdr_export_bucket}/*",
+        "${tre_export_bucket_arn}",
+        "${tre_export_bucket_arn}/*"
       ]
     }
   ]

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import boto3
 from dateutil.parser import isoparse
 
-SOURCE_SYSTEMS = {"TDR", "COURTDOC", "DEFAULT"}
+SOURCE_SYSTEMS = {"TDR", "COURTDOC", "ADHOC", "PA", "DEFAULT"}
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

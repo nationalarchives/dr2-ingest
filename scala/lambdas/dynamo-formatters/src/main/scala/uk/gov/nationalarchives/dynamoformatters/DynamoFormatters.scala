@@ -90,7 +90,6 @@ object DynamoFormatters {
   val upstreamSystem = "upstreamSystem"
   val digitalAssetSource = "digitalAssetSource"
   val digitalAssetSubtype = "digitalAssetSubtype"
-  val originalFiles = "originalFiles"
   val originalMetadataFiles = "originalMetadataFiles"
   val representationType = "representationType"
   val representationSuffix = "representationSuffix"
@@ -231,11 +230,10 @@ object DynamoFormatters {
       potentialDescription: Option[String],
       `type`: ValidatedAttribute[Type],
       transferringBody: Option[String],
-      transferCompleteDatetime: ValidatedAttribute[OffsetDateTime],
+      transferCompleteDatetime: Option[OffsetDateTime],
       upstreamSystem: ValidatedAttribute[String],
       digitalAssetSource: ValidatedAttribute[String],
       potentialDigitalAssetSubtype: Option[String],
-      originalFiles: ValidatedAttribute[List[UUID]],
       originalMetadataFiles: ValidatedAttribute[List[UUID]],
       sortOrder: ValidatedAttribute[Int],
       fileSize: ValidatedAttribute[Long],
@@ -285,11 +283,10 @@ object DynamoFormatters {
       potentialTitle: Option[String],
       potentialDescription: Option[String],
       transferringBody: Option[String],
-      transferCompleteDatetime: OffsetDateTime,
+      transferCompleteDatetime: Option[OffsetDateTime],
       upstreamSystem: String,
       digitalAssetSource: String,
       potentialDigitalAssetSubtype: Option[String],
-      originalFiles: List[UUID],
       originalMetadataFiles: List[UUID],
       ingestedPreservica: Boolean,
       ingestedCustodialCopy: Boolean,
