@@ -20,6 +20,22 @@ class Test(TestCase):
 
     @patch("discovery_client.get_title_and_description")
     @patch("discovery_client.get_former_references")
+    def test_create_metadata_should_create_a_metadata_object_with_value_for_each_field_in_fieldnames(self, mock_former_references, mock_description):
+        mock_former_references.return_value = RecordDetails("Dept Ref", "TNA Ref")
+        mock_description.return_value = CollectionInfo("some_id", None, "Some description from discovery")
+
+        field_names = metadata_creator.get_field_names()
+
+        csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
+        JS 8 / 3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
+        data_set = pd.read_csv(StringIO(csv_data))
+        for index, row in data_set.iterrows():
+            metadata = metadata_creator.create_intermediate_metadata_dict(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            self.assertEqual(len(field_names), len(metadata))
+            self.assertTrue(all(f in metadata for f in field_names))
+
+    @patch("discovery_client.get_title_and_description")
+    @patch("discovery_client.get_former_references")
     def test_create_metadata_should_create_a_metadata_object_from_csv_rows(self, mock_former_references, mock_description):
         mock_former_references.return_value = RecordDetails("Dept Ref", "TNA Ref")
         mock_description.return_value = CollectionInfo("some_id", None, "Some description from discovery")
