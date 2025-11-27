@@ -65,7 +65,7 @@ def create_metadata_for_upload(row):
 
 def get_field_names():
     return ["Series", "UUID", "fileId", "description", "Filename", "FileReference",
-                  "ClientSideOriginalFilepath", "formerRefDept", "formerRefTNA", "checksum_md5", "checksum_sha256"]
+                  "ClientSideOriginalFilepath", "formerRefDept", "formerRefTNA", "checksum_md5", "checksum_sha256", "IAID"]
 
 def get_absolute_file_path(input_path, relative_or_absolute_file_path):
     input_file_path = Path(input_path).resolve()
