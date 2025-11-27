@@ -45,7 +45,8 @@ object TestUtils:
       m.sortOrder.map(s => ("sortOrder", Json.fromInt(s))),
       m.digitalAssetSource.map(s => ("digitalAssetSource", Json.fromString(s))),
       m.formerRefDept.map(frd => ("formerRefDept", Json.fromString(frd))),
-      m.formerRefTNA.map(frt => ("formerRefTNA", Json.fromString(frt)))
+      m.formerRefTNA.map(frt => ("formerRefTNA", Json.fromString(frt))),
+      m.IAID.map(iaid => ("IAID", Json.fromString(iaid)))
     ).flatten ++ checksums
     Json.obj(metadataObjectFields*)
   }

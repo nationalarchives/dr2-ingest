@@ -135,6 +135,7 @@ object Lambda:
         "digitalAssetSource" -> Json.fromString(data.digitalAssetSource),
         "ClientSideOriginalFilepath" -> Json.fromString(data.clientSideOriginalFilepath),
         "ConsignmentReference" -> Json.fromString(data.consignmentReference),
+        "IAID" -> Json.fromString(data.iaid),
         "checksum_sha1" -> Json.fromString(data.checksum)
       )
     )
@@ -154,6 +155,7 @@ object Lambda:
       clientSideOriginalFilepath <- c.downField("ClientSideOriginalFilepath").as[String]
       consignmentReference <- c.downField("ConsignmentReference").as[String]
       checksum <- c.downField("checksum_sha1").as[String]
+      iaid <- c.downField("IAID").as[String]
     yield Data(
       series,
       uuid,
@@ -166,7 +168,8 @@ object Lambda:
       digitalAssetSource,
       clientSideOriginalFilepath,
       consignmentReference,
-      checksum
+      checksum,
+      iaid
     )
 
   case class Data(
@@ -181,7 +184,8 @@ object Lambda:
       digitalAssetSource: String,
       clientSideOriginalFilepath: String,
       consignmentReference: String,
-      checksum: String
+      checksum: String,
+      iaid: String
   )
 
   case class Body(metadataLocation: URI)
