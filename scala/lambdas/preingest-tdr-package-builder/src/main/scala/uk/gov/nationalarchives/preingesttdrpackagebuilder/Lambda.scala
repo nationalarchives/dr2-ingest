@@ -41,7 +41,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
   private val formerRefTnaIdKey = "FormerRefTNA"
   private val formerRefDeptIdKey = "FormerRefDept"
   private val upstreamSystemRefIdKey = "UpstreamSystemReference"
-  private val discoveryIaidKey = "discoveryIAID"
+  private val discoveryIaidKey = "DiscoveryIAID"
 
   override def handler: (Input, Config, Dependencies) => IO[Output] = (input, config, dependencies) => {
 
