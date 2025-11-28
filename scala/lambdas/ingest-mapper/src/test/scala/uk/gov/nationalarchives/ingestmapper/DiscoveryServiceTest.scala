@@ -92,7 +92,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
       .thenRespond(bodyMap("T TEST"))
 
     val departmentCollectionAsset = DiscoveryService(baseUrl, backend, uuidIterator)
-      .etAssetFromDiscoveryApi("T")
+      .getAssetFromDiscoveryApi("T")
       .unsafeRunSync()
 
     val seriesCollectionAsset = DiscoveryService(baseUrl, backend, uuidIterator)
