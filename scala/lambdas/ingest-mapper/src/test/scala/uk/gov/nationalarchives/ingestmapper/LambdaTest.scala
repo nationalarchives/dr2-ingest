@@ -43,10 +43,10 @@ class LambdaTest extends AnyFlatSpec {
     val assetIdentifierTwo = metadataResponse.identifiersTwo.assetIdentifier
     val folderIdentifierOne = metadataResponse.identifiersOne.folderIdentifier
     val folderIdentifierTwo = metadataResponse.identifiersTwo.folderIdentifier
-
+    ujson.read(foldersFileContent)
     assetsFileContent should be(s"""["$assetIdentifierOne","$assetIdentifierTwo"]""")
-    foldersFileContent should be(
-      s"""["$folderIdentifierOne","$folderIdentifierTwo","${UUID.fromString(uuids(1))}","${UUID.fromString(uuids.head)}","${UUID.fromString(uuids(2))}"]"""
+    ujson.read(foldersFileContent).arr.toList.map(e => UUID.fromString(e.str)).sorted should be(
+      List(folderIdentifierOne, folderIdentifierTwo, UUID.fromString(uuids(1)), UUID.fromString(uuids.head), UUID.fromString(uuids(2))).sorted
     )
 
     val archiveFolders = stateOutput.archiveHierarchyFolders

@@ -6,7 +6,6 @@ import fs2.interop.reactivestreams.*
 import fs2.{Chunk, Pipe, Stream, text}
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
-import uk.gov.nationalarchives.ingestmapper.DiscoveryService.DepartmentAndSeriesCollectionAssets
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.File
@@ -68,27 +67,41 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService[IO]
           val json = read(metadataJson)
           val jsonArr = json.arr.toList
           val topLevelObjects = jsonArr.filter(_.parentId.isEmpty)
-          val topLevelIdsToDepartmentSeries: IO[Map[UUID, DepartmentAndSeriesTableItems]] = topLevelObjects
+          val seriesToParentIds = topLevelObjects
             .groupBy(_.series)
             .view
             .mapValues(_.map(_.id))
-            .toMap
-            .map { case (potentialSeries, parentIds) =>
-              val collectionAssets =
-                if potentialSeries.contains("Unknown") then IO.pure(DepartmentAndSeriesCollectionAssets(None, None))
-                else discoveryService.getDiscoveryCollectionAssets(potentialSeries)
-              collectionAssets.map { assets =>
-                val departmentSeriesItems = discoveryService.getDepartmentAndSeriesItems(input.batchId, assets)
-                parentIds.map(parentId => parentId -> departmentSeriesItems)
-              }
+
+          def departmentFromSeries(series: String) = (if series.contains("/") then series.split("/") else series.split(" ")).headOption
+          val allSeries = seriesToParentIds.keys.toList.flatten
+
+          val allDepartmentSeries = for
+            allSeriesAssets <- allSeries.traverse(discoveryService.getAssetFromDiscoveryApi)
+            allDepartmentAssets <- allSeries.flatMap(departmentFromSeries).distinct.traverse(discoveryService.getAssetFromDiscoveryApi)
+          yield
+            (allDepartmentAssets.flatMap { dep =>
+              val depJson = discoveryService.departmentItem(input.batchId, Option(dep))
+              allSeriesAssets
+                .filter(s => departmentFromSeries(s.citableReference).contains(dep.citableReference))
+                .map { s =>
+                  val json = discoveryService.seriesItem(input.batchId, depJson, s)
+                  Option(json("name").str) -> DepartmentAndSeriesTableItems(depJson, Option(json))
+                }
+            }).toMap + (None -> DepartmentAndSeriesTableItems(discoveryService.departmentItem(input.batchId, None), None))
+
+          val topLevelIdsToDepartmentSeries = allDepartmentSeries.map { lookup =>
+            seriesToParentIds.toMap.flatMap {
+              case (potentialSeries, parentIds) => parentIds.map(p => p -> lookup(potentialSeries))
             }
-            .toList
-            .sequence
-            .map(_.flatten.toMap)
+          }
+
           Stream.evals {
             topLevelIdsToDepartmentSeries.map { idToDepartmentSeries =>
               val idToParent = getParentPaths(json, idToDepartmentSeries)
-              val parentToChildCount = idToParent.groupBy(_._2).view.mapValues(_.size).toMap
+              val depSeriesCount = idToDepartmentSeries.values.toList
+                .groupBy(_.departmentItem("id").str).view
+                .mapValues(_.length).toMap
+              val parentToChildCount = idToParent.groupBy(_._2).view.mapValues(_.size).toMap ++ depSeriesCount
 
               def addChildCount(obj: Obj) = {
                 val attributes = obj.value.toMap
@@ -106,7 +119,7 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService[IO]
                     departmentSeries.potentialSeriesItem.map(addChildCount),
                     Option(addChildCount(departmentSeries.departmentItem))
                   ).flatten
-                }
+                }.distinct
               jsonArr.map { metadataEntry =>
                 val id = UUID.fromString(metadataEntry("id").str)
                 val name = metadataEntry("name").str

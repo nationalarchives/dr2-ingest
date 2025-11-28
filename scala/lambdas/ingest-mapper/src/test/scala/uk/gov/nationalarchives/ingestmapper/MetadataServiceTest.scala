@@ -8,7 +8,7 @@ import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
-import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
+import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DiscoveryCollectionAsset, DiscoveryScopeContent}
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
@@ -117,15 +117,20 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
             Option(DiscoveryCollectionAsset(obj("name").str, DiscoveryScopeContent(obj("description").strOpt), obj("title").strOpt))
 
           val discoveryService: DiscoveryService[IO] = new DiscoveryService[IO]:
-            override def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems =
-              departmentAndSeries
+            override def departmentItem(batchId: String, collectionAsset: Option[DiscoveryCollectionAsset]): Obj = departmentTableItem
 
-            override def getDiscoveryCollectionAssets(potentialSeries: Option[String]): IO[DepartmentAndSeriesCollectionAssets] =
-              IO(DepartmentAndSeriesCollectionAssets(createCollectionAsset(departmentTableItem), seriesTableItem.flatMap(createCollectionAsset)))
+            override def seriesItem(batchId: String, department: Obj, collectionAsset: DiscoveryCollectionAsset): Obj = seriesTableItem.getOrElse(Obj())
+
+            override def getAssetFromDiscoveryApi(citableReference: String): IO[DiscoveryCollectionAsset] = IO {
+                if citableReference == "department" then
+                  createCollectionAsset(departmentTableItem).get
+                else
+                  seriesTableItem.flatMap(createCollectionAsset).getOrElse(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(None), None))
+            }
 
           val result =
             new MetadataService(s3, discoveryService).parseMetadataJson(input).unsafeRunSync()
-
+          println(Arr(result).render())
           result.size should equal(9 + seriesIdOpt.size)
 
           val prefix = s"$departmentId${seriesIdOpt.map(id => s"/$id").getOrElse("")}"
