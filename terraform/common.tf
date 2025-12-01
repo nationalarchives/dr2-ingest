@@ -665,5 +665,13 @@ resource "aws_cloudwatch_dashboard" "ingest_dashboard" {
     source_list                     = join(" | ", [for lambda in local.dashboard_lambdas : format("SOURCE '/aws/lambda/%s'", lambda)])
   })
   dashboard_name = "${local.environment}-dr2-ingest-dashboard"
+}
 
+module "archivist_sso_policy" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
+  name   = "AWSSSO_DAArchivist"
+  policy_string = templatefile("${path.module}/templates/iam_policy/archivist_sso_policy.json.tpl", {
+    account_id  = data.aws_caller_identity.current.account_id
+    environment = local.environment
+  })
 }
