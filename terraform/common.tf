@@ -15,7 +15,6 @@ locals {
   ingest_flow_control_config_ssm_parameter_name        = "/${local.environment}/flow-control-config"
   enable_point_in_time_recovery                        = true
   files_table_batch_parent_global_secondary_index_name = "BatchParentPathIdx"
-  files_table_ingest_ps_global_secondary_index_name    = "IngestPSIdx"
   ingest_lock_table_group_id_gsi_name                  = "IngestLockGroupIdx"
   ingest_lock_table_hash_key                           = "assetId"
   dev_notifications_channel_id                         = local.environment == "prod" ? "C06EDJPF0VB" : "C052LJASZ08"
@@ -409,7 +408,6 @@ module "dr2_ingest_step_function_policy" {
     ingest_state_bucket_name                          = local.ingest_state_bucket_name
     ingest_sfn_name                                   = local.ingest_step_function_name
     ingest_run_workflow_sfn_name                      = local.ingest_run_workflow_step_function_name
-    ingest_files_table_name                           = local.files_dynamo_table_name
     tna_to_preservica_role_arn                        = local.tna_to_preservica_role_arn
     preingest_tdr_step_function_arn                   = module.tdr_preingest.preingest_sfn_arn
     preingest_dri_step_function_arn                   = module.dri_preingest.preingest_sfn_arn
