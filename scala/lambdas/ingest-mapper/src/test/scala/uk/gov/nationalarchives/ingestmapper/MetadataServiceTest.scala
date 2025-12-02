@@ -8,7 +8,7 @@ import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
-import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
+import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DiscoveryCollectionAsset, DiscoveryScopeContent}
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
 import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
@@ -96,15 +96,16 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
           val departmentTableItem = tableItem(departmentId, "department", "")
           val seriesTableItem = seriesIdOpt.map(id => tableItem(id, "series", departmentId.toString))
           val departmentAndSeries = DepartmentAndSeriesTableItems(departmentTableItem, seriesTableItem)
+          val seriesOrNull = if seriesIdOpt.isDefined then """"series"""" else "null"
 
           val expectedTimeInSecs = 1712707200
           val metadata =
             s"""[
-           |{"id":"$folderIdTwo","parentId":null,"title":"TestTitle2","type":"ArchiveFolder","name":"TestName2","fileSize":null, "series": null},
+           |{"id":"$folderIdTwo","parentId":null,"title":"TestTitle2","type":"ArchiveFolder","name":"TestName2","fileSize":null, "series": $seriesOrNull},
            |{"id":"$assetIdTwo","parentId":"$folderIdTwo","title":"TestAssetTitle2","type":"Asset","name":"TestAssetName2","fileSize":null, "originalMetadataFiles": ["$metadataFileTwo"], "customMetadataAttribute1": "customMetadataAttributeValue"},
            |{"id":"$fileIdTwo","parentId":"$assetIdTwo","title":"Test2","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
            |{"id":"$metadataFileTwo","parentId":"$assetIdTwo","title":"","type":"File","name":"TEST2-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"},
-           |{"id":"$folderIdOne","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "series": null},
+           |{"id":"$folderIdOne","parentId":null,"title":"TestTitle","type":"ArchiveFolder","name":"TestName","fileSize":null, "series": $seriesOrNull},
            |{"id":"$assetIdOne","parentId":"$folderIdOne","title":"TestAssetTitle","type":"Asset","name":"TestAssetName","fileSize":null, "originalMetadataFiles": ["$metadataFileOne"], "customMetadataAttribute1": "customMetadataAttributeValue"},
            |{"id":"$fileIdOne","parentId":"$assetIdOne","title":"Test","type":"File","name":"$name","fileSize":1, "checksumSha256": "$name-checksum"},
            |{"id":"$metadataFileOne","parentId":"$assetIdOne","title":"","type":"File","name":"TEST-metadata.json","fileSize":2, "checksumSha256": "metadata-checksum"}
@@ -117,15 +118,18 @@ class MetadataServiceTest extends AnyFlatSpec with TableDrivenPropertyChecks {
             Option(DiscoveryCollectionAsset(obj("name").str, DiscoveryScopeContent(obj("description").strOpt), obj("title").strOpt))
 
           val discoveryService: DiscoveryService[IO] = new DiscoveryService[IO]:
-            override def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems =
-              departmentAndSeries
+            override def departmentItem(batchId: String, collectionAsset: Option[DiscoveryCollectionAsset]): Obj = departmentTableItem
 
-            override def getDiscoveryCollectionAssets(potentialSeries: Option[String]): IO[DepartmentAndSeriesCollectionAssets] =
-              IO(DepartmentAndSeriesCollectionAssets(createCollectionAsset(departmentTableItem), seriesTableItem.flatMap(createCollectionAsset)))
+            override def seriesItem(batchId: String, department: Obj, collectionAsset: DiscoveryCollectionAsset): Obj = seriesTableItem.getOrElse(Obj())
+
+            override def getAssetFromDiscoveryApi(citableReference: String): IO[DiscoveryCollectionAsset] = IO {
+              if citableReference == "department" then createCollectionAsset(departmentTableItem).get
+              else seriesTableItem.flatMap(createCollectionAsset).getOrElse(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(None), None))
+            }
 
           val result =
             new MetadataService(s3, discoveryService).parseMetadataJson(input).unsafeRunSync()
-
+          println(Arr(result).render())
           result.size should equal(9 + seriesIdOpt.size)
 
           val prefix = s"$departmentId${seriesIdOpt.map(id => s"/$id").getOrElse("")}"

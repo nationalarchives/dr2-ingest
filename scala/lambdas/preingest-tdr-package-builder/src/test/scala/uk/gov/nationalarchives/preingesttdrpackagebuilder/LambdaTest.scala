@@ -13,7 +13,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Checksum, Inge
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.TestUtils.{*, given}
 import uk.gov.nationalarchives.utils.ExternalUtils.*
-import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.{TDR, ADHOC}
+import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.{ADHOC, PA, TDR}
 import uk.gov.nationalarchives.utils.NaturalSorting.{natural, given}
 
 import java.net.URI
@@ -495,6 +495,59 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     assetMetadataObject.upstreamSystem should be(ADHOC)
     assetMetadataObject.idFields should not contain "FormerRefDept"
     assetMetadataObject.idFields.find(_.name == "FormerRefTNA").map(_.value).get should equal("AB 8/4/6")
+  }
+
+  "lambda handler" should "attach the asset to the correct content folder for pa transfers if there are multiple series" in {
+    def packageMetadata(series: String) = PackageMetadata(
+      series,
+      UUID.randomUUID,
+      UUID.randomUUID,
+      None,
+      Option(""),
+      Option("2024-10-04 10:00:00"),
+      None,
+      "test.txt",
+      checksum(""),
+      "",
+      "",
+      None,
+      None,
+      None,
+      None,
+      Some("AB 8/4/6"),
+      None
+    )
+    val packageMetadataOne = packageMetadata("ABC/1")
+    val packageMetadataTwo = packageMetadata("ABC/2")
+
+    val allMetadata = List(packageMetadataOne, packageMetadataTwo)
+
+    val initialDynamoObjects = allMetadata
+      .map { packageMetadata =>
+        val lockTableMessage = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/${packageMetadata.UUID}.metadata")).asJson.noSpaces
+        IngestLockTableItem(UUID.randomUUID(), "TST-123", lockTableMessage, dateTimeNow.toString)
+      }
+
+    val initialS3Objects = allMetadata.flatMap { packageMetadata =>
+      List(s"${packageMetadata.UUID}.metadata" -> List(packageMetadata).asJson.noSpaces, s"${packageMetadata.UUID}/${packageMetadata.fileId}" -> MockTdrFile(1))
+    }.toMap
+
+    val paConfig: Config = Config("", "", "cacheBucket", 1, PA)
+    val (s3Contents, output) = runHandler(initialS3Objects = initialS3Objects, initialDynamoObjects = initialDynamoObjects, config = paConfig)
+
+    val s3Objects = s3Contents("/metadata.json")
+    val metadataList = s3Objects.asInstanceOf[List[MetadataObject]]
+    val assetNameToParent = metadataList.collect { case a: AssetMetadataObject => a.name -> a.parentId.get }.toMap
+    val contentIdToName = metadataList.collect { case c: ContentFolderMetadataObject => c.id -> c.series.get }.toMap
+
+    def checkAssetParent(packageMetadata: PackageMetadata, expectedName: String) = {
+      val assetParent = assetNameToParent(packageMetadata.UUID.toString)
+      contentIdToName(assetParent) should equal(expectedName)
+    }
+
+    checkAssetParent(packageMetadataOne, "ABC/1")
+    checkAssetParent(packageMetadataTwo, "ABC/2")
+
   }
 
   "lambda handler" should "return an error if the dynamo query fails" in {

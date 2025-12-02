@@ -43,10 +43,10 @@ class LambdaTest extends AnyFlatSpec {
     val assetIdentifierTwo = metadataResponse.identifiersTwo.assetIdentifier
     val folderIdentifierOne = metadataResponse.identifiersOne.folderIdentifier
     val folderIdentifierTwo = metadataResponse.identifiersTwo.folderIdentifier
-
+    ujson.read(foldersFileContent)
     assetsFileContent should be(s"""["$assetIdentifierOne","$assetIdentifierTwo"]""")
-    foldersFileContent should be(
-      s"""["$folderIdentifierOne","$folderIdentifierTwo","${UUID.fromString(uuids(1))}","${UUID.fromString(uuids.head)}","${UUID.fromString(uuids(2))}"]"""
+    ujson.read(foldersFileContent).arr.toList.map(e => UUID.fromString(e.str)).sorted should be(
+      List(folderIdentifierOne, folderIdentifierTwo, UUID.fromString(uuids(1)), UUID.fromString(uuids.head), UUID.fromString(uuids(2))).sorted
     )
 
     val archiveFolders = stateOutput.archiveHierarchyFolders
@@ -57,16 +57,24 @@ class LambdaTest extends AnyFlatSpec {
     expectedArchiveFolders.sorted.equals(archiveFolders.sorted) should be(true)
   }
 
+  "handler" should "create the correct archive folder structure in dynamodb if there are multiple series in the batch" in {
+    val metadataResponse = getMetadata
+    val dynamoItems = dynamoItemsResponse(metadataResponse.copy(metadata = metadataResponse.metadata.replace(""""series": null""", """"series":"A 2"""")))
+    val archiveFolderItems = dynamoItems.filter(a => a("type").str == "ArchiveFolder")
+    val a1Folder = archiveFolderItems.find(a => a("title").str == "Test Title A 1").get
+    val a2Folder = archiveFolderItems.find(a => a("title").str == "Test Title A 2").get
+
+    a2Folder("parentPath") should equal(a1Folder("parentPath"))
+
+    val topLevelFolder = archiveFolderItems.find(a => a("id").str == a2Folder("parentPath").str).get
+
+    topLevelFolder("name").str should equal("A")
+  }
+
   "handler" should "write the correct values to dynamo" in {
     val fixedTimeInSecs = 1712707200
     val metadataResponse = getMetadata
-    val dynamoItems = (for {
-      s3Ref <- Ref.of[IO, List[S3Object]](List(S3Object("input", "TEST/metadata.json", metadataResponse.metadata)))
-      dynamoRef <- Ref.of[IO, List[Obj]](Nil)
-      deps = dependencies(s3Ref, dynamoRef)
-      _ <- new Lambda().handler(input(), config, deps)
-      dynamoItems <- dynamoRef.get
-    } yield dynamoItems).unsafeRunSync()
+    val dynamoItems = dynamoItemsResponse(metadataResponse)
 
     dynamoItems.length should equal(11)
     case class TestResponses(dynamoResponse: Identifiers, uuidIndices: List[Int], series: String)
@@ -183,6 +191,16 @@ class LambdaTest extends AnyFlatSpec {
       )
     }
 
+  }
+
+  private def dynamoItemsResponse(metadataResponse: MetadataResponse) = {
+    (for {
+      s3Ref <- Ref.of[IO, List[S3Object]](List(S3Object("input", "TEST/metadata.json", metadataResponse.metadata)))
+      dynamoRef <- Ref.of[IO, List[Obj]](Nil)
+      deps = dependencies(s3Ref, dynamoRef)
+      _ <- new Lambda().handler(input(), config, deps)
+      dynamoItems <- dynamoRef.get
+    } yield dynamoItems).unsafeRunSync()
   }
 
   "handler" should "not return an error if the discovery api is unavailable" in {
