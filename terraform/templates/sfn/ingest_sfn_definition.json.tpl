@@ -193,34 +193,10 @@
               {
                 "Variable": "$.wasReconciled",
                 "BooleanEquals": true,
-                "Next": "Update ingested_PS attribute in Files table"
+                "Next": "Insert into PostIngest table"
               }
             ],
             "Default": "Throw Reconciler job error"
-          },
-          "Update ingested_PS attribute in Files table": {
-            "Type": "Task",
-            "Resource": "arn:aws:states:::dynamodb:updateItem",
-            "Parameters": {
-              "TableName": "${ingest_files_table_name}",
-              "Key": {
-                "id": {
-                  "S.$": "$.assetId"
-                },
-                "batchId": {
-                  "S.$": "$$.Execution.Input.batchId"
-                }
-              },
-              "UpdateExpression": "SET ingested_PS = :ingestedPSValue",
-              "ExpressionAttributeValues": {
-                ":ingestedPSValue": {
-                  "S": "true"
-                }
-              }
-            },
-            "Retry": ${retry_statement},
-            "ResultPath": null,
-            "Next": "Insert into PostIngest table"
           },
           "Insert into PostIngest table": {
             "Type": "Task",
