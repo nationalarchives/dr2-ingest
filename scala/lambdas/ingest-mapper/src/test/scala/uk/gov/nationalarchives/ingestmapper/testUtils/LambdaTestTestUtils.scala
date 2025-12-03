@@ -17,9 +17,8 @@ import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import sttp.client3.impl.cats.CatsMonadAsyncError
 import sttp.client3.testing.SttpBackendStub
 import ujson.Obj
-import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DepartmentAndSeriesCollectionAssets, DiscoveryCollectionAsset, DiscoveryScopeContent}
+import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DiscoveryCollectionAsset, DiscoveryScopeContent}
 import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, Dependencies, Input}
-import uk.gov.nationalarchives.ingestmapper.MetadataService.DepartmentAndSeriesTableItems
 import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.*
 import uk.gov.nationalarchives.ingestmapper.{DiscoveryService, MetadataService}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
@@ -36,7 +35,8 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
     "c7e6b27f-5778-4da8-9b83-1b64bbccbd03",
     "61ac0166-ccdf-48c4-800f-29e5fba2efda",
     "5364b309-aa11-4660-b518-f47b5b96a588",
-    "0dcc4151-b1d0-44ac-a4a1-5415d7d50d65"
+    "0dcc4151-b1d0-44ac-a4a1-5415d7d50d65",
+    "7a2fca81-0766-49ad-a8c3-63aef4200344"
   )
   val config: Config = Config("test", "http://localhost:9015", "testInputStateBucket")
   def input(s3Prefix: String = "TEST/"): Input = Input("TEST", "TEST_0", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"), "executionName")
@@ -144,15 +144,15 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
 
         def generateJson: Obj = Obj("id" -> randomUuidGenerator().toString, "type" -> "ArchiveFolder", "name" -> "Test name")
 
-        override def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems =
-          DiscoveryService[IO]("baseUrl", randomUuidGenerator).unsafeRunSync().getDepartmentAndSeriesItems(batchId, departmentAndSeriesAssets)
+        override def departmentItem(batchId: String, collectionAsset: Option[DiscoveryCollectionAsset]): Obj =
+          DiscoveryService[IO]("baseUrl", randomUuidGenerator).unsafeRunSync().departmentItem(batchId, collectionAsset)
 
-        override def getDiscoveryCollectionAssets(series: Option[String]): IO[DepartmentAndSeriesCollectionAssets] =
+        override def seriesItem(batchId: String, department: Obj, collectionAsset: DiscoveryCollectionAsset): Obj =
+          DiscoveryService[IO]("baseUrl", randomUuidGenerator).unsafeRunSync().seriesItem(batchId, department, collectionAsset)
+
+        override def getAssetFromDiscoveryApi(citableReference: String): IO[DiscoveryCollectionAsset] =
           if discoveryServiceException then IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
-          else if series.isEmpty then IO.pure(DepartmentAndSeriesCollectionAssets(None, None))
-          else
-            val department = series.get.split(" ").head
-            IO.pure(DepartmentAndSeriesCollectionAssets(Option(generateDiscoveryCollectionAsset(department)), Option(generateDiscoveryCollectionAsset(series.get))))
+          else IO(generateDiscoveryCollectionAsset(citableReference))
     else
       val backendStub = SttpBackendStub(CatsMonadAsyncError[IO]()).whenAnyRequest.thenRespondServerError()
       DiscoveryService[IO]("https://example.com", backendStub, randomUuidGenerator)
