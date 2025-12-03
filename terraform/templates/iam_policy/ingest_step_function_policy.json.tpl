@@ -43,16 +43,6 @@
       ]
     },
     {
-      "Sid": "updateFilesTable",
-      "Effect": "Allow",
-      "Action": [
-        "dynamodb:UpdateItem"
-      ],
-      "Resource": [
-        "arn:aws:dynamodb:eu-west-2:${account_id}:table/${ingest_files_table_name}"
-      ]
-    },
-    {
       "Sid": "insertPostIngestTable",
       "Effect": "Allow",
       "Action": [

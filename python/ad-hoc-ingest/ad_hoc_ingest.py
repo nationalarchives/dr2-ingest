@@ -28,7 +28,7 @@ def validate_arguments(args):
 def upload_files(output_file, account_number, args):
     environment = args.environment
     region = aws_interactions.get_region()
-    bucket = f"{environment}-dr2-ingest-raw-cache"
+    bucket = f"{environment}-dr2-ingest-adhoc-cache"
     queue_url = f"https://sqs.{region}.amazonaws.com/{account_number}/{environment}-dr2-preingest-adhoc-importer"
 
     upload_data_set = pd.read_csv(output_file, dtype=str, keep_default_na=False)

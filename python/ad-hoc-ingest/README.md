@@ -26,7 +26,7 @@ For each row in the input CSV file,
    - The advantage of having metadata in CSV is, the user can examine the potential final metadata before ingesting. 
 For each row in the Metadata CSV file,
 5. Generate a Metadata JSON file and get absolute path of the file to be ingested. 
-6. Upload the Metadata JSON and the file to `dr2-ingest-raw-cache` bucket. 
+6. Upload the Metadata JSON and the file to `dr2-ingest-adhoc-cache` bucket. 
 7. Send a message to `dr2-preingest-adhoc-importer` to trigger the downstream preingest process.
 
 
