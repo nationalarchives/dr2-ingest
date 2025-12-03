@@ -19,7 +19,6 @@ locals {
   ingest_lock_table_hash_key                           = "assetId"
   dev_notifications_channel_id                         = local.environment == "prod" ? "C06EDJPF0VB" : "C052LJASZ08"
   general_notifications_channel_id                     = local.environment == "prod" ? "C06E20AR65V" : "C068RLCPZFE"
-  tre_prod_judgment_role                               = "arn:aws:iam::${module.tre_config.account_numbers["prod"]}:role/prod-tre-editorial-judgment-out-copier"
   java_runtime                                         = "java21"
   java_lambda_memory_size                              = 512
   java_timeout_seconds                                 = 180
@@ -274,7 +273,6 @@ module "dr2_kms_key" {
       module.pa_preingest.package_builder_lambda.role,
       module.pa_preingest.importer_lambda.role,
       local.tna_to_preservica_role_arn,
-      local.tre_prod_judgment_role,
       local.parliament_ingest_role,
     ], local.additional_user_roles, local.anonymiser_roles, local.e2e_test_roles)
     ci_roles = [local.terraform_role_arn]
