@@ -1,9 +1,12 @@
 {
   "Statement": [
     {
-      "Sid": "listDynamoTables",
+      "Sid": "listDynamoTablesGetMetrics",
       "Effect": "Allow",
-      "Action": "dynamodb:ListTables",
+      "Action": [
+        "dynamodb:ListTables",
+        "cloudwatch:GetMetricStatistics"
+      ],
       "Resource": "*"
     },
     {

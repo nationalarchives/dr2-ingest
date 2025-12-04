@@ -93,8 +93,6 @@ object DynamoFormatters {
   val originalMetadataFiles = "originalMetadataFiles"
   val representationType = "representationType"
   val representationSuffix = "representationSuffix"
-  val ingestedPreservica = "ingested_PS"
-  val ingestedCustodialCopy = "ingested_CC"
   val childCount = "childCount"
   val skipIngest = "skipIngest"
   val location = "location"
@@ -241,8 +239,6 @@ object DynamoFormatters {
       fileExtension: Option[String],
       representationType: ValidatedAttribute[FileRepresentationType],
       representationSuffix: ValidatedAttribute[Int],
-      ingestedPreservica: Option[String],
-      ingestedCustodialCopy: Option[String],
       identifiers: List[Identifier],
       childCount: ValidatedAttribute[Int],
       skipIngest: ValidatedAttribute[Boolean],
@@ -288,8 +284,6 @@ object DynamoFormatters {
       digitalAssetSource: String,
       potentialDigitalAssetSubtype: Option[String],
       originalMetadataFiles: List[UUID],
-      ingestedPreservica: Boolean,
-      ingestedCustodialCopy: Boolean,
       identifiers: List[Identifier],
       childCount: Int,
       skipIngest: Boolean,
@@ -311,8 +305,6 @@ object DynamoFormatters {
       potentialFileExtension: Option[String],
       representationType: FileRepresentationType,
       representationSuffix: Int,
-      ingestedPreservica: Boolean,
-      ingestedCustodialCopy: Boolean,
       identifiers: List[Identifier],
       childCount: Int,
       location: URI
