@@ -136,7 +136,7 @@ data "aws_ssm_parameter" "slack_webhook_url" {
 }
 
 module "vpc" {
-  source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc?ref=dr2-2475-create-vpc-endpoints"
+  source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
   vpc_name                  = "${local.environment}-vpc"
   az_count                  = local.az_count
   elastic_ip_allocation_ids = data.aws_eip.eip.*.id
