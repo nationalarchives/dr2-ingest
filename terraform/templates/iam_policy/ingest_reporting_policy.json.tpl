@@ -1,6 +1,14 @@
 {
   "Statement": [
     {
+      "Sid": "getMetrics",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:GetMetricStatistics"
+      ],
+      "Resource": "*"
+    },
+    {
       "Action": [
         "logs:GetLogEvents",
         "states:ListExecutions"
