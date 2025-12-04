@@ -2,6 +2,7 @@ import csv
 import os
 import sys
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -56,9 +57,7 @@ def upload_files(output_file, account_number, args):
                     input("Fix the error and press 'Enter' to continue")
                     aws_interactions.refresh_session()
 
-        if counter % 5 == 0:
-            message_printer.progress(f"Uploaded ${counter} of ${total}")
-
+            message_printer.progress(f"Uploaded {counter} of {total}")
 
 def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
     data_set: pandas.DataFrame
@@ -99,18 +98,21 @@ def write_intermediate_csv(args, data_set, is_upstream_valid, output_metadata_fi
         fieldnames = metadata_creator.get_field_names()
         writer = csv.DictWriter(intermediate_metadata_csv, fieldnames, quoting=csv.QUOTE_ALL)
         writer.writeheader()
-        for _, row in data_set.iterrows():
+        total = len(data_set)
+        for counter, row in data_set.iterrows():
             row_count += 1
             try:
                 metadata_dict = metadata_creator.create_intermediate_metadata_dict(row, args)
                 writer.writerow(metadata_dict)
                 if row_count % 100 == 0:
                     intermediate_metadata_csv.flush()
+                message_printer.progress(f"Writing intermediate CSV: row {counter} of {total}")
             except Exception as e:
                 is_metadata_valid = False
                 message_printer.message(f"Error creating metadata: {e}")
                 if not args.dry_run:
                     sys.exit(1)
+
     return is_metadata_valid, row_count
 
 def get_account_number():

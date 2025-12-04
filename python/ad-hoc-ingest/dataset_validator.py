@@ -47,6 +47,7 @@ def validate_dataset(data_set, input_file_path, is_dry_run=False):
     empty_files = []
     total_rows = len(data_set)
     for counter, (index, row) in enumerate(data_set.iterrows(), start=1):
+        message_printer.progress(f"Validating {counter} of {total_rows} rows")
         file_path = get_absolute_file_path(input_file_path, row["fileName"].strip())
         if not os.path.exists(file_path):
             missing_files.append(file_path)
@@ -54,9 +55,6 @@ def validate_dataset(data_set, input_file_path, is_dry_run=False):
         else:
             if os.path.getsize(file_path) == 0:
                 empty_files.append(file_path)
-
-        if counter % 2 == 0:
-            message_printer.progress(f"Validated {counter} of {total_rows} rows")
 
     message_printer.progress(f"Validation finished for {total_rows} rows")
     if empty_files:
