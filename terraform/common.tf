@@ -79,7 +79,7 @@ locals {
   messages_visible_threshold = 1000000
   # The list comes from https://www.cloudflare.com/en-gb/ips
   cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
-  outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
+  outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
   tdr_export_bucket           = "tdr-export-${local.environment}"
   parliament_ingest_role      = module.config.terraform_config[local.environment]["parliament_ingest_role"]
 }
@@ -136,7 +136,7 @@ data "aws_ssm_parameter" "slack_webhook_url" {
 }
 
 module "vpc" {
-  source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
+  source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc?ref=dr2-2475-create-vpc-endpoints"
   vpc_name                  = "${local.environment}-vpc"
   az_count                  = local.az_count
   elastic_ip_allocation_ids = data.aws_eip.eip.*.id
@@ -161,6 +161,47 @@ module "vpc" {
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id
   })
+
+  interface_endpoints = {
+    secretsmanager = {
+      name = "com.amazonaws.eu-west-2.secretsmanager",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "secretsmanager"
+        org_id = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
+    stepfunctions = {
+      name = "com.amazonaws.eu-west-2.stepfunctions",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "stepfunctions"
+        org_id = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
+    sns = {
+      region = "eu-west-2",
+      name = "com.amazonaws.eu-west-2.sns",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "sns"
+        org_id = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
+    sqs = {
+      region = "eu-west-2",
+      name = "com.amazonaws.eu-west-2.sqs",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "sqs"
+        org_id = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    }
+  }
 }
 
 data "aws_eip" "eip" {
@@ -665,5 +706,39 @@ resource "aws_cloudwatch_dashboard" "ingest_dashboard" {
     source_list                     = join(" | ", [for lambda in local.dashboard_lambdas : format("SOURCE '/aws/lambda/%s'", lambda)])
   })
   dashboard_name = "${local.environment}-dr2-ingest-dashboard"
-
 }
+
+module "interface_endpoints_security_group" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A security group for interface type vpc endpoints"
+  name        = "${local.environment}-vpc-endpoints"
+  vpc_id      = module.vpc.vpc_id
+  rules = {
+    ingress = [
+      {
+        port = 443,
+        description = "",
+        security_group_id = module.https_to_vpc_endpoints_security_group.security_group_id
+      }
+    ]
+  }
+}
+
+module "https_to_vpc_endpoints_security_group" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A security group for outbound https to vpc endpoints"
+  name        = "${local.environment}-outbound-https-to-vpc-endpoints"
+  vpc_id      = module.vpc.vpc_id
+  rules = {
+    egress = [
+      {
+        port = 443,
+        description = "",
+        security_group_id = module.interface_endpoints_security_group.security_group_id
+      }
+    ]
+  }
+}
+
