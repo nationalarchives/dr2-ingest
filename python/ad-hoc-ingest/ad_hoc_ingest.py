@@ -14,6 +14,7 @@ import aws_interactions
 import dataset_validator
 import discovery_client
 import metadata_creator
+import message_printer
 
 
 def validate_arguments(args):
@@ -48,22 +49,22 @@ def upload_files(output_file, account_number, args):
                 break
             except ClientError as client_error:
                 if attempt == 3:
-                    print(f"Exceeded number of attempts to recover from error; terminating at file: '{file_id}' from location: '{client_side_path}'")
+                    message_printer.message(f"Exceeded number of attempts to recover from error; terminating at file: '{file_id}' from location: '{client_side_path}'")
                     raise Exception(f"Unable to proceed because: {client_error}. Terminating the process.")
                 else:
-                    print(f"An error occurred due to: {client_error}")
+                    message_printer.message(f"An error occurred due to: {client_error}")
                     input("Fix the error and press 'Enter' to continue")
                     aws_interactions.refresh_session()
 
-        if counter % 10 == 0:
-            print(f"Uploaded ${counter} of ${total}")
+        if counter % 5 == 0:
+            message_printer.progress(f"Uploaded ${counter} of ${total}")
 
 
 def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
     data_set: pandas.DataFrame
     output_folder = args.output
     if not is_folder_writable(output_folder):
-        print(f"Unable to write to the output location: '{output_folder}', please make sure that you have necessary permissions for that folder")
+        message_printer.message(f"Unable to write to the output location: '{output_folder}', please make sure that you have necessary permissions for that folder")
         sys.exit(1)
 
     prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -72,12 +73,12 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
 
     if args.dry_run:
         if is_metadata_valid:
-            print("Validations completed successfully, please proceed to ingest")
+            message_printer.message("Validations completed successfully, please proceed to ingest")
         else:
-            print("Please fix the errors identified during validation before continuing further")
+            message_printer.message("Please fix the errors identified during validation before continuing further")
             sys.exit(1)
     else:
-        print(f"The metadata to be uploaded is saved to '{output_metadata_file}'.")
+        message_printer.message(f"The metadata to be uploaded is saved to '{output_metadata_file}'.")
         try:
             account_number = get_account_number()
             confirmation = get_confirmation_to_proceed(
@@ -87,7 +88,7 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
             else:
                 sys.exit(0)
         except Exception as e:
-            print(e)
+            message_printer.message(e)
             sys.exit(1)
 
 
@@ -107,7 +108,7 @@ def write_intermediate_csv(args, data_set, is_upstream_valid, output_metadata_fi
                     intermediate_metadata_csv.flush()
             except Exception as e:
                 is_metadata_valid = False
-                print(f"Error creating metadata: {e}")
+                message_printer.message(f"Error creating metadata: {e}")
                 if not args.dry_run:
                     sys.exit(1)
     return is_metadata_valid, row_count
@@ -122,7 +123,7 @@ def get_account_number():
             if attempt == 3:
                 raise Exception(f"Unable to proceed because: {client_error}. Terminating the process.")
             else:
-                print(f"An error caused due to: {client_error}")
+                message_printer.message(f"An error caused due to: {client_error}")
                 input("Fix the error and press enter to continue")
                 aws_interactions.refresh_session()
     return account_number
@@ -159,13 +160,13 @@ def main():
 
     is_discovery_available = discovery_client.is_discovery_api_reachable()
     if not is_discovery_available:
-        print("Discovery API is not available for getting metadata information, terminating process")
+        message_printer.message("Discovery API is not available for getting metadata information, terminating process")
         sys.exit(1)
 
     upload_files_to_ingest_bucket(data_set, args, is_valid)
 
     if not args.dry_run:
-        print("Upload finished successfully")
+        message_printer.message("Upload finished successfully")
 
 if __name__ == "__main__":
     main()
