@@ -11,7 +11,6 @@ import sttp.client3.httpclient.fs2.HttpClientFs2Backend
 import sttp.client3.*
 import ujson.*
 import uk.gov.nationalarchives.ingestmapper.DiscoveryService.*
-import uk.gov.nationalarchives.ingestmapper.MetadataService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
@@ -22,19 +21,15 @@ import scala.xml.XML
 
 trait DiscoveryService[F[_]] {
 
-  def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems
-
-  def getDiscoveryCollectionAssets(potentialSeries: Option[String]): F[DepartmentAndSeriesCollectionAssets]
+  def departmentItem(batchId: String, collectionAsset: Option[DiscoveryCollectionAsset]): Obj
+  def seriesItem(batchId: String, department: Obj, collectionAsset: DiscoveryCollectionAsset): Obj
+  def getAssetFromDiscoveryApi(citableReference: String): F[DiscoveryCollectionAsset]
 
 }
 object DiscoveryService {
   case class DiscoveryScopeContent(description: Option[String])
   case class DiscoveryCollectionAsset(citableReference: String, scopeContent: DiscoveryScopeContent, title: Option[String])
   private case class DiscoveryCollectionAssetResponse(assets: List[DiscoveryCollectionAsset])
-  case class DepartmentAndSeriesCollectionAssets(
-      potentialDepartmentCollectionAsset: Option[DiscoveryCollectionAsset],
-      potentialSeriesCollectionAsset: Option[DiscoveryCollectionAsset]
-  )
 
   def apply[F[_]: Async](discoveryBaseUrl: String, backend: SttpBackend[F, Fs2Streams[F]], randomUuidGenerator: () => UUID): DiscoveryService[F] =
     new DiscoveryService[F] {
@@ -78,7 +73,7 @@ object DiscoveryService {
       private def defaultCollectionAsset(citableReference: String): F[DiscoveryCollectionAsset] =
         Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(None), None))
 
-      private def getAssetFromDiscoveryApi(citableReference: String): F[DiscoveryCollectionAsset] = {
+      def getAssetFromDiscoveryApi(citableReference: String): F[DiscoveryCollectionAsset] = {
         val uri = uri"$discoveryBaseUrl/API/records/v1/collection/$citableReference"
         val request = basicRequest.get(uri).response(asJson[DiscoveryCollectionAssetResponse])
         for {
@@ -91,28 +86,26 @@ object DiscoveryService {
         logger.warn(e)("Error from Discovery") >> defaultCollectionAsset(citableReference)
       }
 
-      override def getDiscoveryCollectionAssets(potentialSeries: Option[String]): F[DepartmentAndSeriesCollectionAssets] = {
-        val potentialDepartment = potentialSeries.flatMap { series =>
-          (if series.contains("/") then series.split("/") else series.split(" ")).headOption
+      def generateTableItem(batchId: String, asset: DiscoveryCollectionAsset): Map[String, Value] =
+        Map(
+          "batchId" -> Str(batchId),
+          "id" -> Str(randomUuidGenerator().toString),
+          "name" -> Str(asset.citableReference),
+          "type" -> Str(ArchiveFolder.toString)
+        ) ++ asset.title.map(title => Map("title" -> Str(title))).getOrElse(Map())
+          ++ asset.scopeContent.description.map(description => Map("description" -> Str(description))).getOrElse(Map())
+
+      def seriesItem(batchId: String, department: Obj, collectionAsset: DiscoveryCollectionAsset): Obj = {
+        val jsonMap = generateTableItem(batchId, collectionAsset)
+        Obj.from {
+          jsonMap ++ Map("parentPath" -> department("id"), "id_Code" -> jsonMap("name"))
+
         }
-        for {
-          potentialDepartmentDiscoveryAsset <- potentialDepartment.traverse(getAssetFromDiscoveryApi)
-          potentialSeriesDiscoveryAsset <- potentialSeries.traverse(getAssetFromDiscoveryApi)
-        } yield DepartmentAndSeriesCollectionAssets(potentialDepartmentDiscoveryAsset, potentialSeriesDiscoveryAsset)
       }
 
-      override def getDepartmentAndSeriesItems(batchId: String, departmentAndSeriesAssets: DepartmentAndSeriesCollectionAssets): DepartmentAndSeriesTableItems = {
-        def generateTableItem(asset: DiscoveryCollectionAsset): Map[String, Value] =
-          Map(
-            "batchId" -> Str(batchId),
-            "id" -> Str(randomUuidGenerator().toString),
-            "name" -> Str(asset.citableReference),
-            "type" -> Str(ArchiveFolder.toString)
-          ) ++ asset.title.map(title => Map("title" -> Str(title))).getOrElse(Map())
-            ++ asset.scopeContent.description.map(description => Map("description" -> Str(description))).getOrElse(Map())
-
-        val departmentTableEntryMap = departmentAndSeriesAssets.potentialDepartmentCollectionAsset
-          .map(generateTableItem)
+      def departmentItem(batchId: String, collectionAsset: Option[DiscoveryCollectionAsset]): Obj = {
+        collectionAsset
+          .map(a => generateTableItem(batchId, a))
           .map(jsonMap => jsonMap ++ Map("id_Code" -> jsonMap("name")))
           .getOrElse(
             Map(
@@ -122,14 +115,6 @@ object DiscoveryService {
               "type" -> Str(ArchiveFolder.toString)
             )
           )
-
-        val seriesTableEntryOpt = departmentAndSeriesAssets.potentialSeriesCollectionAsset
-          .map(generateTableItem)
-          .map(jsonMap => jsonMap ++ Map("parentPath" -> departmentTableEntryMap("id"), "id_Code" -> jsonMap("name")))
-          .map(Obj.from)
-
-        DepartmentAndSeriesTableItems(Obj.from(departmentTableEntryMap), seriesTableEntryOpt)
-
       }
     }
 
