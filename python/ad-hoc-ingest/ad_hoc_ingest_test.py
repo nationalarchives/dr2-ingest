@@ -84,9 +84,9 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
             "IAID": "some_iaid"
         }
 
-        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId",  tmp1)
-        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  tmp1)
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
@@ -120,9 +120,9 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
             "IAID": "some_iaid"
         }
 
-        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId",  tmp1)
-        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  tmp1)
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
@@ -158,9 +158,9 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
             "IAID": "some_iaid"
         }
 
-        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId", tmp1)
-        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache",
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", tmp1)
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache",
                                                   "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_sqs_message")
@@ -195,9 +195,9 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
             "IAID": "some_iaid"
         }
 
-        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", "someFileId", tmp1)
-        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-raw-cache",
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", tmp1)
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache",
                                                   "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
 

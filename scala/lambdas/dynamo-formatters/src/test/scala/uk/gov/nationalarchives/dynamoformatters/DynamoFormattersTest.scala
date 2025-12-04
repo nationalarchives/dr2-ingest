@@ -15,7 +15,6 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentat
 import java.net.URI
 import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
-import scala.Console.in
 import scala.jdk.CollectionConverters.*
 
 class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherValues {
@@ -47,8 +46,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       "checksum_Algorithm1" -> fromS("testChecksumAlgo1"),
       fileExtension -> fromS("testFileExtension"),
       representationType -> fromS("Preservation"),
-      ingestedPreservica -> fromS("true"),
-      ingestedCustodialCopy -> fromS("true"),
       representationSuffix -> fromN("1"),
       "id_Test" -> fromS("testIdentifier"),
       childCount -> fromN("1"),
@@ -67,8 +64,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       digitalAssetSubtype -> fromS("testDigitalAssetSubtype"),
       originalMetadataFiles -> generateListAttributeValue("3f42e3f2-fffe-4fe9-87f7-262e95b86d75"),
       title -> fromS("testTitle"),
-      ingestedPreservica -> fromS("true"),
-      ingestedCustodialCopy -> fromS("true"),
       description -> fromS("testDescription"),
       "id_Test" -> fromS("testIdentifier"),
       "id_Test2" -> fromS("testIdentifier2"),
@@ -299,8 +294,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
         case "potentialDescription"         => "description"
         case "potentialFileExtension"       => "fileExtension"
         case "identifiers"                  => "id_Test"
-        case "ingestedPreservica"           => "ingested_PS"
-        case "ingestedCustodialCopy"        => "ingested_CC"
         case "potentialDigitalAssetSubtype" => "digitalAssetSubtype"
         case theRest                        => theRest
       }
@@ -312,35 +305,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
 
       dynamoItemAttributesNotAccountedFor should equal(Nil)
     }
-  }
-
-  "assetItemFormat read" should "return true for ingested_PS if the value is true and false otherwise" in {
-    val assetRowIngested = assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
-    assetRowIngested.ingestedPreservica should equal(true)
-
-    val assetRowNotIngested =
-      assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedPreservica -> fromS("false")))).value
-    assetRowNotIngested.ingestedPreservica should equal(false)
-
-    val assetRowInvalidValue =
-      assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedPreservica -> fromS("1")))).value
-    assetRowInvalidValue.ingestedPreservica should equal(false)
-  }
-
-  "assetItemFormat read" should "return true for ingested_CC if the value is true and false otherwise" in {
-    val assetRowIngested = assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated)).value
-    assetRowIngested.ingestedCustodialCopy should equal(true)
-
-    val assetRowIngestedCCMissing = assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated.filter(_._1 != ingestedCustodialCopy))).value
-    assetRowIngestedCCMissing.ingestedCustodialCopy should equal(false)
-
-    val assetRowNotIngested =
-      assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedCustodialCopy -> fromS("false")))).value
-    assetRowNotIngested.ingestedCustodialCopy should equal(false)
-
-    val assetRowInvalidValue =
-      assetItemFormat.read(buildAttributeValue(allAssetFieldsPopulated + (ingestedCustodialCopy -> fromS("1")))).value
-    assetRowInvalidValue.ingestedCustodialCopy should equal(false)
   }
 
   "assetItemFormat read" should "return the value if skipIngest is present and false otherwise" in {
@@ -376,19 +340,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     assetRow.identifiers.sortBy(_.identifierName) should equal(
       List(Identifier("Test2", "testIdentifier2"), Identifier("Test", "testIdentifier")).sortBy(_.identifierName)
     )
-  }
-
-  "fileItemFormat read" should "return true for ingested_PS if the value is true and false otherwise" in {
-    val fileRowIngested = fileItemFormat.read(buildAttributeValue(allFileFieldsPopulated)).value
-    fileRowIngested.ingestedPreservica should equal(true)
-
-    val fileRowNotIngested =
-      fileItemFormat.read(buildAttributeValue(allFileFieldsPopulated + (ingestedPreservica -> fromS("false")))).value
-    fileRowNotIngested.ingestedPreservica should equal(false)
-
-    val fileRowInvalidValue =
-      fileItemFormat.read(buildAttributeValue(allFileFieldsPopulated + (ingestedPreservica -> fromS("1")))).value
-    fileRowInvalidValue.ingestedPreservica should equal(false)
   }
 
   "fileItemFormat read" should "return a valid object when all file fields are populated" in {
@@ -446,8 +397,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap("checksum_Algorithm1").s() should equal("testChecksumAlgo1")
     resultMap(fileExtension).s() should equal("ext")
     resultMap("representationType").s() should equal("Preservation")
-    resultMap(ingestedPreservica).s() should equal("true")
-    resultMap(ingestedCustodialCopy).s() should equal("true")
     resultMap("representationSuffix").n() should equal("1")
     resultMap("id_FileIdentifier1").s() should equal("FileIdentifier1Value")
     resultMap(location).s() should equal("s3://bucket/key")
@@ -496,8 +445,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       digitalAssetSource,
       None,
       List(originalMetadataFilesUuid),
-      true,
-      true,
       Nil,
       1,
       false,
@@ -514,8 +461,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(upstreamSystem).s() should equal(upstreamSystem)
     resultMap(digitalAssetSource).s() should equal(digitalAssetSource)
     resultMap(originalMetadataFiles).ss().asScala.toList should equal(List(originalMetadataFilesUuid.toString))
-    resultMap(ingestedPreservica).s() should equal("true")
-    resultMap(ingestedCustodialCopy).s() should equal("true")
     val optionalsInResult =
       List(parentPath, title, description, sortOrder, fileSize, "checksums", fileExtension, "identifiers", skipIngest, correlationId, digitalAssetSubtype).filter(
         resultMap.contains
@@ -862,7 +807,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
   private def generateAssetDynamoItem(
       uuid: UUID = UUID.randomUUID(),
       originalMetadataFilesUuid: UUID = UUID.randomUUID(),
-      ingestedPreservica: Boolean = true,
       skipIngest: Boolean = true
   ): AssetDynamoItem = {
 
@@ -880,8 +824,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       digitalAssetSource,
       Option(digitalAssetSubtype),
       List(originalMetadataFilesUuid),
-      ingestedPreservica,
-      true,
       identifiers,
       1,
       skipIngest,
@@ -891,8 +833,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
   }
 
   private def generateFileDynamoItem(
-      uuid: UUID = UUID.randomUUID(),
-      ingestedPreservica: Boolean = true
+      uuid: UUID = UUID.randomUUID()
   ): FileDynamoItem = {
     FileDynamoItem(
       batchId,
@@ -908,8 +849,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       Option("ext"),
       PreservationRepresentationType,
       1,
-      ingestedPreservica,
-      true,
       List(Identifier("FileIdentifier1", "FileIdentifier1Value")),
       1,
       URI.create("s3://bucket/key")

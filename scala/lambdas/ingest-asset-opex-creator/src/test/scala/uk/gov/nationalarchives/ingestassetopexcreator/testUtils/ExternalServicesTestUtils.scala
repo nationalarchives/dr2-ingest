@@ -129,8 +129,6 @@ object ExternalServicesTestUtils:
     "digitalAssetSource",
     None,
     Nil,
-    true,
-    true,
     List(Identifier("UpstreamSystemReference", "upstreamSystemReference")),
     1,
     false,
@@ -152,8 +150,6 @@ object ExternalServicesTestUtils:
     Option("ext"),
     PreservationRepresentationType,
     1,
-    false,
-    true,
     Nil,
     1,
     URI.create("s3://bucket/key")

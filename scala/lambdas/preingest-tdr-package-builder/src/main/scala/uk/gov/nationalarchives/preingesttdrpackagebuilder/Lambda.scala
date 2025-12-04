@@ -23,7 +23,7 @@ import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.utils.ExternalUtils.RepresentationType.Preservation
 import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.PA
-import uk.gov.nationalarchives.utils.LambdaRunner
+import uk.gov.nationalarchives.utils.{ExternalUtils, LambdaRunner}
 import uk.gov.nationalarchives.utils.NaturalSorting.{natural, given}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 
@@ -59,7 +59,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId)
             s3FilesMap <- listS3Objects(fileLocation.getHost, assetMetadata.id)
             contentFolderKey <- config.sourceSystem match {
-              case SourceSystem.ADHOC | SourceSystem.PA => IO.pure(defaultFolderName)
+              case SourceSystem.ADHOC | SourceSystem.PA => IO.pure(s"${firstPackageMetadata.series}/$defaultFolderName")
               case _ =>
                 IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
                   new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
@@ -81,12 +81,15 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                   packageMetadata.checksums
                 )
               }
-
+              val contentFolderName = config.sourceSystem match {
+                case SourceSystem.ADHOC | SourceSystem.PA => contentFolderKey.split("/").last
+                case _                                    => contentFolderKey
+              }
               val potentialContentFolder = contentFolderMap.get(contentFolderKey)
               if potentialContentFolder.isDefined then (contentFolderMap, assetMetadata.copy(parentId = potentialContentFolder.map(_.id)) :: fileMetadataObjs)
               else
                 val contentFolderId = dependencies.uuidGenerator()
-                val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, contentFolderKey, Option(firstPackageMetadata.series), Nil)
+                val contentFolderMetadata = ContentFolderMetadataObject(contentFolderId, None, None, contentFolderName, Option(firstPackageMetadata.series), Nil)
                 val updatedMap = contentFolderMap + (contentFolderKey -> contentFolderMetadata)
                 val allMetadata = List(contentFolderMetadata, assetMetadata.copy(parentId = Option(contentFolderMetadata.id))) ++ fileMetadataObjs
                 (updatedMap, allMetadata)
