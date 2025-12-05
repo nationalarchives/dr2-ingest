@@ -162,8 +162,6 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
     digitalAssetSource,
     Option(digitalAssetSubtype),
     Nil,
-    true,
-    true,
     Nil,
     1,
     false,
@@ -185,8 +183,6 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
     Option(s"ext"),
     PreservationRepresentationType,
     1,
-    true,
-    true,
     List(DynamoIdentifier("Test2", "testIdentifier4")),
     1,
     URI.create("s3://bucket/key")
