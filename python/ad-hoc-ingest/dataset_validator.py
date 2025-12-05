@@ -1,10 +1,10 @@
 import os
 import sys
-import time
 from pathlib import Path
 
 import pandas
-import message_printer
+
+import message_printer as mp
 
 REQUIRED_COLUMNS = ("catRef", "fileName", "checksum")
 UNIQUE_COLUMNS = ("catRef", "fileName")
@@ -29,7 +29,7 @@ def validate_dataset(data_set, input_file_path, is_dry_run=False):
 
         if col in UNIQUE_COLUMNS_WARN_ONLY:
             if not data_set[col].is_unique:
-                message_printer.message(f"The column '{col}' has duplicate entries")
+                mp.print_message(f"The column '{col}' has duplicate entries")
 
         if col in NON_EMPTY_COLUMNS:
             if data_set[col].isnull().any():
@@ -38,7 +38,7 @@ def validate_dataset(data_set, input_file_path, is_dry_run=False):
 
     # return from here for fundamental failures, otherwise carry on and validate data in each row
     if not is_valid:
-        message_printer.message("Please fix the errors identified during validation before continuing further")
+        mp.print_message("Please fix the errors identified during validation before continuing further")
         sys.exit(1)
 
     data_set: pandas.DataFrame
@@ -47,7 +47,7 @@ def validate_dataset(data_set, input_file_path, is_dry_run=False):
     empty_files = []
     total_rows = len(data_set)
     for counter, (index, row) in enumerate(data_set.iterrows(), start=1):
-        message_printer.progress(f"Validating {counter} of {total_rows} rows")
+        mp.print_progress(f"Validating {counter} of {total_rows} rows")
         file_path = get_absolute_file_path(input_file_path, row["fileName"].strip())
         if not os.path.exists(file_path):
             missing_files.append(file_path)
@@ -56,9 +56,9 @@ def validate_dataset(data_set, input_file_path, is_dry_run=False):
             if os.path.getsize(file_path) == 0:
                 empty_files.append(file_path)
 
-    message_printer.progress(f"Validation finished for {total_rows} rows")
+    mp.print_progress(f"Validation finished for {total_rows} rows")
     if empty_files:
-        message_printer.message("Following files are empty: " + ",".join(empty_files))
+        mp.print_message("Following files are empty: " + ",".join(empty_files))
 
     if not all_files_exist:
         is_valid = False
@@ -69,7 +69,7 @@ def validate_dataset(data_set, input_file_path, is_dry_run=False):
 
 def throw_or_report(param, is_dry_run):
     if is_dry_run:
-        message_printer.message(param)
+        mp.print_message(param)
     else:
         raise Exception(param)
 

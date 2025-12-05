@@ -2,7 +2,7 @@ import sys
 
 progress_message_active = False
 
-def progress(text):
+def print_progress(text):
     global progress_message_active
     if progress_message_active:
         sys.stdout.write("\r" + " " * 200 + "\r")
@@ -11,7 +11,7 @@ def progress(text):
     progress_message_active = True
 
 
-def message(text):
+def print_message(text):
     global progress_message_active
     # If a progress line is active, remove it before printing message
     if progress_message_active:
