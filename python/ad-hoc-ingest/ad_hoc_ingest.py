@@ -71,7 +71,7 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
 
     if args.dry_run:
         if is_metadata_valid:
-            mp.print_message("Validations completed successfully, please proceed to ingest")
+            mp.print_message(f"Validations completed successfully. The metadata to be uploaded is saved to '{output_metadata_file}'.")
         else:
             mp.print_message("Please fix the errors identified during validation before continuing further")
             sys.exit(1)
