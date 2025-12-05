@@ -714,7 +714,7 @@ module "interface_endpoints_security_group" {
     ingress = [
       {
         port              = 443,
-        description       = "",
+        description       = "Allow inbound https traffic to services from internal components",
         security_group_id = module.https_to_vpc_endpoints_security_group.security_group_id
       }
     ]
@@ -731,7 +731,7 @@ module "https_to_vpc_endpoints_security_group" {
     egress = [
       {
         port              = 443,
-        description       = "",
+        description       = "Allow outbound https traffic to services through interface endpoints",
         security_group_id = module.interface_endpoints_security_group.security_group_id
       }
     ]
