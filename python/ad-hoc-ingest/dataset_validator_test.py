@@ -5,6 +5,7 @@ import tempfile
 from contextlib import redirect_stdout
 from io import StringIO
 from unittest import TestCase
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -136,12 +137,12 @@ class Test(TestCase):
         JS 8/4,d:\\js\\3\\1\\evid0002.pdf"""
         data_set = pd.read_csv(StringIO(csv_data))
 
-        console_out = io.StringIO()
-        with redirect_stdout(console_out):
-            is_valid = dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", True)
+        with self.assertRaises(SystemExit) as exc:
+            with patch("sys.stdout", new=io.StringIO()) as mock_console:
+                dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", True)
 
-        self.assertFalse(is_valid)
-        self.assertEqual("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')", console_out.getvalue().strip())
+        self.assertEqual(1, exc.exception.code)
+        self.assertIn("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')\nPlease fix the errors identified during validation before continuing further", mock_console.getvalue())
 
     def test_should_report_when_there_is_duplicate_checksum_but_still_call_the_dataset_as_valid(self):
         tmp4 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file4.txt")
@@ -158,7 +159,7 @@ class Test(TestCase):
             is_valid = dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv", True)
 
         self.assertTrue(is_valid)
-        self.assertEqual("The column 'checksum' has duplicate entries", console_out.getvalue().strip())
+        self.assertIn("The column 'checksum' has duplicate entries", console_out.getvalue().strip())
 
 
     def test_should_report_multiple_validation_failures_across_spreadsheet_structure_validation(self):
@@ -168,12 +169,14 @@ class Test(TestCase):
         JS 8/5,/missing/evid0003.pdf,checksum_three"""
 
         data_set = pd.read_csv(StringIO(csv_data))
-        console_out = io.StringIO()
-        with redirect_stdout(console_out):
-            is_valid = dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", True)
 
-        self.assertFalse(is_valid)
-        self.assertEqual("The column 'fileName' has empty entries\nThe column 'checksum' has duplicate entries", console_out.getvalue().strip())
+        with self.assertRaises(SystemExit) as exc:
+            with patch("sys.stdout", new=io.StringIO()) as mock_console:
+                dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", True)
+
+        self.assertEqual(1, exc.exception.code)
+        self.assertIn("The column 'fileName' has empty entries\nThe column 'checksum' has duplicate entries\nPlease fix the errors identified during validation before continuing further\n", mock_console.getvalue())
+
 
     def test_should_report_when_a_file_is_empty_but_still_call_the_dataset_as_valid(self):
         tmp4 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file4.txt")
@@ -190,5 +193,5 @@ class Test(TestCase):
             is_valid = dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv", True)
 
         self.assertTrue(is_valid)
-        self.assertEqual(f"Following files are empty: {tmp4}", console_out.getvalue().strip())
+        self.assertIn(f"Following files are empty: {tmp4}", console_out.getvalue().strip())
 
