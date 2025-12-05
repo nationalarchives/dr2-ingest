@@ -27,4 +27,9 @@ module "dr2_ingest_failure_notifications_lambda" {
   lambda_invoke_permissions = {
     "events.amazonaws.com" = module.failed_ingest_step_function_event_bridge_rule.rule_arn
   }
+
+  vpc_config = {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
+  }
 }
