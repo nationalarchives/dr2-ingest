@@ -27,7 +27,7 @@ module "dri_preingest" {
   ingest_step_function_name           = local.ingest_step_function_name
   source_name                         = "dri"
   copy_source_bucket_name             = local.ingest_raw_cache_bucket_name
-  private_security_group_ids          = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id,  module.https_to_vpc_endpoints_security_group.security_group_id]
+  private_security_group_ids          = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
   private_subnet_ids                  = module.vpc.private_subnets
 }
 
@@ -41,7 +41,7 @@ module "ad_hoc_preingest" {
   ingest_step_function_name           = local.ingest_step_function_name
   source_name                         = "adhoc"
   copy_source_bucket_name             = local.adhoc_bucket_name
-  private_security_group_ids          = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id,  module.https_to_vpc_endpoints_security_group.security_group_id]
+  private_security_group_ids          = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
   private_subnet_ids                  = module.vpc.private_subnets
 }
 

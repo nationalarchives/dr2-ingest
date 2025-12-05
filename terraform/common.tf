@@ -165,7 +165,7 @@ module "vpc" {
       name = "com.amazonaws.eu-west-2.secretsmanager",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "secretsmanager"
-        org_id = data.aws_organizations_organization.org.id
+        org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
@@ -174,27 +174,27 @@ module "vpc" {
       name = "com.amazonaws.eu-west-2.states",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "states"
-        org_id = data.aws_organizations_organization.org.id
+        org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
     sns = {
       region = "eu-west-2",
-      name = "com.amazonaws.eu-west-2.sns",
+      name   = "com.amazonaws.eu-west-2.sns",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "sns"
-        org_id = data.aws_organizations_organization.org.id
+        org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
     sqs = {
       region = "eu-west-2",
-      name = "com.amazonaws.eu-west-2.sqs",
+      name   = "com.amazonaws.eu-west-2.sqs",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "sqs"
-        org_id = data.aws_organizations_organization.org.id
+        org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
@@ -713,8 +713,8 @@ module "interface_endpoints_security_group" {
   rules = {
     ingress = [
       {
-        port = 443,
-        description = "",
+        port              = 443,
+        description       = "",
         security_group_id = module.https_to_vpc_endpoints_security_group.security_group_id
       }
     ]
@@ -730,8 +730,8 @@ module "https_to_vpc_endpoints_security_group" {
   rules = {
     egress = [
       {
-        port = 443,
-        description = "",
+        port              = 443,
+        description       = "",
         security_group_id = module.interface_endpoints_security_group.security_group_id
       }
     ]
