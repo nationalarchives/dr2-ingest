@@ -25,7 +25,7 @@ jobs:
       changes: ${{ steps.detect_changes.outputs.changes }}
     environment: ${{ github.event.inputs.environment }}
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           submodules: recursive
           token: ${{ secrets.WORKFLOW_TOKEN }}
@@ -66,7 +66,7 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     if: needs.terraform_plan.outputs.changes == 'true'
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           submodules: recursive
           token: ${{ secrets.WORKFLOW_TOKEN }}
@@ -94,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - id: role-name
         run: echo role-name="$(echo ${{ github.event.inputs.environment }} | sed -r 's/(^|-)(\w)/\U\2/g')DPGithubActionsDeployLambdaRole" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials for Lambda
