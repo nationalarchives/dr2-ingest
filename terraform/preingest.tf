@@ -29,6 +29,12 @@ module "dri_preingest" {
   copy_source_bucket_name             = local.ingest_raw_cache_bucket_name
   private_security_group_ids          = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
   private_subnet_ids                  = module.vpc.private_subnets
+  importer_lambda = {
+    visibility_timeout = 900
+    timeout            = 900
+    batching_window    = 10
+    batch_size         = 100
+  }
 }
 
 module "ad_hoc_preingest" {
@@ -72,6 +78,8 @@ module "pa_preingest" {
     handler            = "uk.gov.nationalarchives.preingestpaimporter.Lambda::handleRequest"
     runtime            = local.java_runtime
     memory_size        = 2048
+    batching_window    = 10
+    batch_size         = 100
   }
 }
 

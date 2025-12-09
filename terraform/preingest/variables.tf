@@ -45,6 +45,8 @@ variable "importer_lambda" {
     handler            = string
     runtime            = string
     memory_size        = number
+    batch_size         = number
+    batching_window    = number
   })
   default = {
     timeout            = 180
@@ -52,6 +54,8 @@ variable "importer_lambda" {
     handler            = "lambda_function.lambda_handler"
     runtime            = "python3.12"
     memory_size        = 128
+    batch_size         = 10
+    batching_window    = 0
 
   }
 }

@@ -6,11 +6,13 @@ locals {
   redrive_maximum_receives = 5
 }
 module "dr2_importer_lambda" {
-  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
-  description     = "A lambda to validate incoming metadata and copy the files to the DR2 S3 bucket for ${upper(var.source_name)}"
-  function_name   = local.importer_name
-  handler         = var.importer_lambda.handler
-  timeout_seconds = var.importer_lambda.timeout
+  source                       = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  description                  = "A lambda to validate incoming metadata and copy the files to the DR2 S3 bucket for ${upper(var.source_name)}"
+  function_name                = local.importer_name
+  handler                      = var.importer_lambda.handler
+  timeout_seconds              = var.importer_lambda.timeout
+  sqs_queue_mapping_batch_size = var.importer_lambda.batch_size
+  sqs_queue_batching_window    = var.importer_lambda.batching_window
   lambda_sqs_queue_mappings = [
     { sqs_queue_arn = local.importer_queue_arn, ignore_enabled_status = true }
   ]
