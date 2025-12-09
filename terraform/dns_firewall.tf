@@ -19,7 +19,7 @@ resource "aws_route53_resolver_firewall_domain_list" "allow_domains" {
 }
 
 resource "aws_route53_resolver_firewall_domain_list" "block_all" {
-  name = "block-everything"
+  name    = "block-everything"
   domains = ["*"]
 }
 
@@ -28,27 +28,27 @@ resource "aws_route53_resolver_firewall_rule_group" "firewall_group" {
 }
 
 resource "aws_route53_resolver_firewall_rule" "allow_rule" {
-  firewall_rule_group_id = aws_route53_resolver_firewall_rule_group.firewall_group.id
+  firewall_rule_group_id  = aws_route53_resolver_firewall_rule_group.firewall_group.id
   firewall_domain_list_id = aws_route53_resolver_firewall_domain_list.allow_domains.id
 
-  name = "allow-services-rule"
+  name     = "allow-services-rule"
   priority = 100
-  action = "ALLOW"
+  action   = "ALLOW"
 }
 
 resource "aws_route53_resolver_firewall_rule" "block_rule" {
-  firewall_rule_group_id = aws_route53_resolver_firewall_rule_group.firewall_group.id
+  firewall_rule_group_id  = aws_route53_resolver_firewall_rule_group.firewall_group.id
   firewall_domain_list_id = aws_route53_resolver_firewall_domain_list.block_all.id
 
-  name = "block-all-services-rule"
-  priority = 200
-  action = "BLOCK"
+  name           = "block-all-services-rule"
+  priority       = 200
+  action         = "BLOCK"
   block_response = "DNS RESOLUTION NOT ALLOWED"
 }
 
 resource "aws_route53_resolver_firewall_rule_group_association" "vpc_association" {
-  name = "vpc-firewall-association"
-  priority = 101
+  name                   = "vpc-firewall-association"
+  priority               = 101
   firewall_rule_group_id = aws_route53_resolver_firewall_rule_group.firewall_group.id
-  vpc_id = module.vpc.vpc_id
+  vpc_id                 = module.vpc.vpc_id
 }
