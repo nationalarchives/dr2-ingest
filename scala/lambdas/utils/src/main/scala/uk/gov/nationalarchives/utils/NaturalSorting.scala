@@ -13,7 +13,7 @@ object NaturalSorting:
         Math.signum((b.length - a.length).toFloat).toInt
       case i => (a(i), b(i)) match {
         case (NUMBER(c), NUMBER(d)) =>
-          Math.signum((c.toInt - d.toInt).toFloat).toInt
+          Math.signum((c.toLong - d.toLong).toFloat).toInt
         case (c, d) =>
           c.compareTo(d)
       }
