@@ -3,7 +3,7 @@ package uk.gov.nationalarchives.ingestmapper
 import cats.effect.IO
 import cats.implicits.*
 import fs2.interop.reactivestreams.*
-import fs2.{Chunk, Pipe, Stream, text}
+import fs2.{Chunk, Stream, text}
 import ujson.*
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestmapper.Lambda.Input
@@ -59,119 +59,114 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService[IO]
 
   def parseMetadataJson(
       input: Input
-  ): IO[List[Obj]] =
-    parseFileFromS3(
-      input,
-      s =>
-        s.flatMap { metadataJson =>
-          val json = read(metadataJson)
-          val jsonArr = json.arr.toList
-          val topLevelObjects = jsonArr.filter(_.parentId.isEmpty)
-          val seriesToParentIds = topLevelObjects
-            .groupBy(_.series)
-            .view
-            .mapValues(_.map(_.id))
+  ): IO[List[Obj]] = {
+    metadataFromS3(input).flatMap { metadataJson =>
+      val json = read(metadataJson)
+      val jsonArr = json.arr.toList
+      val topLevelObjects = jsonArr.filter(_.parentId.isEmpty)
+      val seriesToParentIds = topLevelObjects
+        .groupBy(_.series)
+        .view
+        .mapValues(_.map(_.id))
 
-          def departmentFromSeries(series: String) = (if series.contains("/") then series.split("/") else series.split(" ")).headOption
-          val allSeries = seriesToParentIds.keys.toList.flatten
+      def departmentFromSeries(series: String) = (if series.contains("/") then series.split("/") else series.split(" ")).headOption
 
-          val allDepartmentSeries = for
-            allSeriesAssets <- allSeries.traverse(discoveryService.getAssetFromDiscoveryApi)
-            allDepartmentAssets <- allSeries.flatMap(departmentFromSeries).distinct.traverse(discoveryService.getAssetFromDiscoveryApi)
-          yield
-            lazy val unknownDep = DepartmentAndSeriesTableItems(discoveryService.departmentItem(input.batchId, None), None)
-            allDepartmentAssets.flatMap { dep =>
-              val depJson = discoveryService.departmentItem(input.batchId, Option(dep))
-              if dep.citableReference == "Unknown" then List(Option("Unknown") -> unknownDep)
-              else
-                allSeriesAssets
-                  .filter(s => departmentFromSeries(s.citableReference).contains(dep.citableReference))
-                  .map { s =>
-                    val json = discoveryService.seriesItem(input.batchId, depJson, s)
-                    Option(json("name").str) -> DepartmentAndSeriesTableItems(depJson, Option(json))
-                  }
-            }.toMap + (None -> unknownDep)
+      val allSeries = seriesToParentIds.keys.toList.flatten
 
-          val topLevelIdsToDepartmentSeries = allDepartmentSeries.map { lookup =>
-            seriesToParentIds.toMap.flatMap { case (potentialSeries, parentIds) =>
-              parentIds.map(p => p -> lookup(potentialSeries))
-            }
-          }
-
-          Stream.evals {
-            topLevelIdsToDepartmentSeries.map { idToDepartmentSeries =>
-              val idToParent = getParentPaths(json, idToDepartmentSeries)
-              val depSeriesCount = idToDepartmentSeries.values.toList
-                .groupBy(_.departmentItem("id").str)
-                .view
-                .mapValues(_.distinct.length)
-                .toMap
-              val parentToChildCount = idToParent.groupBy(_._2).view.mapValues(_.size).toMap ++ depSeriesCount
-
-              def addChildCount(obj: Obj) = {
-                val attributes = obj.value.toMap
-                val id = attributes("id").str
-                val parentPath = attributes.get("parentPath").map(parentPath => s"${parentPath.str}/").getOrElse("")
-                val childParentPath = s"$parentPath$id"
-                val childCount = parentToChildCount.getOrElse(childParentPath, 1)
-                Obj.from(attributes + ("childCount" -> Num(childCount)))
+      val allDepartmentSeries = for
+        allSeriesAssets <- allSeries.traverse(discoveryService.getAssetFromDiscoveryApi)
+        allDepartmentAssets <- allSeries.flatMap(departmentFromSeries).distinct.traverse(discoveryService.getAssetFromDiscoveryApi)
+      yield
+        lazy val unknownDep = DepartmentAndSeriesTableItems(discoveryService.departmentItem(input.batchId, None), None)
+        allDepartmentAssets.flatMap { dep =>
+          val depJson = discoveryService.departmentItem(input.batchId, Option(dep))
+          if dep.citableReference == "Unknown" then List(Option("Unknown") -> unknownDep)
+          else
+            allSeriesAssets
+              .filter(s => departmentFromSeries(s.citableReference).contains(dep.citableReference))
+              .map { s =>
+                val json = discoveryService.seriesItem(input.batchId, depJson, s)
+                Option(json("name").str) -> DepartmentAndSeriesTableItems(depJson, Option(json))
               }
+        }.toMap + (None -> unknownDep)
 
-              val departmentSeriesObjects = idToDepartmentSeries.values.toList
-                .distinctBy(item => item.potentialSeriesItem.map(obj => obj("name")))
-                .flatMap { departmentSeries =>
-                  List(
-                    departmentSeries.potentialSeriesItem.map(addChildCount),
-                    Option(addChildCount(departmentSeries.departmentItem))
-                  ).flatten
-                }
-                .distinct
-              jsonArr.map { metadataEntry =>
-                val id = UUID.fromString(metadataEntry("id").str)
-                val name = metadataEntry("name").str
-                val parentPath = idToParent(id)
-                val checksum: Value = Try(metadataEntry("checksum_sha256")).toOption
-                  .map(_.str)
-                  .map(Str.apply)
-                  .getOrElse(Null)
-                val entryType = metadataEntry("type").str
-                val fileExtension =
-                  if (entryType == File.toString)
-                    name.split('.').toList.reverse match {
-                      case ext :: _ :: _ => Str(ext)
-                      case _             => Null
-                    }
-                  else Null
-                val childCount = Num(parentToChildCount.getOrElse(s"$parentPath/$id", 0))
-                val metadataMap: Map[String, Value] =
-                  Map(
-                    "batchId" -> Str(input.batchId),
-                    "parentPath" -> Str(parentPath),
-                    "checksum_sha256" -> checksum,
-                    "fileExtension" -> fileExtension,
-                    "childCount" -> childCount
-                  ) ++ metadataEntry.obj.view
-                    .filterKeys(_ != "parentId")
-                    .toMap
-                Obj.from(metadataMap)
-              } ++ departmentSeriesObjects
-            }
-          }
-
+      val topLevelIdsToDepartmentSeries = allDepartmentSeries.map { lookup =>
+        seriesToParentIds.toMap.flatMap { case (potentialSeries, parentIds) =>
+          parentIds.map(p => p -> lookup(potentialSeries))
         }
-    )
+      }
 
-  private def parseFileFromS3[T](input: Input, decoderPipe: Pipe[IO, String, T]): IO[List[T]] =
+      topLevelIdsToDepartmentSeries.map { idToDepartmentSeries =>
+        val idToParent = getParentPaths(json, idToDepartmentSeries)
+        val depSeriesCount = idToDepartmentSeries.values.toList
+          .groupBy(_.departmentItem("id").str)
+          .view
+          .mapValues(_.distinct.length)
+          .toMap
+        val parentToChildCount = idToParent.groupBy(_._2).view.mapValues(_.size).toMap ++ depSeriesCount
+
+        def addChildCount(obj: Obj) = {
+          val attributes = obj.value.toMap
+          val id = attributes("id").str
+          val parentPath = attributes.get("parentPath").map(parentPath => s"${parentPath.str}/").getOrElse("")
+          val childParentPath = s"$parentPath$id"
+          val childCount = parentToChildCount.getOrElse(childParentPath, 1)
+          Obj.from(attributes + ("childCount" -> Num(childCount)))
+        }
+
+        val departmentSeriesObjects = idToDepartmentSeries.values.toList
+          .distinctBy(item => item.potentialSeriesItem.map(obj => obj("name")))
+          .flatMap { departmentSeries =>
+            List(
+              departmentSeries.potentialSeriesItem.map(addChildCount),
+              Option(addChildCount(departmentSeries.departmentItem))
+            ).flatten
+          }
+          .distinct
+        jsonArr.map { metadataEntry =>
+          val id = UUID.fromString(metadataEntry("id").str)
+          val name = metadataEntry("name").str
+          val parentPath = idToParent(id)
+          val checksum: Value = Try(metadataEntry("checksum_sha256")).toOption
+            .map(_.str)
+            .map(Str.apply)
+            .getOrElse(Null)
+          val entryType = metadataEntry("type").str
+          val fileExtension =
+            if (entryType == File.toString)
+              name.split('.').toList.reverse match {
+                case ext :: _ :: _ => Str(ext)
+                case _ => Null
+              }
+            else Null
+          val childCount = Num(parentToChildCount.getOrElse(s"$parentPath/$id", 0))
+          val metadataMap: Map[String, Value] =
+            Map(
+              "batchId" -> Str(input.batchId),
+              "parentPath" -> Str(parentPath),
+              "checksum_sha256" -> checksum,
+              "fileExtension" -> fileExtension,
+              "childCount" -> childCount
+            ) ++ metadataEntry.obj.view
+              .filterKeys(_ != "parentId")
+              .toMap
+          Obj.from(metadataMap)
+        } ++ departmentSeriesObjects
+      }
+    }
+
+  }
+
+  private def metadataFromS3[T](input: Input): IO[String] =
     for {
       pub <- s3.download(input.metadataPackage.getHost, input.metadataPackage.getPath.drop(1))
       s3FileString <- pub
         .toStreamBuffered[IO](bufferSize)
         .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
         .through(text.utf8.decode)
-        .through(decoderPipe)
         .compile
         .toList
-    } yield s3FileString
+    } yield s3FileString.mkString
 }
 
 object MetadataService {
