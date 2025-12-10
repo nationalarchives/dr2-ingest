@@ -47,15 +47,11 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
 
 ## Running Terraform Project Locally
 
-**NOTE: Running Terraform locally should only be used to check the Terraform plan. Updating the DR2 environments should only ever be done through GitHub actions**
+**NOTE: Running Terraform locally should only be used to check the Terraform plan. Updating the DR2 environments should only ever be done through GitHub Actions**
 
 1. Clone DR2 Environments project to local machine: https://github.com/nationalarchives/dr2-terraform-environments and navigate to the directory
 
-2. Switch to the Terraform workspace corresponding to the DR2 environment to be worked on:
-
-   ```
-   [location of project] $ terraform workspace select intg
-   ```
+2. (In the `dr2-terraform-environments` directory) clone DR2 Configurations: https://github.com/nationalarchives/da-terraform-configurations
 
 3. Set the following Terraform environment variables on the local environment:
 
@@ -103,7 +99,7 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
         3. run `export AWS_ACCESS_KEY_ID=[paste value from JSON]`
         4. run `export AWS_SECRET_ACCESS_KEY=[paste value from JSON]`
         5. run `export AWS_SESSION_TOKEN=paste[paste value from JSON]`
-    3. If the workspace has not been switched, run `terraform workspace select [workspace]`
+    3. Switch to the Terraform workspace corresponding to the DR2 environment to be worked on `terraform workspace select [workspace]`
         1. run `terraform workspace list` to see available workspaces and the current workspace
     4. Run
       ```
@@ -114,8 +110,26 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
 
 ### Troubleshooting:
 
-If you get the message starting with `Failed to unlock state: failed to delete the lock file...`, ask the person in the
+1. If you get the message starting with `Failed to unlock state: failed to delete the lock file...`, ask the person in the
 `Who:` section (of the message) if it is alright to unlock the state, if it is, run `terraform force-unlock [ID]`.
+
+1. If after running `aws sts assume-role --role-arn arn:aws:iam::[account number]:role/[terraform role] --role-session-name run-terraform`,
+you get this error `An error occurred (ExpiredToken) when calling the AssumeRole operation: The security token included in the request is expired`,
+it's probably because you've already got credentials set in your environment variables, so run
+`unset AWS_SECRET_ACCESS_KEY && unset AWS_ACCESS_KEY_ID && unset AWS_SESSION_TOKEN` and run again
+
+1. If you get this error:
+    ```
+   │ Error: Unsupported argument
+   │
+   │   on root_provider.tf line 3, in module "config":
+   │    3:   project = "dr2"
+   │
+   │ An argument named "project" is not expected here.
+    ```
+   and the `da-terraform-configurations` subdirectory is empty, run `git submodule update --init --recursive`
+
+1. For any other error, try running `terraform get -update` (if it hasn't been run already)
 
 ## Further Information
 

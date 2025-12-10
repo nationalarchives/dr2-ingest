@@ -1,5 +1,5 @@
 locals {
-  repositories = ["dr2-ingest", "dr2-ip-lock-checker", "dr2-ingest-cc-notification-handler"]
+  repositories = ["dr2-ingest", "dr2-ip-lock-checker", "dr2-ingest-cc-notification-handler", "dr2-court-document-package-anonymiser"]
   all_repository_filters = flatten([
     for repository in local.repositories : [
       "repo:nationalarchives/${repository}:environment:${local.environment}",
@@ -49,6 +49,9 @@ module "deploy_lambda_policy" {
         module.dri_preingest.aggregator_lambda.arn,
         module.dri_preingest.package_builder_lambda.arn,
         module.dri_preingest.importer_lambda.arn,
+        module.ad_hoc_preingest.aggregator_lambda.arn,
+        module.ad_hoc_preingest.package_builder_lambda.arn,
+        module.ad_hoc_preingest.importer_lambda.arn,
         module.pa_preingest.aggregator_lambda.arn,
         module.pa_preingest.package_builder_lambda.arn,
         module.pa_preingest.importer_lambda.arn,

@@ -39,13 +39,11 @@ object DynamoWriteUtils {
     DynamoObject {
       commonFieldsToMap(assetDynamoItem) ++
         Map(
-          "transferCompleteDatetime" -> DynamoValue.fromString(assetDynamoItem.transferCompleteDatetime.toString),
           "upstreamSystem" -> DynamoValue.fromString(assetDynamoItem.upstreamSystem),
           "digitalAssetSource" -> DynamoValue.fromString(assetDynamoItem.digitalAssetSource),
-          "originalMetadataFiles" -> DynamoValue.fromStrings(assetDynamoItem.originalMetadataFiles.map(_.toString)),
-          ingestedPreservica -> DynamoValue.fromString(assetDynamoItem.ingestedPreservica.toString),
-          ingestedCustodialCopy -> DynamoValue.fromString(assetDynamoItem.ingestedCustodialCopy.toString)
+          "originalMetadataFiles" -> DynamoValue.fromStrings(assetDynamoItem.originalMetadataFiles.map(_.toString))
         ) ++ (if (assetDynamoItem.skipIngest) Map("skipIngest" -> DynamoValue.fromBoolean(assetDynamoItem.skipIngest)) else Map())
+        ++ assetDynamoItem.transferCompleteDatetime.map(tcd => Map(transferCompleteDatetime -> DynamoValue.fromString(tcd.toString))).getOrElse(Map())
         ++ assetDynamoItem.correlationId.map(id => Map(correlationId -> DynamoValue.fromString(id))).getOrElse(Map())
         ++ assetDynamoItem.potentialDigitalAssetSubtype.map(subType => Map(digitalAssetSubtype -> DynamoValue.fromString(subType))).getOrElse(Map())
         ++ assetDynamoItem.transferringBody.map(tb => Map(transferringBody -> DynamoValue.fromString(tb))).getOrElse(Map())
@@ -61,9 +59,7 @@ object DynamoWriteUtils {
           fileSize -> DynamoValue.fromNumber[Long](fileDynamoItem.fileSize),
           representationType -> DynamoValue.fromString(fileDynamoItem.representationType.toString),
           representationSuffix -> DynamoValue.fromNumber(fileDynamoItem.representationSuffix),
-          ingestedPreservica -> DynamoValue.fromString(fileDynamoItem.ingestedPreservica.toString),
-          location -> DynamoValue.fromString(fileDynamoItem.location.toString),
-          ingestedCustodialCopy -> DynamoValue.fromString(fileDynamoItem.ingestedCustodialCopy.toString)
+          location -> DynamoValue.fromString(fileDynamoItem.location.toString)
         ) ++ fileDynamoItem.checksums.map(eachChecksum => s"$checksumPrefix${eachChecksum.algorithm}" -> DynamoValue.fromString(eachChecksum.fingerprint)).toMap
     }.toDynamoValue
 

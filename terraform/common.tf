@@ -15,12 +15,10 @@ locals {
   ingest_flow_control_config_ssm_parameter_name        = "/${local.environment}/flow-control-config"
   enable_point_in_time_recovery                        = true
   files_table_batch_parent_global_secondary_index_name = "BatchParentPathIdx"
-  files_table_ingest_ps_global_secondary_index_name    = "IngestPSIdx"
   ingest_lock_table_group_id_gsi_name                  = "IngestLockGroupIdx"
   ingest_lock_table_hash_key                           = "assetId"
   dev_notifications_channel_id                         = local.environment == "prod" ? "C06EDJPF0VB" : "C052LJASZ08"
   general_notifications_channel_id                     = local.environment == "prod" ? "C06E20AR65V" : "C068RLCPZFE"
-  tre_prod_judgment_role                               = "arn:aws:iam::${module.tre_config.account_numbers["prod"]}:role/prod-tre-editorial-judgment-out-copier"
   java_runtime                                         = "java21"
   java_lambda_memory_size                              = 512
   java_timeout_seconds                                 = 180
@@ -60,7 +58,10 @@ locals {
     module.tdr_preingest.importer_lambda.function_name,
     module.dri_preingest.aggregator_lambda.function_name,
     module.dri_preingest.package_builder_lambda.function_name,
-    module.dri_preingest.importer_lambda.function_name
+    module.dri_preingest.importer_lambda.function_name,
+    module.ad_hoc_preingest.aggregator_lambda.function_name,
+    module.ad_hoc_preingest.package_builder_lambda.function_name,
+    module.ad_hoc_preingest.importer_lambda.function_name
   ], local.environment == "intg" ? [local.court_document_anonymiser_lambda_name] : [])
   queues = [
     module.dr2_ingest_parsed_court_document_event_handler_sqs,
@@ -69,13 +70,14 @@ locals {
     module.dr2_custodial_copy_db_builder_queue,
     module.dr2_external_notifications_queue,
     module.tdr_preingest.importer_sqs,
-    module.dri_preingest.importer_sqs
+    module.dri_preingest.importer_sqs,
+    module.ad_hoc_preingest.importer_sqs
   ]
   retry_statement            = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 6, BackoffRate = 2, JitterStrategy = "FULL" }])
   messages_visible_threshold = 1000000
   # The list comes from https://www.cloudflare.com/en-gb/ips
   cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
-  outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id]
+  outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
   tdr_export_bucket           = "tdr-export-${local.environment}"
   parliament_ingest_role      = module.config.terraform_config[local.environment]["parliament_ingest_role"]
 }
@@ -157,6 +159,47 @@ module "vpc" {
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id
   })
+
+  interface_endpoints = {
+    secretsmanager = {
+      name = "com.amazonaws.eu-west-2.secretsmanager",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "secretsmanager"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
+    stepfunctions = {
+      name = "com.amazonaws.eu-west-2.states",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "states"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
+    sns = {
+      region = "eu-west-2",
+      name   = "com.amazonaws.eu-west-2.sns",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "sns"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
+    sqs = {
+      region = "eu-west-2",
+      name   = "com.amazonaws.eu-west-2.sqs",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "sqs"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    }
+  }
 }
 
 data "aws_eip" "eip" {
@@ -286,11 +329,13 @@ module "dr2_kms_key" {
       module.dri_preingest.aggregator_lambda.role,
       module.dri_preingest.package_builder_lambda.role,
       module.dri_preingest.importer_lambda.role,
+      module.ad_hoc_preingest.aggregator_lambda.role,
+      module.ad_hoc_preingest.package_builder_lambda.role,
+      module.ad_hoc_preingest.importer_lambda.role,
       module.pa_preingest.aggregator_lambda.role,
       module.pa_preingest.package_builder_lambda.role,
       module.pa_preingest.importer_lambda.role,
       local.tna_to_preservica_role_arn,
-      local.tre_prod_judgment_role,
       local.parliament_ingest_role,
     ], local.additional_user_roles, local.anonymiser_roles, local.e2e_test_roles)
     ci_roles = [local.terraform_role_arn]
@@ -424,10 +469,10 @@ module "dr2_ingest_step_function_policy" {
     ingest_state_bucket_name                          = local.ingest_state_bucket_name
     ingest_sfn_name                                   = local.ingest_step_function_name
     ingest_run_workflow_sfn_name                      = local.ingest_run_workflow_step_function_name
-    ingest_files_table_name                           = local.files_dynamo_table_name
     tna_to_preservica_role_arn                        = local.tna_to_preservica_role_arn
     preingest_tdr_step_function_arn                   = module.tdr_preingest.preingest_sfn_arn
     preingest_dri_step_function_arn                   = module.dri_preingest.preingest_sfn_arn
+    preingest_adhoc_step_function_arn                 = module.ad_hoc_preingest.preingest_sfn_arn
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
     postingest_table_name                             = module.postingest.postingest_table_name
   })
@@ -566,6 +611,7 @@ module "failed_ingest_step_function_event_bridge_rule" {
       module.dr2_ingest_step_function.step_function_arn,
       module.tdr_preingest.preingest_sfn_arn,
       module.dri_preingest.preingest_sfn_arn,
+      module.ad_hoc_preingest.preingest_sfn_arn,
       module.dr2_ingest_run_workflow_step_function.step_function_arn
     ])
   })
@@ -678,5 +724,47 @@ resource "aws_cloudwatch_dashboard" "ingest_dashboard" {
     source_list                     = join(" | ", [for lambda in local.dashboard_lambdas : format("SOURCE '/aws/lambda/%s'", lambda)])
   })
   dashboard_name = "${local.environment}-dr2-ingest-dashboard"
+}
 
+module "interface_endpoints_security_group" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A security group for interface type vpc endpoints"
+  name        = "${local.environment}-vpc-endpoints"
+  vpc_id      = module.vpc.vpc_id
+  rules = {
+    ingress = [
+      {
+        port              = 443,
+        description       = "Allow inbound https traffic to services from internal components",
+        security_group_id = module.https_to_vpc_endpoints_security_group.security_group_id
+      }
+    ]
+  }
+}
+
+module "https_to_vpc_endpoints_security_group" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A security group for outbound https to vpc endpoints"
+  name        = "${local.environment}-outbound-https-to-vpc-endpoints"
+  vpc_id      = module.vpc.vpc_id
+  rules = {
+    egress = [
+      {
+        port              = 443,
+        description       = "Allow outbound https traffic to services through interface endpoints",
+        security_group_id = module.interface_endpoints_security_group.security_group_id
+      }
+    ]
+  }
+}
+
+module "archivist_sso_policy" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
+  name   = "AWSSSO_DAArchivist"
+  policy_string = templatefile("${path.module}/templates/iam_policy/archivist_sso_policy.json.tpl", {
+    account_id  = data.aws_caller_identity.current.account_id
+    environment = local.environment
+  })
 }

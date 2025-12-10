@@ -124,13 +124,11 @@ object ExternalServicesTestUtils:
     None,
     None,
     Option("Body"),
-    OffsetDateTime.parse("2023-06-01T00:00Z"),
+    Option(OffsetDateTime.parse("2023-06-01T00:00Z")),
     "upstreamSystem",
     "digitalAssetSource",
     None,
     Nil,
-    true,
-    true,
     List(Identifier("UpstreamSystemReference", "upstreamSystemReference")),
     1,
     false,
@@ -152,8 +150,6 @@ object ExternalServicesTestUtils:
     Option("ext"),
     PreservationRepresentationType,
     1,
-    false,
-    true,
     Nil,
     1,
     URI.create("s3://bucket/key")
@@ -194,7 +190,7 @@ object ExternalServicesTestUtils:
             <DigitalAssetSubtype/>
             <IngestDateTime>{ingestDateTime}</IngestDateTime>
             <OriginalMetadataFiles></OriginalMetadataFiles>
-            <TransferDateTime>{asset.transferCompleteDatetime}</TransferDateTime>
+            <TransferDateTime>{asset.transferCompleteDatetime.getOrElse("")}</TransferDateTime>
             <TransferringBody>{asset.transferringBody.getOrElse("")}</TransferringBody>
             <UpstreamSystem>{asset.upstreamSystem}</UpstreamSystem>
             <UpstreamSystemRef>upstreamSystemReference</UpstreamSystemRef>

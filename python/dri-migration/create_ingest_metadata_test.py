@@ -1,10 +1,11 @@
 import hashlib
-import unittest
-from unittest.mock import patch, MagicMock, mock_open, call
 import json
-from migrate import create_ingest_metadata
 import os
 import tempfile
+import unittest
+from unittest.mock import patch, MagicMock, mock_open, call
+
+from migrate import create_ingest_metadata
 
 
 def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows):

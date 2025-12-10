@@ -14,28 +14,10 @@ module "dr2_ingest_parsed_court_document_event_handler_test_input_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_parsed_court_document_event_handler_test_bucket_name
   bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([module.dr2_ingest_parsed_court_document_event_handler_lambda.lambda_role_arn, "arn:aws:iam::${module.tre_config.account_numbers["prod"]}:role/prod-tre-editorial-judgment-out-copier"]),
+    lambda_role_arns = jsonencode([module.dr2_ingest_parsed_court_document_event_handler_lambda.lambda_role_arn]),
     bucket_name      = local.ingest_parsed_court_document_event_handler_test_bucket_name
   })
   kms_key_arn = module.dr2_kms_key.kms_key_arn
-}
-
-module "copy_from_tre_bucket_role" {
-  count              = local.environment != "prod" ? 1 : 0
-  source             = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
-  assume_role_policy = templatefile("${path.module}/templates/iam_role/aws_principal_assume_role.json.tpl", { aws_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" })
-  name               = split("/", module.config.terraform_config[local.environment]["copy_from_tre_bucket_role"])[1]
-  policy_attachments = {
-    copy_from_tre_bucket_policy = module.copy_from_tre_bucket_policy[count.index].policy_arn
-  }
-  tags = {}
-}
-
-module "copy_from_tre_bucket_policy" {
-  count         = local.environment != "prod" ? 1 : 0
-  source        = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
-  name          = "${local.environment}-copy-from-tre-bucket-policy"
-  policy_string = templatefile("${path.module}/templates/iam_policy/assume_tre_role_policy.json.tpl", { tre_role = "arn:aws:iam::${module.tre_config.account_numbers["prod"]}:role/prod-tre-editorial-judgment-out-copier" })
 }
 
 module "dr2_ingest_parsed_court_document_event_handler_sqs" {
@@ -82,7 +64,7 @@ module "dr2_ingest_parsed_court_document_event_handler_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
+    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   }
   tags = {
     Name = local.ingest_parsed_court_document_event_handler_lambda_name

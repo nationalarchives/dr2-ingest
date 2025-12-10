@@ -132,7 +132,7 @@
       "Resource": "arn:aws:states:::states:startExecution.waitForTaskToken",
       "Parameters": {
         "StateMachineArn": "arn:aws:states:eu-west-2:${account_id}:stateMachine:${ingest_run_workflow_sfn_name}",
-        "Name.$": "States.Format('{}-{}', $$.Execution.Name, States.UUID())",
+        "Name.$": "States.Format('{}-{}{}{}', $$.Execution.Name, States.ArrayGetItem(States.StringSplit(States.UUID(), '-'), 0), States.ArrayGetItem(States.StringSplit(States.UUID(), '-'), 1), States.ArrayGetItem(States.StringSplit(States.UUID(), '-'), 2))",
         "Input.$": "States.JsonMerge($, States.StringToJson(States.Format('\\{\"{}\":\"{}\",\"{}\":\"{}\"\\}', 'AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID', $$.Execution.Id, 'taskToken', $$.Task.Token)), false)"
       },
       "Retry": ${retry_statement},
@@ -193,34 +193,10 @@
               {
                 "Variable": "$.wasReconciled",
                 "BooleanEquals": true,
-                "Next": "Update ingested_PS attribute in Files table"
+                "Next": "Insert into PostIngest table"
               }
             ],
             "Default": "Throw Reconciler job error"
-          },
-          "Update ingested_PS attribute in Files table": {
-            "Type": "Task",
-            "Resource": "arn:aws:states:::dynamodb:updateItem",
-            "Parameters": {
-              "TableName": "${ingest_files_table_name}",
-              "Key": {
-                "id": {
-                  "S.$": "$.assetId"
-                },
-                "batchId": {
-                  "S.$": "$$.Execution.Input.batchId"
-                }
-              },
-              "UpdateExpression": "SET ingested_PS = :ingestedPSValue",
-              "ExpressionAttributeValues": {
-                ":ingestedPSValue": {
-                  "S": "true"
-                }
-              }
-            },
-            "Retry": ${retry_statement},
-            "ResultPath": null,
-            "Next": "Insert into PostIngest table"
           },
           "Insert into PostIngest table": {
             "Type": "Task",
