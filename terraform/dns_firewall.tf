@@ -43,7 +43,7 @@ resource "aws_route53_resolver_firewall_rule" "block_rule" {
   name           = "block-all-services-rule"
   priority       = 200
   action         = "BLOCK"
-  block_response = "DNS RESOLUTION NOT ALLOWED"
+  block_response = "NODATA"
 }
 
 resource "aws_route53_resolver_firewall_rule_group_association" "vpc_association" {
