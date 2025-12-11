@@ -62,10 +62,18 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     second <- Gen.choose(0, 59)
   } yield DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.of(year, month, day, hour, minute, second))
 
-  val fileNameGen: Gen[FileName] = for {
+  val numericFileNameGen: Gen[FileName] = for {
+    prefix <- Gen.asciiStr
+    numPart <- Gen.listOfN(12, Gen.numChar).map(_.mkString)
+    suffix <- Gen.asciiStr
+  } yield FileName(s"$prefix$numPart", suffix)
+
+  val stringFileNameGen: Gen[FileName] = for {
     prefix <- Gen.asciiStr
     suffix <- Gen.asciiStr
   } yield FileName(prefix, suffix)
+
+  val fileNameGen = Gen.oneOf(numericFileNameGen, stringFileNameGen)
 
   val nonZeroDigit: Gen[Int] = Gen.choose(1, 9)
 
