@@ -136,7 +136,7 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService[IO]
             if (entryType == File.toString)
               name.split('.').toList.reverse match {
                 case ext :: _ :: _ => Str(ext)
-                case _ => Null
+                case _             => Null
               }
             else Null
           val childCount = Num(parentToChildCount.getOrElse(s"$parentPath/$id", 0))
@@ -160,13 +160,13 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService[IO]
   private def metadataFromS3[T](input: Input): IO[String] =
     for {
       pub <- s3.download(input.metadataPackage.getHost, input.metadataPackage.getPath.drop(1))
-      s3FileString <- pub
+      s3FileStrings <- pub
         .toStreamBuffered[IO](bufferSize)
         .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
         .through(text.utf8.decode)
         .compile
         .toList
-    } yield s3FileString.mkString
+    } yield s3FileStrings.mkString
 }
 
 object MetadataService {
