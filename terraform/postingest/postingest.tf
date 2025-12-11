@@ -117,6 +117,10 @@ module "dr2_state_change_lambda" {
     stream_arn             = module.postingest_state_table.stream_arn
     dead_letter_target_arn = module.dr2_state_change_lambda_dlq.sqs_arn
   }
+  vpc_config = {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = var.private_security_group_ids
+  }
   plaintext_env_vars = {
     POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
     POSTINGEST_DDB_TABLE_BATCHPARENT_GSI_NAME = local.postingest_gsi_lastqueued_name
@@ -149,6 +153,10 @@ module "dr2_message_resender_lambda" {
     POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
     POSTINGEST_DDB_TABLE_BATCHPARENT_GSI_NAME = local.postingest_gsi_lastqueued_name
     POSTINGEST_QUEUES                         = jsonencode(local.postingest_queue_config)
+  }
+  vpc_config = {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = var.private_security_group_ids
   }
   tags = {
     Name = local.resender_lambda_name
