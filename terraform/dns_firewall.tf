@@ -14,7 +14,9 @@ resource "aws_route53_resolver_firewall_domain_list" "allow_domains" {
     "sqs.eu-west-2.amazonaws.com",
     "sns.eu-west-2.amazonaws.com",
     "discovery.nationalarchives.gov.uk",
-    "tna.preservica.com"
+    "tna.preservica.com",
+    "tna.preservica.com.cdn.cloudflare.net",
+    "s3-r-w.eu-west-2.amazonaws.com"
   ]
 }
 
@@ -23,21 +25,21 @@ resource "aws_route53_resolver_firewall_domain_list" "block_all" {
   domains = ["*"]
 }
 
-resource "aws_route53_resolver_firewall_rule_group" "firewall_group" {
-  name = "dr2-services-allowlist"
+resource "aws_route53_resolver_firewall_rule_group" "default" {
+  name = "default-dns-firewall"
 }
 
 resource "aws_route53_resolver_firewall_rule" "allow_rule" {
-  firewall_rule_group_id  = aws_route53_resolver_firewall_rule_group.firewall_group.id
+  firewall_rule_group_id  = aws_route53_resolver_firewall_rule_group.default.id
   firewall_domain_list_id = aws_route53_resolver_firewall_domain_list.allow_domains.id
 
-  name     = "allow-services-rule"
+  name     = "allow-specific-services-rule"
   priority = 100
   action   = "ALLOW"
 }
 
 resource "aws_route53_resolver_firewall_rule" "block_rule" {
-  firewall_rule_group_id  = aws_route53_resolver_firewall_rule_group.firewall_group.id
+  firewall_rule_group_id  = aws_route53_resolver_firewall_rule_group.default.id
   firewall_domain_list_id = aws_route53_resolver_firewall_domain_list.block_all.id
 
   name           = "block-all-services-rule"
@@ -49,6 +51,6 @@ resource "aws_route53_resolver_firewall_rule" "block_rule" {
 resource "aws_route53_resolver_firewall_rule_group_association" "vpc_association" {
   name                   = "vpc-firewall-association"
   priority               = 101
-  firewall_rule_group_id = aws_route53_resolver_firewall_rule_group.firewall_group.id
+  firewall_rule_group_id = aws_route53_resolver_firewall_rule_group.default.id
   vpc_id                 = module.vpc.vpc_id
 }
