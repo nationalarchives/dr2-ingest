@@ -2,7 +2,7 @@ data "aws_region" "current" {}
 
 resource "aws_route53_resolver_firewall_domain_list" "allow_domains" {
   name = "allow-specific-domains"
-  
+
   domains = [
     # AWS Service endpoints 
     "*.s3.${data.aws_region.current.id}.amazonaws.com",
