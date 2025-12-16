@@ -5,19 +5,15 @@ resource "aws_route53_resolver_firewall_domain_list" "allow_domains" {
   
   domains = [
     # AWS Service endpoints 
-    "s3.${data.aws_region.current.name}.amazonaws.com",
-    "s3-r-w.${data.aws_region.current.name}.amazonaws.com",
-    "dynamodb.${data.aws_region.current.name}.amazonaws.com",
-    "secretsmanager.${data.aws_region.current.name}.amazonaws.com",
-    "sts.${data.aws_region.current.name}.amazonaws.com",
-    "states.${data.aws_region.current.name}.amazonaws.com",
-    "ssm.${data.aws_region.current.name}.amazonaws.com",
-    "sqs.${data.aws_region.current.name}.amazonaws.com",
-    "sns.${data.aws_region.current.name}.amazonaws.com",
-    # AWS S3 buckets used by DR2 
-    "${local.environment}-dr2-ingest-raw-cache.s3.${data.aws_region.current.name}.amazonaws.com",
-    "${local.environment}-dr2-ingest-state.s3.${data.aws_region.current.name}.amazonaws.com",
-    "${local.environment}-tre-court-document-pack-out.s3.${data.aws_region.current.name}.amazonaws.com",
+    "*.s3.${data.aws_region.current.id}.amazonaws.com",
+    "s3-r-w.${data.aws_region.current.id}.amazonaws.com",
+    "dynamodb.${data.aws_region.current.id}.amazonaws.com",
+    "secretsmanager.${data.aws_region.current.id}.amazonaws.com",
+    "sts.${data.aws_region.current.id}.amazonaws.com",
+    "states.${data.aws_region.current.id}.amazonaws.com",
+    "ssm.${data.aws_region.current.id}.amazonaws.com",
+    "sqs.${data.aws_region.current.id}.amazonaws.com",
+    "sns.${data.aws_region.current.id}.amazonaws.com",
     # Other services used by DR2
     "discovery.nationalarchives.gov.uk",
     "tna.preservica.com",
