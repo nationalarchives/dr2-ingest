@@ -1,27 +1,32 @@
-resource "aws_route53_resolver_firewall_domain_list" "allow_domains" {
-  name = "allow-specific-services"
+data "aws_region" "current" {}
 
+resource "aws_route53_resolver_firewall_domain_list" "allow_domains" {
+  name = "allow-specific-domains"
+  
   domains = [
-    "s3.eu-west-2.amazonaws.com",
-    "${local.environment}-dr2-ingest-raw-cache.s3.eu-west-2.amazonaws.com",
-    "${local.environment}-dr2-ingest-state.s3.eu-west-2.amazonaws.com",
-    "${local.environment}-tre-court-document-pack-out.s3.eu-west-2.amazonaws.com",
-    "dynamodb.eu-west-2.amazonaws.com",
-    "secretsmanager.eu-west-2.amazonaws.com",
-    "sts.eu-west-2.amazonaws.com",
-    "states.eu-west-2.amazonaws.com",
-    "ssm.eu-west-2.amazonaws.com",
-    "sqs.eu-west-2.amazonaws.com",
-    "sns.eu-west-2.amazonaws.com",
+    # AWS Service endpoints 
+    "s3.${data.aws_region.current.name}.amazonaws.com",
+    "s3-r-w.${data.aws_region.current.name}.amazonaws.com",
+    "dynamodb.${data.aws_region.current.name}.amazonaws.com",
+    "secretsmanager.${data.aws_region.current.name}.amazonaws.com",
+    "sts.${data.aws_region.current.name}.amazonaws.com",
+    "states.${data.aws_region.current.name}.amazonaws.com",
+    "ssm.${data.aws_region.current.name}.amazonaws.com",
+    "sqs.${data.aws_region.current.name}.amazonaws.com",
+    "sns.${data.aws_region.current.name}.amazonaws.com",
+    # AWS S3 buckets used by DR2 
+    "${local.environment}-dr2-ingest-raw-cache.s3.${data.aws_region.current.name}.amazonaws.com",
+    "${local.environment}-dr2-ingest-state.s3.${data.aws_region.current.name}.amazonaws.com",
+    "${local.environment}-tre-court-document-pack-out.s3.${data.aws_region.current.name}.amazonaws.com",
+    # Other services used by DR2
     "discovery.nationalarchives.gov.uk",
     "tna.preservica.com",
-    "tna.preservica.com.cdn.cloudflare.net",
-    "s3-r-w.eu-west-2.amazonaws.com"
+    "tna.preservica.com.cdn.cloudflare.net"
   ]
 }
 
 resource "aws_route53_resolver_firewall_domain_list" "block_all" {
-  name    = "block-everything"
+  name    = "block-all-domains"
   domains = ["*"]
 }
 
@@ -33,7 +38,7 @@ resource "aws_route53_resolver_firewall_rule" "allow_rule" {
   firewall_rule_group_id  = aws_route53_resolver_firewall_rule_group.default.id
   firewall_domain_list_id = aws_route53_resolver_firewall_domain_list.allow_domains.id
 
-  name     = "allow-specific-services-rule"
+  name     = "allow-specific-domains"
   priority = 100
   action   = "ALLOW"
 }
@@ -42,10 +47,10 @@ resource "aws_route53_resolver_firewall_rule" "block_rule" {
   firewall_rule_group_id  = aws_route53_resolver_firewall_rule_group.default.id
   firewall_domain_list_id = aws_route53_resolver_firewall_domain_list.block_all.id
 
-  name           = "block-all-services-rule"
+  name           = "block-all-domains"
   priority       = 200
   action         = "BLOCK"
-  block_response = "NODATA"
+  block_response = "NXDOMAIN"
 }
 
 resource "aws_route53_resolver_firewall_rule_group_association" "vpc_association" {
