@@ -30,8 +30,6 @@ jobs:
           submodules: recursive
           token: ${{ secrets.WORKFLOW_TOKEN }}
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_wrapper: false
       - id: role-name
         run: echo role-name="$(echo ${{ github.event.inputs.environment }} | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
       - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
@@ -45,11 +43,11 @@ jobs:
         run: |
           terraform init
           terraform workspace select ${{ github.event.inputs.environment }}
-          terraform plan -detailed-exitcode || echo $? > exit-code
+          terraform plan -detailed-exitcode
       - id: detect_changes
         run: |
-          EXITCODE=$(cat exit-code || echo 0)
-          if [ "$EXITCODE" = "2" ]; then
+          
+          if [ "${{ steps.plan.outputs.exitcode}}" = "2" ]; then
             echo "changes=true" >> $GITHUB_OUTPUT
             python ../.github/scripts/send_message.py
           else
