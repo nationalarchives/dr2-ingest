@@ -90,21 +90,21 @@ jobs:
       - run: |
           git branch -f release-${{ github.event.inputs.environment }} HEAD
           git push -f origin release-${{ github.event.inputs.environment }}
-  deploy:
-    runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-      - id: role-name
-        run: echo role-name="$(echo ${{ github.event.inputs.environment }} | sed -r 's/(^|-)(\w)/\U\2/g')DPGithubActionsDeployLambdaRole" >> $GITHUB_OUTPUT
-      - name: Configure AWS credentials for Lambda
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
-          aws-region: eu-west-2
-          role-session-name: ECRLogin
-      - run: | 
-          pip install boto3
-          git branch -f release-${{ github.event.inputs.environment }} HEAD
-          git push -f origin release-${{ github.event.inputs.environment }}
-          python .github/scripts/deploy.py ${{ github.event.inputs.environment }} ${{ github.event.inputs.to-deploy }}
+#  deploy:
+#    runs-on: ubuntu-latest
+#    environment: ${{ github.event.inputs.environment }}
+#    steps:
+#      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+#      - id: role-name
+#        run: echo role-name="$(echo ${{ github.event.inputs.environment }} | sed -r 's/(^|-)(\w)/\U\2/g')DPGithubActionsDeployLambdaRole" >> $GITHUB_OUTPUT
+#      - name: Configure AWS credentials for Lambda
+#        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+#        with:
+#          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
+#          aws-region: eu-west-2
+#          role-session-name: ECRLogin
+#      - run: |
+#          pip install boto3
+#          git branch -f release-${{ github.event.inputs.environment }} HEAD
+#          git push -f origin release-${{ github.event.inputs.environment }}
+#          python .github/scripts/deploy.py ${{ github.event.inputs.environment }} ${{ github.event.inputs.to-deploy }}
