@@ -4,16 +4,16 @@ import scala.util.matching.Regex
 
 object NaturalSorting:
 
-  private val INT: Regex = "([0-9]+)".r
+  private val NUMBER: Regex = "([0-9]+)".r
 
   given Ordering[Array[String]] = (a: Array[String], b: Array[String]) => {
     val l = Math.min(a.length, b.length)
     (0 until l).segmentLength(i => a(i) == b(i)) match {
-      case i if i == l => 
+      case i if i == l =>
         Math.signum((b.length - a.length).toFloat).toInt
       case i => (a(i), b(i)) match {
-        case (INT(c), INT(d)) =>
-          Math.signum((c.toInt - d.toInt).toFloat).toInt
+        case (NUMBER(c), NUMBER(d)) =>
+          Math.signum((c.toLong - d.toLong).toFloat).toInt
         case (c, d) =>
           c.compareTo(d)
       }
