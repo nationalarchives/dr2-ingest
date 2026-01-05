@@ -38,16 +38,16 @@ jobs:
           aws-region: eu-west-2
           role-session-name: TerraformDeploy
       - run: pip install boto3
+      - run: |
+          terraform init
+          terraform workspace select ${{ github.event.inputs.environment }}
       - name: run_plan
         working-directory: terraform
         run: |
-          terraform init
-          terraform workspace select ${{ github.event.inputs.environment }}
           terraform plan -detailed-exitcode
       - id: detect_changes
         run: |
-          
-          if [ "${{ steps.plan.outputs.exitcode}}" = "2" ]; then
+          if [ "${{ steps.run_plan.outputs.exitcode}}" = "2" ]; then
             echo "changes=true" >> $GITHUB_OUTPUT
             python ../.github/scripts/send_message.py
           else
