@@ -38,7 +38,9 @@ jobs:
           aws-region: eu-west-2
           role-session-name: TerraformDeploy
       - run: pip install boto3
-      - run: |
+      - name: init
+        working-directory: terraform
+        run: |
           terraform init
           terraform workspace select ${{ github.event.inputs.environment }}
       - name: run_plan
