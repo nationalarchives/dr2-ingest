@@ -16,6 +16,7 @@ import uk.gov.nationalarchives.rotatepreservationsystempassword.Lambda.RotationS
 import uk.gov.nationalarchives.utils.LambdaRunner
 
 import scala.jdk.CollectionConverters.*
+import scala.concurrent.duration.*
 
 class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
 
@@ -35,6 +36,11 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
   override def handler: (RotationEvent, Config, Dependencies) => IO[Unit] = (event, config, dependencies) => {
     val secretsClient = dependencies.secretsManagerClient(event.secretId)
 
+    def createPassword(): IO[String] =
+      secretsClient.generateRandomPassword().flatMap { newPassword =>
+        if newPassword.validPassword then IO.pure(newPassword) else IO.sleep(500.milliseconds) >> createPassword()
+      }
+
     def getAuthDetailsFromSecret(stage: Stage) =
       secretsClient.getSecretValue[AuthDetails](stage)
 
@@ -47,7 +53,7 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
       currentSecret <- getAuthDetailsFromSecret(Current)
       _ <- secretsClient.getSecretValue[AuthDetails](token, Pending).recoverWith { _ =>
         for {
-          password <- secretsClient.generateRandomPassword()
+          password <- createPassword()
           _ <- secretsClient.putSecretValue(currentSecret.copy(password = password), Pending, Option(token))
         } yield ()
       }
@@ -129,3 +135,8 @@ object Lambda:
   case class Dependencies(userClient: String => IO[UserClient[IO]], secretsManagerClient: String => DASecretsManagerClient[IO])
 
   case class AuthDetails(userName: String, password: String, apiUrl: String)
+
+  extension (s: String)
+    private def containsCharMix = List(s.exists(_.isUpper), s.exists(_.isLower), s.exists(_.isDigit), s.exists(!_.isLetterOrDigit)).count(identity) >= 3
+    private def repeating = "(.)\\1\\1".r.findAllIn(s.toLowerCase).nonEmpty
+    private def validPassword = s.length >= 8 && s.length <= 64 && !repeating && containsCharMix
