@@ -2,6 +2,22 @@
   "Comment": "${step_function_name}: A State machine to ingest DR2 BagIt-like packages into Preservica.",
   "StartAt": "Validate input",
   "States": {
+    "Execution name equals batchId": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Next": "Throw error as execution name does not equal batchId",
+          "Not": {
+            "Variable": "$$.Execution.Name",
+            "StringEqualsPath": "$.batchId"
+          }
+        }
+      ],
+      "Default": "Validate input"
+    },
+    "Throw error as execution name does not equal batchId": {
+      "Type": "Fail"
+    },
     "Validate input": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_validate_generic_ingest_inputs_lambda_name}",
