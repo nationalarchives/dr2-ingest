@@ -77,7 +77,7 @@ locals {
   messages_visible_threshold = 1000000
   # The list comes from https://www.cloudflare.com/en-gb/ips
   cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
-  outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
+  outbound_security_group_ids = [module.outbound_cloudflare_https_access.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
   tdr_export_bucket           = "tdr-export-${local.environment}"
   parliament_ingest_role      = module.config.terraform_config[local.environment]["parliament_ingest_role"]
 }
@@ -276,6 +276,24 @@ module "outbound_https_access_only" {
       },
     ]
   }
+}
+
+module "outbound_discovery_https_access" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A security group to allow outbound access to discovery"
+  name        = "${local.environment}-outbound-https-to-discovery"
+  rules = {
+    egress = [
+      {
+        port              = 443
+        description       = "Outbound https to discovery VPC endpoint"
+        security_group_id = module.discovery_inbound_https.security_group_id
+        protocol          = "tcp"
+      },
+    ]
+  }
+  vpc_id = module.vpc.vpc_id
 }
 
 resource "aws_ec2_managed_prefix_list" "cloudflare_prefix_list" {
