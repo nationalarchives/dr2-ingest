@@ -4,12 +4,15 @@ import cats.syntax.all.*
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
+import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
 import uk.gov.nationalarchives.rotatepreservationsystempassword.Lambda.*
 import uk.gov.nationalarchives.rotatepreservationsystempassword.Lambda.RotationStep.*
 import uk.gov.nationalarchives.rotatepreservationsystempassword.TestUtils.*
 import uk.gov.nationalarchives.DASecretsManagerClient.Stage.*
 
-class LambdaTest extends AnyFlatSpec with EitherValues {
+import scala.util.Random
+
+class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyChecks {
 
   "handler" should "fail if rotation is not enabled" in {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
@@ -49,7 +52,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     val rotationEvent = RotationEvent(CreateSecret, "id", "token")
     val secret = Secret(Map("token" -> List(SecretStage(None, Pending))))
 
-    val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", ""), Errors(getSecret = true).some)
+    val (_, _, res) = runLambda(rotationEvent, secret, Credentials("", ""), errors = Errors(getSecret = true).some)
 
     res.left.value.getMessage should equal("Error getting secret")
   }
@@ -125,5 +128,35 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     val expectedResult = Secret(Map("token" -> (currentStages ++ pendingStages), "anotherToken" -> Nil))
 
     secretResult should equal(expectedResult)
+  }
+
+  val passwords: TableFor2[String, Boolean] = Table(
+    ("password", "valid"),
+    ("abc", false),
+    (Random.alphanumeric.slice(0, 65).mkString, false),
+    ("abcdefgh", false),
+    ("Abcdefgh", false),
+    ("Abbbefgh", false),
+    ("AbBbefgh", false),
+    ("Abcdefgh1$", true),
+    ("Abcdefgh$", true),
+    ("Abcdefgh1", true)
+  )
+
+  forAll(passwords) { (password, valid) =>
+    "handler createSecret" should s"${if valid then "not" else ""} generate a new password for password $password" in {
+      val validPassword = "Th!sIsVal1d"
+      val rotationEvent = RotationEvent(CreateSecret, "id", "token")
+      val versionToStage = Map(
+        "token" -> List(SecretStage(None, Pending)),
+        "anotherToken" -> List(SecretStage(Option(AuthDetails("user", "currentSecret", "")), Current))
+      )
+      val secret = Secret(versionToStage)
+
+      val (secretResult, _, _) = runLambda(rotationEvent, secret, Credentials("", ""), List(password, validPassword))
+      val generatedPassword = secretResult.versionToStage("token").headOption.flatMap(_.value).map(_.password).get
+      if valid then generatedPassword should equal(password)
+      else generatedPassword should equal(validPassword)
+    }
   }
 }
