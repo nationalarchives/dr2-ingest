@@ -57,7 +57,12 @@ The structure of the secret in Secrets Manager is:
 * Get the existing secret
 * Try to get a pending secret. 
 * If the pending secret exists, do nothing.
-* If it doesn't, generate a new password and create a pending version.
+* If it doesn't, generate a new password. 
+* Check the password matches the preservation system password rules.
+  * Password must be at least eight characters long, and no more than 64 characters long.
+  * Password must contain at least three of the following: lowercase letters, uppercase letters, numbers, symbols.
+  * Password must not contain a string of characters repeated more than twice, regardless of case
+* If the password matches, create a pending version, otherwise generate a new password and repeat the checks.
 
 ### Set secret
 * Get the current secret
