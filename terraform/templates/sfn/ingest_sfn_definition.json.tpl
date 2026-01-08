@@ -2,7 +2,7 @@
   "Comment": "${step_function_name}: A State machine to ingest DR2 BagIt-like packages into Preservica.",
   "StartAt": "Validate input",
   "States": {
-    "Execution name equals batchId": {
+    "Verify execution name equals batchId": {
       "Type": "Choice",
       "Choices": [
         {
