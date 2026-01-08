@@ -5,7 +5,8 @@
       "Effect": "Allow",
       "Action": [
         "dynamodb:ListTables",
-        "cloudwatch:GetMetricStatistics"
+        "cloudwatch:GetMetricStatistics",
+        "secretsmanager:ListSecrets"
       ],
       "Resource": "*"
     },
