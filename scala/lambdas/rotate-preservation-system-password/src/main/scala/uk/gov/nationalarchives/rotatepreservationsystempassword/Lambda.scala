@@ -138,5 +138,5 @@ object Lambda:
 
   extension (s: String)
     private def containsCharMix = List(s.exists(_.isUpper), s.exists(_.isLower), s.exists(_.isDigit), s.exists(!_.isLetterOrDigit)).count(identity) >= 3
-    private def repeating = "(.)\\1\\1".r.findAllIn(s.toLowerCase).nonEmpty
+    private def repeating = """(.)\1\1""".r.findFirstIn(s.toLowerCase).nonEmpty
     private def validPassword = s.length >= 8 && s.length <= 64 && !repeating && containsCharMix
