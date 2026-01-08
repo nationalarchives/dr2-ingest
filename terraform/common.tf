@@ -34,7 +34,23 @@ locals {
   sse_encryption                                       = "sse"
   visibility_timeout                                   = 180
   redrive_maximum_receives                             = 5
-  ingest_run_workflow_sfn_arn                          = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${local.ingest_run_workflow_step_function_name}"
+  nacl_inbound_from_subnet_https = [for idx, cidr in module.vpc.private_cidr_blocks : {
+    rule_no    = 100 * (idx + 2)
+    cidr_block = cidr
+    action     = "allow"
+    from_port  = 443
+    to_port    = 443
+    egress     = false
+  }]
+  nacl_outbound_to_subnet_ephemeral = [for idx, cidr in module.vpc.private_cidr_blocks : {
+    rule_no    = 100 * (idx + 2)
+    cidr_block = cidr
+    action     = "allow"
+    from_port  = 1024
+    to_port    = 65535
+    egress     = true
+  }]
+  ingest_run_workflow_sfn_arn = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${local.ingest_run_workflow_step_function_name}"
   dashboard_lambdas = concat([
     local.entity_event_lambda_name,
     local.get_latest_preservica_version,
@@ -140,16 +156,15 @@ module "vpc" {
   elastic_ip_allocation_ids = data.aws_eip.eip.*.id
   use_nat_gateway           = true
   environment               = local.environment
-  private_nacl_rules = [
+  private_nacl_rules = concat([
     { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 443, to_port = 443, egress = true },
     { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = false },
-  ]
-  public_nacl_rules = [
-    { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 443, to_port = 443, egress = false },
-    { rule_no = 200, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = false },
+  ], local.nacl_inbound_from_subnet_https, local.nacl_outbound_to_subnet_ephemeral)
+  public_nacl_rules = concat([
+    { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = false },
     { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 443, to_port = 443, egress = true },
     { rule_no = 200, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = true },
-  ]
+  ], local.nacl_inbound_from_subnet_https)
   s3_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/s3_endpoint_policy.json.tpl", {
     account_id               = data.aws_caller_identity.current.account_id,
     preservica_ingest_bucket = local.preservica_ingest_bucket
