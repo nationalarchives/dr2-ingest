@@ -372,7 +372,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
   "FlowControlConfig" should "error when the max concurrency is less than 1" in {
     intercept[IllegalArgumentException] {
       FlowControlConfig(-5, List(SourceSystem("SystemOne", 2, 25), SourceSystem("SystemTwo", 3, 75)), true)
-    }.getMessage should be("requirement failed: The max concurrency must be greater than 0, currently it is -5")
+    }.getMessage should be("requirement failed: The max concurrency must be greater than or equal to 0, currently it is -5")
   }
 
   "FlowControlConfig" should "error when the reserved channels exceed maximum concurrency" in {

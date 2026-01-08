@@ -328,7 +328,7 @@ object Lambda {
   case class FlowControlConfig(maxConcurrency: Int, sourceSystems: List[SourceSystem], enabled: Boolean) {
     lazy private val reservedChannelsCount: Int = sourceSystems.map(_.reservedChannels).sum
     lazy private val probabilityTotal: Int = sourceSystems.map(_.probability).sum
-    require(maxConcurrency > 0, s"The max concurrency must be greater than 0, currently it is $maxConcurrency")
+    require(maxConcurrency >= 0, s"The max concurrency must be greater than or equal to 0, currently it is $maxConcurrency")
     require(sourceSystems.nonEmpty, "Source systems list cannot be empty")
     require(probabilityTotal == 100, s"The probability of all systems together should equate to 100%; the probability currently equates to $probabilityTotal%")
     require(reservedChannelsCount <= maxConcurrency, s"Total of reserved channels of $reservedChannelsCount exceeds maximum concurrency of $maxConcurrency")
