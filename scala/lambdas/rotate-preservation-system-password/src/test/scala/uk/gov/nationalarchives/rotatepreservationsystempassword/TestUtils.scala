@@ -22,9 +22,15 @@ object TestUtils:
 
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
-  def secretsManagerClient(ref: Ref[IO, Secret], errors: Option[Errors]): DASecretsManagerClient[IO] = new DASecretsManagerClient[IO]:
-    override def generateRandomPassword(passwordLength: Int, excludeCharacters: String): IO[String] =
-      IO.pure(Random.alphanumeric.filterNot(excludeCharacters.contains).slice(0, passwordLength).mkString)
+  def secretsManagerClient(ref: Ref[IO, Secret], generatedPasswordsRef: Ref[IO, List[String]], errors: Option[Errors]): DASecretsManagerClient[IO] = new DASecretsManagerClient[IO]:
+    override def generateRandomPassword(passwordLength: Int, excludeCharacters: String): IO[String] = generatedPasswordsRef
+      .getAndUpdate { generatedPasswords =>
+        if generatedPasswords.isEmpty then Nil else generatedPasswords.tail
+      }
+      .map { passwords =>
+        if passwords.isEmpty then Random.alphanumeric.filterNot(excludeCharacters.contains).slice(0, passwordLength).mkString
+        else passwords.head
+      }
 
     override def describeSecret(): IO[DescribeSecretResponse] = ref.get.map { existing =>
       val versionIdToStage = existing.versionToStage.map { case (versionId, stages) =>
@@ -92,11 +98,18 @@ object TestUtils:
       IO.raiseWhen(!existing.testSuccess)(new Exception("Password test failed"))
     }
 
-  def runLambda(event: RotationEvent, secret: Secret, credentials: Credentials, errors: Option[Errors] = None): (Secret, Credentials, Either[Throwable, Unit]) = {
+  def runLambda(
+      event: RotationEvent,
+      secret: Secret,
+      credentials: Credentials,
+      generatedPasswords: List[String] = Nil,
+      errors: Option[Errors] = None
+  ): (Secret, Credentials, Either[Throwable, Unit]) = {
     for {
       secretRef <- Ref.of[IO, Secret](secret)
+      generatedPasswordsRef <- Ref.of[IO, List[String]](generatedPasswords)
       credentialsRef <- Ref.of[IO, Credentials](credentials)
-      dependencies = Dependencies(_ => IO(userClient(credentialsRef)), _ => secretsManagerClient(secretRef, errors))
+      dependencies = Dependencies(_ => IO(userClient(credentialsRef)), _ => secretsManagerClient(secretRef, generatedPasswordsRef, errors))
       res <- new Lambda().handler(event, Config(), dependencies).attempt
       secret <- secretRef.get
       credentials <- credentialsRef.get
