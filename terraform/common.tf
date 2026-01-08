@@ -34,7 +34,7 @@ locals {
   sse_encryption                                       = "sse"
   visibility_timeout                                   = 180
   redrive_maximum_receives                             = 5
-  nacl_inbound_from_subnet_https = [for idx, cidr in module.vpc.private_cidr : {
+  nacl_inbound_from_subnet_https = [for idx, cidr in module.vpc.private_cidr_blocks : {
     rule_no    = 100 * (idx + 2)
     cidr_block = cidr
     action     = "allow"
@@ -42,7 +42,7 @@ locals {
     to_port    = 443
     egress     = false
   }]
-  nacl_outbound_to_subnet_ephemeral = [for idx, cidr in module.vpc.private_cidr : {
+  nacl_outbound_to_subnet_ephemeral = [for idx, cidr in module.vpc.private_cidr_blocks : {
     rule_no    = 100 * (idx + 2)
     cidr_block = cidr
     action     = "allow"
