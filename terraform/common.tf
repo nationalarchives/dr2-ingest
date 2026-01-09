@@ -149,6 +149,8 @@ data "aws_ssm_parameter" "slack_webhook_url" {
   name = "/${local.environment}/slack/cloudwatch-alarm-webhook"
 }
 
+data "aws_region" "current" {}
+
 module "vpc" {
   source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
   vpc_name                  = "${local.environment}-vpc"
@@ -177,7 +179,7 @@ module "vpc" {
 
   interface_endpoints = {
     secretsmanager = {
-      name = "com.amazonaws.eu-west-2.secretsmanager",
+      name = "com.amazonaws.${data.aws_region.current.id}.secretsmanager",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "secretsmanager"
         org_id       = data.aws_organizations_organization.org.id
@@ -186,7 +188,7 @@ module "vpc" {
       enable_private_dns = true
     },
     stepfunctions = {
-      name = "com.amazonaws.eu-west-2.states",
+      name = "com.amazonaws.${data.aws_region.current.id}.states",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "states"
         org_id       = data.aws_organizations_organization.org.id
@@ -195,8 +197,8 @@ module "vpc" {
       enable_private_dns = true
     },
     sns = {
-      region = "eu-west-2",
-      name   = "com.amazonaws.eu-west-2.sns",
+      region = data.aws_region.current.id,
+      name   = "com.amazonaws.${data.aws_region.current.id}.sns",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "sns"
         org_id       = data.aws_organizations_organization.org.id
@@ -205,15 +207,25 @@ module "vpc" {
       enable_private_dns = true
     },
     sqs = {
-      region = "eu-west-2",
-      name   = "com.amazonaws.eu-west-2.sqs",
+      region = data.aws_region.current.id,
+      name   = "com.amazonaws.${data.aws_region.current.id}.sqs",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "sqs"
         org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
-    }
+    },
+    sts = {
+      region = data.aws_region.current.id,
+      name   = "com.amazonaws.${data.aws_region.current.id}.sts",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "sts"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
   }
 }
 
@@ -265,30 +277,6 @@ module "outbound_https_access_for_dynamo_db" {
         prefix_list_id = data.aws_ec2_managed_prefix_list.dynamo_db_prefix_list.id
         protocol       = "tcp"
       }
-    ]
-  }
-}
-
-module "outbound_https_access_only" {
-  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
-  common_tags = {}
-  description = "A security group to allow outbound access only"
-  name        = "${local.environment}-outbound-https"
-  vpc_id      = module.vpc.vpc_id
-  rules = {
-    egress = [
-      {
-        port              = 443
-        description       = "Outbound https to discovery VPC endpoint"
-        security_group_id = module.discovery_inbound_https.security_group_id
-        protocol          = "tcp"
-      },
-      {
-        port        = 443
-        description = "Outbound https to all IPs"
-        cidr_ip_v4  = "0.0.0.0/0"
-        protocol    = "tcp"
-      },
     ]
   }
 }
