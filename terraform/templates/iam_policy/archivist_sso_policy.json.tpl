@@ -12,7 +12,8 @@
       ],
       "Resource": [
         "arn:aws:sqs:eu-west-2:${account_id}:${environment}-dr2-preingest-adhoc-importer",
-        "arn:aws:s3:::${environment}-dr2-ingest-adhoc-cache"
+        "arn:aws:s3:::${environment}-dr2-ingest-adhoc-cache",
+        "arn:aws:s3:::${environment}-dr2-ingest-adhoc-cache/*"
       ]
     },
     {
