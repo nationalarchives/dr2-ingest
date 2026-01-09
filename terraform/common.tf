@@ -20,7 +20,7 @@ locals {
   dev_notifications_channel_id                         = local.environment == "prod" ? "C06EDJPF0VB" : "C052LJASZ08"
   general_notifications_channel_id                     = local.environment == "prod" ? "C06E20AR65V" : "C068RLCPZFE"
   java_runtime                                         = "java21"
-  java_lambda_memory_size                              = 512
+  java_lambda_memory_size                              = 1024
   java_timeout_seconds                                 = 180
   python_runtime                                       = "python3.12"
   python_lambda_memory_size                            = 128
