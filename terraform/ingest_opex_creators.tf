@@ -20,9 +20,10 @@ module "copy_tna_to_preservica_policy" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
   name   = "${local.environment}-tna-to-preservica-ingest-s3-${local.preservica_tenant}-policy"
   policy_string = templatefile("./templates/iam_policy/tna_to_preservica_copy.json.tpl", {
-    account_id            = data.aws_caller_identity.current.account_id
-    preservica_tenant     = local.preservica_tenant
-    raw_cache_bucket_name = local.ingest_raw_cache_bucket_name
+    account_id              = data.aws_caller_identity.current.account_id
+    preservica_tenant       = local.preservica_tenant
+    raw_cache_bucket_name   = local.ingest_raw_cache_bucket_name
+    adhoc_cache_bucket_name = local.adhoc_bucket_name
   })
 }
 

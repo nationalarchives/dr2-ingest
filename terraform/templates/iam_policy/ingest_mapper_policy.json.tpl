@@ -15,7 +15,9 @@
       "Effect": "Allow",
       "Resource": [
         "arn:aws:s3:::${raw_cache_bucket_name}",
-        "arn:aws:s3:::${raw_cache_bucket_name}/*"
+        "arn:aws:s3:::${raw_cache_bucket_name}/*",
+        "arn:aws:s3:::${adhoc_cache_bucket_name}",
+        "arn:aws:s3:::${adhoc_cache_bucket_name}/*"
       ],
       "Sid": "readIngestRawCache"
     },

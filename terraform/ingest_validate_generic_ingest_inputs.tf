@@ -9,9 +9,10 @@ module "dr2_ingest_validate_generic_ingest_inputs_lambda" {
   timeout_seconds = local.java_timeout_seconds
   policies = {
     "${local.ingest_validate_generic_ingest_inputs_lambda_name}-policy" = templatefile("./templates/iam_policy/ingest_validate_generic_ingest_inputs_policy.json.tpl", {
-      bucket_name = local.ingest_raw_cache_bucket_name
-      account_id  = data.aws_caller_identity.current.account_id
-      lambda_name = local.ingest_validate_generic_ingest_inputs_lambda_name
+      raw_cache_bucket_name   = local.ingest_raw_cache_bucket_name
+      account_id              = data.aws_caller_identity.current.account_id
+      lambda_name             = local.ingest_validate_generic_ingest_inputs_lambda_name
+      adhoc_cache_bucket_name = local.adhoc_bucket_name
     })
   }
   memory_size = local.java_lambda_memory_size
