@@ -36,11 +36,11 @@ def get_flow_control_config(ssm_parameter_name):
 
 
 def set_flow_control_enabled(ssm_parameter_name, enabled):
-    value = get_flow_control_config(ssm_parameter_name)
-    value['enabled'] = enabled
+    flow_config = get_flow_control_config(ssm_parameter_name)
+    flow_config['enabled'] = enabled
     ssm_client.put_parameter(
         Name=ssm_parameter_name,
-        Value=json.dumps(value),
+        Value=json.dumps(flow_config),
         Overwrite=True
     )
 
