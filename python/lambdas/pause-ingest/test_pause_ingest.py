@@ -16,10 +16,8 @@ def boto3_mocks():
          patch('pause_ingest.ssm_client') as ssm_mock:
         yield eventbridge_mock, lambda_mock, ssm_mock
 
-def setup_ssm(ssm_mock, max_concurrency=5, previous_max=None):
-    value = {'maxConcurrency': max_concurrency}
-    if previous_max is not None:
-        value['previousMaxConcurrency'] = previous_max
+def setup_ssm(ssm_mock, enabled):
+    value = {'enabled': enabled}
     ssm_mock.get_parameter.return_value = {
         'Parameter': {'Value': json.dumps(value)}
     }
@@ -27,7 +25,7 @@ def setup_ssm(ssm_mock, max_concurrency=5, previous_max=None):
 def test_pause_ingest(env, boto3_mocks):
     eventbridge_mock, lambda_mock, ssm_mock = boto3_mocks
 
-    setup_ssm(ssm_mock, max_concurrency=5)
+    setup_ssm(ssm_mock, True)
 
     lambda_mock.list_event_source_mappings.side_effect = [
         {'EventSourceMappings': [{'UUID': 'agg-uuid-1'}]},
@@ -55,13 +53,12 @@ def test_pause_ingest(env, boto3_mocks):
 
     _, kwargs = ssm_mock.put_parameter.call_args
     value = json.loads(kwargs['Value'])
-    assert value['maxConcurrency'] == 0
-    assert value['previousMaxConcurrency'] == 5
+    assert not value['enabled']
 
 def test_resume_ingest(env, boto3_mocks):
     eventbridge_mock, lambda_mock, ssm_mock = boto3_mocks
 
-    setup_ssm(ssm_mock, max_concurrency=0, previous_max=5)
+    setup_ssm(ssm_mock, False)
 
     lambda_mock.list_event_source_mappings.side_effect = [
         {'EventSourceMappings': [{'UUID': 'agg-uuid-1'}]},
@@ -89,8 +86,7 @@ def test_resume_ingest(env, boto3_mocks):
 
     args, kwargs = ssm_mock.put_parameter.call_args
     value = json.loads(kwargs['Value'])
-    assert value['maxConcurrency'] == 5
-    assert 'previousMaxConcurrency' not in value
+    assert value['enabled']
 
 def test_scheduled_event_both_enabled_max_gt_zero(env, boto3_mocks):
     eventbridge_mock, lambda_mock, ssm_mock = boto3_mocks
@@ -99,7 +95,7 @@ def test_scheduled_event_both_enabled_max_gt_zero(env, boto3_mocks):
         {'EventSourceMappings': [{'UUID': 'agg-uuid-2', 'Enabled': True}]},
         {'EventSourceMappings': [{'UUID': 'court-uuid', 'Enabled': True}]}
     ]
-    setup_ssm(ssm_mock, max_concurrency=5)
+    setup_ssm(ssm_mock, True)
     event = {'source': 'aws.events'}
     pause_ingest.lambda_handler(event, None)
     eventbridge_mock.put_events.assert_not_called()
@@ -111,7 +107,7 @@ def test_scheduled_event_agg_disabled(env, boto3_mocks):
         {'EventSourceMappings': [{'UUID': 'agg-uuid-2', 'Enabled': False}]},
         {'EventSourceMappings': [{'UUID': 'court-uuid', 'Enabled': True}]}
     ]
-    setup_ssm(ssm_mock, max_concurrency=5)
+    setup_ssm(ssm_mock, True)
     event = {'source': 'aws.events'}
     pause_ingest.lambda_handler(event, None)
     eventbridge_mock.put_events.assert_called_once_with(
@@ -130,7 +126,7 @@ def test_scheduled_event_court_disabled(env, boto3_mocks):
         {'EventSourceMappings': [{'UUID': 'agg-uuid-2', 'Enabled': True}]},
         {'EventSourceMappings': [{'UUID': 'court-uuid', 'Enabled': False}]}
     ]
-    setup_ssm(ssm_mock, max_concurrency=5)
+    setup_ssm(ssm_mock, True)
     event = {'source': 'aws.events'}
     pause_ingest.lambda_handler(event, None)
     eventbridge_mock.put_events.assert_called_once_with(
@@ -149,7 +145,7 @@ def test_scheduled_event_max_concurrency_zero(env, boto3_mocks):
         {'EventSourceMappings': [{'UUID': 'agg-uuid-2', 'Enabled': True}]},
         {'EventSourceMappings': [{'UUID': 'court-uuid', 'Enabled': True}]}
     ]
-    setup_ssm(ssm_mock, max_concurrency=0)
+    setup_ssm(ssm_mock, False)
     event = {'source': 'aws.events'}
     pause_ingest.lambda_handler(event, None)
     eventbridge_mock.put_events.assert_called_once_with(
@@ -168,13 +164,13 @@ def test_no_eventbridge_message_if_empty_input(env, boto3_mocks):
         {'EventSourceMappings': [{'UUID': 'agg-uuid-2', 'Enabled': True}]},
         {'EventSourceMappings': [{'UUID': 'court-uuid', 'Enabled': True}]}
     ]
-    setup_ssm(ssm_mock, max_concurrency=0)
+    setup_ssm(ssm_mock, False)
     event = {}
     pause_ingest.lambda_handler(event, None)
     eventbridge_mock.put_events.assert_not_called()
 def test_eventbridge_error(env, boto3_mocks):
     eventbridge_mock, lambda_mock, ssm_mock = boto3_mocks
-    setup_ssm(ssm_mock, max_concurrency=5)
+    setup_ssm(ssm_mock, True)
 
     eventbridge_mock.put_events.side_effect = Exception("EventBridge error")
 
@@ -184,7 +180,7 @@ def test_eventbridge_error(env, boto3_mocks):
 
 def test_lambda_error(env, boto3_mocks):
     eventbridge_mock, lambda_mock, ssm_mock = boto3_mocks
-    setup_ssm(ssm_mock, max_concurrency=5)
+    setup_ssm(ssm_mock, True)
     lambda_mock.list_event_source_mappings.side_effect = Exception("Lambda error")
 
     event = {'pause': True}

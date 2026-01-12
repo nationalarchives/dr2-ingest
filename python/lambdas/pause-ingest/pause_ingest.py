@@ -35,27 +35,14 @@ def get_flow_control_config(ssm_parameter_name):
     return json.loads(param["Parameter"]["Value"])
 
 
-def resume_flow_control(ssm_parameter_name):
-    value = get_flow_control_config(ssm_parameter_name)
-    previous_max_concurrency = value['previousMaxConcurrency']
-    value['maxConcurrency'] = previous_max_concurrency
-    del value['previousMaxConcurrency']
+def set_flow_control_enabled(ssm_parameter_name, enabled):
+    flow_config = get_flow_control_config(ssm_parameter_name)
+    flow_config['enabled'] = enabled
     ssm_client.put_parameter(
         Name=ssm_parameter_name,
-        Value=json.dumps(value),
+        Value=json.dumps(flow_config),
         Overwrite=True
     )
-
-def pause_flow_control(ssm_parameter_name):
-    value = get_flow_control_config(ssm_parameter_name)
-    value['previousMaxConcurrency'] = value['maxConcurrency']
-    value['maxConcurrency'] = 0
-    ssm_client.put_parameter(
-        Name=ssm_parameter_name,
-        Value=json.dumps(value),
-        Overwrite=True
-    )
-
 
 def ingest_paused(ssm_parameter_name, trigger_arns):
     paused = False
@@ -65,7 +52,7 @@ def ingest_paused(ssm_parameter_name, trigger_arns):
             if not mapping.get("Enabled", True):
                 paused = True
     flow_config = get_flow_control_config(ssm_parameter_name)
-    if flow_config.get("maxConcurrency") == 0:
+    if not flow_config.get("enabled"):
         paused = True
     return paused
 
@@ -80,14 +67,14 @@ def lambda_handler(event, context):
                 "slackMessage": f":alert-noflash-slow: Ingest has been paused in environment {environment}"
             }
             update_sqs_trigger(trigger_arns, False)
-            pause_flow_control(ssm_parameter_name)
+            set_flow_control_enabled(ssm_parameter_name, False)
             send_eventbridge_message(pause_message)
         else:
             resume_message = {
                 "slackMessage": f":green-tick: Ingest has been resumed in environment {environment}"
             }
             update_sqs_trigger(trigger_arns, True)
-            resume_flow_control(ssm_parameter_name)
+            set_flow_control_enabled(ssm_parameter_name, True)
             send_eventbridge_message(resume_message)
 
     if event.get("source") == "aws.events" and ingest_paused(ssm_parameter_name, trigger_arns):
