@@ -5,7 +5,6 @@ import cats.effect.kernel.Resource
 import fs2.compression.Compression
 import fs2.io.*
 import fs2.{Chunk, Pipe, Stream, text}
-import io.circe.Decoder.Result
 import io.circe.generic.auto.*
 import io.circe.parser.decode
 import io.circe.syntax.*
@@ -19,13 +18,12 @@ import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.UriProcessor.ParsedUri
-import uk.gov.nationalarchives.utils.ExternalUtils.*
+import uk.gov.nationalarchives.utils.ExternalUtils.{ArchiveFolderMetadataObject, AssetMetadataObject, FileMetadataObject, IdField, MetadataObject, RepresentationType, TREMetadata}
 import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.`TRE: FCL Parser workflow`
 
 import java.io.{BufferedInputStream, InputStream}
 import java.net.URI
 import java.nio.ByteBuffer
-import java.time.OffsetDateTime
 import java.util.{Base64, UUID}
 
 class FileProcessor(
@@ -248,44 +246,6 @@ object FileProcessor {
   case class TREInputParameters(status: String, reference: String, skipSeriesLookup: Boolean, s3Bucket: String, s3Key: String)
 
   case class TREInput(parameters: TREInputParameters, properties: Option[TREInputProperties] = None)
-
-  case class TREMetadata(parameters: TREMetadataParameters)
-
-  extension (c: HCursor)
-    private def listOrNil(fieldName: String): Result[List[String]] =
-      if c.keys.getOrElse(Nil).toList.contains(fieldName) then c.downField(fieldName).as[List[String]] else Right(Nil)
-
-  given parserDecoder: Decoder[Parser] = (c: HCursor) =>
-    for {
-      uri <- c.downField("uri").as[Option[String]]
-      cite <- c.downField("cite").as[Option[String]]
-      name <- c.downField("name").as[Option[String]]
-      attachments <- c.listOrNil("attachments")
-      errorMessages <- c.listOrNil("error-messages")
-    } yield Parser(uri, cite, name, attachments, errorMessages)
-
-  case class Parser(
-      uri: Option[String],
-      cite: Option[String] = None,
-      name: Option[String],
-      attachments: List[String] = Nil,
-      `error-messages`: List[String] = Nil
-  )
-
-  case class Payload(filename: String)
-
-  case class TREParams(reference: String, payload: Payload)
-
-  case class TDRParams(
-      `Document-Checksum-sha256`: String,
-      `Source-Organization`: String,
-      `Internal-Sender-Identifier`: String,
-      `Consignment-Export-Datetime`: OffsetDateTime,
-      `File-Reference`: Option[String],
-      `UUID`: UUID
-  )
-
-  case class TREMetadataParameters(PARSER: Parser, TRE: TREParams, TDR: TDRParams)
 
   extension (publisher: Publisher[ByteBuffer])
     def publisherToStream: Stream[IO, ByteBuffer] = Stream.eval(IO.delay(publisher)).flatMap { publisher =>
