@@ -6,7 +6,7 @@ from moto import mock_aws
 import boto3
 from urllib3.exceptions import ConnectTimeoutError
 
-from lambda_function import get_response, BaseHTTPResponse, Website, verify_responses, \
+from ip_lock_checker import get_response, BaseHTTPResponse, Website, verify_responses, \
     send_error_messages_to_eventbridge, \
     get_websites_with_errors, run_connection_tests
 
