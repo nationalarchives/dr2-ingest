@@ -23,6 +23,7 @@ import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.FileProcessor.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda.*
 import uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.SeriesMapper.Court
+import uk.gov.nationalarchives.utils.ExternalUtils.{Parser, Payload, TDRParams, TREMetadata, TREMetadataParameters, TREParams}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client, DASFNClient}
 
 import java.io.ByteArrayOutputStream
