@@ -2,7 +2,6 @@ import os
 import json
 import urllib3
 import boto3
-from urllib3.exceptions import ConnectTimeoutError
 
 http = urllib3.PoolManager()
 client = boto3.client('events', region_name="eu-west-2")
