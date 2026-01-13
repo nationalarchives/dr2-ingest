@@ -55,3 +55,12 @@ variable "importer_lambda" {
 
   }
 }
+
+variable "package_builder_lambda" {
+  type = object({
+    handler = string
+  })
+  default = {
+    handler = "uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda::handleRequest"
+  }
+}

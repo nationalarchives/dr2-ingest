@@ -99,7 +99,7 @@ module "dr2_preingest_step_function_policy" {
 module "dr2_preingest_package_builder_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   function_name   = local.package_builder_lambda_name
-  handler         = "uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda::handleRequest"
+  handler         = var.package_builder_lambda.handler
   timeout_seconds = local.java_timeout_seconds
   policies = {
     "${local.package_builder_lambda_name}-policy" = templatefile("${path.module}/templates/preingest_package_builder_policy.json.tpl", {
