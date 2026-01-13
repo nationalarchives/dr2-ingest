@@ -50,7 +50,7 @@ locals {
     to_port    = 65535
     egress     = true
   }]
-  aws_region_name = data.aws_region.current.region
+  aws_region_name             = data.aws_region.current.region
   ingest_run_workflow_sfn_arn = "arn:aws:states:${local.aws_region_name}:${data.aws_caller_identity.current.account_id}:stateMachine:${local.ingest_run_workflow_step_function_name}"
   dashboard_lambdas = concat([
     local.entity_event_lambda_name,
@@ -93,10 +93,10 @@ locals {
   retry_statement            = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 6, BackoffRate = 2, JitterStrategy = "FULL" }])
   messages_visible_threshold = 1000000
   # The list comes from https://www.cloudflare.com/en-gb/ips
-  cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
+  cloudflare_ip_ranges                        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
   clouflare_and_vpc_endpoints_security_groups = [module.outbound_cloudflare_https_access.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
-  tdr_export_bucket           = "tdr-export-${local.environment}"
-  parliament_ingest_role      = module.config.terraform_config[local.environment]["parliament_ingest_role"]
+  tdr_export_bucket                           = "tdr-export-${local.environment}"
+  parliament_ingest_role                      = module.config.terraform_config[local.environment]["parliament_ingest_role"]
 }
 
 data "aws_iam_role" "org_wiz_access_role" {
@@ -198,7 +198,7 @@ module "vpc" {
       enable_private_dns = true
     },
     sns = {
-      name   = "com.amazonaws.${local.aws_region_name}.sns",
+      name = "com.amazonaws.${local.aws_region_name}.sns",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "sns"
         org_id       = data.aws_organizations_organization.org.id
@@ -207,7 +207,7 @@ module "vpc" {
       enable_private_dns = true
     },
     sqs = {
-      name   = "com.amazonaws.${local.aws_region_name}.sqs",
+      name = "com.amazonaws.${local.aws_region_name}.sqs",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "sqs"
         org_id       = data.aws_organizations_organization.org.id
@@ -216,7 +216,7 @@ module "vpc" {
       enable_private_dns = true
     },
     sts = {
-      name   = "com.amazonaws.${local.aws_region_name}.sts",
+      name = "com.amazonaws.${local.aws_region_name}.sts",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "sts"
         org_id       = data.aws_organizations_organization.org.id
