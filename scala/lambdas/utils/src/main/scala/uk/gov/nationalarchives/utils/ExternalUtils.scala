@@ -347,4 +347,42 @@ object ExternalUtils {
   case class OutputMessage(properties: OutputProperties, parameters: OutputParameters)
 
   case class StepFunctionInput(batchId: String, groupId: String, metadataPackage: URI, retryCount: Int, retrySfnArn: String)
+
+  extension (c: HCursor)
+    private def listOrNil(fieldName: String): Result[List[String]] =
+      if c.keys.getOrElse(Nil).toList.contains(fieldName) then c.downField(fieldName).as[List[String]] else Right(Nil)
+
+  given parserDecoder: Decoder[Parser] = (c: HCursor) =>
+    for {
+      uri <- c.downField("uri").as[Option[String]]
+      cite <- c.downField("cite").as[Option[String]]
+      name <- c.downField("name").as[Option[String]]
+      attachments <- c.listOrNil("attachments")
+      errorMessages <- c.listOrNil("error-messages")
+    } yield Parser(uri, cite, name, attachments, errorMessages)
+
+  case class Parser(
+                     uri: Option[String],
+                     cite: Option[String] = None,
+                     name: Option[String],
+                     attachments: List[String] = Nil,
+                     `error-messages`: List[String] = Nil
+                   )
+
+  case class Payload(filename: String)
+
+  case class TREParams(reference: String, payload: Payload)
+
+  case class TDRParams(
+                        `Document-Checksum-sha256`: String,
+                        `Source-Organization`: String,
+                        `Internal-Sender-Identifier`: String,
+                        `Consignment-Export-Datetime`: OffsetDateTime,
+                        `File-Reference`: Option[String],
+                        `UUID`: UUID
+                      )
+
+  case class TREMetadataParameters(PARSER: Parser, TRE: TREParams, TDR: TDRParams)
+
+  case class TREMetadata(parameters: TREMetadataParameters)
 }
