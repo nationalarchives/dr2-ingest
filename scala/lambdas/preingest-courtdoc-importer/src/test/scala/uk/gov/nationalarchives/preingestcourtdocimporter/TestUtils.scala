@@ -32,12 +32,16 @@ object TestUtils:
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
   case class Errors(download: Boolean = false, upload: Boolean = false, sendMessage: Boolean = false)
-  
+
   def sqsClient(ref: Ref[IO, List[Message]], errors: Option[Errors] = None): DASQSClient[IO] = new DASQSClient[IO] {
-    override def sendMessage[T <: Product](queueUrl: String)(message: T, potentialFifoConfiguration: Option[DASQSClient.FifoQueueConfiguration], delaySeconds: Int)(using enc: Encoder[T]): IO[SendMessageResponse] = errors.raise(_.sendMessage, "Error sending messages") >> 
-      ref.update { existing =>
-        message.asInstanceOf[Message] :: existing
-      }.map(_ => SendMessageResponse.builder.build)
+    override def sendMessage[T <: Product](queueUrl: String)(message: T, potentialFifoConfiguration: Option[DASQSClient.FifoQueueConfiguration], delaySeconds: Int)(using
+        enc: Encoder[T]
+    ): IO[SendMessageResponse] = errors.raise(_.sendMessage, "Error sending messages") >>
+      ref
+        .update { existing =>
+          message.asInstanceOf[Message] :: existing
+        }
+        .map(_ => SendMessageResponse.builder.build)
 
     override def receiveMessages[T](queueUrl: String, maxNumberOfMessages: Int)(using dec: Decoder[T]): IO[List[DASQSClient.MessageResponse[T]]] = IO.never
 
@@ -103,7 +107,7 @@ object TestUtils:
   def runLambda(
       initialS3State: List[S3Object],
       event: SQSEvent,
-      errors: Option[Errors] = None,
+      errors: Option[Errors] = None
   ): (Either[Throwable, Unit], List[S3Object], List[Message]) =
     val uuidIterator = uuids.iterator
     (for

@@ -92,5 +92,4 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     res.left.value.getMessage should equal("Error sending messages")
   }
 
-
 }

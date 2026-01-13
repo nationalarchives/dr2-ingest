@@ -24,11 +24,12 @@ import uk.gov.nationalarchives.utils.ExternalUtils.TREMetadata
 import java.io.{BufferedInputStream, InputStream}
 import java.util.UUID
 
-class Lambda  extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
+class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
   override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = (sqsEvent, config, dependencies) => {
 
     def copyFilesFromDownloadToUploadBucket(bucket: String, key: String): IO[Map[String, String]] =
-      dependencies.s3.download(bucket, key)
+      dependencies.s3
+        .download(bucket, key)
         .flatMap(
           _.publisherToStream
             .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
@@ -129,8 +130,6 @@ class Lambda  extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
   override def dependencies(config: Config): IO[Dependencies] =
     IO.pure(Dependencies(DAS3Client[IO](), DASQSClient[IO](), () => UUID.randomUUID))
 
-
-
 object Lambda:
 
   private val chunkSize: Int = 1024 * 64
@@ -148,8 +147,6 @@ object Lambda:
       s3Key <- c.downField("s3Key").as[String]
       skipSeriesLookup <- c.getOrElse("skipSeriesLookup")(false)
     } yield TREInputParameters(status, reference, skipSeriesLookup, s3Bucket, s3Key)
-
-
 
   extension (publisher: Publisher[ByteBuffer])
     def publisherToStream: Stream[IO, ByteBuffer] = Stream.eval(IO.delay(publisher)).flatMap { publisher =>
