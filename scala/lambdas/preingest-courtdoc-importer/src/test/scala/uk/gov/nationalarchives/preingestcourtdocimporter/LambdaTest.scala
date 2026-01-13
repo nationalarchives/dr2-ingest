@@ -59,6 +59,21 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     sqsMessage.location should equal(s"s3://bucket/${uuids(2)}")
   }
 
+  "lambda handler" should "send a message id in the message if one is provided" in {
+    val tdrUuid = UUID.randomUUID
+    val fileName = "test.tar.gz"
+    val content = fileBytes(inputMetadata(tdrUuid), 100)
+
+    val (res, _, sqsState) = runLambda(List(S3Object("inputBucket", fileName, content)), event(Option("test-id")))
+
+    res.isRight should equal(true)
+
+    sqsState.size should equal(1)
+    val sqsMessage = sqsState.head
+    sqsMessage.messageId.get should equal("test-id")
+
+  }
+
   "lambda handler" should "error if there is a error downloading the tar file" in {
     val tdrUuid = UUID.randomUUID
     val fileName = "test.tar.gz"

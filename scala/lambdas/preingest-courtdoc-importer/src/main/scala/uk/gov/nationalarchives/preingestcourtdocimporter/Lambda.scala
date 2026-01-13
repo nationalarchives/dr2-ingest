@@ -122,7 +122,9 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
             log(Map("fileReference" -> treMetadata.parameters.TDR.`File-Reference`.orNull))("Deleted unused TRE objects from the root of S3")
         }
         tdrId = treMetadata.parameters.TDR.`UUID`
-        _ <- dependencies.sqsClient.sendMessage(config.outputQueueUrl)(Message(tdrId, UUID.fromString(fileId), s"s3://${config.outputBucket}/$metadataFileId"))
+        _ <- dependencies.sqsClient.sendMessage(config.outputQueueUrl)(
+          Message(tdrId, UUID.fromString(fileId), s"s3://${config.outputBucket}/$metadataFileId", treInput.properties.flatMap(_.messageId))
+        )
       yield ()
     }.void
   }
@@ -135,7 +137,7 @@ object Lambda:
   private val chunkSize: Int = 1024 * 64
   case class Dependencies(s3: DAS3Client[IO], sqsClient: DASQSClient[IO], uuidGenerator: () => UUID)
 
-  case class Message(id: UUID, fileId: UUID, location: String)
+  case class Message(id: UUID, fileId: UUID, location: String, messageId: Option[String])
 
   given Decoder[TREInputProperties] = (c: HCursor) => for (messageId <- c.downField("messageId").as[Option[String]]) yield TREInputProperties(messageId)
 

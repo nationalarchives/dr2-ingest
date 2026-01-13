@@ -119,15 +119,15 @@ object TestUtils:
       sqsFinalState <- sqsRef.get
     yield (res, s3FinalState, sqsFinalState)).unsafeRunSync()
 
-  def packageAvailable(s3Key: String): TREInput = TREInput(
+  def packageAvailable(s3Key: String, messageId: Option[String]): TREInput = TREInput(
     TREInputParameters("status", "TEST-REFERENCE", skipSeriesLookup = false, inputBucket, s3Key),
-    None
+    Option(TREInputProperties(messageId))
   )
 
-  def event(s3Key: String = "test.tar.gz", body: Option[String] = None): SQSEvent = {
+  def event(messageId: Option[String] = None): SQSEvent = {
     val sqsEvent = new SQSEvent()
     val record = new SQSMessage()
-    record.setBody(body.getOrElse(packageAvailable(s3Key).asJson.noSpaces))
+    record.setBody(packageAvailable("test.tar.gz", messageId).asJson.noSpaces)
     sqsEvent.setRecords(List(record).asJava)
     sqsEvent
   }
