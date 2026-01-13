@@ -74,22 +74,21 @@ object TestUtils:
 
   case class LambdaOutput(res: Either[Throwable, StepFunctionInput], builderArgs: List[IngestLockTableItem], uploads: List[S3Object])
 
-  def runLambda(ingestMetadata: Map[IngestLockTableItem, List[MetadataObject]], items: List[IngestLockTableItem]): LambdaOutput =
+  def runLambda(ingestMetadata: Map[IngestLockTableItem, List[MetadataObject]], items: List[IngestLockTableItem]): LambdaOutput = {
     val input = Input("groupId", "batchId", 0)
-    val config = Config("", "", "bucket", 1)
+    val config = Config("", "", "bucket")
 
     def metadataBuilder(ref: Ref[IO, List[IngestLockTableItem]]) = new MetadataBuilder {
       override def createMetadata(item: IngestLockTableItem): IO[List[MetadataObject]] = ref
-        .update { existing =>
-          item :: existing
-        }
+        .update(existing => item :: existing)
         .map(_ => ingestMetadata.getOrElse(item, Nil))
     }
 
-    (for
+    for
       builderArgRef <- Ref.of[IO, List[IngestLockTableItem]](Nil)
       uploadRef <- Ref.of[IO, List[S3Object]](Nil)
       res <- new Lambda().handler(input, config, Dependencies(dynamoClient(items), s3Client(Nil, uploadRef), metadataBuilder(builderArgRef))).attempt
       builderArgs <- builderArgRef.get
       uploads <- uploadRef.get
-    yield LambdaOutput(res, builderArgs, uploads)).unsafeRunSync()
+    yield LambdaOutput(res, builderArgs, uploads)
+  }.unsafeRunSync()
