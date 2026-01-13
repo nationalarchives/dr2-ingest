@@ -21,7 +21,7 @@ jobs:
       - run: |
           (cd terraform && terraform fmt -check --recursive)
           find . -name requirements.txt | xargs -I {} pip install -r {}
-          AWS_DEFAULT_REGION=eu-west-2 pytest
+          AWS_DEFAULT_REGION=eu-west-2 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test pytest
           sbt scalafmtCheckAll test
           (cd kotlin/e2e-tests/lib && gradle test)
 
