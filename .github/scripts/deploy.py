@@ -28,6 +28,9 @@ def update_functions():
     objects = s3.list_objects(Bucket=deploy_bucket, Prefix=version)
     print(f"Found {len(objects)} objects")
     keys = [obj["Key"].replace(f"{version}/", "") for obj in objects["Contents"]]
+    if environment == "prod":
+        keys = [k for k in keys if k != 'court-document-package-anonymiser']
+            
     successful_slack_message = f"These are the successful deploys to version *{version}* on environment *{environment}*:\n\n"
     for key in keys:
         print(f"Processing key {key}")

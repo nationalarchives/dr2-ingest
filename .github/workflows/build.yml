@@ -42,6 +42,10 @@ jobs:
           cp ingest-metric-collector target/outputs
           cp pause-ingest target/outputs
           cp pause-preservica-activity target/outputs
+          pip install cargo-lambda
+          (cd rust/lambdas/courtdoc-anonymiser && cargo lambda build --release -p lambda)
+          zip -jA court-document-package-anonymiser rust/lambdas/courtdoc-anonymiser/target/lambda/lambda/bootstrap
+          cp court-document-package-anonymiser target/outputs
           cd target/outputs
           aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
           git tag ${{ steps.next-tag.outputs.next-version }}
