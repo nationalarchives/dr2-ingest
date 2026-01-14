@@ -16,3 +16,7 @@ updates:
     schedule:
       # Check for updates to kotlin packages every week
       interval: "weekly"
+  - package-ecosystem: "cargo"
+    directory: "/rust/lambdas/courtdoc-anonymiser"
+    schedule:
+      interval: "weekly"
