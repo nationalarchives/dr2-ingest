@@ -17,15 +17,22 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   def item(id: UUID) = IngestLockTableItem(id, "", "", "")
 
   "lambda handler" should "upload the metadata to s3" in {
-    val metadata = List(ArchiveFolderMetadataObject(UUID.randomUUID, None, Option("title"), "name", None, Nil))
+    val archiveMetadata = ArchiveFolderMetadataObject(UUID.randomUUID, None, Option("title"), "name", None, Nil)
+    val assetMetadata =
+      AssetMetadataObject(UUID.randomUUID, Option(UUID.randomUUID), "", "", Nil, None, None, None, `TRE: FCL Parser workflow`, "Born Digital", None, "", None, Nil)
+    val metadata = List(archiveMetadata, assetMetadata)
     val items = List(item(UUID.randomUUID))
     val output = runLambda(Map(items.head -> metadata), items)
 
     output.res.isRight should equal(true)
 
-    val uploadedMetadata = decode[List[ArchiveFolderMetadataObject]](output.uploads.head.content.array().map(_.toChar).mkString).value
+    val uploadedMetadata = decode[List[MetadataObject]](output.uploads.head.content.array().map(_.toChar).mkString).value
 
-    uploadedMetadata should equal(metadata)
+    val uploadedArchiveMetadata = uploadedMetadata.collect { case a: ArchiveFolderMetadataObject => a }.head
+    val uploadedAssetMetadata = uploadedMetadata.collect { case a: AssetMetadataObject => a }.head
+
+    uploadedArchiveMetadata should equal(archiveMetadata)
+    uploadedAssetMetadata should equal(assetMetadata)
   }
 
   "lambda handler" should "return the correct metadata location" in {

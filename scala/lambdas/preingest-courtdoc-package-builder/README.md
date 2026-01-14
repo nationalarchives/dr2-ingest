@@ -14,10 +14,12 @@ Because of aggregation, assets are grouped and therefore each have group ID in t
     }
     ```
 4. For each lock table message:   
-   1. Download from the location in the lock table message and deserialise to a TRE metadata file.  
-   2. Retrieve a URI from this file (with this format https://example.com/id/{court}/{year}/{cite}/{optionalDoctype}), extract the court and trim anything after the cite.
-   3. Map the `court` (that was extracted) to a series and department reference using a static lookup table.
-   4. Generate a single [metadataPackage object](/docs/metadataPackage.md) describing the ingest package.
+   1. Download from the location in the lock table message and deserialise to a TRE metadata object.
+   2. Verifies that the name starts with `Press Summary of ` if the URI ends with `/press-summary`.
+   3. Retrieve a URI from this file (with this format https://example.com/id/{court}/{year}/{cite}/{optionalDoctype}), extract the court and trim anything after the cite.
+   4. Map the `court` (that was extracted) to a series and department reference using a static lookup table.
+   5. Call `HeadObject` on the judgment file in S3 to get the file size.
+   6. Generate a single [metadataPackage object](/docs/metadataPackage.md) describing the ingest package.
 5. Upload an array containing the JSON objects to this location `{batchId}/metadata.json` in S3.
 6. Return an `Output` of `batchId`, `groupId`, location of metadata.json file (`packageMetadata`) and `retryCount`. This will serve as the input to our generic ingest process.
 
