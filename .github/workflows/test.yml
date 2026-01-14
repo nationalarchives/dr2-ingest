@@ -22,8 +22,7 @@ jobs:
           (cd terraform && terraform fmt -check --recursive)
           find . -name requirements.txt | xargs -I {} pip install -r {}
           pytest
-          cargo fmt --check
-          cargo test --workspace
+          (cd rust/lambdas/courtdoc-anonymiser && cargo fmt --check && cargo test --workspace)
           sbt scalafmtCheckAll test
           (cd kotlin/e2e-tests/lib && gradle test)
         env:
