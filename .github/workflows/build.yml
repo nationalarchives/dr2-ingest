@@ -16,7 +16,7 @@ jobs:
       next-version: ${{ steps.next-tag.outputs.next-version }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-      - uses: sbt/setup-sbt@3e125ece5c3e5248e18da9ed8d2cce3d335ec8dd
+      - uses: sbt/setup-sbt@a627500d27445f8c5021755a439829b6e78e3358
       - name: Configure AWS credentials from management account
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
@@ -39,9 +39,11 @@ jobs:
           zip -jA ingest-metric-collector python/lambdas/ingest-metric-collector/ingest_metric_collector.py
           zip -jA pause-ingest python/lambdas/pause-ingest/pause_ingest.py
           zip -jA pause-preservica-activity python/lambdas/pause-preservica-activity/pause_preservica_activity.py
+          zip -jA ip-lock-checker python/lambdas/ip-lock-checker/ip_lock_checker.py
           cp ingest-metric-collector target/outputs
           cp pause-ingest target/outputs
           cp pause-preservica-activity target/outputs
+          cp ip-lock-checker target/outputs
           pip install cargo-lambda
           (cd rust/lambdas/courtdoc-anonymiser && cargo lambda build --release -p lambda)
           zip -jA court-document-package-anonymiser rust/lambdas/courtdoc-anonymiser/target/lambda/lambda/bootstrap
