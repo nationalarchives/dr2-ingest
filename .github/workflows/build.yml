@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - DR2-2605-migrate-anonymiser
     paths-ignore:
       - "docs/**"
       - "**/*.md"
