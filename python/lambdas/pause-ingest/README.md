@@ -41,23 +41,21 @@ If `pause` is True
 
 * Disable the aggregator lambda trigger
 * Disable the court document handler trigger
-* Set `maxConcurrency` in the flow control config to 0 and store the original value in a field
-  called `previousMaxConcurrency`
+* Set `enabled` in the flow control config to false
 * Send a message to Slack to say that the ingest is being paused
 
 If `pause` is False
 
 * Enable the aggregator lambda trigger.
 * Enable the court document handler trigger.
-* Set `maxConcurrency` in the flow control config to the value of `previousMaxConcurrency` and
-  remove `previousMaxConcurrency` from the json.
+* Set `enabled` in the flow control config to true
 * Send a message to Slack to say that the ingest has been resumed
 
 If `source` is `aws.events`
 
 This event comes from the EventBridge Schedule which runs this lambda periodically. It's there to remind us if the ingest is still paused.
 
-If any of the lambda triggers are still disabled or if `maxConcurrency` in the flow control config is still 0
+If any of the lambda triggers are still disabled or if `enabled` in the flow control config is still false
 then send a message to Slack to say that the ingest is still paused, otherwise do nothing.
 
 [Link to the infrastructure code](https://github.com/nationalarchives/dp-terraform-environments)
