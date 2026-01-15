@@ -10,5 +10,5 @@ The [`Preingest TDR Aggregator` Lambda](/scala/lambdas/preingest-tdr-aggregator/
 These are batched either based on the number of messages received in a 10-minute window or when the number of messages reaches 10000.
 The batches are written to DynamoDB and the preingest step function is triggered.
 
-The [`Preingest TDR Builder` Lambda](/scala/lambdas/preingest-tdr-package-builder/) is responsible for creating the DR2 ingest metadata which will be passed to the ingest process.
+The [`Preingest TDR Package Builder` Lambda](/scala/lambdas/preingest-tdr-package-builder/) is responsible for creating the DR2 ingest metadata which will be passed to the ingest process.
 Once this has been created and uploaded to S3, an ingest step function is triggered.
