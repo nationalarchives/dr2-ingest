@@ -255,7 +255,7 @@ mod tests {
         );
         assert_eq!(
             docx_checksum,
-            "a951e0d7f11d9d2fa8c9508ee4b25944bb5810364089fc33221b1ec038eefd37"
+            "7ed4ded1842c06e18504a61f5fcb83aa8f0038ac831388ba096348f195f84064"
         )
     }
 

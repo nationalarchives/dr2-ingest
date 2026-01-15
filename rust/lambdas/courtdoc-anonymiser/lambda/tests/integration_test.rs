@@ -27,10 +27,8 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
     let test_string = format!(
         r#"{{"parameters": {{"status":"ok","reference":"test-reference", "s3Bucket": "{test_input_bucket}", "s3Key": "{test_download_key}"}}}}"#,
     );
-    let message = SqsMessage {
-        body: Some(test_string),
-        ..Default::default()
-    };
+    let mut message = SqsMessage::default();
+    message.body = Some(test_string);
 
     let get_object_path = format!("/{test_input_bucket}/{test_download_key}");
     let put_object_path = format!("/{test_output_bucket}/{test_upload_key}");
@@ -67,7 +65,7 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
     let s3_requests = &mock_s3_server.received_requests().await.unwrap();
     let put_request = s3_requests
         .iter()
-        .filter(|req| req.method == Method::Put)
+        .filter(|req| req.method == Method::PUT)
         .last()
         .unwrap();
 
@@ -87,7 +85,7 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
     assert_eq!(metadata_json.contact_name, "XXXXXXXXX");
     assert_eq!(
         metadata_json.checksum,
-        "9330f5cb8b67a81d3bfdedc5b9f5b84952a2c0d2f76a3208b84901febdf4db6a"
+        "81717ee7005ebe67b2a2036848f0761148568d2e3bfb4dc13e5e1665508c7ecd"
     );
 }
 
@@ -111,10 +109,9 @@ async fn error_if_key_is_missing_from_bucket() {
     let test_string = format!(
         r#"{{"parameters": {{"status":"ok","reference":"test-reference", "s3Bucket": "{test_input_bucket}", "s3Key": "{test_download_key}"}}}}"#
     );
-    let message = SqsMessage {
-        body: Some(test_string),
-        ..Default::default()
-    };
+    let mut message = SqsMessage::default();
+    message.body = Some(test_string);
+
     let err = process_record(
         &message,
         PathBuf::from("/tmp"),
@@ -145,10 +142,9 @@ async fn error_if_key_is_not_a_tar_file() {
     let test_string = format!(
         r#"{{"parameters": {{"status":"ok","reference":"test-reference", "s3Bucket": "{test_input_bucket}", "s3Key": "{test_download_key}"}}}}"#
     );
-    let message = SqsMessage {
-        body: Some(test_string),
-        ..Default::default()
-    };
+    let mut message = SqsMessage::default();
+    message.body = Some(test_string);
+
     let err = process_record(
         &message,
         PathBuf::from("/tmp"),
@@ -177,10 +173,8 @@ async fn error_if_upload_fails() {
     let test_string = format!(
         r#"{{"parameters": {{"status":"ok","reference":"test-reference", "s3Bucket": "{test_input_bucket}", "s3Key": "{test_download_key}"}}}}"#
     );
-    let message = SqsMessage {
-        body: Some(test_string),
-        ..Default::default()
-    };
+    let mut message = SqsMessage::default();
+    message.body = Some(test_string);
 
     let get_object_path = format!("/{test_input_bucket}/{test_download_key}");
     let put_object_path = format!("/{test_input_bucket}/{test_upload_key}");
@@ -216,14 +210,13 @@ async fn error_for_invalid_input() {
     let test_string_missing_key =
         r#"{"parameters": {"status":"ok","reference":"test-reference", "s3Bucket": "bucket"}}"#;
     let missing_body_message = SqsMessage::default();
-    let missing_bucket_message = SqsMessage {
-        body: Some(test_string_missing_bucket.to_string()),
-        ..Default::default()
-    };
-    let missing_key_message = SqsMessage {
-        body: Some(test_string_missing_key.to_string()),
-        ..Default::default()
-    };
+
+    let mut missing_bucket_message = SqsMessage::default();
+    missing_bucket_message.body = Some(test_string_missing_bucket.to_string());
+
+    let mut missing_key_message = SqsMessage::default();
+    missing_key_message.body = Some(test_string_missing_key.to_string());
+
     let uri = Some("https://example.com");
     let missing_body_err = process_record(
         &missing_body_message,
