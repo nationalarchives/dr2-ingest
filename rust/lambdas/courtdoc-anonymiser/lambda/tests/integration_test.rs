@@ -16,8 +16,10 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
     let tar_path = create_package(&input_dir, valid_json(), None);
     let test_input_bucket = "test-input-bucket";
     let test_output_bucket = "test-output-bucket";
-    set_var("OUTPUT_BUCKET", test_output_bucket);
-    set_var("OUTPUT_QUEUE", "https://example.com");
+    unsafe {
+        set_var("OUTPUT_BUCKET", test_output_bucket);
+        set_var("OUTPUT_QUEUE", "https://example.com");
+    }
 
     let test_download_key = tar_path
         .file_name()
@@ -93,8 +95,10 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
 async fn error_if_key_is_missing_from_bucket() {
     let test_input_bucket = "test-input-bucket";
     let test_output_bucket = "test-output-bucket";
-    set_var("OUTPUT_BUCKET", test_output_bucket);
-    set_var("OUTPUT_QUEUE", "https://example.com");
+    unsafe {
+        set_var("OUTPUT_BUCKET", test_output_bucket);
+        set_var("OUTPUT_QUEUE", "https://example.com");
+    }
 
     let test_download_key = "missing-key.tar.gz";
     let get_object_path = format!("/{test_input_bucket}/{test_download_key}");
@@ -127,8 +131,11 @@ async fn error_if_key_is_missing_from_bucket() {
 async fn error_if_key_is_not_a_tar_file() {
     let test_input_bucket = "test-input-bucket";
     let test_output_bucket = "test-output-bucket";
-    set_var("OUTPUT_BUCKET", test_output_bucket);
-    set_var("OUTPUT_QUEUE", "https://example.com");
+
+    unsafe {
+        set_var("OUTPUT_BUCKET", test_output_bucket);
+        set_var("OUTPUT_QUEUE", "https://example.com");
+    }
 
     let test_download_key = "test.tar.gz";
     let get_object_path = format!("/{test_input_bucket}/{test_download_key}");
@@ -162,8 +169,11 @@ async fn error_if_upload_fails() {
     let tar_path = create_package(&input_dir, valid_json(), None);
     let test_input_bucket = "test-input-bucket";
     let test_output_bucket = "test-output-bucket";
-    set_var("OUTPUT_BUCKET", test_output_bucket);
-    set_var("OUTPUT_QUEUE", "https://example.com");
+
+    unsafe {
+        set_var("OUTPUT_BUCKET", test_output_bucket);
+        set_var("OUTPUT_QUEUE", "https://example.com");
+    }
 
     let test_download_key = tar_path
         .file_name()
