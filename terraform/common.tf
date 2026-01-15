@@ -279,7 +279,7 @@ module "outbound_https_access_for_dynamo_db" {
   }
 }
 
-module "outbound-https-to-discovery" {
+module "outbound_https_to_discovery" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
   common_tags = {}
   description = "A security group to allow outbound access to discovery"
