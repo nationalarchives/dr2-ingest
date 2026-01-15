@@ -234,7 +234,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     assetMetadataObject.description should equal(testData.description)
     assetMetadataObject.transferringBody should equal(testData.body)
     checkDateTimeOptionFieldEquals(testData.date, assetMetadataObject.transferCompleteDatetime)
-    assetMetadataObject.upstreamSystem should equal(testData.upstreamSystem)
+    assetMetadataObject.upstreamSystem.display should equal(testData.upstreamSystem.display)
     assetMetadataObject.digitalAssetSource should equal(testData.digitalAssetSource.getOrElse("Born Digital"))
     assetMetadataObject.digitalAssetSubtype should equal(None)
     assetMetadataObject.correlationId should equal(potentialLockTableMessageId)

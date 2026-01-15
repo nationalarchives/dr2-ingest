@@ -25,7 +25,7 @@ module "ingest_find_existing_asset" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = flatten([local.outbound_security_group_ids, [module.outbound_https_access_for_dynamo_db.security_group_id]])
+    security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]])
   }
   tags = {
     Name = local.ingest_find_existing_asset_name

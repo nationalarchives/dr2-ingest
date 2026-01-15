@@ -27,10 +27,13 @@ lazy val ingestLambdasRoot = (project in file("."))
     preingestPaImporter,
     postIngestStateChangeHandler,
     postingestMessageResender,
+    preingestCourtDocImporter,
+    preingestCourtDocPackageBuilder,
     preingestTdrAggregator,
     preingestDriAggregator,
     preingestAdHocAggregator,
     preingestPaAggregator,
+    preingestCourtDocumentAggregator,
     preIngestTdrPackageBuilder,
     preIngestPaPackageBuilder,
     preingestDriPackageBuilder,
@@ -73,6 +76,23 @@ lazy val commonSettings = Seq(
 )
 
 lazy val copySchema = taskKey[Unit]("Copies the PA json schema file to the resources directory")
+
+
+lazy val preingestCourtDocImporter = (project in file("preingest-courtdoc-importer"))
+  .settings(name := baseDirectory.value.getName)
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      awsCrt,
+      commonsCompress,
+      fs2IO,
+      s3Client,
+      sqsClient,
+      reactorTest % Test
+    ),
+    dependencyOverrides += commonsLang
+  )
 
 lazy val preingestPaImporter = (project in file("preingest-pa-importer"))
   .settings(name := baseDirectory.value.getName)
@@ -331,6 +351,23 @@ lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-bu
   .dependsOn(utils, dynamoFormatters)
   .settings(packageBuilderSettings)
 
+
+lazy val preingestCourtDocPackageBuilder = (project in file("preingest-courtdoc-package-builder"))
+  .settings(name := baseDirectory.value.getName)
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      awsCrt,
+      dynamoClient,
+      fs2Reactive,
+      fs2IO,
+      s3Client,
+      reactorTest % Test
+    ),
+    dependencyOverrides += commonsLang
+  )
+
 lazy val preingestDriPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(
     name := "preingest-dri-package-builder",
@@ -391,6 +428,15 @@ lazy val preingestPaAggregator = (project in file("preingest-tdr-aggregator"))
   .settings(
     name := "preingest-pa-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-pa-aggregator"
+  )
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(aggregatorSettings)
+
+lazy val preingestCourtDocumentAggregator = (project in file("preingest-tdr-aggregator"))
+  .settings(
+    name := "preingest-courtdoc-aggregator",
+    target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-courtdoc-aggregator"
   )
   .settings(commonSettings)
   .dependsOn(utils)
