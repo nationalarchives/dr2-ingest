@@ -41,7 +41,7 @@ module "dr2_get_latest_preservica_version_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
+    security_group_ids = [module.outbound_https_access_for_dynamo_db.security_group_id]
   }
 }
 
