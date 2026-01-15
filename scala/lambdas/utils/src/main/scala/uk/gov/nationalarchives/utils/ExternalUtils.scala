@@ -339,7 +339,7 @@ object ExternalUtils {
     case IngestStarted extends MessageStatus("Asset has started the ingest process.")
     case IngestError extends MessageStatus("There has been an error ingesting the asset.")
 
-  case class NotificationMessage(id: UUID, location: URI, messageId: Option[String] = None)
+  case class NotificationMessage(id: UUID, location: URI, messageId: Option[String] = None, fileId: Option[UUID] = None)
 
   case class OutputProperties(executionId: String, messageId: UUID, parentMessageId: Option[String], timestamp: Instant, messageType: MessageType)
 
