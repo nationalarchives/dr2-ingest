@@ -1,10 +1,14 @@
 # TDR Preingest
 
-We are notified of records transferred to The National Archives via [Transfer Digital Records (TDR)](https://www.nationalarchives.gov.uk/information-management/manage-information/digital-records-transfer/transfer-digital-records-tdr/) via an event received to an SQS queue.
+We are notified of records transferred to The National Archives via [Transfer Digital Records (TDR)](https://www.nationalarchives.gov.uk/information-management/manage-information/digital-records-transfer/transfer-digital-records-tdr/) via an event received to an SQS queue. This triggers the importer lambda.
 
+The [`Preingest TDR Importer` Lambda](/python/lambdas/preingest-importer/) is responsible for unzipping
+and untarring the package from TDR and for copying the file and metadata file to our raw cache bucket.
+The lambda then sends a message to the aggregator queue
 
+The [`Preingest TDR Aggregator` Lambda](/scala/lambdas/preingest-tdr-aggregator/) is responsible for batching up messages for ingest.
+These are batched either based on the number of messages received in a 10-minute window or when the number of messages reaches 10000.
+The batches are written to DynamoDB and the preingest step function is triggered.
 
-
-are delivered to DR2 from the [Transformation Engine (TRE)](https://github.com/nationalarchives/da-tre-dev-documentation) after being [parsed](https://github.com/nationalarchives/tna-judgments-parser) to extract essential descriptive metadata - the `court` and `title`. As Court Documents are transferred as small individual files, we are able to process the BagIt packages from TRE in a Lambda function to extract the file and metadata.
-
-The [`dr2-ingest-parsed-court-document-event-handler` Lambda](/scala/lambdas/ingest-parsed-court-document-event-handler/) is responsible for this extraction and transformation into a package for our ingest workflow.
+The [`Preingest TDR Builder` Lambda](/scala/lambdas/preingest-tdr-package-builder/) is responsible for creating the DR2 ingest metadata which will be passed to the ingest process.
+Once this has been created and uploaded to S3, an ingest step function is triggered.
