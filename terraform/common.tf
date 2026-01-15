@@ -50,7 +50,8 @@ locals {
     to_port    = 65535
     egress     = true
   }]
-  ingest_run_workflow_sfn_arn = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${local.ingest_run_workflow_step_function_name}"
+  aws_region_name             = data.aws_region.current.region
+  ingest_run_workflow_sfn_arn = "arn:aws:states:${local.aws_region_name}:${data.aws_caller_identity.current.account_id}:stateMachine:${local.ingest_run_workflow_step_function_name}"
   dashboard_lambdas = concat([
     local.entity_event_lambda_name,
     local.get_latest_preservica_version,
@@ -92,10 +93,10 @@ locals {
   retry_statement            = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 6, BackoffRate = 2, JitterStrategy = "FULL" }])
   messages_visible_threshold = 1000000
   # The list comes from https://www.cloudflare.com/en-gb/ips
-  cloudflare_ip_ranges        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
-  outbound_security_group_ids = [module.outbound_https_access_only.security_group_id, module.outbound_cloudflare_https_access.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
-  tdr_export_bucket           = "tdr-export-${local.environment}"
-  parliament_ingest_role      = module.config.terraform_config[local.environment]["parliament_ingest_role"]
+  cloudflare_ip_ranges                        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
+  clouflare_and_vpc_endpoints_security_groups = [module.outbound_cloudflare_https_access.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
+  tdr_export_bucket                           = "tdr-export-${local.environment}"
+  parliament_ingest_role                      = module.config.terraform_config[local.environment]["parliament_ingest_role"]
 }
 
 data "aws_iam_role" "org_wiz_access_role" {
@@ -149,6 +150,8 @@ data "aws_ssm_parameter" "slack_webhook_url" {
   name = "/${local.environment}/slack/cloudwatch-alarm-webhook"
 }
 
+data "aws_region" "current" {}
+
 module "vpc" {
   source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
   vpc_name                  = "${local.environment}-vpc"
@@ -177,7 +180,7 @@ module "vpc" {
 
   interface_endpoints = {
     secretsmanager = {
-      name = "com.amazonaws.eu-west-2.secretsmanager",
+      name = "com.amazonaws.${local.aws_region_name}.secretsmanager",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "secretsmanager"
         org_id       = data.aws_organizations_organization.org.id
@@ -186,7 +189,7 @@ module "vpc" {
       enable_private_dns = true
     },
     stepfunctions = {
-      name = "com.amazonaws.eu-west-2.states",
+      name = "com.amazonaws.${local.aws_region_name}.states",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "states"
         org_id       = data.aws_organizations_organization.org.id
@@ -195,8 +198,7 @@ module "vpc" {
       enable_private_dns = true
     },
     sns = {
-      region = "eu-west-2",
-      name   = "com.amazonaws.eu-west-2.sns",
+      name = "com.amazonaws.${local.aws_region_name}.sns",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "sns"
         org_id       = data.aws_organizations_organization.org.id
@@ -205,15 +207,23 @@ module "vpc" {
       enable_private_dns = true
     },
     sqs = {
-      region = "eu-west-2",
-      name   = "com.amazonaws.eu-west-2.sqs",
+      name = "com.amazonaws.${local.aws_region_name}.sqs",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
         service_name = "sqs"
         org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
-    }
+    },
+    sts = {
+      name = "com.amazonaws.${local.aws_region_name}.sts",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "sts"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
   }
 }
 
@@ -269,12 +279,11 @@ module "outbound_https_access_for_dynamo_db" {
   }
 }
 
-module "outbound_https_access_only" {
+module "outbound-https-to-discovery" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
   common_tags = {}
-  description = "A security group to allow outbound access only"
-  name        = "${local.environment}-outbound-https"
-  vpc_id      = module.vpc.vpc_id
+  description = "A security group to allow outbound access to discovery"
+  name        = "${local.environment}-outbound-https-to-discovery"
   rules = {
     egress = [
       {
@@ -283,14 +292,9 @@ module "outbound_https_access_only" {
         security_group_id = module.discovery_inbound_https.security_group_id
         protocol          = "tcp"
       },
-      {
-        port        = 443
-        description = "Outbound https to all IPs"
-        cidr_ip_v4  = "0.0.0.0/0"
-        protocol    = "tcp"
-      },
     ]
   }
+  vpc_id = module.vpc.vpc_id
 }
 
 resource "aws_ec2_managed_prefix_list" "cloudflare_prefix_list" {
