@@ -28,6 +28,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     postIngestStateChangeHandler,
     postingestMessageResender,
     preingestCourtDocImporter,
+    preingestCourtDocPackageBuilder,
     preingestTdrAggregator,
     preingestDriAggregator,
     preingestAdHocAggregator,
@@ -349,6 +350,23 @@ lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-bu
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(packageBuilderSettings)
+
+
+lazy val preingestCourtDocPackageBuilder = (project in file("preingest-courtdoc-package-builder"))
+  .settings(name := baseDirectory.value.getName)
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      awsCrt,
+      dynamoClient,
+      fs2Reactive,
+      fs2IO,
+      s3Client,
+      reactorTest % Test
+    ),
+    dependencyOverrides += commonsLang
+  )
 
 lazy val preingestDriPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(
