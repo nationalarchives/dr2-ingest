@@ -1,5 +1,5 @@
 use aws_lambda_events::event::sqs::SqsEvent;
-use lambda_runtime::{run, service_fn, Error, LambdaEvent};
+use lambda_runtime::{Error, LambdaEvent, run, service_fn};
 use std::path::PathBuf;
 
 async fn function_handler(event: LambdaEvent<SqsEvent>) -> Result<(), Error> {

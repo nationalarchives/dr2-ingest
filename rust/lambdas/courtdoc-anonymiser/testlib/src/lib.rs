@@ -2,7 +2,7 @@
 //!
 //! These are common functions used in the integration tests for the script and for the lambda.
 use assert_fs::TempDir;
-use flate2::{read::GzDecoder, write::GzEncoder, Compression};
+use flate2::{Compression, read::GzDecoder, write::GzEncoder};
 use serde_json::Value;
 use std::fs::*;
 use std::path::{Path, PathBuf};

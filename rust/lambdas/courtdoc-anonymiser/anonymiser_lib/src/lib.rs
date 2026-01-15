@@ -3,11 +3,11 @@
 //! This library contains common code shared between the anonymiser script and the lambda.
 use clap::Parser;
 use docx_rs::*;
-use flate2::{read::GzDecoder, write::GzEncoder, Compression};
-use serde_json::{json, Value};
+use flate2::{Compression, read::GzDecoder, write::GzEncoder};
+use serde_json::{Value, json};
 use sha256::try_digest;
 
-use std::fs::{remove_file, DirEntry};
+use std::fs::{DirEntry, remove_file};
 use std::io::ErrorKind;
 use std::{fs, fs::File, io, io::Error, io::Read, path::Path, path::PathBuf};
 use tar::{Archive, Builder};
@@ -291,12 +291,16 @@ mod tests {
         let output_dir = TempDir::new().unwrap();
         let tar_path = create_package(&input_dir, "{}", None);
         decompress_file(&tar_path, &output_dir.to_owned()).unwrap();
-        assert!(output_dir
-            .join(PathBuf::from("TDR-2023/test.docx"))
-            .exists());
-        assert!(output_dir
-            .join(PathBuf::from("TDR-2023/TRE-TDR-2023-metadata.json"))
-            .exists());
+        assert!(
+            output_dir
+                .join(PathBuf::from("TDR-2023/test.docx"))
+                .exists()
+        );
+        assert!(
+            output_dir
+                .join(PathBuf::from("TDR-2023/TRE-TDR-2023-metadata.json"))
+                .exists()
+        );
     }
 
     #[test]
