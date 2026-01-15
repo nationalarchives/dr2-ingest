@@ -80,7 +80,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     dynamoDbWriteItemRequest.conditionalExpression should equal(Some("attribute_not_exists(assetId)"))
     val attributes = dynamoDbWriteItemRequest.attributeNamesAndValuesToWrite
     attributes("groupId").s() should equal(groupId.groupValue)
-    attributes("message").s() should equal(s"""{"id":"$assetId","location":"s3://bucket/key","messageId":"message-id"}""")
+    attributes("message").s() should equal(s"""{"id":"$assetId","location":"s3://bucket/key","messageId":"message-id","fileId":null}""")
     attributes("createdAt").s() should equal("2024-08-13T14:39:07Z")
   }
 

@@ -279,7 +279,18 @@ module "outbound_https_access_for_dynamo_db" {
   }
 }
 
-module "outbound-https-to-discovery" {
+# This module is kept here as terraform fails to destroy it until all lambdas are moved (problem of renaming)
+# FIXME: DR2-2609: Remove this block once  outbound_https_to_discovery has made its way to prod
+module "outbound_https_access_only" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A security group to allow outbound access only"
+  name        = "${local.environment}-outbound-https"
+  vpc_id      = module.vpc.vpc_id
+  rules       = {}
+}
+
+module "outbound_https_to_discovery" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
   common_tags = {}
   description = "A security group to allow outbound access to discovery"
