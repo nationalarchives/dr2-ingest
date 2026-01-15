@@ -132,17 +132,17 @@ object TestUtils:
     sqsEvent
   }
 
-  def fileBytes(metadata: TREMetadata, fileSize: Int = 100): ByteBuffer = fileBytes(metadata.asJson.noSpaces, fileSize)
+  def fileBytes(metadata: TREMetadata, batchReference: String): ByteBuffer = fileBytes(metadata.asJson.noSpaces, batchReference)
 
-  def fileBytes(content: String, fileSize: Int): ByteBuffer = {
+  def fileBytes(content: String, batchReference: String): ByteBuffer = {
     val byteArrayOutputStream = new ByteArrayOutputStream()
     val gzipOut = new GzipCompressorOutputStream(byteArrayOutputStream)
     val tarOut = new TarArchiveOutputStream(gzipOut)
-    val directoryEntry = new TarArchiveEntry(s"$reference/")
+    val directoryEntry = new TarArchiveEntry(s"$batchReference/")
     tarOut.putArchiveEntry(directoryEntry)
-    val files = Map("Test.docx" -> Array.fill(fileSize)("a").mkString, "unused.txt" -> "", s"TRE-$reference-metadata.json" -> content)
+    val files = Map("Test.docx" -> Array.fill(100)("a").mkString, "unused.txt" -> "", s"TRE-$batchReference-metadata.json" -> content)
     files.foreach { (fileName, content) =>
-      val entry = new TarArchiveEntry(s"$reference/$fileName")
+      val entry = new TarArchiveEntry(s"$batchReference/$fileName")
       entry.setSize(content.length)
       tarOut.putArchiveEntry(entry)
       tarOut.write(content.getBytes)

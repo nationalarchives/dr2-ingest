@@ -15,10 +15,12 @@ import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with EitherValues {
 
-  def inputMetadata(tdrUuid: UUID): String = TREMetadata(
+  val reference = "TEST-REFERENCE"
+
+  def inputMetadata(tdrUuid: UUID, fileName: String = "Test.docx"): String = TREMetadata(
     TREMetadataParameters(
       Parser("https://example.com/id/court/2023/abc".some, None, "test".some, Nil, Nil),
-      TREParams(reference, Payload("Test.docx")),
+      TREParams(reference, Payload(fileName)),
       TDRParams("checksum", "Source", "identifier", OffsetDateTime.parse("2024-11-07T15:29:54Z"), None, tdrUuid)
     )
   ).asJson.noSpaces
@@ -26,7 +28,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
   "lambda handler" should "copy only the file and the metadata file to the output bucket" in {
     val tdrUuid = UUID.randomUUID
     val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), 100)
+    val content = fileBytes(inputMetadata(tdrUuid), reference)
 
     val (res, s3State, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event())
 
@@ -46,7 +48,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
   "lambda handler" should "send the correct message to the sqs queue" in {
     val tdrUuid = UUID.randomUUID
     val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), 100)
+    val content = fileBytes(inputMetadata(tdrUuid), reference)
 
     val (res, _, sqsState) = runLambda(List(S3Object("inputBucket", fileName, content)), event())
 
@@ -62,7 +64,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
   "lambda handler" should "send a message id in the message if one is provided" in {
     val tdrUuid = UUID.randomUUID
     val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), 100)
+    val content = fileBytes(inputMetadata(tdrUuid), reference)
 
     val (res, _, sqsState) = runLambda(List(S3Object("inputBucket", fileName, content)), event(Option("test-id")))
 
@@ -77,7 +79,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
   "lambda handler" should "error if there is a error downloading the tar file" in {
     val tdrUuid = UUID.randomUUID
     val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), 100)
+    val content = fileBytes(inputMetadata(tdrUuid), reference)
 
     val (res, _, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event(), Option(Errors(download = true)))
 
@@ -88,7 +90,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
   "lambda handler" should "error if there is an error uploading the extracted file" in {
     val tdrUuid = UUID.randomUUID
     val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), 100)
+    val content = fileBytes(inputMetadata(tdrUuid), reference)
 
     val (res, _, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event(), Option(Errors(upload = true)))
 
@@ -99,7 +101,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
   "lambda handler" should "error if there is an error sending the message to the queue" in {
     val tdrUuid = UUID.randomUUID
     val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), 100)
+    val content = fileBytes(inputMetadata(tdrUuid), reference)
 
     val (res, _, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event(), Option(Errors(sendMessage = true)))
 
@@ -107,4 +109,23 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     res.left.value.getMessage should equal("Error sending messages")
   }
 
+  "lambda handler" should "error if the metadata file cannot be found in the tar file" in {
+    val fileName = "test.tar.gz"
+    val content = fileBytes(inputMetadata(UUID.randomUUID), "ANOTHER-REFERENCE")
+
+    val (res, _, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event())
+
+    res.isLeft should equal(true)
+    res.left.value.getMessage should equal(s"Cannot find metadata for $reference")
+  }
+
+  "lambda handler" should "error if the file cannot be found in the tar file" in {
+    val fileName = "test.tar.gz"
+    val content = fileBytes(inputMetadata(UUID.randomUUID, "AnotherFile.docx"), reference)
+
+    val (res, _, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event())
+
+    res.isLeft should equal(true)
+    res.left.value.getMessage should equal(s"Cannot find file name for file belonging to $reference")
+  }
 }

@@ -27,7 +27,7 @@ import java.util.UUID
 class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
   override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = (sqsEvent, config, dependencies) => {
 
-    def copyFilesFromDownloadToUploadBucket(bucket: String, key: String): IO[Map[String, String]] =
+    def copyFilesFromDownloadToUploadBucket(bucket: String, key: String): IO[Map[String, UUID]] =
       dependencies.s3
         .download(bucket, key)
         .flatMap(
@@ -41,7 +41,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
         )
         .map(_.toMap)
 
-    def unarchiveToS3: Pipe[IO, Byte, (String, String)] = { stream =>
+    def unarchiveToS3: Pipe[IO, Byte, (String, UUID)] = { stream =>
       stream
         .through(toInputStream[IO])
         .map(new BufferedInputStream(_, chunkSize))
@@ -49,7 +49,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
         .flatMap(unarchiveAndUploadToS3)
     }
 
-    def unarchiveAndUploadToS3(tarInputStream: TarArchiveInputStream): Stream[IO, (String, String)] =
+    def unarchiveAndUploadToS3(tarInputStream: TarArchiveInputStream): Stream[IO, (String, UUID)] =
       Stream
         .eval(IO.blocking(Option(tarInputStream.getNextEntry)))
         .flatMap(Stream.fromOption[IO](_))
@@ -59,7 +59,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
             .flatMap { stream =>
               if (!tarEntry.isDirectory) {
                 val id = dependencies.uuidGenerator()
-                Stream.eval[IO, (String, String)](
+                Stream.eval[IO, (String, UUID)](
                   stream.compile.toList.flatMap { bytes =>
                     val byteArray = bytes.toArray
                     Stream
@@ -67,7 +67,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
                       .toPublisherResource
                       .use(pub => dependencies.s3.upload(config.outputBucket, id.toString, FlowAdapters.toPublisher(pub)))
                       .map { _ =>
-                        tarEntry.getName -> id.toString
+                        tarEntry.getName -> id
                       }
                   }
                 )
@@ -83,9 +83,9 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
           Stream.fromEither[IO](decode[TREMetadata](jsonString))
         }
 
-    def readJsonFromPackage(metadataId: String): IO[TREMetadata] = {
+    def readJsonFromPackage(metadataId: UUID): IO[TREMetadata] = {
       for
-        s3Publisher <- dependencies.s3.download(config.outputBucket, metadataId)
+        s3Publisher <- dependencies.s3.download(config.outputBucket, metadataId.toString)
         contentString <- s3Publisher.publisherToStream
           .flatMap(bf => Stream.chunk(Chunk.byteBuffer(bf)))
           .through(extractMetadataFromJson)
@@ -114,16 +114,16 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
         )
         treMetadata <- readJsonFromPackage(metadataFileId)
         fileId <- IO.fromOption(fileNameToFileIds.get(s"$batchRef/${treMetadata.parameters.TRE.payload.filename}"))(
-          new RuntimeException(s"Document not found for file belonging to $batchRef")
+          new RuntimeException(s"Cannot find file name for file belonging to $batchRef")
         )
         irrelevantFilesFromTre = fileNameToFileIds.values.filter(!List(fileId, metadataFileId).contains(_))
         _ <- IO.whenA(irrelevantFilesFromTre.nonEmpty) {
-          dependencies.s3.deleteObjects(outputBucket, irrelevantFilesFromTre.toList) >>
+          dependencies.s3.deleteObjects(outputBucket, irrelevantFilesFromTre.toList.map(_.toString)) >>
             log(Map("fileReference" -> treMetadata.parameters.TDR.`File-Reference`.orNull))("Deleted unused TRE objects from the root of S3")
         }
         tdrId = treMetadata.parameters.TDR.`UUID`
         _ <- dependencies.sqsClient.sendMessage(config.outputQueueUrl)(
-          Message(tdrId, UUID.fromString(fileId), s"s3://${config.outputBucket}/$metadataFileId", treInput.properties.flatMap(_.messageId))
+          Message(tdrId, fileId, s"s3://${config.outputBucket}/$metadataFileId", treInput.properties.flatMap(_.messageId))
         )
       yield ()
     }.void
