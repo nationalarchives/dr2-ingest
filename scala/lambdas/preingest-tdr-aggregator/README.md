@@ -1,6 +1,6 @@
 # DR2 Preingest TDR aggregator
 
-This code is used for both the TDR and DRI migration preingest.
+This code is used for the TDR, Court Document and DRI migration preingest.
 
 The Aggregator SQS queue sends messages to this lambda. In order to reduce the number of invocations, this lambda uses
 Lambda's [built-in batching](https://aws.amazon.com/about-aws/whats-new/2020/11/aws-lambda-now-supports-batch-windows-of-up-to-5-minutes-for-functions/)
