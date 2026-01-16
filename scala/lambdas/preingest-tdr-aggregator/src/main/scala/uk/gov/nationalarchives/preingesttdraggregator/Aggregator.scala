@@ -11,7 +11,6 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import io.circe.*
 import io.circe.generic.auto.*
 import io.circe.parser.decode
-import io.circe.syntax.*
 import org.scanamo.DynamoValue
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jFactory
@@ -30,6 +29,7 @@ import uk.gov.nationalarchives.utils.Generators
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 
 import java.time.Instant
+import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
 trait Aggregator[F[_]]:
@@ -55,7 +55,7 @@ object Aggregator:
 
   case class SFNArguments(groupId: GroupId, batchId: BatchId, waitFor: Seconds, retryCount: Int = 0)
 
-  case class AggregatorError(messageId: String) extends Throwable
+  private case class AggregatorError(messageId: String) extends Throwable
 
   enum NewGroupReason:
     case NoExistingGroup, ExpiryBeforeLambdaTimeout, MaxGroupSizeExceeded
@@ -69,9 +69,9 @@ object Aggregator:
 
       private def toDynamoString(value: String): AttributeValue = AttributeValue.builder.s(value).build
 
-      def writeToLockTable(msgInput: Input, config: Config, groupId: GroupId): F[Int] = {
+      def writeToLockTable(id: UUID, msgBody: String, config: Config, groupId: GroupId): F[Int] = {
         val dynamoLockTableItem: DynamoValue = DynamoWriteUtils.writeLockTableItem(
-          IngestLockTableItem(msgInput.id, groupId.groupValue, msgInput.asJson.printWith(Printer.noSpaces), Generators().generateInstant.toString)
+          IngestLockTableItem(id, groupId.groupValue, msgBody, Generators().generateInstant.toString)
         )
 
         dynamoClient.writeItem(
@@ -83,10 +83,10 @@ object Aggregator:
         )
       }
 
-      private def startNewGroup(config: Config, groupExpiryTime: Milliseconds, msgInput: Input)(using enc: Encoder[SFNArguments]): F[Group] = {
+      private def startNewGroup(config: Config, groupExpiryTime: Milliseconds, id: UUID, msgBody: String)(using enc: Encoder[SFNArguments]): F[Group] = {
         val groupId: GroupId = GroupId(config.sourceSystem)
         val batchId = BatchId(groupId)
-        writeToLockTable(msgInput, config, groupId) >> {
+        writeToLockTable(id, msgBody, config, groupId) >> {
           val waitFor: Seconds = Math.ceil((groupExpiryTime - Generators().generateInstant.toEpochMilli.milliSeconds).toDouble / 1000).toInt.seconds
           sfnClient.startExecution(config.sfnArn, SFNArguments(groupId, batchId, waitFor), batchId.batchValue.some).map { _ =>
             Group(groupId, Instant.ofEpochMilli(groupExpiryTime.length), 1)
@@ -94,23 +94,29 @@ object Aggregator:
         }
       }
 
-      private def updateOrCreateNewGroup(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds, msgInput: Input)(using
+      private def updateOrCreateNewGroup(atomicCell: AtomicCell[F, Map[String, Group]], config: Config, sourceId: String, lambdaTimeoutTime: Milliseconds, msgBody: String)(using
           Encoder[SFNArguments]
       ): F[Unit] = {
         def log = logWithReason(sourceId)
 
         lazy val groupExpiryTime: Milliseconds = lambdaTimeoutTime + config.maxSecondaryBatchingWindow.toMilliSeconds
-        atomicCell.evalUpdateAndGet { groupCache =>
-          val groupF = groupCache.get(sourceId) match
-            case None => log(NoExistingGroup) >> startNewGroup(config, groupExpiryTime, msgInput)
-            case Some(currentGroupForSource) =>
-              if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then log(ExpiryBeforeLambdaTimeout) >> startNewGroup(config, groupExpiryTime, msgInput)
-              else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(config, groupExpiryTime, msgInput)
-              else
-                writeToLockTable(msgInput, config, currentGroupForSource.groupId) >>
-                  Async[F].pure(currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))
-          groupF.map(group => groupCache + (sourceId -> group))
-        }.void
+        Async[F]
+          .fromEither(decode[Input](msgBody))
+          .flatMap { msgInput =>
+            atomicCell.evalUpdateAndGet { groupCache =>
+              val groupF = groupCache.get(sourceId) match
+                case None => log(NoExistingGroup) >> startNewGroup(config, groupExpiryTime, msgInput.id, msgBody)
+                case Some(currentGroupForSource) =>
+                  if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then
+                    log(ExpiryBeforeLambdaTimeout) >> startNewGroup(config, groupExpiryTime, msgInput.id, msgBody)
+                  else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(config, groupExpiryTime, msgInput.id, msgBody)
+                  else
+                    writeToLockTable(msgInput.id, msgBody, config, currentGroupForSource.groupId) >>
+                      Async[F].pure(currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))
+              groupF.map(group => groupCache + (sourceId -> group))
+            }
+          }
+          .void
       }
 
       override def aggregate(config: Config, atomicCell: AtomicCell[F, Map[String, Group]], messages: List[SQSMessage], remainingTimeInMillis: Int)(using
@@ -121,8 +127,7 @@ object Aggregator:
         for {
           fibers <- messages.parTraverse { message =>
             val process = for {
-              input <- Async[F].fromEither(decode[Input](message.getBody))
-              _ <- updateOrCreateNewGroup(atomicCell, config, message.getEventSourceArn, lambdaTimeoutTime, input)
+              _ <- updateOrCreateNewGroup(atomicCell, config, message.getEventSourceArn, lambdaTimeoutTime, message.getBody)
             } yield message.getMessageId
             process.handleErrorWith { err =>
               logger.error(Map(), err)(err.getMessage) >>

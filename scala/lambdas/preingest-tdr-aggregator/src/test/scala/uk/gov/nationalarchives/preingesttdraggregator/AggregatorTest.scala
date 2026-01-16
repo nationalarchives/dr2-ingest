@@ -29,6 +29,7 @@ import scala.collection.immutable.Map
 
 class AggregatorTest extends AnyFlatSpec with EitherValues:
   val groupUUID: UUID = UUID.randomUUID
+  def defaultMessageBody(assetId: UUID) = s"""{"id":"$assetId","location":"s3://bucket/key","messageId":"message-id","extraField1":"extraValue1"}"""
   val groupId: GroupId = GroupId("TST", groupUUID)
   val newBatchId = s"${groupId}_0"
   val config: Config = Config("test-table", "TST", "sfnArn", 1.seconds, 10)
@@ -80,7 +81,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     dynamoDbWriteItemRequest.conditionalExpression should equal(Some("attribute_not_exists(assetId)"))
     val attributes = dynamoDbWriteItemRequest.attributeNamesAndValuesToWrite
     attributes("groupId").s() should equal(groupId.groupValue)
-    attributes("message").s() should equal(s"""{"id":"$assetId","location":"s3://bucket/key","messageId":"message-id","fileId":null}""")
+    attributes("message").s() should equal(s"""{"id":"$assetId","location":"s3://bucket/key","messageId":"message-id","extraField1":"extraValue1"}""")
     attributes("createdAt").s() should equal("2024-08-13T14:39:07Z")
   }
 
@@ -113,7 +114,8 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
       assetIds: List[UUID],
       groupMap: Map[String, Group] = Map(),
       dynamoErrors: Map[UUID, Boolean] = Map.empty,
-      sfnError: Boolean = false
+      sfnError: Boolean = false,
+      messageBody: Option[String] = None
   ): IO[(List[DADynamoDbWriteItemRequest], List[StartExecutionArgs], Map[String, Group], List[BatchItemFailure])] =
     for {
       writeItemArgsRef <- Ref.of[IO, List[DADynamoDbWriteItemRequest]](Nil)
@@ -129,7 +131,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
           val sqsMessage = new SQSMessage()
           sqsMessage.setEventSourceArn("eventSourceArn")
           sqsMessage.setMessageId(assetId.toString)
-          sqsMessage.setBody(s"""{"id":"$assetId","location":"s3://bucket/key","messageId":"message-id"}""")
+          sqsMessage.setBody(messageBody.getOrElse(defaultMessageBody(assetId)))
           sqsMessage
         }
 
@@ -249,4 +251,19 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
     checkGroup(group.head._2, existingGroupId, later, 11)
     results.size should equal(1)
     results.head.getItemIdentifier should equal(assetId.toString)
+  }
+
+  "aggregate" should "error if the incoming message doesn't have an id and location" in {
+    val assetId = UUID.randomUUID
+    val missingLocationOutput = getAggregatorOutput(List(assetId), messageBody = Option(s"""{"id":"${UUID.randomUUID}"}"""))
+    val missingIdOutput = getAggregatorOutput(List(assetId), messageBody = Option(s"""{"location":"s3://product/key"}"""))
+    val emptyOutput = getAggregatorOutput(List(assetId), messageBody = Option(s"""{}"""))
+
+    val (_, _, _, missingLocationFailures) = missingLocationOutput.unsafeRunSync()
+    val (_, _, _, missingIdFailures) = missingIdOutput.unsafeRunSync()
+    val (_, _, _, emptyFailures) = emptyOutput.unsafeRunSync()
+
+    missingLocationFailures.length should equal(1)
+    missingIdFailures.length should equal(1)
+    emptyFailures.length should equal(1)
   }
