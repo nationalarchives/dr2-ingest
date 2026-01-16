@@ -45,7 +45,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       else {
         val item = lockTableItems.head
 
-        dependencies.metadataBuilder.createMetadata(lockTableItems.head).flatMap { metadata =>
+        dependencies.metadataBuilder.createMetadata(item).flatMap { metadata =>
           val archiveFolder = metadata.collectFirst { case a: ArchiveFolderMetadataObject => a }
           val potentialExistingFolder = archiveFolders
             .find(folder => archiveFolder.map(_.name).contains(folder.name))
