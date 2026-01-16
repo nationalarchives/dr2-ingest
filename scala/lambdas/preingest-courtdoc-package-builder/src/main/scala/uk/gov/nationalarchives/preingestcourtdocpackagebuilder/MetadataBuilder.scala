@@ -21,7 +21,7 @@ trait MetadataBuilder:
   def createMetadata(item: IngestLockTableItem): IO[List[MetadataObject]]
 object MetadataBuilder:
 
-  case class LockTableMessage(id: UUID, location: URI, fileId: UUID, messageId: Option[String], skipSeries: Boolean = false)
+  case class LockTableMessage(id: UUID, location: URI, fileId: UUID, messageId: Option[String], skipSeriesLookup: Boolean = false)
 
   private case class MetadataInfo(id: UUID, fileSize: Long, location: URI, checksum: String, treMetadata: TREMetadata)
 
@@ -31,7 +31,7 @@ object MetadataBuilder:
       location <- c.downField("location").as[URI]
       fileId <- c.downField("fileId").as[UUID]
       messageId <- c.downField("messageId").as[Option[String]]
-      skipSeries <- c.downField("skipSeries").as[Option[Boolean]]
+      skipSeries <- c.downField("skipSeriesLookup").as[Option[Boolean]]
     yield LockTableMessage(id, location, fileId, messageId, skipSeries.exists(identity))
 
   def apply(uuidGenerator: () => UUID, s3Client: DAS3Client[IO], seriesMapper: SeriesMapper, uriProcessor: UriProcessor): MetadataBuilder = new MetadataBuilder {
@@ -147,13 +147,13 @@ object MetadataBuilder:
       List(archiveFolderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
     }
 
-    override def createMetadata(item: IngestLockTableItem): IO[List[MetadataObject]] =
+    override def createMetadata(item: IngestLockTableItem): IO[List[MetadataObject]] = 
       for
         message <- IO.fromEither(decode[LockTableMessage](item.message))
         metadataInfo <- metadataFromS3(message.location)
         _ <- uriProcessor.verifyJudgmentName(metadataInfo.treMetadata)
         parsedUri <- uriProcessor.parseUri(metadataInfo.treMetadata)
-        departmentSeries <- seriesMapper.createDepartmentAndSeries(parsedUri.flatMap(_.potentialCourt), message.skipSeries)
+        departmentSeries <- seriesMapper.createDepartmentAndSeries(parsedUri.flatMap(_.potentialCourt), message.skipSeriesLookup)
         headResponse <- s3Client.headObject(message.location.getHost, message.fileId.toString)
       yield generateMetadata(
         parsedUri,

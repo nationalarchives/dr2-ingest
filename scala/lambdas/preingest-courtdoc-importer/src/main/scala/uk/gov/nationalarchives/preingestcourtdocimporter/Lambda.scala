@@ -123,7 +123,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
         }
         tdrId = treMetadata.parameters.TDR.`UUID`
         _ <- dependencies.sqsClient.sendMessage(config.outputQueueUrl)(
-          Message(tdrId, fileId, s"s3://${config.outputBucket}/$metadataFileId", treInput.properties.flatMap(_.messageId))
+          Message(tdrId, fileId, s"s3://${config.outputBucket}/$metadataFileId", treInput.properties.flatMap(_.messageId), treInput.parameters.skipSeriesLookup)
         )
       yield ()
     }.void
@@ -137,7 +137,7 @@ object Lambda:
   private val chunkSize: Int = 1024 * 64
   case class Dependencies(s3: DAS3Client[IO], sqsClient: DASQSClient[IO], uuidGenerator: () => UUID)
 
-  case class Message(id: UUID, fileId: UUID, location: String, messageId: Option[String])
+  case class Message(id: UUID, fileId: UUID, location: String, messageId: Option[String], skipSeriesLookup: Boolean)
 
   given Decoder[TREInputProperties] = (c: HCursor) => for (messageId <- c.downField("messageId").as[Option[String]]) yield TREInputProperties(messageId)
 
