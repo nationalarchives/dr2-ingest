@@ -59,3 +59,21 @@ module "pause_preservica_activity_policy" {
     lambda_arn = module.pause_preservica_activity_lambda.lambda_arn
   })
 }
+
+module "kickstart_ingest_flow_control_role" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
+  assume_role_policy = local.assume_role_policy
+  name = "${local.environment}-dr2-runbook-kickstart-ingest-flow-control"
+  policy_attachments = {
+    kickstart_flow_control_policy = module.kickstart_ingest_flow_control_policy.policy_arn
+  }
+  tags = {}
+}
+
+module "kickstart_ingest_flow_control_policy" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
+  name   = "${local.environment}-dr2-runbooks-kickstart-ingest-flow-control-policy"
+  policy_string = templatefile("${path.module}/templates/iam_policy/runbook_invoke_lambda_policy.json.tpl", {
+    lambda_arn = module.dr2_ingest_flow_control_lambda.lambda_arn
+  })
+}
