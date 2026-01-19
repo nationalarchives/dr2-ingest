@@ -147,7 +147,7 @@ object MetadataBuilder:
       List(archiveFolderMetadataObject, assetMetadataObject, fileRowMetadataObject, fileMetadataObject)
     }
 
-    override def createMetadata(item: IngestLockTableItem): IO[List[MetadataObject]] = 
+    override def createMetadata(item: IngestLockTableItem): IO[List[MetadataObject]] =
       for
         message <- IO.fromEither(decode[LockTableMessage](item.message))
         metadataInfo <- metadataFromS3(message.location)
