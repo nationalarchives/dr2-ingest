@@ -40,9 +40,6 @@ module "dr2_ingest_parsed_court_document_event_handler_lambda" {
   function_name   = local.ingest_parsed_court_document_event_handler_lambda_name
   handler         = "uk.gov.nationalarchives.ingestparsedcourtdocumenteventhandler.Lambda::handleRequest"
   timeout_seconds = 60
-  lambda_sqs_queue_mappings = [
-    { sqs_queue_arn = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.ingest_parsed_court_document_event_handler_queue_name}", ignore_enabled_status = true }
-  ]
   policies = {
     "${local.ingest_parsed_court_document_event_handler_lambda_name}-policy" = templatefile("./templates/iam_policy/ingest_parsed_court_document_event_handler_lambda_policy${local.court_document_lambda_policy_template_suffix}.json.tpl", {
       ingest_parsed_court_document_event_handler_queue_arn = module.dr2_ingest_parsed_court_document_event_handler_sqs.sqs_arn

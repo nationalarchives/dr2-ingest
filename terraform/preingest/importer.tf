@@ -55,13 +55,13 @@ module "dr2_importer_lambda" {
 module "dr2_importer_sqs" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   queue_name = local.importer_name
-  sqs_policy = var.sns_topic_arn == null ? templatefile("${path.module}/templates/sqs_access_policy.json.tpl", {
+  sqs_policy = var.sns_topic_subscription == null ? templatefile("${path.module}/templates/sqs_access_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
     queue_name = local.importer_name
     }) : templatefile("${path.module}/templates/sns_send_message_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
     queue_name = local.importer_name
-    topic_arn  = var.sns_topic_arn
+    topic_arn  = var.sns_topic_subscription.topic_arn
   })
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   redrive_maximum_receives                          = local.redrive_maximum_receives
@@ -70,11 +70,11 @@ module "dr2_importer_sqs" {
 }
 
 resource "aws_sns_topic_subscription" "dr2_importer_subscription" {
-  count                = var.sns_topic_arn != null ? 1 : 0
+  count                = var.sns_topic_subscription != null ? 1 : 0
   endpoint             = module.dr2_importer_sqs.sqs_arn
   protocol             = "sqs"
-  topic_arn            = var.sns_topic_arn
+  topic_arn            = var.sns_topic_subscription.topic_arn
   raw_message_delivery = true
   filter_policy_scope  = "MessageBody"
-  filter_policy        = templatefile("${path.module}/templates/bucket_filter_policy.json.tpl", { bucket = var.copy_source_bucket_name })
+  filter_policy        = var.sns_topic_subscription.filter_policy
 }
