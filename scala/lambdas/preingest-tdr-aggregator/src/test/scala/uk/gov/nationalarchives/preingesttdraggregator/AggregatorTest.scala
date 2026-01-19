@@ -115,7 +115,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
       groupMap: Map[String, Group] = Map(),
       dynamoErrors: Map[UUID, Boolean] = Map.empty,
       sfnError: Boolean = false,
-      messageBody: Option[String] = None
+      potentialMessageBody: Option[String] = None
   ): IO[(List[DADynamoDbWriteItemRequest], List[StartExecutionArgs], Map[String, Group], List[BatchItemFailure])] =
     for {
       writeItemArgsRef <- Ref.of[IO, List[DADynamoDbWriteItemRequest]](Nil)
@@ -131,7 +131,7 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
           val sqsMessage = new SQSMessage()
           sqsMessage.setEventSourceArn("eventSourceArn")
           sqsMessage.setMessageId(assetId.toString)
-          sqsMessage.setBody(messageBody.getOrElse(defaultMessageBody(assetId)))
+          sqsMessage.setBody(potentialMessageBody.getOrElse(defaultMessageBody(assetId)))
           sqsMessage
         }
 
@@ -255,9 +255,9 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
 
   "aggregate" should "error if the incoming message doesn't have an id and location" in {
     val assetId = UUID.randomUUID
-    val missingLocationOutput = getAggregatorOutput(List(assetId), messageBody = Option(s"""{"id":"${UUID.randomUUID}"}"""))
-    val missingIdOutput = getAggregatorOutput(List(assetId), messageBody = Option(s"""{"location":"s3://product/key"}"""))
-    val emptyOutput = getAggregatorOutput(List(assetId), messageBody = Option(s"""{}"""))
+    val missingLocationOutput = getAggregatorOutput(List(assetId), potentialMessageBody = Option(s"""{"id":"${UUID.randomUUID}"}"""))
+    val missingIdOutput = getAggregatorOutput(List(assetId), potentialMessageBody = Option(s"""{"location":"s3://product/key"}"""))
+    val emptyOutput = getAggregatorOutput(List(assetId), potentialMessageBody = Option(s"""{}"""))
 
     val (_, _, _, missingLocationFailures) = missingLocationOutput.unsafeRunSync()
     val (_, _, _, missingIdFailures) = missingIdOutput.unsafeRunSync()
