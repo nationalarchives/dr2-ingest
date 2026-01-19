@@ -4,31 +4,47 @@ on:
     paths-ignore:
       - "docs/**"
       - "**/README.md"
-permissions:
-  id-token: write
-  contents: write
+env:
+  AWS_DEFAULT_REGION: eu-west-2
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
 jobs:
-  test:
+  scala-dependency-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - uses: sbt/setup-sbt@a627500d27445f8c5021755a439829b6e78e3358
       - uses: scalacenter/sbt-dependency-submission@f43202114d7522a4b233e052f82c2eea8d658134
       - uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261
-        with:
-          fail-on-severity: critical
+  scala-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: sbt/setup-sbt@a627500d27445f8c5021755a439829b6e78e3358
+      - run: sbt scalafmtCheckAll test
+  python-terraform-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
       - run: |
           (cd terraform && terraform fmt -check --recursive)
           find . -name requirements.txt | xargs -I {} pip install -r {}
           pytest
-          (cd rust/lambdas/courtdoc-anonymiser && cargo fmt --check && cargo test --workspace)
-          sbt scalafmtCheckAll test
-          (cd kotlin/e2e-tests/lib && gradle test)
-        env:
-          AWS_DEFAULT_REGION: eu-west-2
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
+  kotlin-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - run: gradle test
+        working-directory: kotlin/e2e-tests/lib
+  rust-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - run: cargo fmt --check && cargo test --workspace
+        working-directory: rust/lambdas/courtdoc-anonymiser
+
+
 
 
 
