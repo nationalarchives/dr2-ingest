@@ -4,7 +4,11 @@ variable "ingest_step_function_name" {}
 
 variable "source_name" {}
 
-variable "sns_topic_arn" {
+variable "sns_topic_subscription" {
+  type = object({
+    topic_arn     = string
+    filter_policy = string
+  })
   default = null
 }
 
