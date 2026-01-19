@@ -42,7 +42,7 @@ Once the lambda is invoked, each message is processed in parallel via a fibre. T
    3. Generate a batch ID which is "${groupId}_$retryCount" - retryCount is set to 0
    4. Generate a delay time which is the expiry time - the current time
       - This delay tells the next step function to wait until that delay is up, to start processing the group
-   5. Write the `assetId` (from the message input), the `groupId`, message input and created at date to the DDB Lock Table
+   5. Write the `assetId` (from the message input), the `groupId`, the message body string from the SQS message and created at date to the DDB Lock Table
       - This is done before the step function call to ensure that the batch is processed even if the Lambda times out before it finishes processing.
       - The query contains a `ConditionExpression` on `assetId` in order to prevent the same message from being processed in multiple batches simultaneously.
    6. Start the preingest step function passing in the parameters mentioned in substeps 1-4
