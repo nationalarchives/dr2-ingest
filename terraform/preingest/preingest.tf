@@ -23,13 +23,13 @@ locals {
 module "dr2_preingest_aggregator_queue" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   queue_name = local.aggregator_name
-  sqs_policy = var.sns_topic_arn == null ? templatefile("${path.module}/templates/sqs_access_policy.json.tpl", {
+  sqs_policy = var.sns_topic_subscription == null ? templatefile("${path.module}/templates/sqs_access_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
     queue_name = local.aggregator_name
     }) : templatefile("${path.module}/templates/sns_send_message_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
     queue_name = local.aggregator_name
-    topic_arn  = var.sns_topic_arn
+    topic_arn  = var.sns_topic_subscription.topic_arn
   })
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = local.aggregator_queue_visibility_timeout
