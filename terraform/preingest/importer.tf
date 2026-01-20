@@ -18,14 +18,14 @@ module "dr2_importer_lambda" {
     "${local.importer_name}-policy" = var.bucket_kms_arn == null ? templatefile("${path.module}/templates/copy_files_no_kms_policy.json.tpl", {
       copy_files_queue_arn  = local.importer_queue_arn
       raw_cache_bucket_name = var.ingest_raw_cache_bucket_name
-      bucket_name           = var.copy_source_bucket_name
+      bucket_arn            = var.copy_source_bucket_arn
       aggregator_queue_arn  = module.dr2_preingest_aggregator_queue.sqs_arn
       account_id            = data.aws_caller_identity.current.account_id
       lambda_name           = local.importer_name
       }) : templatefile("${path.module}/templates/copy_files_with_kms_policy.json.tpl", {
       copy_files_queue_arn  = local.importer_queue_arn
       raw_cache_bucket_name = var.ingest_raw_cache_bucket_name
-      bucket_name           = var.copy_source_bucket_name
+      bucket_arn            = var.copy_source_bucket_arn
       aggregator_queue_arn  = module.dr2_preingest_aggregator_queue.sqs_arn
       account_id            = data.aws_caller_identity.current.account_id
       lambda_name           = local.importer_name
