@@ -15,7 +15,7 @@ module "tdr_preingest" {
   }
   source_name                = "tdr"
   bucket_kms_arn             = module.tdr_config.terraform_config["${local.environment}_s3_export_bucket_kms_key_arn"]
-  copy_source_bucket_name    = local.tdr_export_bucket
+  copy_source_bucket_arn     = "arn:aws:s3:::${local.tdr_export_bucket}"
   private_security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids         = module.vpc.private_subnets
 }
@@ -29,7 +29,7 @@ module "dri_preingest" {
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
   source_name                         = "dri"
-  copy_source_bucket_name             = local.ingest_raw_cache_bucket_name
+  copy_source_bucket_arn              = "arn:aws:s3:::${local.ingest_raw_cache_bucket_name}"
   private_security_group_ids          = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids                  = module.vpc.private_subnets
 }
@@ -43,7 +43,7 @@ module "ad_hoc_preingest" {
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
   source_name                         = "adhoc"
-  copy_source_bucket_name             = local.adhoc_bucket_name
+  copy_source_bucket_arn              = "arn:aws:s3:::${local.adhoc_bucket_name}"
   private_security_group_ids          = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids                  = module.vpc.private_subnets
 }
@@ -59,7 +59,7 @@ module "pa_preingest" {
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
   source_name                         = "pa"
-  copy_source_bucket_name             = local.pa_source_bucket
+  copy_source_bucket_arn              = "arn:aws:s3:::${local.pa_source_bucket}"
   additional_importer_lambda_policies = {
     "${local.environment}-dr2-preingest-pa-importer-assume-role" = templatefile("${path.module}/templates/iam_policy/preingest_pa_importer_additional_permissions.json.tpl", {
       pa_migration_role = local.parliament_ingest_role
@@ -92,7 +92,7 @@ module "court_document_preingest" {
   }
   source_name                = "courtdoc"
   bucket_kms_arn             = module.tre_config.terraform_config["prod_s3_court_document_pack_out_kms_arn"]
-  copy_source_bucket_name    = local.environment == "prod" ? local.tre_terraform_prod_config["s3_court_document_pack_out_arn"] : local.ingest_parsed_court_document_event_handler_test_bucket_name
+  copy_source_bucket_arn     = local.environment == "prod" ? local.tre_terraform_prod_config["s3_court_document_pack_out_arn"] : "arn:aws:s3:::${local.ingest_parsed_court_document_event_handler_test_bucket_name}"
   private_security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids         = module.vpc.private_subnets
   importer_lambda = {
