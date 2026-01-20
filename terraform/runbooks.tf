@@ -61,9 +61,9 @@ module "pause_preservica_activity_policy" {
 }
 
 module "kickstart_ingest_flow_control_role" {
-  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
+  source             = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
   assume_role_policy = local.assume_role_policy
-  name = "${local.environment}-dr2-runbook-kickstart-ingest-flow-control"
+  name               = "${local.environment}-dr2-runbook-kickstart-ingest-flow-control"
   policy_attachments = {
     kickstart_flow_control_policy = module.kickstart_ingest_flow_control_policy.policy_arn
   }
