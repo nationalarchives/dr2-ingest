@@ -24,7 +24,7 @@ variable "bucket_kms_arn" {
   default = null
 }
 
-variable "copy_source_bucket_name" {}
+variable "copy_source_bucket_arn" {}
 
 variable "additional_importer_lambda_policies" {
   default = {}
