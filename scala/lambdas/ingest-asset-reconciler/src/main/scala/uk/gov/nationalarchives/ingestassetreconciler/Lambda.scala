@@ -111,12 +111,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
       assetId <- IO.pure(input.assetId)
+      batchId = input.batchId
       assetItems <- dependencies.dynamoDbClient.getItems[AssetDynamoItem, FilesTablePrimaryKey](
-        List(FilesTablePrimaryKey(FilesTablePartitionKey(assetId), FilesTableSortKey(input.batchId))),
+        List(FilesTablePrimaryKey(FilesTablePartitionKey(assetId), FilesTableSortKey(batchId))),
         config.dynamoTableName
       )
 
-      batchId = input.batchId
       asset <- IO.fromOption(assetItems.headOption)(
         new Exception(s"No asset found for $assetId from $batchId in the files table")
       )
@@ -161,7 +161,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                   _ <- log(s"Content Objects, belonging to the representation type '$representationType', have been retrieved from API")
 
                   stateOutput <-
-                    if (contentObjects.isEmpty)
+                    if contentObjects.isEmpty then
                       IO.pure(
                         StateOutput(wasReconciled = false, List(Failures(NoContentObjects, childrenForRepresentationType.map(_.id))), assetId, Some(entity.ref))
                       )
@@ -190,8 +190,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 object Lambda {
 
   case class Input(executionId: String, batchId: String, assetId: UUID)
-
-  case class AssetMessage(messageId: UUID, parentMessageId: Option[UUID] = None, executionId: Option[String])
 
   enum FailureReason:
     case NoEntityFoundWithSourceId, NoContentObjects, TitleChecksumMismatch
