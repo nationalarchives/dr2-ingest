@@ -86,10 +86,10 @@ module "court_document_preingest" {
   ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
-  sns_topic_subscription = {
+  sns_topic_subscription = local.environment == "prod" ? {
     topic_arn     = local.tre_prod_event_bus,
     filter_policy = templatefile("${path.module}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})
-  }
+  } : null
   source_name                = "courtdoc"
   bucket_kms_arn             = module.tre_config.terraform_config["prod_s3_court_document_pack_out_kms_arn"]
   copy_source_bucket_arn     = local.environment == "prod" ? local.tre_terraform_prod_config["s3_court_document_pack_out_arn"] : "arn:aws:s3:::${local.ingest_parsed_court_document_event_handler_test_bucket_name}"
