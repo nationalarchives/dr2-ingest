@@ -45,10 +45,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         Option(config.dynamoGsiName)
       )
       _ <- IO.raiseWhen(asset.childCount != children.length)(
-        new Exception(s"Asset id $assetId: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
+        new Exception(s"Asset id $assetId: has a 'childCount' of ${asset.childCount} in the files table but only ${children.length} children were found in the files table")
       )
       _ <- IO.fromOption(children.headOption)(
-        new Exception(s"No children were found for $assetId from $batchId")
+        new Exception(s"No children were found for $assetId from $batchId in the files table")
       )
     } yield children
 
@@ -118,20 +118,20 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
       batchId = input.batchId
       asset <- IO.fromOption(assetItems.headOption)(
-        new Exception(s"No asset found for $assetId from $batchId")
+        new Exception(s"No asset found for $assetId from $batchId in the files table")
       )
       _ <- IO.raiseWhen(asset.`type` != Asset)(
-        new Exception(s"Object $assetId is of type ${asset.`type`} and not 'Asset'")
+        new Exception(s"Object $assetId in the files table is of type '${asset.`type`}' and not 'Asset'")
       )
 
       logCtx = Map("batchId" -> batchId, "assetId" -> assetId.toString)
       log = logger.info(logCtx)(_)
-      _ <- log(s"Asset $assetId retrieved from Dynamo")
+      _ <- log(s"Asset $assetId retrieved from DynamoDB files table")
 
       entitiesMap <- dependencies.entityClient.entitiesPerIdentifier(Seq(PreservicaIdentifier(sourceId, assetId.toString)))
       entitiesWithAssetId = entitiesMap.map { case (identifier, entities) => identifier.value -> entities }.getOrElse(assetId.toString, Nil)
       _ <- IO.raiseWhen(entitiesWithAssetId.length > 1)(
-        new Exception(s"More than one entity found using $sourceId '$assetId'")
+        new Exception(s"More than 1 entity found in Preservation System, using $sourceId '$assetId'")
       )
 
       output <-
@@ -143,7 +143,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
           for {
             entity <- IO.pure(entitiesWithAssetId.head)
             children <- getChildrenOfAsset(dependencies.dynamoDbClient, asset, config, log)
-            _ <- log(s"${children.length} children found for asset $assetId")
+            _ <- log(s"${children.length} children found for asset $assetId in the files table")
             childrenGroupedByRepType = children.groupBy(_.representationType match {
               case FileRepresentationType.PreservationRepresentationType => Preservation
               case FileRepresentationType.AccessRepresentationType       => Access
@@ -158,7 +158,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                     dependencies.entityClient.getContentObjectsFromRepresentation(entity.ref, representationType, generationVersion)
                   }.flatSequence
 
-                  _ <- log("Content Objects, belonging to the representation, have been retrieved from API")
+                  _ <- log(s"Content Objects, belonging to the representation type '$representationType', have been retrieved from API")
 
                   stateOutput <-
                     if (contentObjects.isEmpty)
@@ -171,7 +171,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
                           .map(co => dependencies.entityClient.getBitstreamInfo(co.ref))
                           .flatSequence
 
-                        _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
+                        _ <- log(s"Bitstream info of Content Objects have been retrieved from API")
                       } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType, Some(entity.ref))
                 } yield stateOutput
               }

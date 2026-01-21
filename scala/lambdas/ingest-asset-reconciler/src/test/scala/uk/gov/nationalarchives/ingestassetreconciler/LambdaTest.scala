@@ -49,13 +49,13 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
   "handler" should "return an error if the asset is not found in Dynamo" in {
     val id = UUID.randomUUID
     val (_, _, res) = runLambda(generateInput(id), Nil, Nil)
-    res.left.value.getMessage should equal(s"No asset found for $id from $batchId")
+    res.left.value.getMessage should equal(s"No asset found for $id from $batchId in the files table")
   }
 
   "handler" should "return an error if the Dynamo entry does not have a type of 'Asset'" in {
     val asset = generateAsset.copy(`type` = ArchiveFolder)
     val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, Nil)), Nil)
-    res.left.value.getMessage should equal(s"Object ${asset.id} is of type ArchiveFolder and not 'Asset'")
+    res.left.value.getMessage should equal(s"Object ${asset.id} in the files table is of type 'ArchiveFolder' and not 'Asset'")
   }
 
   "handler" should "return an error if more than one entity has the same asset name as its SourceId" in {
@@ -63,7 +63,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val entities = List(generateFullEntity(asset.id), generateFullEntity(asset.id))
     val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, Nil)), entities)
 
-    res.left.value.getMessage should equal(s"More than one entity found using SourceID '${asset.id}'")
+    res.left.value.getMessage should equal(s"More than 1 entity found in Preservation System, using SourceID '${asset.id}'")
   }
 
   "handler" should "return an error if no children are found for the asset" in {
@@ -71,7 +71,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val entities = List(generateFullEntity(asset.id))
     val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, Nil)), entities)
 
-    res.left.value.getMessage should equal(s"No children were found for ${asset.id} from $batchId")
+    res.left.value.getMessage should equal(s"No children were found for ${asset.id} from $batchId in the files table")
   }
 
   "handler" should "return a 'wasReconciled' value of 'false' with no 'Failures' if there were no entities that had the asset name as the SourceID" in {
@@ -132,7 +132,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, List(file, file))), entities)
 
     val ex = res.left.value
-    ex.getMessage should equal(s"Asset id ${asset.id}: has 3 children in the files table but found 2 children in the Preservation system")
+    ex.getMessage should equal(s"Asset id ${asset.id}: has a 'childCount' of 3 in the files table but only 2 children were found in the files table")
   }
 
   "handler" should "return a 'wasReconciled' value of 'true' and an empty 'reason' if COs could be reconciled" in {
