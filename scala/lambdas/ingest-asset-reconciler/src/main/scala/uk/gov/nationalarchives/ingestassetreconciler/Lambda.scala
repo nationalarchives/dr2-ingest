@@ -29,20 +29,28 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
   private val sourceId = "SourceID"
 
-  private def childrenOfAsset(
+  private def getChildrenOfAsset(
       daDynamoDBClient: DADynamoDBClient[IO],
       asset: AssetDynamoItem,
-      tableName: String,
-      gsiName: String
-  ): IO[List[FileDynamoItem]] = {
-    val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}${asset.id}"
-    daDynamoDBClient
-      .queryItems[FileDynamoItem](
-        tableName,
-        "batchId" === asset.batchId and "parentPath" === childrenParentPath,
-        Option(gsiName)
+      config: Config,
+      log: (=> String) => cats.effect.IO[Unit]
+  ): IO[List[FileDynamoItem]] =
+    for {
+      assetId <- IO.pure(asset.id)
+      batchId = asset.batchId
+      childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}$assetId"
+      children <- daDynamoDBClient.queryItems[FileDynamoItem](
+        config.dynamoTableName,
+        "batchId" === batchId and "parentPath" === childrenParentPath,
+        Option(config.dynamoGsiName)
       )
-  }
+      _ <- IO.raiseWhen(asset.childCount != children.length)(
+        new Exception(s"Asset id $assetId: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
+      )
+      _ <- IO.fromOption(children.headOption)(
+        new Exception(s"No children were found for $assetId from $batchId")
+      )
+    } yield children
 
   private def stripFileExtension(title: String) = title.split('.').dropRight(1).mkString(".")
 
@@ -75,7 +83,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       bitstreamInfoPerContentObject: Seq[BitStreamInfo],
       assetId: UUID,
       representationType: RepresentationType,
-      ioRef: UUID
+      potentialIoRef: Option[UUID]
   ) = {
     val failedChildren =
       childrenForRepresentationType.filter { assetChild =>
@@ -86,13 +94,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
 
         bitstreamWithSameChecksum.isEmpty
       }
-    if failedChildren.isEmpty then StateOutput(true, Nil, assetId, ioRef)
+    if failedChildren.isEmpty then StateOutput(true, Nil, assetId, potentialIoRef)
     else
       StateOutput(
         wasReconciled = failedChildren.isEmpty,
         List(Failures(TitleChecksumMismatch, failedChildren.map(_.id))),
         assetId,
-        ioRef
+        potentialIoRef
       )
   }
 
@@ -125,53 +133,53 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       _ <- IO.raiseWhen(entitiesWithAssetId.length > 1)(
         new Exception(s"More than one entity found using $sourceId '$assetId'")
       )
-      entity <- IO.fromOption(entitiesWithAssetId.headOption)(
-        new Exception(s"No entity found using $sourceId '$assetId'")
-      )
 
-      children <- childrenOfAsset(dependencies.dynamoDbClient, asset, config.dynamoTableName, config.dynamoGsiName)
-      _ <- IO.raiseWhen(asset.childCount != children.length)(
-        new Exception(s"Asset id $assetId: has ${asset.childCount} children in the files table but found ${children.length} children in the Preservation system")
-      )
-      _ <- IO.fromOption(children.headOption)(
-        new Exception(s"No children were found for $assetId from $batchId")
-      )
-      _ <- log(s"${children.length} children found for asset $assetId")
-      childrenGroupedByRepType = children.groupBy(_.representationType match {
-        case FileRepresentationType.PreservationRepresentationType => Preservation
-        case FileRepresentationType.AccessRepresentationType       => Access
-      })
-
-      stateOutputs <- childrenGroupedByRepType
-        .map { case (representationType, childrenForRepresentationType) =>
+      output <-
+        if entitiesWithAssetId.isEmpty then
+          IO.pure(
+            StateOutput(false, List(Failures(NoEntityFoundWithSourceId, Nil)), assetId, None)
+          )
+        else
           for {
-            urlsToIoRepresentations <- dependencies.entityClient.getUrlsToIoRepresentations(entity.ref, Some(representationType))
-            contentObjects <- urlsToIoRepresentations.map { urlToIoRepresentation =>
-              val generationVersion = urlToIoRepresentation.split("/").last.toInt
-              dependencies.entityClient.getContentObjectsFromRepresentation(entity.ref, representationType, generationVersion)
-            }.flatSequence
+            entity <- IO.pure(entitiesWithAssetId.head)
+            children <- getChildrenOfAsset(dependencies.dynamoDbClient, asset, config, log)
+            _ <- log(s"${children.length} children found for asset $assetId")
+            childrenGroupedByRepType = children.groupBy(_.representationType match {
+              case FileRepresentationType.PreservationRepresentationType => Preservation
+              case FileRepresentationType.AccessRepresentationType       => Access
+            })
 
-            _ <- log("Content Objects, belonging to the representation, have been retrieved from API")
-
-            stateOutput <-
-              if (contentObjects.isEmpty)
-                IO.pure(
-                  StateOutput(wasReconciled = false, List(Failures(NoContentObjects, childrenForRepresentationType.map(_.id))), assetId, entity.ref)
-                )
-              else
+            stateOutputs <- childrenGroupedByRepType
+              .map { case (representationType, childrenForRepresentationType) =>
                 for {
-                  bitstreamInfoPerContentObject <- contentObjects
-                    .map(co => dependencies.entityClient.getBitstreamInfo(co.ref))
-                    .flatSequence
+                  urlsToIoRepresentations <- dependencies.entityClient.getUrlsToIoRepresentations(entity.ref, Some(representationType))
+                  contentObjects <- urlsToIoRepresentations.map { urlToIoRepresentation =>
+                    val generationVersion = urlToIoRepresentation.split("/").last.toInt
+                    dependencies.entityClient.getContentObjectsFromRepresentation(entity.ref, representationType, generationVersion)
+                  }.flatSequence
 
-                  _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
-                } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType, entity.ref)
-          } yield stateOutput
-        }
-        .toList
-        .sequence
-      allReconciled = stateOutputs.forall(_.wasReconciled)
-    } yield StateOutput(allReconciled, stateOutputs.flatMap(_.failures), assetId, entity.ref)
+                  _ <- log("Content Objects, belonging to the representation, have been retrieved from API")
+
+                  stateOutput <-
+                    if (contentObjects.isEmpty)
+                      IO.pure(
+                        StateOutput(wasReconciled = false, List(Failures(NoContentObjects, childrenForRepresentationType.map(_.id))), assetId, Some(entity.ref))
+                      )
+                    else
+                      for {
+                        bitstreamInfoPerContentObject <- contentObjects
+                          .map(co => dependencies.entityClient.getBitstreamInfo(co.ref))
+                          .flatSequence
+
+                        _ <- log(s"Bitstreams of Content Objects have been retrieved from API")
+                      } yield verifyFilesInDdbAreInPreservica(childrenForRepresentationType, bitstreamInfoPerContentObject, assetId, representationType, Some(entity.ref))
+                } yield stateOutput
+              }
+              .toList
+              .sequence
+            allReconciled = stateOutputs.forall(_.wasReconciled)
+          } yield StateOutput(allReconciled, stateOutputs.flatMap(_.failures), assetId, Some(entity.ref))
+    } yield output
 
   override def dependencies(config: Config): IO[Dependencies] =
     Fs2Client
@@ -186,11 +194,11 @@ object Lambda {
   case class AssetMessage(messageId: UUID, parentMessageId: Option[UUID] = None, executionId: Option[String])
 
   enum FailureReason:
-    case NoContentObjects, TitleChecksumMismatch
+    case NoEntityFoundWithSourceId, NoContentObjects, TitleChecksumMismatch
 
   case class Failures(failureReason: FailureReason, childIds: List[UUID])
 
-  case class StateOutput(wasReconciled: Boolean, failures: List[Failures], assetId: UUID, ioRef: UUID)
+  case class StateOutput(wasReconciled: Boolean, failures: List[Failures], assetId: UUID, ioRef: Option[UUID])
 
   case class Dependencies(entityClient: EntityClient[IO, Fs2Streams[IO]], dynamoDbClient: DADynamoDBClient[IO], newMessageId: UUID, datetime: () => OffsetDateTime)
 

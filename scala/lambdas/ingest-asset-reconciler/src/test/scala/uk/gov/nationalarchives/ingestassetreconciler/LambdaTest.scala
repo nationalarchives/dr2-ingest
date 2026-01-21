@@ -7,7 +7,7 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2}
 import org.scalatest.{BeforeAndAfterEach, EitherValues}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Checksum
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
-import uk.gov.nationalarchives.ingestassetreconciler.Lambda.Config
+import uk.gov.nationalarchives.ingestassetreconciler.Lambda.{Config, Failures, StateOutput}
 import uk.gov.nationalarchives.ingestassetreconciler.Lambda.FailureReason.*
 import uk.gov.nationalarchives.ingestassetreconciler.testUtils.ExternalServicesTestUtils.*
 
@@ -58,12 +58,6 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     res.left.value.getMessage should equal(s"Object ${asset.id} is of type ArchiveFolder and not 'Asset'")
   }
 
-  "handler" should "return an error if there were no entities that had the asset name as the SourceID" in {
-    val asset = generateAsset
-    val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, Nil)), Nil)
-    res.left.value.getMessage should equal(s"No entity found using SourceID '${asset.id}'")
-  }
-
   "handler" should "return an error if more than one entity has the same asset name as its SourceId" in {
     val asset = generateAsset
     val entities = List(generateFullEntity(asset.id), generateFullEntity(asset.id))
@@ -78,6 +72,12 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, Nil)), entities)
 
     res.left.value.getMessage should equal(s"No children were found for ${asset.id} from $batchId")
+  }
+
+  "handler" should "return a 'wasReconciled' value of 'false' with no 'Failures' if there were no entities that had the asset name as the SourceID" in {
+    val asset = generateAsset
+    val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, Nil)), Nil)
+    res should equal(Right(StateOutput(false, List(Failures(NoEntityFoundWithSourceId, Nil)), asset.id, None)))
   }
 
   "handler" should "return a 'wasReconciled' value of 'false' and a 'No entity found' 'reason' if there were no Content Objects belonging to the asset" in {
@@ -140,7 +140,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val fullEntity = generateFullEntity(asset.id, "title".some)
     val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, List(generateFile))), List(fullEntity))
 
-    res.value.ioRef should equal(fullEntity.entity.ref)
+    res.value.ioRef.get should equal(fullEntity.entity.ref)
     res.value.wasReconciled should equal(true)
   }
 
@@ -151,7 +151,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
     val fullEntity = generateFullEntity(asset.id, "title".some)
     val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, List(twoChecksumFile))), List(fullEntity))
 
-    res.value.ioRef should equal(fullEntity.entity.ref)
+    res.value.ioRef.get should equal(fullEntity.entity.ref)
     res.value.wasReconciled should equal(true)
   }
 
@@ -174,7 +174,7 @@ class LambdaTest extends AnyFlatSpec with BeforeAndAfterEach with TableDrivenPro
       val (_, _, res) = runLambda(generateInput(asset.id), List(AssetWithChildren(asset, List(file))), entities)
 
       val stateOutput = res.value
-      stateOutput.ioRef should equal(entities.head.entity.ref)
+      stateOutput.ioRef.get should equal(entities.head.entity.ref)
       stateOutput.wasReconciled should equal(true)
     }
   }
