@@ -26,7 +26,7 @@ object Dependencies {
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
   lazy val fs2IO = "co.fs2" %% "fs2-io" % fs2Version
   lazy val fs2Reactive = "co.fs2" %% "fs2-reactive-streams" % fs2Version
-  lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.4.0"
+  lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.5.0-RC1"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
   lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "1.5.9"
   lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.4.0"
