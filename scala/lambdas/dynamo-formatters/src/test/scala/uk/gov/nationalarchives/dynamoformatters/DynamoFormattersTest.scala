@@ -88,7 +88,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val fields = typeValue match {
       case "ArchiveFolder" => baseFields
       case "ContentFolder" => baseFields
-      case "Asset" =>
+      case "Asset"         =>
         List(
           (transferringBody, "testTransferringBody"),
           (transferCompleteDatetime, "2023-06-01T00:00Z"),
@@ -282,7 +282,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
         case ArchiveFolder => generateFolderDynamoItem().productElementNames
         case ContentFolder => generateFolderDynamoItem().productElementNames
         case Asset         => generateAssetDynamoItem().productElementNames
-        case File =>
+        case File          =>
           val fileDynamoItem = generateFileDynamoItem()
           fileDynamoItem.productElementNames.filterNot(_ == "checksums") ++
             fileDynamoItem.checksums.map(checksumPrefix + _.algorithm)
