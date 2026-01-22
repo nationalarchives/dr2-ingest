@@ -5,11 +5,10 @@ import cats.effect.IO
 import cats.effect.std.AtomicCell
 import cats.implicits.*
 import com.networknt.schema.InputFormat.JSON
-import com.networknt.schema.SpecVersion.VersionFlag
-import com.networknt.schema.{JsonSchema, JsonSchemaFactory}
+import com.networknt.schema.{Schema, SchemaRegistry, SpecificationVersion}
 import fs2.Stream
 import fs2.io.file.*
-import fs2.io.{file => fs2File}
+import fs2.io.file as fs2File
 import io.circe.*
 import io.circe.parser.*
 import io.circe.syntax.*
@@ -58,15 +57,15 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       idToParentIdType + newField
     }
 
-  private def createSchemaMap: IO[Map[Type, List[JsonSchema]]] =
-    val schemaFactory = JsonSchemaFactory.getInstance(VersionFlag.V202012)
+  private def createSchemaMap: IO[Map[Type, List[Schema]]] =
+    val registry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12)
     Type.values.toList
       .traverse { typeValue =>
         fs2File
           .Files[IO]
           .list(Path(getClass.getResource(s"/${typeValue.toString.toLowerCase}").getPath))
           .flatMap(Files[IO].readUtf8)
-          .map(schemaFactory.getSchema)
+          .map(registry.getSchema)
           .compile
           .toList
           .map(contents => typeValue -> contents)
@@ -120,7 +119,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       }
     }
 
-    def validateIndividualObjects(stream: Stream[IO, Byte], schemaMap: Map[Type, List[JsonSchema]])(
+    def validateIndividualObjects(stream: Stream[IO, Byte], schemaMap: Map[Type, List[Schema]])(
         idToParentCell: AtomicCell[IO, Map[UUID, ParentWithType]],
         parentCountCell: AtomicCell[IO, Map[Option[UUID], Int]],
         objectCountsCell: AtomicCell[IO, ObjectCounts]

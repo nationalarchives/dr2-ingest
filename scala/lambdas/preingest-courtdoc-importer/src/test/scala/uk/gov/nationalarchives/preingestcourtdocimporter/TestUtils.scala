@@ -14,7 +14,7 @@ import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse}
-import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
+import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityResponse, DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.{DAS3Client, DASQSClient}
 import uk.gov.nationalarchives.preingestcourtdocimporter.Lambda.*
@@ -24,6 +24,7 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.time.OffsetDateTime
 import java.util.UUID
+import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters.*
 
 object TestUtils:
@@ -42,6 +43,8 @@ object TestUtils:
           message.asInstanceOf[Message] :: existing
         }
         .map(_ => SendMessageResponse.builder.build)
+
+    override def changeVisibilityTimeout(queueUrl: String)(receiptHandle: String, timeout: Duration): IO[ChangeMessageVisibilityResponse] = IO.stub
 
     override def receiveMessages[T](queueUrl: String, maxNumberOfMessages: Int)(using dec: Decoder[T]): IO[List[DASQSClient.MessageResponse[T]]] = IO.never
 

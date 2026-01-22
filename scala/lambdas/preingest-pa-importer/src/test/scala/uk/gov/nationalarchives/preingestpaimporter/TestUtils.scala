@@ -12,13 +12,14 @@ import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.s3.model.*
-import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
+import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityResponse, DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.preingestpaimporter.Lambda.{*, given}
 import uk.gov.nationalarchives.{DAS3Client, DASQSClient}
 
 import java.nio.ByteBuffer
 import java.util.UUID
+import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters.*
 
 object TestUtils {
@@ -76,6 +77,8 @@ object TestUtils {
       error(potentialErrors.exists(_.sendMessage), "Send message failed") >> ref
         .update(current => message.asInstanceOf[Message] :: current)
         .map(_ => SendMessageResponse.builder.build)
+
+    override def changeVisibilityTimeout(queueUrl: String)(receiptHandle: String, timeout: Duration): IO[ChangeMessageVisibilityResponse] = IO.stub
 
     override def receiveMessages[T](queueUrl: String, maxNumberOfMessages: Int)(using dec: Decoder[T]): IO[List[DASQSClient.MessageResponse[T]]] = IO.stub
 

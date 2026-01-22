@@ -1,8 +1,7 @@
 package uk.gov.nationalarchives.preingesttdrpackagebuilder
 
-import com.networknt.schema.JsonSchemaFactory
-import com.networknt.schema.SpecVersion.VersionFlag
 import com.networknt.schema.InputFormat.JSON
+import com.networknt.schema.{SchemaRegistry, SpecificationVersion}
 import io.circe.Json
 import org.scalatest.flatspec.AnyFlatSpec
 
@@ -68,8 +67,8 @@ class MetadataSchemaTest extends AnyFlatSpec with TableDrivenPropertyChecks {
 
       List(None, Option("description")).foreach { description =>
         val fileStream = new FileInputStream(schemaPath)
-        val factory = JsonSchemaFactory.getInstance(VersionFlag.V202012)
-        factory.getSchema(fileStream).validate(metadataFn(description), JSON).isEmpty should equal(true)
+        val registry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12)
+        registry.getSchema(fileStream).validate(metadataFn(description), JSON).isEmpty should equal(true)
         fileStream.close()
       }
     }
