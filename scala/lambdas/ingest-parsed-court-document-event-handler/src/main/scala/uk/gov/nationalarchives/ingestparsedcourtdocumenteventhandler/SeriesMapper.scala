@@ -14,7 +14,7 @@ class SeriesMapper(validCourts: Set[Court]) {
         potentiallyFoundCourt match {
           case None if skipSeriesLookup => IO.pure(DepartmentAndSeries(None, None))
           case None                     => IO.raiseError(new Exception(s"Cannot find series and department for court $court"))
-          case _ =>
+          case _                        =>
             IO.pure(
               DepartmentAndSeries(potentiallyFoundCourt.map(_.dept), potentiallyFoundCourt.map(_.series))
             )

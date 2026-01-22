@@ -319,7 +319,7 @@ object ExternalUtils {
     case ADHOC extends SourceSystem("Ad hoc ingest")
     case PA extends SourceSystem("Parliament Migration")
     case COURTDOC extends SourceSystem("TRE: FCL Parser workflow")
-  
+
     override def toString: String = display
 
   object SourceSystem:
@@ -363,25 +363,25 @@ object ExternalUtils {
     } yield Parser(uri, cite, name, attachments, errorMessages)
 
   case class Parser(
-                     uri: Option[String],
-                     cite: Option[String] = None,
-                     name: Option[String],
-                     attachments: List[String] = Nil,
-                     `error-messages`: List[String] = Nil
-                   )
+      uri: Option[String],
+      cite: Option[String] = None,
+      name: Option[String],
+      attachments: List[String] = Nil,
+      `error-messages`: List[String] = Nil
+  )
 
   case class Payload(filename: String)
 
   case class TREParams(reference: String, payload: Payload)
 
   case class TDRParams(
-                        `Document-Checksum-sha256`: String,
-                        `Source-Organization`: String,
-                        `Internal-Sender-Identifier`: String,
-                        `Consignment-Export-Datetime`: OffsetDateTime,
-                        `File-Reference`: Option[String],
-                        `UUID`: UUID
-                      )
+      `Document-Checksum-sha256`: String,
+      `Source-Organization`: String,
+      `Internal-Sender-Identifier`: String,
+      `Consignment-Export-Datetime`: OffsetDateTime,
+      `File-Reference`: Option[String],
+      `UUID`: UUID
+  )
 
   case class TREMetadataParameters(PARSER: Parser, TRE: TREParams, TDR: TDRParams)
 

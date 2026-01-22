@@ -41,7 +41,7 @@ abstract class LambdaRunner[Event, Result, Config, Dependencies](using
     response <- handler(event, config, deps)
     _ <- response match {
       case _: Unit => IO.unit
-      case _ =>
+      case _       =>
         Resource
           .fromAutoCloseable(IO(output))
           .use { os =>

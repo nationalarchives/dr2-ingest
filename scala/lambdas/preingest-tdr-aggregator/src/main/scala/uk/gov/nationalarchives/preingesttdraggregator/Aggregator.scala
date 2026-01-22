@@ -105,7 +105,7 @@ object Aggregator:
           .flatMap { msgInput =>
             atomicCell.evalUpdateAndGet { groupCache =>
               val groupF = groupCache.get(sourceId) match
-                case None => log(NoExistingGroup) >> startNewGroup(config, groupExpiryTime, msgInput.id, msgBody)
+                case None                        => log(NoExistingGroup) >> startNewGroup(config, groupExpiryTime, msgInput.id, msgBody)
                 case Some(currentGroupForSource) =>
                   if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then
                     log(ExpiryBeforeLambdaTimeout) >> startNewGroup(config, groupExpiryTime, msgInput.id, msgBody)
