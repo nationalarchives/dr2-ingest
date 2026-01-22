@@ -7,11 +7,13 @@ import org.scalatest.Assertion
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import sttp.capabilities.fs2.Fs2Streams
-import sttp.client3.UriContext
-import sttp.client3.impl.cats.CatsMonadError
-import sttp.client3.testing.SttpBackendStub
+import sttp.client4.{Response, UriContext}
+import sttp.client4.impl.cats.CatsMonadError
+import sttp.client4.testing.StubBody.Exact
+import sttp.client4.testing.{ResponseStub, WebSocketStreamBackendStub}
+import sttp.model.StatusCode
 import ujson.Obj
-import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DiscoveryCollectionAsset, DiscoveryScopeContent}
+import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DiscoveryCollectionAsset, DiscoveryCollectionAssetResponse, DiscoveryScopeContent}
 
 import java.net.URI
 import java.util.UUID
@@ -38,7 +40,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   val assetMap: Map[String, Option[DiscoveryCollectionAsset]] = List("T", "T TEST").map { col =>
     col -> Option(DiscoveryCollectionAsset(col, DiscoveryScopeContent(Option(s"TestDescription $col 1          \nTestDescription $col 2")), Option(s"Test Title $col")))
   }.toMap
-  val bodyMap: Map[String, String] = List("T", "T TEST").map { col =>
+  val bodyMap: Map[String, Response[Exact]] = List("T", "T TEST").map { col =>
     val description = <scopecontent>
         <head>Head</head>
         <p><list>
@@ -47,20 +49,11 @@ class DiscoveryServiceTest extends AnyFlatSpec {
         </p>
       </scopecontent>.toString().replaceAll("\n", "")
 
-    val body =
-      s"""{
-         |  "assets": [
-         |    {
-         |      "citableReference": "$col",
-         |      "scopeContent": {
-         |        "description": "$description"
-         |      },
-         |      "title": "<unittitle type=&#34Title\\">Test \\\\Title $col</unittitle>"
-         |    }
-         |  ]
-         |}
-         |""".stripMargin
-    col -> body
+    val title = s"""<unittitle type=&#34Title\">Test \\Title $col</unittitle>""".stripMargin
+    val assetResponse = DiscoveryCollectionAssetResponse(
+      List(DiscoveryCollectionAsset(col, DiscoveryScopeContent(Option(description)), Option(title)))
+    )
+    col -> ResponseStub(Exact(Right(assetResponse)), StatusCode.Ok)
   }.toMap
 
   private def checkDynamoItem(item: Obj, collection: String, expectedId: String, parentPath: Option[String], citableRefFound: Boolean = true): Assertion = {
@@ -85,7 +78,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   }
 
   "getAssetFromDiscoveryApi" should "return the correct values for series and department" in {
-    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+    val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
       .thenRespond(bodyMap("T"))
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
@@ -109,7 +102,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   }
 
   "getAssetFromDiscoveryApi" should "return an empty title and description if the discovery API returns an error" in {
-    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError()).whenAnyRequest
+    val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError()).whenAnyRequest
       .thenRespondServerError()
 
     val discoveryAsset = DiscoveryService(baseUrl, backend, uuidIterator)
@@ -130,9 +123,9 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   }
 
   "getAssetFromDiscoveryApi" should "set the citable ref as the title and description as '', if the department call returns an empty asset" in {
-    val emptyResponse: String = """{"assets": []}"""
+    val emptyResponse: Response[Exact] = ResponseStub(Exact("""{"assets": []}"""), StatusCode.Ok)
 
-    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+    val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
       .thenRespond(emptyResponse)
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
@@ -155,9 +148,9 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   }
 
   "getAssetFromDiscoveryApi" should "set the citable ref as the title and description as '', if the series call returns an empty asset" in {
-    val emptyResponse: String = """{"assets": []}"""
+    val emptyResponse: Response[Exact] = ResponseStub(Exact("""{"assets": []}"""), StatusCode.Ok)
 
-    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+    val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
       .thenRespond(bodyMap("T"))
       .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
@@ -180,7 +173,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   }
 
   "getDepartmentAndSeriesItems" should "return the correct values for series and department" in {
-    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+    val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
     val discoveryService = DiscoveryService(baseUrl, backend, uuidIterator)
 
@@ -192,7 +185,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   }
 
   "getDepartmentAndSeriesItems" should "not add a title attribute if the title is missing" in {
-    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+    val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
     val departmentCollectionAsset = assetMap("T").map(_.copy(title = None))
     val seriesCollectionAsset = assetMap("T TEST").map(_.copy(title = None))
 
@@ -205,7 +198,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   }
 
   "getDepartmentAndSeriesItems" should "not add a description attribute if the description is missing" in {
-    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+    val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
     val departmentCollectionAsset = assetMap("T").map(departmentAsset => departmentAsset.copy(scopeContent = departmentAsset.scopeContent.copy(description = None)))
     val seriesCollectionAsset = assetMap("T TEST").map(seriesAsset => seriesAsset.copy(scopeContent = seriesAsset.scopeContent.copy(description = None)))
 
@@ -218,7 +211,7 @@ class DiscoveryServiceTest extends AnyFlatSpec {
   }
 
   "getDepartmentAndSeriesItems" should "return unknown for the department if the department is missing" in {
-    val backend: SttpBackendStub[IO, Fs2Streams[IO]] = SttpBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+    val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
 
     val discoveryService = DiscoveryService(baseUrl, backend, uuidIterator)
     val departmentItem = discoveryService.departmentItem("testBatch", None)
