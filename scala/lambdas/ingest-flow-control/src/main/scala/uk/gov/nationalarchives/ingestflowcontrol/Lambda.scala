@@ -290,7 +290,7 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
   ): Map[String, Range] = {
     systems match
       case Nil => sourceSystemProbabilityRanges
-      case _ =>
+      case _   =>
         if systems.head.probability == 0 then buildProbabilityRangesMap(systems.tail, rangeStart, sourceSystemProbabilityRanges)
         else
           val rangeEnd = systems.head.probability + rangeStart

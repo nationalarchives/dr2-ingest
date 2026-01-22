@@ -77,7 +77,6 @@ lazy val commonSettings = Seq(
 
 lazy val copySchema = taskKey[Unit]("Copies the PA json schema file to the resources directory")
 
-
 lazy val preingestCourtDocImporter = (project in file("preingest-courtdoc-importer"))
   .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
@@ -101,7 +100,7 @@ lazy val preingestPaImporter = (project in file("preingest-pa-importer"))
   .settings(
     copySchema := {
       val schemaLocation = baseDirectory.value / "../../../" / "common" / "preingest-pa" / "metadata-schema.json"
-      Files.copy(schemaLocation.toPath,  (Compile / resourceDirectory).value.toPath.resolve("metadata-schema.json"), StandardCopyOption.REPLACE_EXISTING)
+      Files.copy(schemaLocation.toPath, (Compile / resourceDirectory).value.toPath.resolve("metadata-schema.json"), StandardCopyOption.REPLACE_EXISTING)
     },
     libraryDependencies ++= Seq(
       fs2Core,
@@ -109,7 +108,7 @@ lazy val preingestPaImporter = (project in file("preingest-pa-importer"))
       jsonSchemaValidator,
       s3Client,
       sqsClient,
-      reactorTest % Test,
+      reactorTest % Test
     ),
     Compile / compile := (Compile / compile).dependsOn(copySchema).value,
     Test / compile := (Test / compile).dependsOn(copySchema).value
@@ -350,7 +349,6 @@ lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-bu
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(packageBuilderSettings)
-
 
 lazy val preingestCourtDocPackageBuilder = (project in file("preingest-courtdoc-package-builder"))
   .settings(name := baseDirectory.value.getName)
