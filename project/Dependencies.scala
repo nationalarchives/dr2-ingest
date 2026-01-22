@@ -43,7 +43,7 @@ object Dependencies {
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.7.11"
   lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.19.0"
   lazy val scalaCheckPlus = "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0"
-  lazy val scanamo = "org.scanamo" %% "scanamo" % "4.0.0"
+  lazy val scanamo = "org.scanamo" %% "scanamo" % "6.0.0"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
   lazy val sqsClient = "uk.gov.nationalarchives" %% "da-sqs-client" % daAwsClientsVersion
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
