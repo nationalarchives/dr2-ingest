@@ -93,6 +93,8 @@ object Helpers {
               case (queue, messages)                      => queue -> messages
           .map(_ => SendMessageResponse.builder.build)
 
+    override def changeVisibilityTimeout(queueUrl: String)(receiptHandle: String, timeout: Duration): IO[ChangeMessageVisibilityResponse] = notImplemented
+
   def dynamoClient(ref: Ref[IO, List[PostIngestStateTableItem]], errors: Option[Errors]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
 
     override def writeItem(dynamoDbWriteRequest: DADynamoDbWriteItemRequest): IO[Int] = notImplemented

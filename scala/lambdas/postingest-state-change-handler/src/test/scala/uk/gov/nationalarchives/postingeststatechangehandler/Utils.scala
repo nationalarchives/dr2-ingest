@@ -8,12 +8,14 @@ import org.scanamo.request.RequestCondition
 import org.scanamo.{DynamoFormat, DynamoReadError, DynamoValue, MissingProperty}
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
-import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
+import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityResponse, DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import uk.gov.nationalarchives.DADynamoDBClient.{DADynamoDbRequest, DADynamoDbWriteItemRequest}
 import uk.gov.nationalarchives.DASQSClient.FifoQueueConfiguration
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{PostIngestStatePartitionKey, PostIngestStatePrimaryKey, PostIngestStateSortKey, PostIngestStateTableItem}
 import uk.gov.nationalarchives.utils.ExternalUtils.OutputMessage
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, DASQSClient}
+
+import scala.concurrent.duration.Duration
 
 object Utils {
 
@@ -43,6 +45,8 @@ object Utils {
         }
         .map(_ => SendMessageResponse.builder.build)
     }
+
+    override def changeVisibilityTimeout(queueUrl: String)(receiptHandle: String, timeout: Duration): IO[ChangeMessageVisibilityResponse] = IO.stub
 
     override def receiveMessages[T](queueUrl: String, maxNumberOfMessages: Int)(using dec: Decoder[T]): IO[List[DASQSClient.MessageResponse[T]]] = IO.pure(Nil)
 

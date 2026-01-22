@@ -6,7 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.{MessageAttribute, SQSMessage}
 import io.circe.syntax.*
 import io.circe.{Decoder, Encoder}
-import software.amazon.awssdk.services.sqs.model.{DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
+import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityResponse, DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DASQSClient
@@ -19,6 +19,7 @@ import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.*
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters.*
 
 object Utils:
@@ -58,6 +59,8 @@ object Utils:
         }
       }
       .map(_ => SendMessageResponse.builder.build)
+
+    override def changeVisibilityTimeout(queueUrl: String)(receiptHandle: String, timeout: Duration): IO[ChangeMessageVisibilityResponse] = IO.stub
 
     override def deleteMessage(queueUrl: String, receiptHandle: String): IO[DeleteMessageResponse] = IO.pure(DeleteMessageResponse.builder.build)
 
