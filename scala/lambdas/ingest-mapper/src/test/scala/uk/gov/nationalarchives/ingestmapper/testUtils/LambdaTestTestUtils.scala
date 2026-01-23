@@ -14,8 +14,8 @@ import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
-import sttp.client3.impl.cats.CatsMonadAsyncError
-import sttp.client3.testing.SttpBackendStub
+import sttp.client4.impl.cats.CatsMonadAsyncError
+import sttp.client4.testing.WebSocketStreamBackendStub
 import ujson.Obj
 import uk.gov.nationalarchives.ingestmapper.DiscoveryService.{DiscoveryCollectionAsset, DiscoveryScopeContent}
 import uk.gov.nationalarchives.ingestmapper.Lambda.{Config, Dependencies, Input}
@@ -154,7 +154,7 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
           if discoveryServiceException then IO.raiseError(new Exception("Exception when sending request: GET http://localhost:9015/API/records/v1/collection/A"))
           else IO(generateDiscoveryCollectionAsset(citableReference))
     else
-      val backendStub = SttpBackendStub(CatsMonadAsyncError[IO]()).whenAnyRequest.thenRespondServerError()
+      val backendStub = WebSocketStreamBackendStub(CatsMonadAsyncError[IO]()).whenAnyRequest.thenRespondServerError()
       DiscoveryService[IO]("https://example.com", backendStub, randomUuidGenerator)
 
   case class S3Object(bucket: String, key: String, fileContent: String)

@@ -60,7 +60,7 @@ lazy val commonSettings = Seq(
     scalaTest % Test,
     wiremock % Test
   ),
-  dependencyOverrides ++= Seq(awsDynamo, commonsLogging),
+  dependencyOverrides ++= Seq(awsDynamo, commonsLogging, jawnParser),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
@@ -76,7 +76,6 @@ lazy val commonSettings = Seq(
 )
 
 lazy val copySchema = taskKey[Unit]("Copies the PA json schema file to the resources directory")
-
 
 lazy val preingestCourtDocImporter = (project in file("preingest-courtdoc-importer"))
   .settings(name := baseDirectory.value.getName)
@@ -101,7 +100,7 @@ lazy val preingestPaImporter = (project in file("preingest-pa-importer"))
   .settings(
     copySchema := {
       val schemaLocation = baseDirectory.value / "../../../" / "common" / "preingest-pa" / "metadata-schema.json"
-      Files.copy(schemaLocation.toPath,  (Compile / resourceDirectory).value.toPath.resolve("metadata-schema.json"), StandardCopyOption.REPLACE_EXISTING)
+      Files.copy(schemaLocation.toPath, (Compile / resourceDirectory).value.toPath.resolve("metadata-schema.json"), StandardCopyOption.REPLACE_EXISTING)
     },
     libraryDependencies ++= Seq(
       fs2Core,
@@ -109,7 +108,7 @@ lazy val preingestPaImporter = (project in file("preingest-pa-importer"))
       jsonSchemaValidator,
       s3Client,
       sqsClient,
-      reactorTest % Test,
+      reactorTest % Test
     ),
     Compile / compile := (Compile / compile).dependsOn(copySchema).value,
     Test / compile := (Test / compile).dependsOn(copySchema).value
@@ -312,7 +311,8 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
       sttpCirce,
       upickle,
       reactorTest % Test
-    )
+    ),
+    dependencyOverrides += jawnParser
   )
 
 lazy val postIngestStateChangeHandler = (project in file("postingest-state-change-handler"))
@@ -334,15 +334,18 @@ lazy val postIngestStateChangeHandler = (project in file("postingest-state-chang
     )
   )
 
-lazy val packageBuilderSettings = libraryDependencies ++= Seq(
-  circeFs2,
-  dynamoClient,
-  fs2Reactive,
-  jsonSchemaValidator % Test,
-  s3Client,
-  reactorTest % Test,
-  scalaCheck % Test,
-  scalaCheckPlus % Test
+lazy val packageBuilderSettings = Seq(
+  libraryDependencies ++= Seq(
+    circeFs2,
+    dynamoClient,
+    fs2Reactive,
+    jsonSchemaValidator % Test,
+    s3Client,
+    reactorTest % Test,
+    scalaCheck % Test,
+    scalaCheckPlus % Test
+  ),
+  dependencyOverrides += jawnParser
 )
 
 lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
@@ -350,7 +353,6 @@ lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-bu
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(packageBuilderSettings)
-
 
 lazy val preingestCourtDocPackageBuilder = (project in file("preingest-courtdoc-package-builder"))
   .settings(name := baseDirectory.value.getName)

@@ -6,9 +6,9 @@ import io.circe.generic.auto.*
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jFactory
 import sttp.capabilities.fs2.Fs2Streams
-import sttp.client3.circe.*
-import sttp.client3.httpclient.fs2.HttpClientFs2Backend
-import sttp.client3.*
+import sttp.client4.circe.*
+import sttp.client4.httpclient.fs2.HttpClientFs2Backend
+import sttp.client4.*
 import ujson.*
 import uk.gov.nationalarchives.ingestmapper.DiscoveryService.*
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
@@ -29,9 +29,9 @@ trait DiscoveryService[F[_]] {
 object DiscoveryService {
   case class DiscoveryScopeContent(description: Option[String])
   case class DiscoveryCollectionAsset(citableReference: String, scopeContent: DiscoveryScopeContent, title: Option[String])
-  private case class DiscoveryCollectionAssetResponse(assets: List[DiscoveryCollectionAsset])
+  case class DiscoveryCollectionAssetResponse(assets: List[DiscoveryCollectionAsset])
 
-  def apply[F[_]: Async](discoveryBaseUrl: String, backend: SttpBackend[F, Fs2Streams[F]], randomUuidGenerator: () => UUID): DiscoveryService[F] =
+  def apply[F[_]: Async](discoveryBaseUrl: String, backend: GenericBackend[F, Fs2Streams[F]], randomUuidGenerator: () => UUID): DiscoveryService[F] =
     new DiscoveryService[F] {
 
       private val logger: SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger

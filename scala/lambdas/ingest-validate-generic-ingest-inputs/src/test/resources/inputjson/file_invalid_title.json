@@ -15,6 +15,6 @@
     }
   ],
   "expectedErrors": [
-    "0f9cab98-114d-4e72-b378-695559155c45 $.title: must be at least 1 characters long"
+    "0f9cab98-114d-4e72-b378-695559155c45 must be at least 1 characters long"
   ]
 }

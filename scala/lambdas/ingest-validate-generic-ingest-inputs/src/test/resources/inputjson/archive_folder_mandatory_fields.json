@@ -7,6 +7,6 @@
     }
   ],
   "expectedErrors": [
-    "f991ee71-de22-4bb9-ada8-720362486d49 $: required property 'title' not found"
+    "f991ee71-de22-4bb9-ada8-720362486d49 required property 'title' not found"
   ]
 }
