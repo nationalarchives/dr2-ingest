@@ -11,7 +11,7 @@ locals {
   java_runtime                                 = "java21"
   java_lambda_memory_size                      = 512
   java_timeout_seconds                         = 180
-  aggregator_primary_grouping_window_seconds   = 300                                                                                        # How long the SQS Poller waits before invoking the Lambda after receiving the first message. <=300 for Lambda.
+  aggregator_primary_grouping_window_seconds   = var.aggregator_primary_grouping_window_seconds                                             # How long the SQS Poller waits before invoking the Lambda after receiving the first message. Defaults to <=300 for Lambda.
   aggregator_lambda_timeout_seconds            = 60                                                                                         # <=900 for Lambda.
   aggregator_secondary_grouping_window_seconds = 180                                                                                        # Additional time we wait before starting preingest to allow multiple invocations to form a single group, this is added to the aggregator_lambda_timeout_seconds when we start a group.
   aggregator_invocation_batch_size             = 10000                                                                                      # Max number of messages to invoke the Lambda with, but all messages need to be processed before the Lambda times out. <=10000 for Lambda.
