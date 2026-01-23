@@ -3,8 +3,7 @@ package uk.gov.nationalarchives.preingestpaimporter
 import cats.effect.IO
 import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
-import com.networknt.schema.{InputFormat, JsonSchemaFactory}
-import com.networknt.schema.SpecVersion.VersionFlag
+import com.networknt.schema.{InputFormat, SchemaRegistry, SpecificationVersion}
 import io.circe.{Decoder, Encoder, HCursor, Json, JsonObject}
 import io.circe.parser.decode
 import io.circe.syntax.*
@@ -101,8 +100,8 @@ class Lambda extends LambdaRunner[SQSEvent, List[Unit], Config, Dependencies]:
   }
 
   private def validate(data: Data): IO[Unit] = {
-    val schemaFactory = JsonSchemaFactory.getInstance(VersionFlag.V202012)
-    val schema = schemaFactory.getSchema(getClass.getResourceAsStream("/metadata-schema.json"))
+    val schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12)
+    val schema = schemaRegistry.getSchema(getClass.getResourceAsStream("/metadata-schema.json"))
     val res = schema.validate(data.asJson.noSpaces, InputFormat.JSON)
     IO.raiseWhen(res.size() > 0)(new RuntimeException(s"There are validation errors ${res.asScala.map(_.getMessage).mkString("\n")}"))
   }

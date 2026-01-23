@@ -17,7 +17,7 @@ class XMLCreator(ingestDateTime: OffsetDateTime) {
   private def getAllPaths(path: String): List[String] = {
     def generator(path: String, paths: List[String]): List[String] = {
       paths match {
-        case Nil => path :: Nil
+        case Nil          => path :: Nil
         case head :: tail =>
           val newPath = if path.isEmpty then head else s"$path/$head"
           newPath :: generator(newPath, tail)

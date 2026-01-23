@@ -16,6 +16,6 @@
     }
   ],
   "expectedErrors": [
-    "0f9cab98-114d-4e72-b378-695559155c45 $: required property 'id_RecordID' not found"
+    "0f9cab98-114d-4e72-b378-695559155c45 required property 'id_RecordID' not found"
   ]
 }
