@@ -311,7 +311,8 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
       sttpCirce,
       upickle,
       reactorTest % Test
-    )
+    ),
+    dependencyOverrides += jawnParser
   )
 
 lazy val postIngestStateChangeHandler = (project in file("postingest-state-change-handler"))
@@ -333,15 +334,18 @@ lazy val postIngestStateChangeHandler = (project in file("postingest-state-chang
     )
   )
 
-lazy val packageBuilderSettings = libraryDependencies ++= Seq(
-  circeFs2,
-  dynamoClient,
-  fs2Reactive,
-  jsonSchemaValidator % Test,
-  s3Client,
-  reactorTest % Test,
-  scalaCheck % Test,
-  scalaCheckPlus % Test
+lazy val packageBuilderSettings = Seq(
+  libraryDependencies ++= Seq(
+    circeFs2,
+    dynamoClient,
+    fs2Reactive,
+    jsonSchemaValidator % Test,
+    s3Client,
+    reactorTest % Test,
+    scalaCheck % Test,
+    scalaCheckPlus % Test
+  ),
+  dependencyOverrides += jawnParser
 )
 
 lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
