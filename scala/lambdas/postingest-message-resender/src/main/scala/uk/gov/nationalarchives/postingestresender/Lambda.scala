@@ -1,7 +1,7 @@
 package uk.gov.nationalarchives.postingestresender
 
 import cats.effect.IO
-import cats.effect.implicits.concurrentParTraverseOps
+import cats.effect.std.Semaphore
 import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
 import io.circe.Encoder
@@ -50,41 +50,46 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
         AndCondition(DynamoFormatters.queue === queue.queueAlias, lastQueued < dateTimeCutOff.toString),
         Some(config.stateGsiName)
       )
-
+      semaphore <- Semaphore[IO](50)
       _ <- IO.whenA(expiredItems.nonEmpty) { logger.info(s"Resending ${expiredItems.size} items to '${queue.queueAlias}' queue") }
       _ <- expiredItems
-        .parTraverseN(25) { item =>
-          sendToQueue(item, queue) >>
-            updateLastQueued(item, queue, dateTimeNow)
+        .parTraverse { item =>
+          sendToQueue(item, queue, semaphore) >>
+            updateLastQueued(item, queue, dateTimeNow, semaphore)
         }
     } yield ()
 
-    def sendToQueue(item: PostIngestStateTableItem, queue: Queue): IO[Unit] =
-      dependencies.sqsClient
-        .sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input))
-        .handleErrorWith { error =>
-          logger.error(s"""Failed to send message for assetId '${item.assetId}' to '${queue.queueAlias}' queue:
-                      |${error.getMessage}""".stripMargin) >>
-            IO.raiseError(error)
-        }
-        .void
+    def sendToQueue(item: PostIngestStateTableItem, queue: Queue, semaphore: Semaphore[IO]): IO[Unit] = {
+      semaphore.permit.use { _ =>
+        dependencies.sqsClient
+          .sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input))
+          .handleErrorWith { error =>
+            logger.error(s"""Failed to send message for assetId '${item.assetId}' to '${queue.queueAlias}' queue:
+                 |${error.getMessage}""".stripMargin) >>
+              IO.raiseError(error)
+          }
+          .void
+      }
+    }
 
-    def updateLastQueued(item: PostIngestStateTableItem, queue: Queue, newDateTime: Instant): IO[Unit] = {
+    def updateLastQueued(item: PostIngestStateTableItem, queue: Queue, newDateTime: Instant, semaphore: Semaphore[IO]): IO[Unit] = {
       val postIngestPk = PostIngestStatePrimaryKey(PostIngestStatePartitionKey(item.assetId), PostIngestStateSortKey(item.batchId))
-      dependencies.dynamoClient
-        .updateAttributeValues(
-          DADynamoDbRequest(
-            config.stateTableName,
-            postIngestStatePkFormat.write(postIngestPk).toAttributeValue.m().asScala.toMap,
-            Map(lastQueued -> AttributeValue.builder().s(newDateTime.toString).build())
+      semaphore.permit.use { _ =>
+        dependencies.dynamoClient
+          .updateAttributeValues(
+            DADynamoDbRequest(
+              config.stateTableName,
+              postIngestStatePkFormat.write(postIngestPk).toAttributeValue.m().asScala.toMap,
+              Map(lastQueued -> AttributeValue.builder().s(newDateTime.toString).build())
+            )
           )
-        )
-        .handleErrorWith { error =>
-          logger.error(s"""Failed to update 'lastQueued' timestamp for assetId '${item.assetId}' of '${queue.queueAlias}' queue:
-                          |${error.getMessage}""".stripMargin) >>
-            IO.raiseError(error)
-        }
-        .void
+          .handleErrorWith { error =>
+            logger.error(s"""Failed to update 'lastQueued' timestamp for assetId '${item.assetId}' of '${queue.queueAlias}' queue:
+                 |${error.getMessage}""".stripMargin) >>
+              IO.raiseError(error)
+          }
+          .void
+      }
     }
 
     (for {
