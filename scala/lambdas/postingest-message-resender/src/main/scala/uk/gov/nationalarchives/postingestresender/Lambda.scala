@@ -59,31 +59,37 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
         }
     } yield ()
 
-    def sendToQueue(item: PostIngestStateTableItem, queue: Queue, semaphore: Semaphore[IO]): IO[Unit] =
-      semaphore.acquire >> dependencies.sqsClient
-        .sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input))
-        .handleErrorWith { error =>
-          logger.error(s"""Failed to send message for assetId '${item.assetId}' to '${queue.queueAlias}' queue:
-                      |${error.getMessage}""".stripMargin) >>
-            semaphore.release >> IO.raiseError(error)
-        } >> semaphore.release
+    def sendToQueue(item: PostIngestStateTableItem, queue: Queue, semaphore: Semaphore[IO]): IO[Unit] = {
+      semaphore.permit.use { _ =>
+        dependencies.sqsClient
+          .sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input))
+          .handleErrorWith { error =>
+            logger.error(s"""Failed to send message for assetId '${item.assetId}' to '${queue.queueAlias}' queue:
+                 |${error.getMessage}""".stripMargin) >>
+              IO.raiseError(error)
+          }
+          .void
+      }
+    }
 
     def updateLastQueued(item: PostIngestStateTableItem, queue: Queue, newDateTime: Instant, semaphore: Semaphore[IO]): IO[Unit] = {
       val postIngestPk = PostIngestStatePrimaryKey(PostIngestStatePartitionKey(item.assetId), PostIngestStateSortKey(item.batchId))
-      semaphore.acquire >> dependencies.dynamoClient
-        .updateAttributeValues(
-          DADynamoDbRequest(
-            config.stateTableName,
-            postIngestStatePkFormat.write(postIngestPk).toAttributeValue.m().asScala.toMap,
-            Map(lastQueued -> AttributeValue.builder().s(newDateTime.toString).build())
+      semaphore.permit.use { _ =>
+        dependencies.dynamoClient
+          .updateAttributeValues(
+            DADynamoDbRequest(
+              config.stateTableName,
+              postIngestStatePkFormat.write(postIngestPk).toAttributeValue.m().asScala.toMap,
+              Map(lastQueued -> AttributeValue.builder().s(newDateTime.toString).build())
+            )
           )
-        )
-        .handleErrorWith { error =>
-          logger.error(s"""Failed to update 'lastQueued' timestamp for assetId '${item.assetId}' of '${queue.queueAlias}' queue:
-                          |${error.getMessage}""".stripMargin) >>
-            semaphore.release >> IO.raiseError(error)
-        } >> semaphore.release
-
+          .handleErrorWith { error =>
+            logger.error(s"""Failed to update 'lastQueued' timestamp for assetId '${item.assetId}' of '${queue.queueAlias}' queue:
+                 |${error.getMessage}""".stripMargin) >>
+              IO.raiseError(error)
+          }
+          .void
+      }
     }
 
     (for {
