@@ -68,3 +68,7 @@ variable "package_builder_lambda" {
     handler = "uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda::handleRequest"
   }
 }
+
+variable "aggregator_primary_grouping_window_seconds" {
+  default = 300
+}
