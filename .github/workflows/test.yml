@@ -17,6 +17,10 @@ jobs:
       - uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
       - run: |
+          curl -Lo wizcli https://downloads.wiz.io/v1/wizcli/latest/wizcli-linux-amd64
+          chmod +x wizcli
+          ./wizcli auth --id ${{ secrets.WIZ_CLIENT_ID }} --secret ${{ secrets.WIZ_CLIENT_SECRET }}
+          ./wizcli scan dir terraform
           (cd terraform && terraform fmt -check --recursive)
           find . -name requirements.txt | xargs -I {} pip install -r {}
           pytest
