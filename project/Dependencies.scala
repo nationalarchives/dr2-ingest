@@ -4,7 +4,7 @@ object Dependencies {
   lazy val pureConfigVersion = "0.17.9"
   lazy val daAwsClientsVersion = "0.1.138"
   private val fs2Version = "3.13.0-M8"
-  private val sttpVersion = "4.0.14"
+  private val sttpVersion = "4.0.15"
   private val circeVersion = "0.15.0-M1"
   private val log4CatsVersion = "2.7.1"
   private val awsLibraryVersion = "1.12.797"
@@ -37,7 +37,7 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % "3.2.18.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.154"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.155"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.8.2"
