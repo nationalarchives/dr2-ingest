@@ -72,3 +72,7 @@ variable "package_builder_lambda" {
 variable "aggregator_primary_grouping_window_seconds" {
   default = 300
 }
+
+variable "aggregator_secondary_grouping_window_seconds" {
+  default = 180
+}
