@@ -32,13 +32,12 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
   private def getChildrenOfAsset(
       daDynamoDBClient: DADynamoDBClient[IO],
       asset: AssetDynamoItem,
-      config: Config,
-      log: (=> String) => cats.effect.IO[Unit]
-  ): IO[List[FileDynamoItem]] =
-    for {
-      assetId <- IO.pure(asset.id)
-      batchId = asset.batchId
-      childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}$assetId"
+      config: Config
+  ): IO[List[FileDynamoItem]] = {
+    val assetId = asset.id
+    val batchId = asset.batchId
+    val childrenParentPath = s"${asset.potentialParentPath.map(path => s"$path/").getOrElse("")}$assetId"
+    for
       children <- daDynamoDBClient.queryItems[FileDynamoItem](
         config.dynamoTableName,
         "batchId" === batchId and "parentPath" === childrenParentPath,
@@ -50,7 +49,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       _ <- IO.fromOption(children.headOption)(
         new Exception(s"No children were found for $assetId from $batchId in the files table")
       )
-    } yield children
+    yield children
+  }
 
   private def stripFileExtension(title: String) = title.split('.').dropRight(1).mkString(".")
 
@@ -142,7 +142,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
         else
           for {
             entity <- IO.pure(entitiesWithAssetId.head)
-            children <- getChildrenOfAsset(dependencies.dynamoDbClient, asset, config, log)
+            children <- getChildrenOfAsset(dependencies.dynamoDbClient, asset, config)
             _ <- log(s"${children.length} children found for asset $assetId in the files table")
             childrenGroupedByRepType = children.groupBy(_.representationType match {
               case FileRepresentationType.PreservationRepresentationType => Preservation
