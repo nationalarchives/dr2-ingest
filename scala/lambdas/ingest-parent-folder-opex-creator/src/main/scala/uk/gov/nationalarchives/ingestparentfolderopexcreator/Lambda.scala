@@ -67,7 +67,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   override def dependencies(config: Config): IO[Dependencies] = IO(Dependencies(DAS3Client[IO](config.roleArn, lambdaName)))
 }
-object Lambda extends App {
+object Lambda {
 
   extension (publisher: Publisher[String])
     def publisherToStream: Stream[IO, String] = Stream.eval(IO.delay(publisher)).flatMap { publisher =>

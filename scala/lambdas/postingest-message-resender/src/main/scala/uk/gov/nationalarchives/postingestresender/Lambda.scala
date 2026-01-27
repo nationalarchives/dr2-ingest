@@ -33,7 +33,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
   )
 
   override def handler: (ScheduledEvent, Config, Dependencies) => IO[Unit] = { (triggerEvent, config, dependencies) =>
-
     /** This function receives a queue as a parameter. For the particular queue, it retrieves the details from the post ingest table, it also retrieves the 'Message Retention
       * Period' for this queue. If any of the items in the post ingest table has a 'lastQueued' time before the message retention period, it resends the message to the queue and
       * updates the 'lastQueued' value for this item in post ingest table with the current datetime.

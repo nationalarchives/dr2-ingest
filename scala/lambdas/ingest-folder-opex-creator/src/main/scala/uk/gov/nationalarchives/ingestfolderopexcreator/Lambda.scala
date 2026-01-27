@@ -81,7 +81,6 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       Config,
       Dependencies
   ) => IO[Unit] = (input, config, dependencies) =>
-
     def childrenOfFolder(asset: ArchiveFolderDynamoItem, tableName: String, gsiName: String): IO[List[FolderOrAssetItem]] = {
       val childrenParentPath = s"${asset.potentialParentPath.getOrElse("")}/${asset.id}".stripPrefix("/")
       dependencies.dynamoClient
