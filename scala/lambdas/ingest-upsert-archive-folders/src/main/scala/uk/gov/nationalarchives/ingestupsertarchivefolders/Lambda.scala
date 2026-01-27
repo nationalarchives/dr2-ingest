@@ -208,7 +208,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
   }
 }
 
-object Lambda extends App {
+object Lambda {
   case class Config(secretName: String, archiveFolderTableName: String) derives ConfigReader
 
   case class StepFnInput(

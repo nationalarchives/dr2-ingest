@@ -14,7 +14,7 @@ class LambdaTest extends AnyFlatSpec {
   private val config: Config = Config("")
   private val input: Input = Input("testContextName", "TST-1234-345")
 
-  private val workflowClient: WorkflowClient[IO] = (startWorkflowRequest: StartWorkflowRequest) => IO.pure(MurmurHash3.productHash(startWorkflowRequest))
+  private val workflowClient: WorkflowClient[IO] = (startWorkflowRequest: StartWorkflowRequest) => IO.pure(MurmurHash3.caseClassHash(startWorkflowRequest))
 
   private val errorWorkflowClient: WorkflowClient[IO] = (startWorkflowRequest: StartWorkflowRequest) =>
     IO.raiseError(new Exception("API has encountered an issue when calling startWorkflow"))
