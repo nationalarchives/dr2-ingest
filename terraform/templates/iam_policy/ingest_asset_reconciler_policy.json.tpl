@@ -11,13 +11,23 @@
         "${dynamo_db_file_table_arn}/index/${gsi_name}",
         "${dynamo_db_lock_table_arn}"
       ],
-      "Sid": "getAndQueryDynamoDB"
+      "Sid": "getAndQueryDynamoDB",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": "secretsmanager:GetSecretValue",
       "Effect": "Allow",
       "Resource": "${secrets_manager_secret_arn}",
-      "Sid": "readSecretsManager"
+      "Sid": "readSecretsManager",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [

@@ -17,6 +17,7 @@ module "dr2_rotate_preservation_system_password_lambda" {
       ]),
       account_id  = data.aws_caller_identity.current.account_id
       lambda_name = local.rotate_preservation_system_password_name
+      vpc_id      = module.vpc.vpc_id
     })
   }
   memory_size = local.java_lambda_memory_size

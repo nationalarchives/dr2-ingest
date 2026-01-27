@@ -14,6 +14,7 @@ module "ingest_find_existing_asset" {
         lambda_name                = local.ingest_find_existing_asset_name
         dynamo_db_file_table_arn   = module.files_table.table_arn
         secrets_manager_secret_arn = aws_secretsmanager_secret.preservica_read_metadata.arn
+        vpc_id                     = module.vpc.vpc_id
       }
     )
   }

@@ -10,7 +10,12 @@
         "${dynamo_db_lock_table_arn}",
         "${dynamo_db_lock_table_arn}/index/${gsi_name}"
       ],
-      "Sid": "getAndQueryDynamoDB"
+      "Sid": "getAndQueryDynamoDB",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -23,7 +28,12 @@
         "arn:aws:s3:::${raw_cache_bucket_name}",
         "arn:aws:s3:::${raw_cache_bucket_name}/*"
       ],
-      "Sid": "readWriteIngestRawCache"
+      "Sid": "readWriteIngestRawCache",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [

@@ -6,7 +6,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${step_function_arn}",
-      "Sid": "startSfnExecution"
+      "Sid": "startSfnExecution",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -16,7 +21,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${ingest_parsed_court_document_event_handler_queue_arn}",
-      "Sid": "readSqs"
+      "Sid": "readSqs",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -29,7 +39,12 @@
         "arn:aws:s3:::${bucket_name}",
         "arn:aws:s3:::${bucket_name}/*"
       ],
-      "Sid": "readWriteIngestRawCache"
+      "Sid": "readWriteIngestRawCache",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -37,7 +52,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${dynamo_db_lock_table_arn}",
-      "Sid": "writeDynamoDB"
+      "Sid": "writeDynamoDB",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
