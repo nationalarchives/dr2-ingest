@@ -24,7 +24,7 @@ variable "bucket_kms_arn" {
   default = null
 }
 
-variable "copy_source_bucket_name" {}
+variable "copy_source_bucket_arn" {}
 
 variable "additional_importer_lambda_policies" {
   default = {}
@@ -67,4 +67,14 @@ variable "package_builder_lambda" {
   default = {
     handler = "uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda::handleRequest"
   }
+}
+
+variable "aggregator_primary_grouping_window_seconds" {
+  default = 300
+}
+
+
+variable "aggregator_secondary_grouping_window_seconds" {
+  default     = 180
+  description = "Additional time we wait before starting preingest to allow multiple invocations to form a single group, this is added to the aggregator_lambda_timeout_seconds when we start a group."
 }

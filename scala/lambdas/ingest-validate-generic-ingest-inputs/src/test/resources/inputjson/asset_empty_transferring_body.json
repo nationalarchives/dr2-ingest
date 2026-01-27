@@ -20,6 +20,6 @@
     }
   ],
   "expectedErrors": [
-    "ef5ecd0a-8562-497e-9d27-b01a0b63ea1f $.transferringBody: must be at least 1 characters long"
+    "ef5ecd0a-8562-497e-9d27-b01a0b63ea1f must be at least 1 characters long"
   ]
 }

@@ -16,8 +16,8 @@
     }
   ],
   "expectedErrors": [
-    "0f9cab98-114d-4e72-b378-695559155c45 $.checksum_md5: must be at least 32 characters long",
-    "0f9cab98-114d-4e72-b378-695559155c45 $.checksum_sha256: must be at least 32 characters long",
-    "0f9cab98-114d-4e72-b378-695559155c45 $.checksum_sha256: must be at least 64 characters long"
+    "0f9cab98-114d-4e72-b378-695559155c45 must be at least 32 characters long",
+    "0f9cab98-114d-4e72-b378-695559155c45 must be at least 32 characters long",
+    "0f9cab98-114d-4e72-b378-695559155c45 must be at least 64 characters long"
   ]
 }

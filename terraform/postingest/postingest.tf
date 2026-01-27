@@ -147,6 +147,9 @@ module "dr2_message_resender_lambda" {
       gsi_name                         = local.postingest_gsi_lastqueued_name
     })
   }
+  lambda_invoke_permissions = {
+    "events.amazonaws.com" = module.dr2_message_resender_cloudwatch_event.event_arn
+  }
   memory_size = local.java_lambda_memory_size
   runtime     = local.java_runtime
   plaintext_env_vars = {
@@ -163,7 +166,7 @@ module "dr2_message_resender_lambda" {
   }
 }
 
-module "dr2_entity_event_cloudwatch_event" {
+module "dr2_message_resender_cloudwatch_event" {
   source                  = "git::https://github.com/nationalarchives/da-terraform-modules//cloudwatch_events"
   rule_name               = "${var.environment}-dr2-postingest-resender-schedule"
   schedule                = "rate(1 hour)"

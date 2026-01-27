@@ -24,7 +24,6 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestUpsertArchiveFolders,
     ingestValidateGenericIngestInputs,
     ingestWorkflowMonitor,
-    preingestPaImporter,
     postIngestStateChangeHandler,
     postingestMessageResender,
     preingestCourtDocImporter,
@@ -32,10 +31,8 @@ lazy val ingestLambdasRoot = (project in file("."))
     preingestTdrAggregator,
     preingestDriAggregator,
     preingestAdHocAggregator,
-    preingestPaAggregator,
     preingestCourtDocumentAggregator,
     preIngestTdrPackageBuilder,
-    preIngestPaPackageBuilder,
     preingestDriPackageBuilder,
     preingestAdHocPackageBuilder,
     rotatePreservationSystemPassword,
@@ -60,7 +57,7 @@ lazy val commonSettings = Seq(
     scalaTest % Test,
     wiremock % Test
   ),
-  dependencyOverrides ++= Seq(awsDynamo, commonsLogging),
+  dependencyOverrides ++= Seq(awsDynamo, commonsLogging, jawnParser),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
@@ -77,7 +74,6 @@ lazy val commonSettings = Seq(
 
 lazy val copySchema = taskKey[Unit]("Copies the PA json schema file to the resources directory")
 
-
 lazy val preingestCourtDocImporter = (project in file("preingest-courtdoc-importer"))
   .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
@@ -92,27 +88,6 @@ lazy val preingestCourtDocImporter = (project in file("preingest-courtdoc-import
       reactorTest % Test
     ),
     dependencyOverrides += commonsLang
-  )
-
-lazy val preingestPaImporter = (project in file("preingest-pa-importer"))
-  .settings(name := baseDirectory.value.getName)
-  .settings(commonSettings)
-  .dependsOn(utils)
-  .settings(
-    copySchema := {
-      val schemaLocation = baseDirectory.value / "../../../" / "common" / "preingest-pa" / "metadata-schema.json"
-      Files.copy(schemaLocation.toPath,  (Compile / resourceDirectory).value.toPath.resolve("metadata-schema.json"), StandardCopyOption.REPLACE_EXISTING)
-    },
-    libraryDependencies ++= Seq(
-      fs2Core,
-      fs2Reactive,
-      jsonSchemaValidator,
-      s3Client,
-      sqsClient,
-      reactorTest % Test,
-    ),
-    Compile / compile := (Compile / compile).dependsOn(copySchema).value,
-    Test / compile := (Test / compile).dependsOn(copySchema).value
   )
 
 lazy val ingestMapper = (project in file("ingest-mapper"))
@@ -312,7 +287,8 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
       sttpCirce,
       upickle,
       reactorTest % Test
-    )
+    ),
+    dependencyOverrides += jawnParser
   )
 
 lazy val postIngestStateChangeHandler = (project in file("postingest-state-change-handler"))
@@ -334,15 +310,18 @@ lazy val postIngestStateChangeHandler = (project in file("postingest-state-chang
     )
   )
 
-lazy val packageBuilderSettings = libraryDependencies ++= Seq(
-  circeFs2,
-  dynamoClient,
-  fs2Reactive,
-  jsonSchemaValidator % Test,
-  s3Client,
-  reactorTest % Test,
-  scalaCheck % Test,
-  scalaCheckPlus % Test
+lazy val packageBuilderSettings = Seq(
+  libraryDependencies ++= Seq(
+    circeFs2,
+    dynamoClient,
+    fs2Reactive,
+    jsonSchemaValidator % Test,
+    s3Client,
+    reactorTest % Test,
+    scalaCheck % Test,
+    scalaCheckPlus % Test
+  ),
+  dependencyOverrides += jawnParser
 )
 
 lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
@@ -350,7 +329,6 @@ lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-bu
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
   .settings(packageBuilderSettings)
-
 
 lazy val preingestCourtDocPackageBuilder = (project in file("preingest-courtdoc-package-builder"))
   .settings(name := baseDirectory.value.getName)
@@ -386,15 +364,6 @@ lazy val preingestAdHocPackageBuilder = (project in file("preingest-tdr-package-
   .dependsOn(utils, dynamoFormatters)
   .settings(packageBuilderSettings)
 
-lazy val preIngestPaPackageBuilder = (project in file("preingest-tdr-package-builder"))
-  .settings(
-    name := "preingest-pa-package-builder",
-    target := (preIngestTdrPackageBuilder / baseDirectory).value / "target" / "preingest-pa-package-builder"
-  )
-  .settings(commonSettings)
-  .dependsOn(utils, dynamoFormatters)
-  .settings(packageBuilderSettings)
-
 lazy val aggregatorSettings = libraryDependencies ++= Seq(
   dynamoClient,
   sfnClient
@@ -419,15 +388,6 @@ lazy val preingestAdHocAggregator = (project in file("preingest-tdr-aggregator")
   .settings(
     name := "preingest-adhoc-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-adhoc-aggregator"
-  )
-  .settings(commonSettings)
-  .dependsOn(utils)
-  .settings(aggregatorSettings)
-
-lazy val preingestPaAggregator = (project in file("preingest-tdr-aggregator"))
-  .settings(
-    name := "preingest-pa-aggregator",
-    target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-pa-aggregator"
   )
   .settings(commonSettings)
   .dependsOn(utils)

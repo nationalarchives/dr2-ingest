@@ -39,8 +39,8 @@
       ],
       "Effect": "Allow",
       "Resource": [
-        "arn:aws:s3:::${bucket_name}",
-        "arn:aws:s3:::${bucket_name}/*"
+        "${bucket_arn}",
+        "${bucket_arn}/*"
       ],
       "Sid": "readFromTREBucket"
     },

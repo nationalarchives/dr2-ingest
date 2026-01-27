@@ -52,7 +52,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       case Num(value) =>
         DynamoValue.fromNumber[Long](value.toLong)
       case Arr(arr) => DynamoValue.fromDynamoArray(DynamoArray(arr.map(processDynamoValue).toList))
-      case s =>
+      case s        =>
         DynamoValue.fromString(s.str)
     }
 
