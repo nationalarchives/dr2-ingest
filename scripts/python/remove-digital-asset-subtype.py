@@ -22,9 +22,8 @@ import sys
 import requests
 
 # Note: The following url is a placeholder, Change it to be the correct url corresponding to your environment
-SERVER = "demo.example.com"
-DIGITAL_ASSET_SUBTYPE_EMPTY = "<DigitalAssetSubtype></DigitalAssetSubtype>"
-DIGITAL_ASSET_SUBTYPE_TDR = "<DigitalAssetSubtype>TDR</DigitalAssetSubtype>"
+SERVER = "tna.preservica.com"
+UPSTREAM_SYSTEM_REF = "<UpstreamSystemRef>"
 
 if len(sys.argv) < 4:
     print("Usage: python3 remove-digital-asset-subtype.py '<username>' '<password>' '<consignment_reference>'")
@@ -52,8 +51,8 @@ for asset in assets:
         source_fragment = metadata_response_text[source_element_start_index: source_element_end_index + len("</Source>")]
 
         # ==== Modify the extracted fragment and invoke a PUT request
-        if DIGITAL_ASSET_SUBTYPE_TDR in source_fragment:
-            modified_source_fragment = source_fragment.replace(DIGITAL_ASSET_SUBTYPE_TDR, DIGITAL_ASSET_SUBTYPE_EMPTY)
+        if UPSTREAM_SYSTEM_REF in source_fragment:
+            modified_source_fragment = source_fragment.replace(UPSTREAM_SYSTEM_REF, '')
             put_response = requests.put(metadata_url, modified_source_fragment, headers={"Content-Type":"application/xml", "Preservica-Access-Token": f"{entity_client.token}"})
             if put_response.status_code == 200:
                 print(f"DigitalAssetSubtype for {asset.reference} successfully removed")
