@@ -98,7 +98,13 @@ class MetadataService(s3: DAS3Client[IO], discoveryService: DiscoveryService[IO]
 
       topLevelIdsToDepartmentSeries.map { idToDepartmentSeries =>
         val idToParent = getParentPaths(json, idToDepartmentSeries)
+        /* depSeriesCount is created because idToParent only has a list of parent IDs up to series level as this is all the information available in the JSON.
+        So we then count the number of series for a given department.
+        For judgments where there is no series, we don't need to count the number of series children for a department because there aren't any.
+        All relevant paths in this case are covered by the call to `getParentPaths`. So we can ignore any unknown series here.
+        If we don't, we get the wrong count which then overrides the correct count when we do `mapValues(_.size).toMap ++ depSeriesCount` */
         val depSeriesCount = idToDepartmentSeries.values.toList
+          .filter(_.potentialSeriesItem.isDefined)
           .groupBy(_.departmentItem("id").str)
           .view
           .mapValues(_.distinct.length)
