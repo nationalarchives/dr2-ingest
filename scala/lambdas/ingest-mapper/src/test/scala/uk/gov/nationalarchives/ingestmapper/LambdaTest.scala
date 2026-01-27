@@ -66,9 +66,36 @@ class LambdaTest extends AnyFlatSpec {
 
     a2Folder("parentPath") should equal(a1Folder("parentPath"))
 
-    val topLevelFolder = archiveFolderItems.find(a => a("id").str == a2Folder("parentPath").str).get
+    val topLevelFolders = archiveFolderItems.filter(a => a("id").str == a2Folder("parentPath").str)
 
+    topLevelFolders.length should equal(1)
+    val topLevelFolder = topLevelFolders.head
+
+    topLevelFolder("childCount").num should equal(2)
     topLevelFolder("name").str should equal("A")
+  }
+
+  "handler" should "create the correct archive folder structure in dynamodb if there are multiple unknown series in the batch" in {
+    val metadataResponse = getMetadata
+    val updatedMetadata = metadataResponse.metadata.replace(""""series": null""", """"series":"Unknown"""").replace("A 1", "Unknown")
+    val dynamoItems = dynamoItemsResponse(metadataResponse.copy(metadata = updatedMetadata))
+    val archiveFolderItems = dynamoItems.filter(a => a("type").str == "ArchiveFolder")
+    val secondLevelItems = archiveFolderItems.filter(a => a.value.get("title").map(_.str).contains("TestTitle"))
+
+    secondLevelItems.length should equal(2)
+
+    val firstUnknownSeries = secondLevelItems.head
+    val secondUnknownSeries = secondLevelItems.last
+
+    firstUnknownSeries("parentPath") should equal(secondUnknownSeries("parentPath"))
+
+    val topLevelFolders = archiveFolderItems.filter(a => a("id").str == secondUnknownSeries("parentPath").str)
+
+    topLevelFolders.length should equal(1)
+    val topLevelFolder = topLevelFolders.head
+
+    topLevelFolder("childCount").num should equal(2)
+    topLevelFolder("name").str should equal("Unknown")
   }
 
   "handler" should "write the correct values to dynamo" in {
