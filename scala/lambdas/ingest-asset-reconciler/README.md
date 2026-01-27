@@ -8,47 +8,64 @@ The Lambda:
 
 ```json
 {
-	"batchId": "batch",
+	"batchId": "872c839d-eb4c-4b96-ab73-54de2f81bbef",
 	"executionId": "id",
-	"assetId": "asset"
+	"assetId": "97c9fb03-e65d-488a-8af4-cb102c96cff1"
 }
 ```
 
-- Fetches the Asset from our dr2-ingest-files DynamoDB table, using the `assetId` and `batchId` passed as input.
-- Queries the Preservation System to find the asset.
-- Use the urls to obtain the Content Objects (COs) belonging to each `representationType` from the API
-- Get the asset's children from DynamoDB where the child's `parentPath` equals the asset's `parentPath` + `/` + asset `id`.
-- Get the bitstream info of the COs from the API using the CO `ref`
-- Iterate through each child, using its checksum to find the CO that has the same checksum (fixity) and file title (reconciliation)
-- If any file couldn't be reconciled, return a `StateOutput` with:
-  - a `wasReconciled` value of `false`
-  - a `reason` with info on the file/files that could not be reconciled
-  - the `assetId`
-  - A `None` value for the `ReconciliationSnsMessage`
-- If all files could be reconciled, get the item that corresponds to the `assetName` from the lock table
-- Get the attribute `message` from the item; this is a JSON object string with the keys :
-  - `messageId`
-  - `parentMessageId` (optional)
-  - `executionId` (optional)
-- Return a `StateOutput` object that contains:
-  - a `wasReconciled` value of `true`
-  - an empty string for the `reason`
-  - the `assetId`
-  - A `Some(ReconciliationSnsMessage)`, containing information such as:
-    - `reconciliationUpdate`
-    - `assetId`
-    - `properties`, containing the values:
-      - `messageId` (a newly generated `messageId`)
-      - `parentMessageId` (the old `messageId`)
-      - `executionId`
-- Writes the `StateOutput` data for the next step function step as JSON with this format:
+1. Fetches the Asset from our dr2-ingest-files DynamoDB table, using the `assetId` and `batchId` passed as input.
+    1. If no asset with the that `assetId` was found then throw an error
+    2. If asset type is not `Asset` then throw an error
+2. Queries the Preservation System to find the asset.
+   1. If more than one entity was returned the throw an error
+3. If no entity was returned from the Preservation System:
+   1. return a `StateOutput` with:
+      1. a `wasReconciled` value of `false`
+      2. a List of `Failures` with the `NoEntityFoundWithSourceId` given as the reason
+      3. the `assetId`
+      4. a `None` value for the IO's ref (since no IO was found)
+      5. otherwise, continue with the steps below
+4. Get the asset's children from DynamoDB where the child's `parentPath` equals the asset's `parentPath` + `/` + asset `id`.
+   1. If the number of children return doesn't match the child count attribute on the Asset, throw an error
+   2. If no children were found then throw an error
+5. Group the children by their representation type (Preservation or Access).
+6. Get the urls of each Content Object (CO) belonging to each `representationType` from the API.
+7. Use the urls to obtain the COs:
+   1. If no COs were returned, return a `StateOutput` with:
+      1. a `wasReconciled` value of `false`
+      2. a List of `Failures` with the `NoContentObjects` given as the reason
+      3. the `assetId`
+      4. the IO's ref
+   2. otherwise, continue with the steps below
+8. Get the bitstream info of the COs from the API using the CO `ref`.
+9. Iterate through each child, using its checksum to find the CO in the DynamoDB table that has the same checksum (fixity)
+   and file title (AKA reconciliation).
+10. If all files could be reconciled, return a `StateOutput` with:
+    1. a `wasReconciled` value of `true`
+    2. an empty List of `Failures`
+    3. the `assetId`
+    4. the IO's ref
+11. If any file couldn't be reconciled, return a `StateOutput` with:
+    1. a `wasReconciled` value of `false`
+    2. a List of `Failures` with the `TitleChecksumMismatch` given as the reason and the children that could not be reconciled
+    3. the `assetId`
+    4. the IO's ref
+12. Writes the `StateOutput` data for the next step function step as JSON with this format:
 
-```json
-{
-	"wasReconciled": false,
-	"reason": ":alert-noflash-slow: Reconciliation Failure - Out of the 2 files expected to be ingested for assetId 'a8163bde-7daa-43a7-9363-644f93fe2f2b' with `representationType` Preservation, a checksum and title could not be matched with a file on Preservica for:\n1. b285c02d-44e3-4939-a856-66252fd7919a\n2. 974081e5-3123-42ea-923d-3999cc160718"
-}
-```
+    ```json
+    {
+        "wasReconciled": false,
+        "failures": [
+          {
+            "failureReason": "TitleChecksumMismatch",
+            "childIds": ["c1ff317e-e83e-4163-9bbb-0101ed959e68", "790eb3bc-b4af-4913-93c0-503328b92b4f"]
+          }
+        ],
+        "assetId": "97c9fb03-e65d-488a-8af4-cb102c96cff1",
+        "ioRef": "f5933c12-05f7-43a0-bbb2-03b1a97b3735"
+    }
+    ```
 
 ## Environment Variables
 
