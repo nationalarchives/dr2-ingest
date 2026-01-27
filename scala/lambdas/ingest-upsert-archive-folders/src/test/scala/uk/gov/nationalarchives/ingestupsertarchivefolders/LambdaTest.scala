@@ -5,7 +5,6 @@ import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers.*
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dp.client.EntityClient.Identifier as PreservicaIdentifier
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.ArchiveFolderDynamoItem
 import uk.gov.nationalarchives.ingestupsertarchivefolders.testUtils.ExternalServicesTestUtils
 
 import java.util.UUID
