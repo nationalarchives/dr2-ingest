@@ -73,6 +73,8 @@ variable "aggregator_primary_grouping_window_seconds" {
   default = 300
 }
 
+
 variable "aggregator_secondary_grouping_window_seconds" {
-  default = 180
+  default     = 180
+  description = "Additional time we wait before starting preingest to allow multiple invocations to form a single group, this is added to the aggregator_lambda_timeout_seconds when we start a group."
 }
