@@ -27,7 +27,6 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       Config,
       Dependencies
   ) => IO[StateOutput] = (input, config, dependencies) =>
-
     def updateSkipIngest(assetDynamoItem: AssetDynamoItem) =
       val skipIngestAttributeValue = AttributeValue.builder().bool(true).build()
       val updateRequest = DADynamoDbRequest(
