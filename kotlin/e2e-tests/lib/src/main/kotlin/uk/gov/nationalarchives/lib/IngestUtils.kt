@@ -206,7 +206,7 @@ class IngestUtils(
                 dynamoDbClient.putItem(request)
             }.join()
         }
-        val sfnInput = jsonCodec.encodeToString(JsonUtils.SFNArguments(groupId, batchId, 0, 0))
+        val sfnInput = jsonCodec.encodeToString(JsonUtils.SFNArguments(groupId, batchId, 0, 2))
         val startExecutionRequest = StartExecutionRequest {
             stateMachineArn = config.getString("preingestSfnArn")
             input = sfnInput
