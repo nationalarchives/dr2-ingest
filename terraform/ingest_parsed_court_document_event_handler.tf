@@ -50,6 +50,7 @@ module "dr2_ingest_parsed_court_document_event_handler_lambda" {
       tre_kms_arn                                          = module.tre_config.terraform_config["prod_s3_court_document_pack_out_kms_arn"]
       tre_bucket_arn                                       = local.tre_terraform_prod_config["s3_court_document_pack_out_arn"]
       dynamo_db_lock_table_arn                             = module.ingest_lock_table.table_arn
+      vpc_id                                               = module.vpc.vpc_id
     })
   }
   memory_size = 1024

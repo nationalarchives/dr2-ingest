@@ -8,7 +8,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${copy_files_queue_arn}",
-      "Sid": "readSqs"
+      "Sid": "readSqs",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -22,7 +27,12 @@
         "arn:aws:s3:::${raw_cache_bucket_name}",
         "arn:aws:s3:::${raw_cache_bucket_name}/*"
       ],
-      "Sid": "readWriteIngestRawCache"
+      "Sid": "readWriteIngestRawCache",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }      
     },
     {
       "Action": [
@@ -34,7 +44,12 @@
         "${bucket_arn}",
         "${bucket_arn}/*"
       ],
-      "Sid": "readFromTREBucket"
+      "Sid": "readFromTREBucket",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }      
     },
     {
       "Action": [
@@ -42,7 +57,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${aggregator_queue_arn}",
-      "Sid": "sendSqsMessage"
+      "Sid": "sendSqsMessage",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }      
     },
     {
       "Action": [

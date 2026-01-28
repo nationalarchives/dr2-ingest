@@ -7,7 +7,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${custodial_copy_checker_queue_arn}",
-      "Sid": "readWriteSqs"
+      "Sid": "readWriteSqs",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -22,7 +27,12 @@
         "${postingest_state_arn}",
         "${postingest_state_arn}/index/${gsi_name}"
       ],
-      "Sid": "readUpdateDynamoPostIngestTable"
+      "Sid": "readUpdateDynamoPostIngestTable",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [

@@ -108,6 +108,7 @@ module "dr2_preingest_package_builder_lambda" {
       dynamo_db_lock_table_arn = var.ingest_lock_table_arn
       gsi_name                 = var.ingest_lock_table_group_id_gsi_name
       raw_cache_bucket_name    = var.ingest_raw_cache_bucket_name
+      vpc_id                   = var.vpc_id
     })
   }
   memory_size = local.java_lambda_memory_size

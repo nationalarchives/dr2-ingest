@@ -15,6 +15,7 @@ module "dr2_ingest_asset_reconciler_lambda" {
       gsi_name                   = local.files_table_batch_parent_global_secondary_index_name
       dynamo_db_lock_table_arn   = module.ingest_lock_table.table_arn
       secrets_manager_secret_arn = aws_secretsmanager_secret.preservica_read_metadata.arn
+      vpc_id                     = module.vpc.vpc_id
     })
   }
   memory_size = local.java_lambda_memory_size

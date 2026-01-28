@@ -11,13 +11,23 @@
         "${dynamo_db_file_table_arn}",
         "${dynamo_db_file_table_arn}/index/${gsi_name}"
       ],
-      "Sid": "getAndQueryDynamoDB"
+      "Sid": "getAndQueryDynamoDB",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": "sns:Publish",
       "Effect": "Allow",
       "Resource": "${sns_arn}",
-      "Sid": "publishSNS"
+      "Sid": "publishSNS",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [

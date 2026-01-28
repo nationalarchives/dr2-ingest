@@ -12,6 +12,7 @@ module "dr2_ingest_parent_folder_opex_creator_lambda" {
       account_id                  = data.aws_caller_identity.current.account_id
       lambda_name                 = local.ingest_parent_folder_opex_creator_lambda_name
       copy_to_preservica_role_arn = module.copy_tna_to_preservica_role.role_arn
+      vpc_id                      = module.vpc.vpc_id
     })
   }
   memory_size = local.java_lambda_memory_size

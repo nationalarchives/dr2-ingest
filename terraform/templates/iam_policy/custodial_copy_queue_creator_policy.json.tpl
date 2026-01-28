@@ -4,7 +4,12 @@
       "Action": "secretsmanager:GetSecretValue",
       "Effect": "Allow",
       "Resource": "${secrets_manager_secret_arn}",
-      "Sid": "readSecretsManager"
+      "Sid": "readSecretsManager",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -12,7 +17,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${custodial_copy_fifo_queue}",
-      "Sid": "sendSqsMessage"
+      "Sid": "sendSqsMessage",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -22,7 +32,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${queue_creator_input_queue}",
-      "Sid": "deleteSqsMessage"
+      "Sid": "deleteSqsMessage",
+      "Condition":  {
+        "StringEquals": {
+          "aws:sourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
