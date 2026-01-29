@@ -1,0 +1,51 @@
+name: Check terraform drift
+on:
+  schedule:
+    - cron: 0 0 * * *
+permissions:
+  id-token: write
+jobs:
+  terraform_plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: 'release-prod'
+          submodules: recursive
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.PROD_ACCOUNT }}:role/ProdTerraformRole
+          aws-region: eu-west-2
+          role-session-name: TerraformCheckDrift
+      - run: pip install boto3
+      - name: run_plan
+        working-directory: terraform
+        run: |
+          terraform init
+          terraform workspace select prod
+          terraform plan -detailed-exitcode || echo $? > exit-code
+      - id: detect_changes
+        run: |
+          EXITCODE=$(cat exit-code || echo 0)
+          if [ "$EXITCODE" = "2" ]; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+          elif [ "$EXITCODE" != "0" ]; then
+            echo "error=true" >> $GITHUB_OUTPUT
+          fi
+        working-directory: terraform
+      - if: steps.detect_changes.outputs.changes == 'true'
+        run: python .github/scripts/send_message.py
+        env:
+          MESSAGE: ":alert-noflash-slow: Changes have been detected in production. View <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|the workflow for more details>"
+      - if: steps.detect_changes.outputs.error == 'true'
+        run: python .github/scripts/send_message.py
+        env:
+          MESSAGE: ":alert-noflash-slow: Terraform plan has failed in production. View <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|the workflow for more details>"
+      - if: failure()
+        run: python .github/scripts/send_message.py
+        env:
+          MESSAGE: ":alert-noflash-slow: Terraform drift detection has failed. View <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|the workflow for more details>"
