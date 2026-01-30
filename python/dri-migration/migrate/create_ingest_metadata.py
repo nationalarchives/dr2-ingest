@@ -1,5 +1,6 @@
 import hashlib
 import io
+import itertools
 import json
 import os
 import re
@@ -61,17 +62,12 @@ def group_assets(assets_list):
 
 
 def process_redacted(assets_to_process):
-    grouped_assets = group_assets(assets_to_process)
-    for asset_uuid, assets_for_uuid in grouped_assets.items():
-        if len(assets_for_uuid) > 1:
-            for redacted_asset in assets_for_uuid:
-                if redacted_asset['type_ref'] == 100:
-                    file_reference = redacted_asset['metadata']['FileReference']
-                    rel_ref = redacted_asset['rel_ref']
-                    redacted_asset['metadata']['UUID'] = str(uuid.uuid4())
-                    redacted_asset['metadata']['FileReference'] = f"{file_reference}/{rel_ref - 1}"
-    return [asset for assets_for_uuid in grouped_assets.values() for asset in assets_for_uuid]
-
+    for asset in assets_to_process:
+        if asset['type_ref'] == 100:
+            file_reference = asset['metadata']['FileReference']
+            rel_ref = asset['rel_ref']
+            asset['metadata'].update({'FileReference': f"{file_reference}/{rel_ref - 1}"})
+    return assets_to_process
 
 def migrate():
     account_number = os.environ["ACCOUNT_NUMBER"]
@@ -157,9 +153,9 @@ def migrate():
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
         s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")
         all_sqs_messages.append(json.dumps({'assetId': asset_uuid, 'bucket': bucket}))
-
-    for sqs_message in all_sqs_messages:
-        sqs_client.send_message(QueueUrl=queue_url, MessageBody=sqs_message)
+    for batch in itertools.batched(all_sqs_messages, 10):
+        entries = [{'MessageBody': x} for x in batch]
+        sqs_client.send_message_batch(Entries=entries)
 
 
 
