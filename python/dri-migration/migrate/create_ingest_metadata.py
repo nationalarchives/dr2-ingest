@@ -155,7 +155,7 @@ def migrate():
         all_sqs_messages.append(json.dumps({'assetId': asset_uuid, 'bucket': bucket}))
     for batch in itertools.batched(all_sqs_messages, 10):
         entries = [{'MessageBody': x} for x in batch]
-        sqs_client.send_message_batch(Entries=entries)
+        sqs_client.send_message_batch(QueueUrl=queue_url, Entries=entries)
 
 
 

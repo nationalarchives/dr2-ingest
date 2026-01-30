@@ -68,7 +68,7 @@ class TestMigrate(unittest.TestCase):
 
         mock_s3.upload_file.assert_has_calls(calls)
         s3_args = mock_s3.upload_fileobj.call_args_list
-        sqs_args = mock_sqs.send_message.call_args_list
+        sqs_args = mock_sqs.send_message_batch.call_args_list
 
         for idx, s3_arg in enumerate(s3_args):
             bytes_request, bucket, object_key = s3_arg[0]
@@ -85,9 +85,10 @@ class TestMigrate(unittest.TestCase):
             self.assertEqual(bucket, "testenv-dr2-ingest-raw-cache")
             self.assertEqual(object_key, f"{metadata_uuid}.metadata")
 
-            self.assertEqual(sqs_args[idx][1]["QueueUrl"],
+            self.assertEqual(sqs_args[0][1]["QueueUrl"],
                              "https://sqs.eu-west-2.amazonaws.com/123456789/testenv-dr2-preingest-dri-importer")
-            sent_body = json.loads(sqs_args[idx][1]["MessageBody"])
+            sent_entries = [json.loads(x['MessageBody']) for x in sqs_args[0][1]["Entries"]]
+            sent_body = sent_entries[idx]
             self.assertEqual(sent_body["assetId"], rows[idx][1])
             self.assertEqual(sent_body["bucket"], "testenv-dr2-ingest-raw-cache")
 
@@ -175,7 +176,7 @@ class TestMigrate(unittest.TestCase):
 
     def test_redacted_processing(self):
         metadata_redacted_one = {'UUID': '72918742-af2e-4007-b630-0785c94a7526', 'FileReference': 'ABC/Z'}
-        metadata_redacted_two = {'UUID': '72918742-af2e-4007-b630-0785c94a7526', 'FileReference': 'ABC/Z'}
+        metadata_redacted_two = {'UUID': '059a3c12-812d-45ce-afa0-d3adffb9c8b7', 'FileReference': 'ABC/Z'}
         metadata_standard = {'UUID': '00117826-c0b7-4485-b16f-6c996f0e331c', 'FileReference': 'DEF/Z'}
         assets = [
             {'type_ref': 100, 'rel_ref': 2, 'metadata': metadata_redacted_one},
@@ -189,6 +190,7 @@ class TestMigrate(unittest.TestCase):
 
         self.assertEqual(len(processed_assets), 3)
         self.assertEqual(count('UUID', '72918742-af2e-4007-b630-0785c94a7526'), 1)
+        self.assertEqual(count('UUID', '059a3c12-812d-45ce-afa0-d3adffb9c8b7'), 1)
         self.assertEqual(count('UUID', '00117826-c0b7-4485-b16f-6c996f0e331c'), 1)
         self.assertEqual(count('FileReference', 'ABC/Z'), 1)
         self.assertEqual(count('FileReference', 'ABC/Z/1'), 1)
