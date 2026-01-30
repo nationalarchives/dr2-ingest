@@ -17,7 +17,12 @@
       "Action": "secretsmanager:GetSecretValue",
       "Effect": "Allow",
       "Resource": "${secrets_manager_secret_arn}",
-      "Sid": "readSecretsManager"
+      "Sid": "readSecretsManager",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     }
   ],
   "Version": "2012-10-17"

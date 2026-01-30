@@ -9,7 +9,12 @@
       ],
       "Effect": "Allow",
       "Resource": ${secrets_manager_secret_arns},
-      "Sid": "readSecretsManager"
+      "Sid": "readSecretsManager",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }       
     },
     {
       "Action": [

@@ -17,7 +17,7 @@ module "dr2_ingest_asset_opex_creator_lambda" {
       dynamo_db_file_table_arn    = module.files_table.table_arn
       gsi_name                    = local.files_table_batch_parent_global_secondary_index_name
       copy_to_preservica_role_arn = module.copy_tna_to_preservica_role.role_arn
-
+      vpc_id                      = module.vpc.vpc_id
     })
   }
   memory_size = local.java_lambda_memory_size
