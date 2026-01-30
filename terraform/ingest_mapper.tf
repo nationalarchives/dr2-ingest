@@ -15,6 +15,7 @@ module "dr2_ingest_mapper_lambda" {
       lambda_name              = local.ingest_mapper_lambda_name
       dynamo_db_file_table_arn = module.files_table.table_arn
       vpc_id                   = module.vpc.vpc_id
+      vpc_arn                  = module.vpc.vpc_arn
     })
   }
   memory_size = local.java_lambda_memory_size

@@ -7,7 +7,7 @@
       "Sid": "assumeCopyToPreservicaRole",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }      
     },
@@ -24,7 +24,7 @@
       "Sid": "getAndQueryDynamoDB",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }      
     },

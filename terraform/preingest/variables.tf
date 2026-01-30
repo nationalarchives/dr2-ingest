@@ -80,3 +80,5 @@ variable "aggregator_secondary_grouping_window_seconds" {
 }
 
 variable "vpc_id" {}
+
+variable "vpc_arn" {}

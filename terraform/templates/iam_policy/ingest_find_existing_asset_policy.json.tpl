@@ -12,7 +12,7 @@
       "Sid": "getAndUpdateDynamoDB",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     },
@@ -23,7 +23,7 @@
       "Sid": "readSecretsManager",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     },

@@ -9,7 +9,7 @@
       "Sid": "writeDynamoDB",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     },
@@ -24,8 +24,8 @@
       ],
       "Sid": "readIngestRawCache",
       "Condition":  {
-        "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+        "ArnEquals": {
+          "aws:SourceVpcArn": "${vpc_arn}"
         }
       }
     },
@@ -40,8 +40,8 @@
       ],
       "Sid": "writeIngestState",
       "Condition":  {
-        "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+        "ArnEquals": {
+          "aws:SourceVpcArn": "${vpc_arn}"
         }
       }
     },

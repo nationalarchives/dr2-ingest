@@ -23,6 +23,7 @@ module "dr2_importer_lambda" {
       account_id            = data.aws_caller_identity.current.account_id
       lambda_name           = local.importer_name
       vpc_id                = var.vpc_id
+      vpc_arn               = var.vpc_arn
       }) : templatefile("${path.module}/templates/copy_files_with_kms_policy.json.tpl", {
       copy_files_queue_arn  = local.importer_queue_arn
       raw_cache_bucket_name = var.ingest_raw_cache_bucket_name

@@ -13,7 +13,7 @@
       "Sid": "getAndQueryDynamoDB",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     },
@@ -30,8 +30,8 @@
       ],
       "Sid": "readWriteIngestRawCache",
       "Condition":  {
-        "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+        "ArnEquals": {
+          "aws:SourceVpcArn": "${vpc_arn}"
         }
       }
     },

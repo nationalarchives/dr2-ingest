@@ -19,7 +19,7 @@
       "Sid": "readSqs",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }      
     },
@@ -38,7 +38,7 @@
       "Sid": "readWriteIngestRawCache",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }      
     },
@@ -55,7 +55,7 @@
       "Sid": "readFromTREBucket",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }      
     },
@@ -68,7 +68,7 @@
       "Sid": "sendSqsMessage",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }      
     },

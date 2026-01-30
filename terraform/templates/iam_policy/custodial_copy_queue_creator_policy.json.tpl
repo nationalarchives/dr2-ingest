@@ -7,7 +7,7 @@
       "Sid": "readSecretsManager",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     },
@@ -20,7 +20,7 @@
       "Sid": "sendSqsMessage",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     },
@@ -35,7 +35,7 @@
       "Sid": "deleteSqsMessage",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     },

@@ -7,7 +7,7 @@
       "Sid": "putEventbridgeEvents",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     },
@@ -18,7 +18,7 @@
       "Sid": "getDynamoDB",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     },
@@ -29,7 +29,7 @@
       "Sid": "readSecretsManager",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     },
@@ -47,7 +47,7 @@
       "Sid": "readWriteLogs",
       "Condition":  {
         "StringEquals": {
-          "aws:sourceVpc": "${vpc_id}"
+          "aws:SourceVpc": "${vpc_id}"
         }
       }
     }
