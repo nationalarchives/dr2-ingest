@@ -40,7 +40,7 @@ jobs:
       - if: steps.detect_changes.outputs.changes == 'true'
         run: python .github/scripts/send_message.py
         env:
-          MESSAGE: ":alert-noflash-slow: Changes have been detected in production. View <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|the workflow for more details>"
+          MESSAGE: ":alert-noflash-slow: New changes not captured by terraform have been detected in Production. View <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|the workflow for more details>"
       - if: steps.detect_changes.outputs.error == 'true'
         run: python .github/scripts/send_message.py
         env:
