@@ -17,7 +17,7 @@ FIRSTPUID AS (
 SELECT
     REPLACE(REGEXP_SUBSTR(du.CATALOGUEREFERENCE, '^([A-Z]{1,}\/[0-9]{1,}|HGD[0-9]{1,}_FX)'), '/', ' ') series,
     df.FILEREF AS FILEID,
-    du.DELIVERABLEUNITREF AS UUID,
+    dum.MANIFESTATIONREF AS UUID,
     TO_CLOB(REGEXP_SUBSTR(x.XMLCLOB, '<dcterms:description xmlns:dcterms="http://purl.org/dc/terms/" rdf:datatype="xs:string">(.*?)</dcterms:description>', 1, 1, NULL, 1)) AS DESC1,
     TO_CLOB(REGEXP_SUBSTR(x.XMLCLOB, '<dc:description xmlns:dc="http://purl.org/dc/terms/" rdf:datatype="xs:string">(.*?)</dc:description>', 1, 1, NULL, 1)) AS DESC2,
     a.DATE_ transferInitiatedDateTime,
@@ -59,5 +59,4 @@ LEFT JOIN DELIVERABLEUNIT du ON
 LEFT JOIN DELIVERABLEUNIT duParent ON
     duParent.DELIVERABLEUNITREF = du.TOPLEVELREF
     LEFT JOIN FIRSTPUID fp ON fp.FILEREF = df.FILEREF
-    WHERE du.CATALOGUEREFERENCE LIKE 'MH/12/%'
-    AND du.DELIVERABLEUNITREF NOT IN ('f1fce216-dd8e-4b1e-81f2-2cdbee1da12d','e995247a-2e04-4063-98b0-982a29fbf904')
+    WHERE du.CATALOGUEREFERENCE LIKE 'GTI/2%'
