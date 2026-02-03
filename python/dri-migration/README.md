@@ -88,5 +88,6 @@ WHERE du.CATALOGUEREFERENCE LIKE 'TEST/123%'
    - Get the file metadata from the database.
    - Get the skeleton file from DROID.
    - Generate checksums for the skeleton file for each original algorithm in Preservica.
+   - If the file is a redacted version (with a `type_ref` of 100), append `rel_ref - 1` to the `FileReference field.
    - Write the metadata and skeleton file to S3 in a JSON format suitable for the package builder lambda.
    - Send an SQS message to the <env>-dr2-preingest-dri-importer queue to trigger the copy lambda.
