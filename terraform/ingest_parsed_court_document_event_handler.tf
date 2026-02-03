@@ -1,5 +1,4 @@
 locals {
-  ingest_parsed_court_document_event_handler_queue_name       = "${local.environment}-dr2-ingest-parsed-court-document-event-handler"
   ingest_parsed_court_document_event_handler_test_bucket_name = "${local.environment}-dr2-ingest-parsed-court-document-test-input"
   ingest_parsed_court_document_event_handler_lambda_name      = "${local.environment}-dr2-ingest-parsed-court-document-event-handler"
   tre_prod_event_bus                                          = local.tre_terraform_prod_config["da_eventbus"]
