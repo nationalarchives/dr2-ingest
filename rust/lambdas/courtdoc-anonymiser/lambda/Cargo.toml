@@ -8,7 +8,7 @@ anonymiser_lib = {path = "../anonymiser_lib", version = "0.1.0"}
 anyhow = "1.0.100"
 aws-config = "1.8.12"
 aws_lambda_events = { version = "1.0.3", default-features = false, features = ["sqs"] }
-aws-sdk-s3 = "1.120.0"
+aws-sdk-s3 = "1.121.0"
 aws-sdk-sqs = "1.92.0"
 lambda_runtime = "1.0.2"
 serde_json = "1.0.149"
