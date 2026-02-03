@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 anonymiser_lib = {path = "../anonymiser_lib" }
-clap = { version = "4.5.54", features = ["derive"] }
+clap = { version = "4.5.56", features = ["derive"] }
 log = "0.4.29"
 simple_logger = "5.1.0"
 shellexpand = "3.1.1"
