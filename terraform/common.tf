@@ -62,7 +62,6 @@ locals {
     local.ingest_folder_opex_creator_lambda_name,
     local.ingest_mapper_lambda_name,
     local.ingest_parent_folder_opex_creator_lambda_name,
-    local.ingest_parsed_court_document_event_handler_lambda_name,
     local.ingest_queue_creator_name,
     local.ingest_start_workflow_lambda_name,
     local.ingest_upsert_archive_folders_lambda_name,
