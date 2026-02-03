@@ -37,7 +37,7 @@ def get_former_references(identifier):
 
         return RecordDetails(former_ref_dept, former_ref_tna)
     else:
-        raise Exception(f"Unable to get title or description. Received: {response.status_code}, {response.text}")
+        raise Exception(f"Unable to get former reference. Received: {response.status_code}, {response.text}")
 
 def get_title_and_description(citable_reference):
     response = get_response_from_operation(REC_COLLECTION_OPERATION, citable_reference)
@@ -47,10 +47,11 @@ def get_title_and_description(citable_reference):
         if not assets:
             return CollectionInfo("", None, None)
         first_asset = assets[0]
-        # description includes HTML tags that we need to strip
+        # description and title includes HTML tags that we need to strip
         description_html = first_asset.get("scopeContent").get("description")
         description = BeautifulSoup(description_html, "html.parser").get_text()
-        title = first_asset.get("title")
+        title_html = first_asset.get("title")
+        title = BeautifulSoup(title_html, "html.parser").get_text()
         identifier = first_asset.get("id")
         return CollectionInfo(identifier, title, description)
     else:
