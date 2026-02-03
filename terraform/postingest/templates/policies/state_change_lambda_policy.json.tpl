@@ -22,12 +22,7 @@
         "dynamodb:DescribeStream",
         "dynamodb:ListStreams"
       ],
-      "Resource": "${dynamo_db_postingest_stream_arn}",
-      "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
-        }
-      }
+      "Resource": "${dynamo_db_postingest_stream_arn}"
     },
     {
       "Action": [
