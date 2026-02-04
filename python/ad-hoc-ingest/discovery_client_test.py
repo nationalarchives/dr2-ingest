@@ -29,7 +29,7 @@ class Test(TestCase):
         self.assertEqual("This title uses 1 hex encoded value", collection_info.title)
 
     @patch("requests.get")
-    def test_should_return_empty_title_description_when_assets_cannot_be_found(self, mock_request):
+    def test_should_return_empty_title_and_description_when_assets_cannot_be_found(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"no_assets": [{"scopeContent": {"description": "<scopecontent><p><br>Some long description for testing.</p></scopecontent>", "placeNames": []},"title": "some_title"}]}

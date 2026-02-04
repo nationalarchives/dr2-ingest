@@ -49,9 +49,9 @@ def get_title_and_description(citable_reference):
         first_asset = assets[0]
         # description and title includes HTML tags that we need to strip
         description_html = first_asset.get("scopeContent").get("description")
-        description = (BeautifulSoup(description_html, "html.parser").get_text() if description_html else None)
+        description = BeautifulSoup(description_html, "html.parser").get_text() if description_html else None
         title_html = first_asset.get("title")
-        title = (BeautifulSoup(title_html, "html.parser").get_text() if title_html else None)
+        title = BeautifulSoup(title_html, "html.parser").get_text() if title_html else None
         identifier = first_asset.get("id")
         return CollectionInfo(identifier, title, description)
     else:
