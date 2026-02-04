@@ -62,7 +62,6 @@ locals {
     local.ingest_folder_opex_creator_lambda_name,
     local.ingest_mapper_lambda_name,
     local.ingest_parent_folder_opex_creator_lambda_name,
-    local.ingest_parsed_court_document_event_handler_lambda_name,
     local.ingest_queue_creator_name,
     local.ingest_start_workflow_lambda_name,
     local.ingest_upsert_archive_folders_lambda_name,
@@ -81,7 +80,7 @@ locals {
     module.ad_hoc_preingest.importer_lambda.function_name
   ], local.environment == "intg" ? [local.court_document_anonymiser_lambda_name] : [])
   queues = [
-    module.dr2_ingest_parsed_court_document_event_handler_sqs,
+    module.court_document_preingest.importer_sqs,
     module.dr2_custodial_copy_queue,
     module.dr2_custodial_copy_queue_creator_queue,
     module.dr2_custodial_copy_db_builder_queue,
@@ -334,7 +333,6 @@ module "dr2_kms_key" {
       module.ingest_find_existing_asset.lambda_role_arn,
       module.ingest_find_existing_asset.lambda_role_arn,
       module.dr2_ingest_validate_generic_ingest_inputs_lambda.lambda_role_arn,
-      module.dr2_ingest_parsed_court_document_event_handler_lambda.lambda_role_arn,
       module.dr2_ingest_mapper_lambda.lambda_role_arn,
       module.dr2_ingest_asset_opex_creator_lambda.lambda_role_arn,
       module.dr2_ingest_folder_opex_creator_lambda.lambda_role_arn,
