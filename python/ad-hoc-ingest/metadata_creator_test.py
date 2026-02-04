@@ -126,7 +126,12 @@ class Test(TestCase):
             self.assertEqual("", metadata["formerRefDept"])
 
 
-    def test_create_metadata_should_create_an_md5_hash_if_checksum_is_missing_from_the_input(self):
+    @patch("discovery_client.get_title_and_description")
+    @patch("discovery_client.get_former_references")
+    def test_create_metadata_should_create_an_md5_hash_if_checksum_is_missing_from_the_input(self, mock_former_references, mock_collection_info):
+        mock_former_references.return_value = RecordDetails(None, "TNA Ref")
+        mock_collection_info.return_value = CollectionInfo("some_id", "Some title", "Some description from discovery")
+
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
