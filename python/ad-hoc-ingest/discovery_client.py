@@ -16,7 +16,7 @@ class RecordDetails:
     formerRefDept: str | None
     formerRefTNA: str | None
 
-BASE_URL = "https://discovery.nationalarchives.gov.uk/API/"
+BASE_URL = "https://discovery.nationalarchives.gov.uk/API"
 REC_COLLECTION_OPERATION = "records/v1/collection/{query}"
 REC_DETAILS_OPERATION = "records/v1/details/{query}"
 
