@@ -21,3 +21,7 @@ output "importer_sqs" {
 output "preingest_sfn_arn" {
   value = module.dr2_preingest_step_function.step_function_arn
 }
+
+output "importer_lambda_role_arn" {
+  value = module.dr2_importer_lambda.lambda_role_arn
+}
