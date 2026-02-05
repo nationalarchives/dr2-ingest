@@ -13,7 +13,7 @@ module "dr2_ingest_failure_notifications_lambda" {
       dynamo_db_file_table_arn = module.ingest_lock_table.table_arn
       gsi_name                 = local.ingest_lock_table_group_id_gsi_name
       sns_arn                  = module.dr2_notifications_sns.sns_arn,
-      vpc_id                   = module.vpc.vpc_id
+      vpc_id                   = module.vpc.vpc.id
     })
   }
   timeout_seconds = local.java_timeout_seconds

@@ -13,7 +13,7 @@ module "dr2_ingest_upsert_archive_folders_lambda" {
       lambda_name                = local.ingest_upsert_archive_folders_lambda_name
       dynamo_db_file_table_arn   = module.files_table.table_arn
       secrets_manager_secret_arn = aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.arn
-      vpc_id                     = module.vpc.vpc_id
+      vpc_id                     = module.vpc.vpc.id
     })
   }
   memory_size = local.java_lambda_memory_size

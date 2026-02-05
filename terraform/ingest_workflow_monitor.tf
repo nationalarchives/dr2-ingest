@@ -12,7 +12,7 @@ module "dr2_ingest_workflow_monitor_lambda" {
       account_id                 = data.aws_caller_identity.current.account_id
       lambda_name                = local.ingest_workflow_monitor_lambda_name
       secrets_manager_secret_arn = aws_secretsmanager_secret.preservica_secret.arn
-      vpc_id                     = module.vpc.vpc_id
+      vpc_id                     = module.vpc.vpc.id
     })
   }
   memory_size = local.java_lambda_memory_size

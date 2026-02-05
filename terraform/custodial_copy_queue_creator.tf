@@ -26,7 +26,7 @@ module "dr2_custodial_copy_queue_creator_lambda" {
       custodial_copy_fifo_queue  = module.dr2_custodial_copy_queue.sqs_arn
       queue_creator_input_queue  = module.dr2_custodial_copy_queue_creator_queue.sqs_arn
       secrets_manager_secret_arn = aws_secretsmanager_secret.preservica_read_metadata.arn
-      vpc_id                     = module.vpc.vpc_id
+      vpc_id                     = module.vpc.vpc.id
     })
   }
   timeout_seconds = 180

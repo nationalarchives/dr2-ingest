@@ -247,7 +247,7 @@ module "outbound_https_access_for_s3" {
   common_tags = {}
   description = "A  security group to allow outbound HTTPS only to S3"
   name        = "${local.environment}-outbound-https-to-s3"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = module.vpc.vpc.id
   rules = {
     egress = [
       {
@@ -265,7 +265,7 @@ module "outbound_https_access_for_dynamo_db" {
   common_tags = {}
   description = "A  security group to allow outbound HTTPS only to DynamoDB"
   name        = "${local.environment}-outbound-https-to-dynamodb"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = module.vpc.vpc.id
   rules = {
     egress = [
       {
@@ -293,7 +293,7 @@ module "outbound_https_to_discovery" {
       },
     ]
   }
-  vpc_id = module.vpc.vpc_id
+  vpc_id = module.vpc.vpc.id
 }
 
 resource "aws_ec2_managed_prefix_list" "cloudflare_prefix_list" {
@@ -313,7 +313,7 @@ module "outbound_cloudflare_https_access" {
   common_tags = {}
   description = "A security group to allow outbound access to Cloudflare IPs only"
   name        = "${local.environment}-outbound-https-to-cloudflare"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = module.vpc.vpc.id
   rules = {
     egress = [{
       port           = 443
@@ -752,7 +752,7 @@ module "interface_endpoints_security_group" {
   common_tags = {}
   description = "A security group for interface type vpc endpoints"
   name        = "${local.environment}-vpc-endpoints"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = module.vpc.vpc.id
   rules = {
     ingress = [
       {
@@ -769,7 +769,7 @@ module "https_to_vpc_endpoints_security_group" {
   common_tags = {}
   description = "A security group for outbound https to vpc endpoints"
   name        = "${local.environment}-outbound-https-to-vpc-endpoints"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = module.vpc.vpc.id
   rules = {
     egress = [
       {

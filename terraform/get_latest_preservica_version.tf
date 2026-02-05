@@ -24,7 +24,7 @@ module "dr2_get_latest_preservica_version_lambda" {
       dynamo_db_file_table_arn   = module.get_latest_preservica_version_lambda_dr2_preservica_version_table.table_arn
       secrets_manager_secret_arn = aws_secretsmanager_secret.demo_preservica_secret.arn
       sns_arn                    = local.latest_preservica_version_event_topic_arn
-      vpc_id                     = module.vpc.vpc_id
+      vpc_id                     = module.vpc.vpc.id
     })
   }
   timeout_seconds = 180

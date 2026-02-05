@@ -23,7 +23,7 @@ module "dr2_entity_event_generator_lambda" {
       dynamo_db_file_table_arn   = module.dr2_entity_event_lambda_updated_since_query_start_datetime_table.table_arn
       secrets_manager_secret_arn = aws_secretsmanager_secret.preservica_read_metadata.arn
       sns_arn                    = local.entity_event_topic_arn
-      vpc_id                     = module.vpc.vpc_id
+      vpc_id                     = module.vpc.vpc.id
     })
   }
   timeout_seconds      = 60

@@ -52,5 +52,5 @@ resource "aws_route53_resolver_firewall_rule_group_association" "vpc_association
   name                   = "vpc-firewall-association"
   priority               = 101
   firewall_rule_group_id = aws_route53_resolver_firewall_rule_group.default.id
-  vpc_id                 = module.vpc.vpc_id
+  vpc_id                 = module.vpc.vpc.id
 }

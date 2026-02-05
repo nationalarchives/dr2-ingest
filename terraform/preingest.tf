@@ -15,7 +15,7 @@ module "tdr_preingest" {
   copy_source_bucket_arn     = "arn:aws:s3:::${local.tdr_export_bucket}"
   private_security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids         = module.vpc.private_subnets
-  vpc_id                     = module.vpc.vpc_id
+  vpc_id                     = module.vpc.vpc.id
   vpc_arn                    = module.vpc.vpc.arn
 }
 
@@ -32,7 +32,7 @@ module "dri_preingest" {
   private_security_group_ids                   = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids                           = module.vpc.private_subnets
   aggregator_secondary_grouping_window_seconds = 1200
-  vpc_id                                       = module.vpc.vpc_id
+  vpc_id                                       = module.vpc.vpc.id
   vpc_arn                                      = module.vpc.vpc.arn
 }
 
@@ -49,7 +49,7 @@ module "ad_hoc_preingest" {
   private_security_group_ids                   = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids                           = module.vpc.private_subnets
   aggregator_secondary_grouping_window_seconds = 900
-  vpc_id                                       = module.vpc.vpc_id
+  vpc_id                                       = module.vpc.vpc.id
   vpc_arn                                      = module.vpc.vpc.arn
 }
 
@@ -80,6 +80,6 @@ module "court_document_preingest" {
   package_builder_lambda = {
     handler = "uk.gov.nationalarchives.preingestcourtdocpackagebuilder.Lambda::handleRequest"
   }
-  vpc_id  = module.vpc.vpc_id
+  vpc_id  = module.vpc.vpc.id
   vpc_arn = module.vpc.vpc.arn
 }

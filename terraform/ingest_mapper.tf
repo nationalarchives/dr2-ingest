@@ -14,7 +14,7 @@ module "dr2_ingest_mapper_lambda" {
       account_id               = data.aws_caller_identity.current.account_id
       lambda_name              = local.ingest_mapper_lambda_name
       dynamo_db_file_table_arn = module.files_table.table_arn
-      vpc_id                   = module.vpc.vpc_id
+      vpc_id                   = module.vpc.vpc.id
       vpc_arn                  = module.vpc.vpc.arn
     })
   }
@@ -34,7 +34,7 @@ module "dr2_ingest_mapper_lambda" {
 }
 
 resource "aws_vpc_endpoint" "discovery" {
-  vpc_id              = module.vpc.vpc_id
+  vpc_id              = module.vpc.vpc.id
   service_name        = "com.amazonaws.vpce.eu-west-2.vpce-svc-030613f5fe9f42a77"
   private_dns_enabled = true
   vpc_endpoint_type   = "Interface"
@@ -47,7 +47,7 @@ module "discovery_inbound_https" {
   common_tags = {}
   description = "A security group to allow inbound access to discovery VPC endpoint from lambda security group"
   name        = "${local.environment}-dr2-discovery-inbound-https"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = module.vpc.vpc.id
   rules = {
     ingress = [{
       port              = 443
