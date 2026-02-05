@@ -10,10 +10,11 @@ class Test(TestCase):
     def test_should_return_title_and_description_as_received_from_discovery(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"assets": [{"scopeContent": {"description": "Some long description for testing.", "placeNames": []},"title": "some_title"}]}
+        mock_response.json.return_value = {"assets": [{"id": "C1234567", "scopeContent": {"description": "Some long description for testing.", "placeNames": []},"title": "some_title"}]}
         mock_request.return_value = mock_response
 
         collection_info = discovery_client.get_title_and_description("AB 1/2")
+        self.assertEqual("C1234567", collection_info.iaid)
         self.assertEqual("Some long description for testing.", collection_info.description)
         self.assertEqual("some_title", collection_info.title)
 
@@ -21,10 +22,11 @@ class Test(TestCase):
     def test_should_return_title_and_description_after_stripping_html_tags_from_response_received_from_discovery(self, mock_request):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"assets": [{"scopeContent": {"description": "<scopecontent><p><list><item>Test Description Number &#49;</item></list></p></scopecontent>", "placeNames": []},"title": "<unittitle>This title uses &#x31; hex encoded value</unittitle>"}]}
+        mock_response.json.return_value = {"assets": [{"id": "C1234567", "scopeContent": {"description": "<scopecontent><p><list><item>Test Description Number &#49;</item></list></p></scopecontent>", "placeNames": []},"title": "<unittitle>This title uses &#x31; hex encoded value</unittitle>"}]}
         mock_request.return_value = mock_response
 
         collection_info = discovery_client.get_title_and_description("AB 1/2")
+        self.assertEqual("C1234567", collection_info.iaid)
         self.assertEqual("Test Description Number 1", collection_info.description)
         self.assertEqual("This title uses 1 hex encoded value", collection_info.title)
 
@@ -52,6 +54,19 @@ class Test(TestCase):
             discovery_client.get_title_and_description("AB 1/2")
 
         self.assertEqual("Unable to get title or description. Received: 404, Not found", str(e.exception))
+
+    @patch("requests.get")
+    def test_should_raise_an_exception_when_asset_does_not_have_iaid(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"assets": [{"scopeContent": {"description": "<scopecontent><p><list><item>Test Description Number &#49;</item></list></p></scopecontent>", "placeNames": []},"title": "<unittitle>This title uses &#x31; hex encoded value</unittitle>"}]}
+        mock_request.return_value = mock_response
+
+        with self.assertRaises(Exception) as e:
+            discovery_client.get_title_and_description("AB 1/2")
+
+        self.assertEqual("Unable to get relevant information. No IAID found in the collection for AB 1/2", str(e.exception))
+
 
     @patch("requests.get")
     def test_should_return_former_references_as_received_from_discovery(self, mock_request):

@@ -52,7 +52,9 @@ def get_title_and_description(citable_reference):
         description = BeautifulSoup(description_html, "html.parser").get_text() if description_html else None
         title_html = first_asset.get("title")
         title = BeautifulSoup(title_html, "html.parser").get_text() if title_html else None
-        identifier = first_asset.get("id")
+        if "id" not in first_asset:
+            raise Exception(f"Unable to get relevant information. No IAID found in the collection for {citable_reference}")
+        identifier = first_asset["id"]
         return CollectionInfo(identifier, title, description)
     else:
         raise Exception(f"Unable to get title or description. Received: {response.status_code}, {response.text}")
