@@ -16,7 +16,7 @@ class RecordDetails:
     formerRefDept: str | None
     formerRefTNA: str | None
 
-BASE_URL = "https://discovery.nationalarchives.gov.uk/API/"
+BASE_URL = "https://discovery.nationalarchives.gov.uk/API"
 REC_COLLECTION_OPERATION = "records/v1/collection/{query}"
 REC_DETAILS_OPERATION = "records/v1/details/{query}"
 
@@ -37,7 +37,7 @@ def get_former_references(identifier):
 
         return RecordDetails(former_ref_dept, former_ref_tna)
     else:
-        raise Exception(f"Unable to get title or description. Received: {response.status_code}, {response.text}")
+        raise Exception(f"Unable to get former reference. Received: {response.status_code}, {response.text}")
 
 def get_title_and_description(citable_reference):
     response = get_response_from_operation(REC_COLLECTION_OPERATION, citable_reference)
@@ -47,11 +47,14 @@ def get_title_and_description(citable_reference):
         if not assets:
             return CollectionInfo("", None, None)
         first_asset = assets[0]
-        # description includes HTML tags that we need to strip
+        # description and title includes HTML tags that we need to strip
         description_html = first_asset.get("scopeContent").get("description")
-        description = BeautifulSoup(description_html, "html.parser").get_text()
-        title = first_asset.get("title")
-        identifier = first_asset.get("id")
+        description = BeautifulSoup(description_html, "html.parser").get_text() if description_html else None
+        title_html = first_asset.get("title")
+        title = BeautifulSoup(title_html, "html.parser").get_text() if title_html else None
+        if "id" not in first_asset:
+            raise Exception(f"Unable to get relevant information. No IAID found in the collection for {citable_reference}")
+        identifier = first_asset["id"]
         return CollectionInfo(identifier, title, description)
     else:
         raise Exception(f"Unable to get title or description. Received: {response.status_code}, {response.text}")
