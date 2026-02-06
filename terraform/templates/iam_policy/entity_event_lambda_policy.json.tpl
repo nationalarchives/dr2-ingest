@@ -7,19 +7,34 @@
       ],
       "Effect": "Allow",
       "Resource": "${dynamo_db_file_table_arn}",
-      "Sid": "readWriteDynamoDB"
+      "Sid": "readWriteDynamoDB",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": "secretsmanager:GetSecretValue",
       "Effect": "Allow",
       "Resource": "${secrets_manager_secret_arn}",
-      "Sid": "readSecretsManager"
+      "Sid": "readSecretsManager",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }      
     },
     {
       "Action": "sns:Publish",
       "Effect": "Allow",
       "Resource": "${sns_arn}",
-      "Sid": "writeSNS"
+      "Sid": "writeSNS",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }      
     },
     {
       "Action": [

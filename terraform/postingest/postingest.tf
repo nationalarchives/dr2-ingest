@@ -109,6 +109,7 @@ module "dr2_state_change_lambda" {
       lambda_name                      = local.state_change_lambda_name
       dynamo_db_postingest_stream_arn  = module.postingest_state_table.stream_arn
       state_change_dlq_arn             = module.dr2_state_change_lambda_dlq.sqs_arn
+      vpc_id                           = var.vpc_id
     })
   }
   memory_size = local.java_lambda_memory_size
@@ -145,6 +146,7 @@ module "dr2_message_resender_lambda" {
       account_id                       = data.aws_caller_identity.current.account_id
       lambda_name                      = local.resender_lambda_name
       gsi_name                         = local.postingest_gsi_lastqueued_name
+      vpc_id                           = var.vpc_id
     })
   }
   lambda_invoke_permissions = {

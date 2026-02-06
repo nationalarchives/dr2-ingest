@@ -6,7 +6,12 @@
       ],
       "Effect": "Allow",
       "Resource": ["${custodial_copy_checker_queue_arn}", "${state_change_dlq_arn}"],
-      "Sid": "readSqs"
+      "Sid": "readSqs",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Sid": "APIAccessForDynamoDBStreams",
@@ -29,13 +34,23 @@
       "Resource": [
         "${dynamo_db_postingest_arn}"
       ],
-      "Sid": "readUpdateDeleteDynamoPostIngestTable"
+      "Sid": "readUpdateDeleteDynamoPostIngestTable",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": "sns:Publish",
       "Effect": "Allow",
       "Resource": "${sns_external_notifications_arn}",
-      "Sid": "writeSNS"
+      "Sid": "writeSNS",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [

@@ -9,13 +9,23 @@
       "Resource": [
         "${dynamo_db_file_table_arn}"
       ],
-      "Sid": "getAndUpdateDynamoDB"
+      "Sid": "getAndUpdateDynamoDB",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": "secretsmanager:GetSecretValue",
       "Effect": "Allow",
       "Resource": "${secrets_manager_secret_arn}",
-      "Sid": "readSecretsManager"
+      "Sid": "readSecretsManager",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [

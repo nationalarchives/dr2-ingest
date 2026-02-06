@@ -6,7 +6,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${dynamo_db_file_table_arn}",
-      "Sid": "writeDynamoDB"
+      "Sid": "writeDynamoDB",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -17,7 +22,12 @@
         "arn:aws:s3:::${raw_cache_bucket_name}",
         "arn:aws:s3:::${raw_cache_bucket_name}/*"
       ],
-      "Sid": "readIngestRawCache"
+      "Sid": "readIngestRawCache",
+      "Condition":  {
+        "ArnEquals": {
+          "aws:SourceVpcArn": "${vpc_arn}"
+        }
+      }
     },
     {
       "Action": [
@@ -28,7 +38,12 @@
         "arn:aws:s3:::${ingest_state_bucket_name}",
         "arn:aws:s3:::${ingest_state_bucket_name}/*"
       ],
-      "Sid": "writeIngestState"
+      "Sid": "writeIngestState",
+      "Condition":  {
+        "ArnEquals": {
+          "aws:SourceVpcArn": "${vpc_arn}"
+        }
+      }
     },
     {
       "Action": [
