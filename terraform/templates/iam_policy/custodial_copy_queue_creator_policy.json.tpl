@@ -32,12 +32,7 @@
       ],
       "Effect": "Allow",
       "Resource": "${queue_creator_input_queue}",
-      "Sid": "deleteSqsMessage",
-      "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
-        }
-      }
+      "Sid": "deleteSqsMessage"
     },
     {
       "Action": [

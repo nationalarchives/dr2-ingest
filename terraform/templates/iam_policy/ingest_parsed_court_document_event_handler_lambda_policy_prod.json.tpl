@@ -21,12 +21,7 @@
       ],
       "Effect": "Allow",
       "Resource": "${ingest_parsed_court_document_event_handler_queue_arn}",
-      "Sid": "readSqs",
-      "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
-        }
-      }      
+      "Sid": "readSqs"
     },
     {
       "Action": [

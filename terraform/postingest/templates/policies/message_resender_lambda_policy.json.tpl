@@ -2,17 +2,24 @@
   "Statement": [
     {
       "Action": [
-        "sqs:SendMessage",
-        "sqs:GetQueueAttributes"
+        "sqs:SendMessage"
       ],
       "Effect": "Allow",
       "Resource": "${custodial_copy_checker_queue_arn}",
-      "Sid": "readWriteSqs",
+      "Sid": "writeSqs",
       "Condition":  {
         "StringEquals": {
           "aws:SourceVpc": "${vpc_id}"
         }
-      }
+      }      
+    },
+    {
+      "Action": [
+        "sqs:GetQueueAttributes"
+      ],
+      "Effect": "Allow",
+      "Resource": "${custodial_copy_checker_queue_arn}",
+      "Sid": "readSqs"
     },
     {
       "Action": [

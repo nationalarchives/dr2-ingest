@@ -8,12 +8,7 @@
       ],
       "Effect": "Allow",
       "Resource": "${copy_files_queue_arn}",
-      "Sid": "readSqs",
-      "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
-        }
-      }
+      "Sid": "readSqs"
     },
     {
       "Action": [
