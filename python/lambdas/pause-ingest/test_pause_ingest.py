@@ -252,8 +252,3 @@ def test_pause_and_unpause_should_result_in_put_parameter_called_with_formatted_
       ]
     }""")
     assert ssm_mock.put_parameter.call_args_list[1] == call(Name="/test/flow-control-config", Value=expected_json_string, Overwrite=True)
-    # args, kwargs = unpause_invocation
-    #
-    # config_json_str = kwargs["Value"]
-    #
-    # assert "\n  " in config_json_str
