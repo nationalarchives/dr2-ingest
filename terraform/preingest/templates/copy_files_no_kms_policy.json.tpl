@@ -52,12 +52,7 @@
       ],
       "Effect": "Allow",
       "Resource": "${aggregator_queue_arn}",
-      "Sid": "sendSqsMessage",
-      "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
-        }
-      }      
+      "Sid": "sendSqsMessage"
     },
     {
       "Action": [

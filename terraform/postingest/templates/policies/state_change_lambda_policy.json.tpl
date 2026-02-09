@@ -6,12 +6,7 @@
       ],
       "Effect": "Allow",
       "Resource": ["${custodial_copy_checker_queue_arn}", "${state_change_dlq_arn}"],
-      "Sid": "readSqs",
-      "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
-        }
-      }
+      "Sid": "readSqs"
     },
     {
       "Sid": "APIAccessForDynamoDBStreams",

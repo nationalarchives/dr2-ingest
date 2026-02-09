@@ -17,12 +17,7 @@
       ],
       "Effect": "Allow",
       "Resource": "${custodial_copy_fifo_queue}",
-      "Sid": "sendSqsMessage",
-      "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
-        }
-      }
+      "Sid": "sendSqsMessage"
     },
     {
       "Action": [

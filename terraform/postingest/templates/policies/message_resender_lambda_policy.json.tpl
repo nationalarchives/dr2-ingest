@@ -6,12 +6,7 @@
       ],
       "Effect": "Allow",
       "Resource": "${custodial_copy_checker_queue_arn}",
-      "Sid": "writeSqs",
-      "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
-        }
-      }      
+      "Sid": "writeSqs"
     },
     {
       "Action": [
