@@ -22,7 +22,12 @@
         "arn:aws:s3:::${raw_cache_bucket_name}",
         "arn:aws:s3:::${raw_cache_bucket_name}/*"
       ],
-      "Sid": "readWriteIngestRawCache"
+      "Sid": "readWriteIngestRawCache",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }      
     },
     {
       "Action": [
@@ -34,7 +39,12 @@
         "${bucket_arn}",
         "${bucket_arn}/*"
       ],
-      "Sid": "readFromTREBucket"
+      "Sid": "readFromTREBucket",
+      "Condition":  {
+        "ArnEquals": {
+          "aws:SourceVpcArn": "${vpc_arn}"
+        }
+      }      
     },
     {
       "Action": [
