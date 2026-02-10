@@ -70,6 +70,9 @@ class TestMigrate(unittest.TestCase):
         s3_args = mock_s3.upload_fileobj.call_args_list
         sqs_args = mock_sqs.send_message_batch.call_args_list
 
+        sent_ids = [x['Id'] for x in sqs_args[0][1]["Entries"]]
+        self.assertEqual(len(set(sent_ids)), 2)
+
         for idx, s3_arg in enumerate(s3_args):
             bytes_request, bucket, object_key = s3_arg[0]
             metadata_bytes = bytes_request.getvalue()
