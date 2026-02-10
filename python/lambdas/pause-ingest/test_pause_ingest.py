@@ -78,6 +78,41 @@ def test_pause_ingest(env, boto3_mocks):
     value = json.loads(kwargs['Value'])
     assert not value['enabled']
 
+def test_pause_and_resume_should_result_in_put_parameter_called_with_formatted_flow_control_config(env, boto3_mocks):
+    eventbridge_mock, lambda_mock, ssm_mock = boto3_mocks
+    setup_ssm(ssm_mock, True)
+
+    event = {'pause': True}
+    pause_ingest.lambda_handler(event, None)
+
+    event = {'pause': False}
+    pause_ingest.lambda_handler(event, None)
+
+    assert ssm_mock.put_parameter.call_count == 2
+    expected_json_string = textwrap.dedent("""\
+    {
+      "maxConcurrency": 5,
+      "enabled": true,
+      "sourceSystems": [
+        {
+          "systemName": "SYS_ONE",
+          "reservedChannels": 2,
+          "probability": 50
+        },
+        {
+          "systemName": "SYS_TWO",
+          "reservedChannels": 2,
+          "probability": 30
+        },
+        {
+          "systemName": "DEFAULT",
+          "reservedChannels": 0,
+          "probability": 20
+        }
+      ]
+    }""")
+    assert ssm_mock.put_parameter.call_args_list[1] == call(Name="/test/flow-control-config", Value=expected_json_string, Overwrite=True)
+
 def test_resume_ingest(env, boto3_mocks):
     eventbridge_mock, lambda_mock, ssm_mock = boto3_mocks
 
@@ -218,37 +253,3 @@ def test_ssm_error(env, boto3_mocks):
     with pytest.raises(Exception, match="SSM error"):
         pause_ingest.lambda_handler(event, None)
 
-def test_pause_and_unpause_should_result_in_put_parameter_called_with_formatted_flow_control_config(env, boto3_mocks):
-    eventbridge_mock, lambda_mock, ssm_mock = boto3_mocks
-    setup_ssm(ssm_mock, True)
-
-    event = {'pause': True}
-    pause_ingest.lambda_handler(event, None)
-
-    event = {'pause': False}
-    pause_ingest.lambda_handler(event, None)
-
-    assert ssm_mock.put_parameter.call_count == 2
-    expected_json_string = textwrap.dedent("""\
-    {
-      "maxConcurrency": 5,
-      "enabled": true,
-      "sourceSystems": [
-        {
-          "systemName": "SYS_ONE",
-          "reservedChannels": 2,
-          "probability": 50
-        },
-        {
-          "systemName": "SYS_TWO",
-          "reservedChannels": 2,
-          "probability": 30
-        },
-        {
-          "systemName": "DEFAULT",
-          "reservedChannels": 0,
-          "probability": 20
-        }
-      ]
-    }""")
-    assert ssm_mock.put_parameter.call_args_list[1] == call(Name="/test/flow-control-config", Value=expected_json_string, Overwrite=True)
