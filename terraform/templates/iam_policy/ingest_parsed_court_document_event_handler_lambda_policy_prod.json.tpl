@@ -6,7 +6,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${step_function_arn}",
-      "Sid": "startSfnExecution"
+      "Sid": "startSfnExecution",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -29,7 +34,12 @@
         "arn:aws:s3:::${bucket_name}",
         "arn:aws:s3:::${bucket_name}/*"
       ],
-      "Sid": "readWriteIngestRawCache"
+      "Sid": "readWriteIngestRawCache",
+      "Condition":  {
+        "ArnEquals": {
+          "aws:SourceVpcArn": "${vpc_arn}"
+        }
+      }
     },
     {
       "Action": [
@@ -37,7 +47,12 @@
       ],
       "Effect": "Allow",
       "Resource": "${dynamo_db_lock_table_arn}",
-      "Sid": "writeDynamoDB"
+      "Sid": "writeDynamoDB",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -62,7 +77,12 @@
         "${tre_bucket_arn}",
         "${tre_bucket_arn}/*"
       ],
-      "Sid": "readFromTREBucket"
+      "Sid": "readFromTREBucket",
+      "Condition":  {
+        "ArnEquals": {
+          "aws:SourceVpcArn": "${vpc_arn}"
+        }
+      }
     },
     {
       "Action": [

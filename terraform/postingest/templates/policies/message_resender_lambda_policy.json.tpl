@@ -22,7 +22,12 @@
         "${postingest_state_arn}",
         "${postingest_state_arn}/index/${gsi_name}"
       ],
-      "Sid": "readUpdateDynamoPostIngestTable"
+      "Sid": "readUpdateDynamoPostIngestTable",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [

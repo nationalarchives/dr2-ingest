@@ -9,3 +9,5 @@ variable "private_security_group_ids" {
 variable "private_subnet_ids" {
   default = []
 }
+
+variable "vpc_id" {}

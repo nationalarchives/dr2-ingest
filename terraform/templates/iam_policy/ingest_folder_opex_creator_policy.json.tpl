@@ -4,7 +4,12 @@
       "Action" : "sts:AssumeRole",
       "Effect": "Allow",
       "Resource": "${copy_to_preservica_role_arn}",
-      "Sid": "assumeCopyToPreservicaRole"
+      "Sid": "assumeCopyToPreservicaRole",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -16,7 +21,12 @@
         "${dynamo_db_file_table_arn}",
         "${dynamo_db_file_table_arn}/index/${gsi_name}"
       ],
-      "Sid": "getAndQueryDynamoDB"
+      "Sid": "getAndQueryDynamoDB",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
