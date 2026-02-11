@@ -67,7 +67,7 @@ module "court_document_preingest" {
   } : null
   source_name                = "courtdoc"
   bucket_kms_arn             = module.tre_config.terraform_config["prod_s3_court_document_pack_out_kms_arn"]
-  copy_source_bucket_arn     = local.environment == "prod" ? local.tre_terraform_prod_config["s3_court_document_pack_out_arn"] : "arn:aws:s3:::${local.ingest_parsed_court_document_event_handler_test_bucket_name}"
+  copy_source_bucket_arn     = local.environment == "prod" ? local.tre_terraform_prod_config["s3_court_document_pack_out_arn"] : "arn:aws:s3:::${local.courtdoc_test_bucket_name}"
   private_security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids         = module.vpc.private_subnets
   importer_lambda = {
