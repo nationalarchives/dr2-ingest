@@ -251,23 +251,6 @@ lazy val ingestAssetOpexCreator = (project in file("ingest-asset-opex-creator"))
     )
   )
 
-lazy val ingestParsedCourtDocumentEventHandler = (project in file("ingest-parsed-court-document-event-handler"))
-  .settings(name := baseDirectory.value.getName)
-  .settings(commonSettings)
-  .dependsOn(utils, dynamoFormatters)
-  .settings(
-    libraryDependencies ++= Seq(
-      awsCrt,
-      commonsCompress,
-      dynamoClient,
-      fs2IO,
-      s3Client,
-      sfnClient,
-      reactorTest % Test
-    ),
-    dependencyOverrides += commonsLang
-  )
-
 lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-generic-ingest-inputs"))
   .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
