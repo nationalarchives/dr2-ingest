@@ -32,10 +32,10 @@
       ],
       "Sid": "readWriteIngestRawCache",
       "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
+        "ArnEquals": {
+          "aws:SourceVpcArn": "${vpc_arn}"
         }
-      }      
+      }
     },
     {
       "Action": [
@@ -49,10 +49,10 @@
       ],
       "Sid": "readFromTREBucket",
       "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
+        "ArnEquals": {
+          "aws:SourceVpcArn": "${vpc_arn}"
         }
-      }      
+      }
     },
     {
       "Action": [

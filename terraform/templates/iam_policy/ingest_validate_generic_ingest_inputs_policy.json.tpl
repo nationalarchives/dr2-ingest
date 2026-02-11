@@ -12,7 +12,7 @@
       ],
       "Sid": "readWriteIngestRawCache",
       "Condition":  {
-        "StringEquals": {
+        "ArnEquals": {
           "aws:SourceVpcArn": "${vpc_arn}"
         }
       }

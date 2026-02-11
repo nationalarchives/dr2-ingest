@@ -22,7 +22,6 @@ module "dr2_importer_lambda" {
       aggregator_queue_arn  = module.dr2_preingest_aggregator_queue.sqs_arn
       account_id            = data.aws_caller_identity.current.account_id
       lambda_name           = local.importer_name
-      vpc_id                = var.vpc_id
       vpc_arn               = var.vpc_arn
       }) : templatefile("${path.module}/templates/copy_files_with_kms_policy.json.tpl", {
       copy_files_queue_arn  = local.importer_queue_arn
@@ -32,7 +31,7 @@ module "dr2_importer_lambda" {
       account_id            = data.aws_caller_identity.current.account_id
       lambda_name           = local.importer_name
       kms_arn               = var.bucket_kms_arn
-      vpc_id                = var.vpc_id
+      vpc_arn               = var.vpc_arn
     })
   }, var.additional_importer_lambda_policies)
   memory_size = var.importer_lambda.memory_size

@@ -14,7 +14,7 @@
         "StringEquals": {
           "aws:SourceVpc": "${vpc_id}"
         }
-      }       
+      }
     },
     {
       "Action": [

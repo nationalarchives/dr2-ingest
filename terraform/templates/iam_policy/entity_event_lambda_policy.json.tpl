@@ -23,7 +23,7 @@
         "StringEquals": {
           "aws:SourceVpc": "${vpc_id}"
         }
-      }      
+      }
     },
     {
       "Action": "sns:Publish",
@@ -34,7 +34,7 @@
         "StringEquals": {
           "aws:SourceVpc": "${vpc_id}"
         }
-      }      
+      }
     },
     {
       "Action": [

@@ -11,7 +11,7 @@
         "StringEquals": {
           "aws:SourceVpc": "${vpc_id}"
         }
-      }      
+      }
     },
     {
       "Action": [
@@ -52,7 +52,7 @@
         "StringEquals": {
           "aws:SourceVpc": "${vpc_id}"
         }
-      }      
+      }
     },
     {
       "Action": [
