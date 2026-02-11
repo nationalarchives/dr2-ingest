@@ -20,7 +20,6 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestFolderOpexCreator,
     ingestMapper,
     ingestParentFolderOpexCreator,
-    ingestParsedCourtDocumentEventHandler,
     ingestUpsertArchiveFolders,
     ingestValidateGenericIngestInputs,
     ingestWorkflowMonitor,
