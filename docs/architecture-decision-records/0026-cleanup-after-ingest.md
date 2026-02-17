@@ -30,7 +30,7 @@ ttl {
     enabled        = true
 }
 ```
-* For S3, we have a lifecycle rule to expire items after 90 days where `delete = true`
+* For S3, we have a lifecycle rule to expire items after 1 day where `delete = true`
 ```json
 {
   "Rules": [
