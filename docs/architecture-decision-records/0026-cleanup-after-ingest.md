@@ -15,6 +15,7 @@ We make use of the AWS supported options to achieve this rather than deleting th
 
 ![Existing Process and New Lambda](/docs/images/adr/0026/current-with-added-lambda.png)
 
+## Changes to DR2
 The modifications are as follows: 
 * There is a new queue which listens to the SNS notifications, this queue triggers the cleanup lambda 
 * The lambda updates the item in the files table to set ttl to +1 day from that time
@@ -49,8 +50,8 @@ ttl {
   ]
 }
 ```
-
-The main driving input for the cleanup lambda is `assetId` abd `executionId`, which can be taken from the message:
+## Ingest complete message
+The message looks as shown below. The lambda makes use of `assetId` and `executionId`from the message.
 ```json
 {
     "body": {
@@ -69,13 +70,13 @@ The main driving input for the cleanup lambda is `assetId` abd `executionId`, wh
     "timestamp": "1770979846211",
     "topicArn": "arn:aws:sns:eu-west-2:132135060795:prod-dr2-notifications"
 }
-
 ```
-
+## Deletions Based on Message
 * From the assetId, the lambda traverses children and all parents of the children and deletes based on the `location` field
-* From the executionId, the lambda deletes all files from `raw-cache` having path `<executionId>/metadata.json`
+* From the executionId, the lambda deletes all objects from `raw-cache` having path `<executionId>/metadata.json`
+* From the executionId, the lambda deletes all objects from `ingest-state` having path `<executionId>/folders.json` and `<executionId>/assets.json`   
 
-* The importer lambda, for the input sources where applicable (ADHOC and DRI), deletes files from upload buckets 
-
-* Cleanup before this process goes live: We will do a one off reconciliation using checksums from raw-cache bucket and checksums from preservica and empty the `raw-cache` bucket based on the findings.
+## Other Cleanups 
+* The importer lambda, for the input sources managed by DR2 (only `ADHOC` and `DRI` at the time of writing), deletes files from upload buckets once they are copied to `raw-cache` 
+* Cleanup before this process goes live: When this process goes live, we would like to start with a clean slate. To achieve that, we will do a one off reconciliation using checksums from raw-cache bucket and checksums from preservica and empty the `raw-cache` bucket based on the findings.
 
