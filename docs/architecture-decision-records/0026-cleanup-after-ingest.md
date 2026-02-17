@@ -77,6 +77,8 @@ The message looks as shown below. The lambda makes use of `assetId` and `executi
 * From the executionId, the lambda deletes all objects from `ingest-state` having path `<executionId>/folders.json` and `<executionId>/assets.json`   
 
 ## Other Cleanups 
-* The importer lambda, for the input sources managed by DR2 (only `ADHOC` and `DRI` at the time of writing), deletes files from upload buckets once they are copied to `raw-cache` 
-* Cleanup before this process goes live: When this process goes live, we would like to start with a clean slate. To achieve that, we will do a one off reconciliation using checksums from raw-cache bucket and checksums from preservica and empty the `raw-cache` bucket based on the findings.
+* The importer lambda, for the input sources managed by DR2 (only `ADHOC` and `DRI` at the time of writing), deletes files from upload buckets once they are copied to `raw-cache`
+
+##Legacy Cleanup 
+* Once this process is live, we would want to cleanup any leftovers from the time before this process. To achieve that, we will do a one off reconciliation using checksums from raw-cache bucket and checksums from preservica and empty the `raw-cache` bucket based on the findings.
 
