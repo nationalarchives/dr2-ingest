@@ -74,20 +74,21 @@ WHERE du.CATALOGUEREFERENCE LIKE 'TEST/123%'
 
 ### Environment variables
 
-| Name            | Description                                                              |
-|-----------------|--------------------------------------------------------------------------|
-| CLIENT_LOCATION | The path to the Oracle Instant Client directory.                         |
-| STORE_PASSWORD  | The password to connect to the database.                                 |
-| DROID_PATH      | The path to the `droid-core/test-skeletons/` directory in the DROID repo |
-| ACCOUNT_NUMBER  | The DR2 account number of the environment you are ingesting to           |
-| ENVIRONMENT     | The DR2 environment name of the environment you are ingesting to         |
+| Name            | Description                                                                                                         |
+|-----------------|---------------------------------------------------------------------------------------------------------------------|
+| CLIENT_LOCATION | The path to the Oracle Instant Client directory.                                                                    |
+| STORE_PASSWORD  | The password to connect to the database.                                                                            |
+| DROID_PATH      | The path to the `droid-core/test-skeletons/` directory in the DROID repo                                            |
+| ACCOUNT_NUMBER  | The DR2 account number of the environment you are ingesting to                                                      |
+| ENVIRONMENT     | The DR2 environment name of the environment you are ingesting to                                                    |
+| TEST_RUN        | Set to anything other than 'true' to do a live run. This is optional and 'test_run' will default to True if omitted |
 
 ### Script steps
 1. Connect to the database using the credentials and client location provided in the environment variables.
 2. For each file in the database that matches the WHERE clause:
    - Get the file metadata from the database.
-   - Get the skeleton file from DROID.
-   - Generate checksums for the skeleton file for each original algorithm in Preservica.
+   - If this is a test run, get the path of the skeleton file from DROID otherwise get the path to the real file.
+   - If this is a test run generate checksums for the skeleton file for each original algorithm in Preservica.
    - If the file is a redacted version (with a `type_ref` of 100), append `rel_ref - 1` to the `FileReference field.
-   - Write the metadata and skeleton file to S3 in a JSON format suitable for the package builder lambda.
+   - Write the metadata and file to S3 in a JSON format suitable for the package builder lambda.
    - Send an SQS message to the <env>-dr2-preingest-dri-importer queue to trigger the copy lambda.
