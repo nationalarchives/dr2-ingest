@@ -4,7 +4,6 @@ locals {
 module "copy_tna_to_preservica_role" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
   assume_role_policy = templatefile("./templates/iam_role/tna_to_preservica_trust_policy.json.tpl", {
-    terraform_role_arn                  = module.config.terraform_config[local.environment]["terraform_account_role"],
     parent_folder_opex_creator_role_arn = module.dr2_ingest_parent_folder_opex_creator_lambda.lambda_role_arn,
     folder_opex_creator_role_arn        = module.dr2_ingest_folder_opex_creator_lambda.lambda_role_arn,
     asset_opex_creator_role_arn         = module.dr2_ingest_asset_opex_creator_lambda.lambda_role_arn
