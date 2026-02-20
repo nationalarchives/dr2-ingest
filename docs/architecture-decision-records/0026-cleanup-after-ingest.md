@@ -24,7 +24,8 @@ The modifications are as follows:
 * There is a new queue that listens for the SNS notifications we send out to external systems. This queue triggers the cleanup Lambda
 * There is a new lambda function, triggered by the queue, for the cleanup process. This lambda function is responsible for soft delete 
   * The lambda function updates the item in the `Files` table to set ttl to +1 day from the time of execution
-  * The lambda function tags the objects in `raw-cache` and `ingest-state` S3 buckets with `delete=true` 
+  * The lambda function tags the customer supplied objects in `raw-cache` S3 buckets with `delete=true` 
+* There is a new state at the end of Ingest Step Functions which tags other objects in `raw-cache` and `ingests-state` buckets with `delete=true`  
 * The soft delete mentioned above turns into a hard delete through AWS deletions. This is achieved by the following:
   * For DynamoDB tables, the value in a specific attribute (`ttl` in `Files` table) is set to be the driver for ttl. The `Files` table already has TTL attribute, called `ttl` configured, we will utilise the same 
   * For S3, we have a lifecycle rule to expire items after 1 day, where `delete = true`. The rule can be configured as shown below
@@ -65,9 +66,11 @@ The message looks as shown below. The lambda makes use of `assetId` and `executi
 }
 ```
 ## Deletions Based on Message
-* From the assetId, the lambda traverses children and all parents of the children and deletes based on the `location` field
-* From the executionId, the lambda deletes all objects from `raw-cache` having path `<executionId>/metadata.json`
-* From the executionId, the lambda deletes all objects from `ingest-state` having path `<executionId>/folders.json` and `<executionId>/assets.json`   
+* From the assetId, the lambda traverses children and all parents of the children and deletes from `raw-cache` based on the `location` field
+
+## Deletions Embedded in Step Functions
+* There is a new State at the end of Ingest Step Function, which, based on the executionId, deletes all objects from `raw-cache` having path `<executionId>/metadata.json`
+* There is a new State at the end of Ingest Step Function, which, based on the executionId, deletes all objects from `ingest-state` having path `<executionId>/folders.json` and `<executionId>/assets.json`
 
 ## Other Cleanups 
 * The importer lambda, for the input sources managed by DR2 (only `ADHOC` and `DRI` at the time of writing), deletes objects from upload buckets once they are copied to `raw-cache`
