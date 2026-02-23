@@ -6,7 +6,7 @@
 As part of the ingest process, we save some information within our AWS infrastructure. The main places where such 
 information is stored are S3 buckets and DynamoDB tables. Some of this information is useful while ingest is in 
 progress. Once the ingest operation has finished—that is, once the various final storage locations for those records, 
-such as the Preservation System, Custodial Copy, Tape Drive, etc., are reached—we do not want the data left behind 
+such as the Preservation System, Custodial Copy, Tape Drive, etc., are reached, we do not want the data left behind 
 within the S3 buckets or any processing information in the DynamoDB tables.
 
 As of now, a notification from the Custodial Copy of a successful ingest is the logical endpoint of the ingest process.
@@ -22,12 +22,12 @@ a few components added to the process, as follows:
 ## Changes to DR2
 The modifications are as follows:
 * There is a new queue that listens for the SNS notifications we send out to external systems. This queue triggers the cleanup Lambda
-* There is a new lambda function, triggered by the queue, for the cleanup process. This lambda function is responsible for soft delete 
+* There is a new lambda function, triggered by the queue, for the cleanup process. This lambda function is responsible for the soft delete 
   * The lambda function updates the item in the `Files` table to set ttl to +1 day from the time of execution
   * The lambda function tags the customer supplied objects in `raw-cache` S3 buckets with `delete=true` 
 * There is a new state at the end of Ingest Step Functions which tags other objects in `raw-cache` and `ingests-state` buckets with `delete=true`  
-* The soft delete mentioned above turns into a hard delete through AWS deletions. This is achieved by the following:
-  * For DynamoDB tables, the value in a specific attribute (`ttl` in `Files` table) is set to be the driver for ttl. The `Files` table already has TTL attribute, called `ttl` configured, we will utilise the same 
+* The soft delete, mentioned above, turns into a hard delete through AWS deletions. This is achieved by the following:
+  * For DynamoDB tables, the value in a specific attribute (`ttl` in `Files` table) is set to be the driver for ttl. The `Files` table already has a TTL attribute, called `ttl` configured. We will utilise the same 
   * For S3, we have a lifecycle rule to expire items after 1 day, where `delete = true`. The rule can be configured as shown below
 
     ```json
