@@ -1,3 +1,4 @@
+import itertools
 import json
 import os
 import re
@@ -15,6 +16,7 @@ sqs_client = boto3.client("sqs")
 def lambda_handler(event, context):
     destination_bucket = os.environ["OUTPUT_BUCKET_NAME"]
     destination_queue = os.environ["OUTPUT_QUEUE_URL"]
+    delete_from_source = os.getenv("DELETE_FROM_SOURCE", "false") == "true"
     for record in event["Records"]:
         body: dict[str, str] = json.loads(record["body"])
         asset_id = body["assetId"] if "assetId" in body else body["fileId"]
@@ -23,12 +25,15 @@ def lambda_handler(event, context):
         try:
             file_objects = assert_objects_exist_in_bucket(source_bucket, asset_id)
             validate_metadata(source_bucket, metadata_file_id)
-            transfer_files = [f['Key'] for f in file_objects if not f['Key'].endswith(".metadata")]
+            transfer_files = [f['Key'] for f in file_objects]
             copy_objects(destination_bucket, transfer_files, source_bucket)
-            copy_objects(destination_bucket, [metadata_file_id], source_bucket)
             potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
             sqs_body = {"id": asset_id, "location": f"s3://{destination_bucket}/{metadata_file_id}"}
             sqs_body.update(potential_message_id)
+            if delete_from_source:
+                for batch in itertools.batched(transfer_files, 1000):
+                    keys_to_delete = [{'Key': key} for key in batch]
+                    s3_client.delete_objects(Bucket=source_bucket, Delete={'Objects': keys_to_delete})
             sqs_client.send_message(QueueUrl=destination_queue, MessageBody=json.dumps(sqs_body))
         except Exception as e:
             print(json.dumps({"error": str(e), "assetId": asset_id}))

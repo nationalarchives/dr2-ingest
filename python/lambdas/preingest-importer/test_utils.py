@@ -5,14 +5,12 @@ import uuid
 import lambda_function
 
 
-def copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
-                mock_send_message, mock_complete_multipart_upload, _,
-                mock_create_multipart_upload,
-                mock_head_object, mock_list_objects, potential_message_id=None):
+def copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object, mock_delete_object,
+                mock_send_message, mock_copy,
+                mock_head_object, mock_list_objects, potential_message_id=None, should_delete=False):
     content_length = 5 * 1024 * 1024 * 1024
     asset_id = str(uuid.uuid4())
-    file_id = str(uuid.uuid4())
-    key = f'{asset_id}/{file_id}'
+    def key(): return f'{asset_id}/{str(uuid.uuid4())}'
     body_json = {"bucket": "source-bucket", "assetId": asset_id}
 
     expected_message_body = {"id": asset_id, "location": f"s3://destination-bucket/{asset_id}.metadata"}
@@ -21,11 +19,11 @@ def copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exis
         expected_message_body['messageId'] = potential_message_id
 
     body = {'body': json.dumps(body_json)}
-    contents = [{'Size': content_length, 'Key': key}, {'Size': 1, 'Key': f'{asset_id}.metadata'}]
+    content_files = [{'Size': content_length, 'Key': key()} for _ in range(0, 1000)]
+    content_files.append({'Size': 1, 'Key': f'{asset_id}.metadata'})
     empty_response = {'Contents': [], 'IsTruncated': False}
-    mock_list_objects.side_effect = [{'Contents': contents, 'IsTruncated': True}, empty_response]
+    mock_list_objects.side_effect = [{'Contents': content_files, 'IsTruncated': True}, empty_response]
     mock_head_object.return_value = {'ContentLength': content_length}
-    mock_create_multipart_upload.return_value = {'UploadId': 'test-upload-id'}
     mock_validate_mandatory_fields_exist.return_value = True
     mock_validate_formats.return_value = True
     mock_get_object.return_value = {
@@ -40,17 +38,24 @@ def copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exis
 
     expected_sqs_args = {'MessageBody': json.dumps(expected_message_body), 'QueueUrl': 'destination-queue'}
 
-    self.assertEqual(mock_create_multipart_upload.call_count, 2)
+    self.assertEqual(mock_copy.call_count, 1)
     self.assertEqual(mock_list_objects.call_count, 2)
 
-    def assert_create_multipart_arguments(idx, key):
-        self.assertEqual(mock_create_multipart_upload.call_args_list[idx][1], {'Bucket': 'destination-bucket',
-                                                                               'Key': key})
+    self.assertEqual(mock_copy.call_args_list[0].args[0], 'destination-bucket')
+    self.assertEqual(sorted(mock_copy.call_args_list[0].args[1]), sorted([f['Key'] for f in content_files]))
 
-    assert_create_multipart_arguments(0, key)
-    assert_create_multipart_arguments(1, f"{asset_id}.metadata")
-    self.assertEqual(mock_complete_multipart_upload.call_count, 2)
+
+    self.assertEqual(mock_copy.call_count, 1)
     self.assertEqual(mock_send_message.call_args_list[0][1], expected_sqs_args)
 
     mock_validate_mandatory_fields_exist.assert_called_once()
     mock_validate_formats.assert_called_once()
+
+    if should_delete:
+        self.assertEqual(mock_delete_object.call_count, 2)
+        self.assertEqual(mock_delete_object.call_args_list[0].kwargs['Bucket'], 'source-bucket')
+        self.assertEqual(mock_delete_object.call_args_list[1].kwargs['Bucket'], 'source-bucket')
+        self.assertEqual(len(mock_delete_object.call_args_list[0].kwargs['Delete']['Objects']), 1000)
+        self.assertEqual(len(mock_delete_object.call_args_list[1].kwargs['Delete']['Objects']), 1)
+    else:
+        self.assertEqual(mock_delete_object.call_count, 0)

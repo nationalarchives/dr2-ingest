@@ -29,41 +29,50 @@ class TestLambdaFunction(unittest.TestCase):
 
     @patch('lambda_function.s3_client.list_objects')
     @patch('lambda_function.s3_client.head_object')
-    @patch('lambda_function.s3_client.create_multipart_upload')
-    @patch('lambda_function.s3_client.upload_part_copy')
-    @patch('lambda_function.s3_client.complete_multipart_upload')
+    @patch('lambda_function.copy_objects')
     @patch('lambda_function.sqs_client.send_message')
     @patch('lambda_function.s3_client.get_object')
+    @patch('lambda_function.s3_client.delete_objects')
     @patch('lambda_function.validate_mandatory_fields_exist')
     @patch('lambda_function.validate_formats')
     @patch.dict(os.environ, {'OUTPUT_BUCKET_NAME': 'destination-bucket'})
     @patch.dict(os.environ, {'SOURCE_SYSTEM': 'dri'})
-    def test_copy(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
-                  mock_send_message, mock_complete_multipart_upload, _,
-                  mock_create_multipart_upload,
-                  mock_head_object, mock_list_objects):
-        copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
-                    mock_send_message, mock_complete_multipart_upload, _,
-                    mock_create_multipart_upload,
-                    mock_head_object, mock_list_objects)
+    def test_copy(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_delete_object, mock_get_object,
+                  mock_send_message, mock_copy, mock_head_object, mock_list_objects):
+        copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object, mock_delete_object,
+                    mock_send_message, mock_copy, mock_head_object, mock_list_objects)
 
     @patch('lambda_function.s3_client.list_objects')
     @patch('lambda_function.s3_client.head_object')
-    @patch('lambda_function.s3_client.create_multipart_upload')
-    @patch('lambda_function.s3_client.upload_part_copy')
-    @patch('lambda_function.s3_client.complete_multipart_upload')
+    @patch('lambda_function.copy_objects')
     @patch('lambda_function.sqs_client.send_message')
     @patch('lambda_function.s3_client.get_object')
+    @patch('lambda_function.s3_client.delete_objects')
+    @patch('lambda_function.validate_mandatory_fields_exist')
+    @patch('lambda_function.validate_formats')
+    @patch.dict(os.environ, {'OUTPUT_BUCKET_NAME': 'destination-bucket'})
+    @patch.dict(os.environ, {'SOURCE_SYSTEM': 'dri'})
+    @patch.dict(os.environ, {'DELETE_FROM_SOURCE': 'true'})
+    def test_copy_with_source_delete(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_delete_object,
+                  mock_get_object, mock_send_message, mock_copy, mock_head_object, mock_list_objects):
+        copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object, mock_delete_object,
+                    mock_send_message, mock_copy, mock_head_object, mock_list_objects, should_delete=True)
+
+    @patch('lambda_function.s3_client.list_objects')
+    @patch('lambda_function.s3_client.head_object')
+    @patch('lambda_function.copy_objects')
+    @patch('lambda_function.sqs_client.send_message')
+    @patch('lambda_function.s3_client.get_object')
+    @patch('lambda_function.s3_client.delete_objects')
     @patch('lambda_function.validate_mandatory_fields_exist')
     @patch('lambda_function.validate_formats')
     @patch.dict(os.environ, {'DESTINATION_BUCKET': 'destination-bucket'})
     @patch.dict(os.environ, {'SOURCE_SYSTEM': 'dri'})
     def test_copy_returns_messageId_when_in_body(self, mock_validate_formats, mock_validate_mandatory_fields_exist,
-                                                 mock_get_object, mock_send_message, mock_complete_multipart_upload, _,
-                                                 mock_create_multipart_upload, mock_head_object, mock_list_objects):
+                                                 mock_delete_objects, mock_get_object, mock_send_message, mock_copy_objects,
+                                                 mock_head_object, mock_list_objects):
         copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
-                    mock_send_message, mock_complete_multipart_upload, _,
-                    mock_create_multipart_upload,
+                    mock_delete_objects, mock_send_message, mock_copy_objects,
                     mock_head_object, mock_list_objects, potential_message_id="message-id")
 
     @patch('lambda_function.s3_client.list_objects')
@@ -181,6 +190,36 @@ class TestLambdaFunction(unittest.TestCase):
         with self.assertRaises(Exception) as cm:
             lambda_function.lambda_handler(event, context)
         self.assertEqual(str(cm.exception), "SQS Send message failed")
+
+    @patch('lambda_function.s3_client.delete_objects')
+    @patch('lambda_function.s3_client.list_objects')
+    @patch('lambda_function.s3_client.head_object')
+    @patch('lambda_function.s3_client.copy_object')
+    @patch('lambda_function.sqs_client.send_message')
+    @patch('lambda_function.validate_metadata')
+    @patch.dict(os.environ, {'DELETE_FROM_SOURCE': 'true'})
+    def test_delete_failure_should_not_send_message(self, mock_validate_metadata, mock_send_message, _, mock_head_object,
+                                  mock_list_objects, mock_delete_objects):
+        content_length = 1024
+        asset_id, file_id = str(uuid.uuid4()), str(uuid.uuid4())
+        key = f'{asset_id}/{file_id}'
+        contents = [{'Size': content_length, 'Key': key}, {'Size': 1, 'Key': f'{asset_id}.metadata'}]
+        mock_list_objects.return_value = {'Contents': contents, 'IsTruncated': False}
+        mock_head_object.return_value = {'ContentLength': content_length}
+        mock_validate_metadata.return_value = True
+        event = {
+            'Records': [
+                {'body': f'{{"bucket": "source-bucket","fileId":"{asset_id}"}}'}
+            ]
+        }
+        context = {}
+        mock_delete_objects.side_effect = Exception("Delete object failed")
+
+        with self.assertRaises(Exception) as cm:
+            lambda_function.lambda_handler(event, context)
+        self.assertEqual(str(cm.exception), "Delete object failed")
+
+        self.assertEqual(mock_send_message.call_count, 0)
 
     def test_should_successfully_validate_when_the_fields_are_valid(self):
         mock_response_body = json.dumps(self.valid_metadata())
