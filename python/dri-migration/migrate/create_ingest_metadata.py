@@ -11,13 +11,7 @@ from os import listdir
 import boto3
 import oracledb
 from botocore.config import Config
-
-page_size = 100
-
-config = Config(region_name="eu-west-2")
-
-s3_client = boto3.client("s3")
-sqs_client = boto3.client("sqs", config=config)
+from pathlib import PureWindowsPath
 
 
 def create_skeleton_suite_lookup(prefixes):
@@ -36,6 +30,24 @@ def create_skeleton_suite_lookup(prefixes):
                 puid_lookup[puid] = {'file_path': os.path.join(path, name)}
 
     return puid_lookup
+
+
+page_size = 100
+
+config = Config(region_name="eu-west-2")
+
+def get_clients(account_number, environment):
+    sts_client = boto3.client("sts")
+    credentials = sts_client.assume_role(
+        RoleArn=f"arn:aws:iam::{account_number}:role/{environment}-dr2-ingest-dri-migration-role",
+        RoleSessionName="dri-migration"
+    )['Credentials']
+    access_key = credentials['AccessKeyId']
+    secret_key = credentials['SecretAccessKey']
+    session_token = credentials['SessionToken']
+    s3_client = boto3.client("s3", aws_access_key_id=access_key, aws_secret_access_key=secret_key, aws_session_token=session_token)
+    sqs_client = boto3.client("sqs", aws_access_key_id=access_key, aws_secret_access_key=secret_key, aws_session_token=session_token)
+    return s3_client, sqs_client
 
 
 def calculate_checksum(file_path: str, algorithm: str) -> str:
@@ -67,13 +79,14 @@ def process_redacted(assets_to_process):
     return assets_to_process
 
 def migrate():
-    assets = []
     account_number = os.environ["ACCOUNT_NUMBER"]
     environment = os.environ["ENVIRONMENT"]
-    bucket = f"{environment}-dr2-ingest-raw-cache"
+    test_run = os.getenv("TEST_RUN", "true") == "true"
+    assets = []
+    bucket = f"{environment}-dr2-ingest-dri-migration-cache"
     queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-dri-importer"
-
-    puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt'])
+    s3_client, sqs_client = get_clients(account_number, environment)
+    puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt']) if test_run else {}
     oracledb.defaults.fetch_lobs = False
     oracledb.init_oracle_client(lib_dir=os.environ['CLIENT_LOCATION'])
     conn = oracledb.connect(dsn='localhost/SDB4', user="STORE", password=os.environ['STORE_PASSWORD'])
@@ -124,11 +137,14 @@ def migrate():
             if not consignment_reference and not dri_batch_reference:
                 raise ValueError("We need either a consignment reference or a dri batch reference")
 
-            file_path = puid_lookup[puid]['file_path']
             for each_checksum in checksums:
                 for algorithm in each_checksum:
                     algorithm_lower = algorithm.lower().replace("-", "")
-                    fingerprint = calculate_checksum(file_path, algorithm_lower)
+                    if test_run:
+                        file_path = puid_lookup[puid]['file_path']
+                        fingerprint = calculate_checksum(file_path, algorithm_lower)
+                    else:
+                        fingerprint = each_checksum[algorithm]
                     metadata[f"checksum_{algorithm_lower}"] = fingerprint
 
             assets.append({'file_path': file_path, 'metadata': metadata, 'rel_ref': rel_ref, 'type_ref': type_ref})
@@ -146,7 +162,11 @@ def migrate():
             metadata = asset['metadata']
             file_id = metadata['fileId']
             all_metadata.append(metadata)
-            s3_client.upload_file(file_path, bucket, f'{asset_uuid}/{file_id}')
+            if test_run:
+                windows_file_path = PureWindowsPath(file_path[1:])
+            else:
+                windows_file_path = PureWindowsPath(os.environ['NETWORK_LOCATION'], file_path[1:])
+            s3_client.upload_file(windows_file_path, bucket, f'{asset_uuid}/{file_id}')
 
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
         s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")

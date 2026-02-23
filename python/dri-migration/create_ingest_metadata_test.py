@@ -3,17 +3,26 @@ import json
 import os
 import tempfile
 import unittest
+from pathlib import PureWindowsPath
 from unittest.mock import patch, MagicMock, mock_open, call
-
+from parameterized import parameterized
 from migrate import create_ingest_metadata
 
 
-def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows):
+def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows, test_run):
     os.environ['CLIENT_LOCATION'] = '/test/client'
     os.environ['STORE_PASSWORD'] = 'password'
     os.environ['DROID_PATH'] = '/test/droid'
     os.environ['ACCOUNT_NUMBER'] = '123456789'
     os.environ['ENVIRONMENT'] = 'testenv'
+    os.environ['NETWORK_LOCATION'] = '/network-location'
+
+    if test_run:
+        os.environ['TEST_RUN'] = test_run
+    elif 'TEST_RUN' in os.environ:
+        os.environ.pop('TEST_RUN')
+
+
     mock_create_skeleton.return_value = {
         "fmt/123": {"file_path": "/test/file1"},
         "x-fmt/123": {"file_path": "/test/file2"}
@@ -32,16 +41,22 @@ def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows):
 
 
 class TestMigrate(unittest.TestCase):
+    @parameterized.expand([
+        ('tru','test', '/network-location/'),
+        ('true','abc123', ''),
+        ('false','test', '/network-location/'),
+        ('test','test', '/network-location/'),
+        (None,'abc123', ''),
+    ])
     @patch('oracledb.connect')
     @patch('oracledb.init_oracle_client')
     @patch('builtins.open', new_callable=mock_open, read_data="SELECT * FROM TEST")
     @patch('migrate.create_ingest_metadata.create_skeleton_suite_lookup')
     @patch('migrate.create_ingest_metadata.calculate_checksum')
-    @patch('migrate.create_ingest_metadata.s3_client')
-    @patch('migrate.create_ingest_metadata.sqs_client')
+    @patch('migrate.create_ingest_metadata.get_clients')
     def test_migrate_s3_sqs(
-            self, mock_sqs, mock_s3, mock_checksum,
-            mock_create_skeleton, _, __, mock_connect,
+            self, test_run, checksum, network_location, get_clients, mock_checksum,
+            mock_create_skeleton, _, __, mock_connect
     ):
         row_fmt = [
             "fmt/123", "uuid-abc", "fileid-xyz", "/test/file1",
@@ -57,13 +72,17 @@ class TestMigrate(unittest.TestCase):
         ]
         rows = [row_fmt, row_x_fmt]
 
-        setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows)
+        setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows, test_run)
+
+        mock_s3 = MagicMock()
+        mock_sqs = MagicMock()
+        get_clients.return_value = (mock_s3, mock_sqs,)
 
         create_ingest_metadata.migrate()
 
         calls = [
-            call("/test/file1", "testenv-dr2-ingest-raw-cache", "uuid-abc/fileid-xyz"),
-            call("/test/file2", "testenv-dr2-ingest-raw-cache", "uuid-def/fileid-xyz")
+            call(PureWindowsPath(f"{network_location}test/file1"), "testenv-dr2-ingest-dri-migration-cache", "uuid-abc/fileid-xyz"),
+            call(PureWindowsPath(f"{network_location}test/file2"), "testenv-dr2-ingest-dri-migration-cache", "uuid-def/fileid-xyz")
         ]
 
         mock_s3.upload_file.assert_has_calls(calls)
@@ -82,10 +101,10 @@ class TestMigrate(unittest.TestCase):
 
             self.assertEqual(metadata["UUID"], metadata_uuid)
             self.assertEqual(metadata["Series"], "series1")
-            self.assertEqual(metadata["checksum_sha256"], "abc123")
+            self.assertEqual(metadata["checksum_sha256"], checksum)
             self.assertEqual(metadata["digitalAssetSource"], expected_digital_asset_source)
             self.assertEqual(metadata["sortOrder"], 1)
-            self.assertEqual(bucket, "testenv-dr2-ingest-raw-cache")
+            self.assertEqual(bucket, "testenv-dr2-ingest-dri-migration-cache")
             self.assertEqual(object_key, f"{metadata_uuid}.metadata")
 
             self.assertEqual(sqs_args[0][1]["QueueUrl"],
@@ -93,17 +112,16 @@ class TestMigrate(unittest.TestCase):
             sent_entries = [json.loads(x['MessageBody']) for x in sqs_args[0][1]["Entries"]]
             sent_body = sent_entries[idx]
             self.assertEqual(sent_body["assetId"], rows[idx][1])
-            self.assertEqual(sent_body["bucket"], "testenv-dr2-ingest-raw-cache")
+            self.assertEqual(sent_body["bucket"], "testenv-dr2-ingest-dri-migration-cache")
 
     @patch('oracledb.connect')
     @patch('oracledb.init_oracle_client')
     @patch('builtins.open', new_callable=mock_open, read_data="SELECT * FROM TEST")
     @patch('migrate.create_ingest_metadata.create_skeleton_suite_lookup')
     @patch('migrate.create_ingest_metadata.calculate_checksum')
-    @patch('migrate.create_ingest_metadata.s3_client')
-    @patch('migrate.create_ingest_metadata.sqs_client')
+    @patch('migrate.create_ingest_metadata.get_clients')
     def test_migrate_raises_error_if_consignment_ref_and_batch_ref_are_missing(
-            self, _, __, mock_checksum,
+            self, get_clients, mock_checksum,
             mock_create_skeleton, ___, ____, mock_connect,
     ):
         row = [
@@ -112,7 +130,10 @@ class TestMigrate(unittest.TestCase):
             "series1", "desc1", "desc2", "2021-01-01", None, None,
             "filename.txt", "fileref", "meta", "1", "1", 1, "BornDigital"
         ]
-        setup_test(mock_checksum, mock_connect, mock_create_skeleton, [row])
+        setup_test(mock_checksum, mock_connect, mock_create_skeleton, [row], None)
+        mock_s3 = MagicMock()
+        mock_sqs = MagicMock()
+        get_clients.return_value = mock_s3, mock_sqs
 
         with self.assertRaises(ValueError) as cm:
             create_ingest_metadata.migrate()
