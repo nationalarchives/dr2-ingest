@@ -11,7 +11,8 @@ module "courtdoc_test_input_bucket" {
     lambda_role_arns = jsonencode([module.court_document_preingest.importer_lambda_role_arn]),
     bucket_name      = local.courtdoc_test_bucket_name
   })
-  kms_key_arn = module.dr2_kms_key.kms_key_arn
+  kms_key_arn     = module.dr2_kms_key.kms_key_arn
+  lifecycle_rules = local.lifecycle_rules
 }
 
 moved {

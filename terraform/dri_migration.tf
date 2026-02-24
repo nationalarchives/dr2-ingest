@@ -16,9 +16,10 @@ module "dr2_dri_migration_key" {
 }
 
 module "ingest_dri_migration_cache_bucket" {
-  source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
-  bucket_name = local.dri_migration_bucket_name
-  kms_key_arn = module.dr2_dri_migration_key.kms_key_arn
+  source          = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
+  bucket_name     = local.dri_migration_bucket_name
+  kms_key_arn     = module.dr2_dri_migration_key.kms_key_arn
+  lifecycle_rules = local.lifecycle_rules
 }
 
 module "dr2_dri_migration_role" {
