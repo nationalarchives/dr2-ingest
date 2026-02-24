@@ -99,7 +99,7 @@ class LambdaTest extends AnyFlatSpec {
   }
 
   "handler" should "write the correct values to dynamo" in {
-    val fixedTimeInSecs = 1712707200
+    val fixedTimeInSecs = 1704931200
     val metadataResponse = getMetadata
     val dynamoItems = dynamoItemsResponse(metadataResponse)
 
@@ -243,7 +243,7 @@ class LambdaTest extends AnyFlatSpec {
 
     val departmentId = UUID.fromString(uuids.head)
     val seriesId = UUID.fromString(uuids.tail.head)
-    val fixedTimeInSeconds = 1712707200
+    val fixedTimeInSeconds = 1704931200
 
     checkDynamoItems(
       dynamoItems,
