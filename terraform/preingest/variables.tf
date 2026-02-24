@@ -82,3 +82,9 @@ variable "aggregator_secondary_grouping_window_seconds" {
 variable "vpc_id" {}
 
 variable "vpc_arn" {}
+
+variable "delete_from_source" {
+  type        = bool
+  description = "Whether to delete the files and metadata from the source bucket"
+  default     = false
+}
