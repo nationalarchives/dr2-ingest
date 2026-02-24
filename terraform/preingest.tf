@@ -34,6 +34,7 @@ module "dri_preingest" {
   aggregator_secondary_grouping_window_seconds = 1200
   vpc_id                                       = module.vpc.vpc.id
   vpc_arn                                      = module.vpc.vpc.arn
+  delete_from_source                           = true
 }
 
 module "ad_hoc_preingest" {
@@ -51,6 +52,7 @@ module "ad_hoc_preingest" {
   aggregator_secondary_grouping_window_seconds = 900
   vpc_id                                       = module.vpc.vpc.id
   vpc_arn                                      = module.vpc.vpc.arn
+  delete_from_source                           = true
 }
 
 module "court_document_preingest" {
