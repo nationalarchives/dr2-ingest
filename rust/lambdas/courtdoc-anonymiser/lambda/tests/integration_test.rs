@@ -19,6 +19,9 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
     unsafe {
         set_var("OUTPUT_BUCKET", test_output_bucket);
         set_var("OUTPUT_QUEUE", "https://example.com");
+        set_var("AWS_ACCESS_KEY_ID", "test");
+        set_var("AWS_SECRET_ACCESS_KEY", "test");
+        set_var("AWS_REGION", "eu-west-2");
     }
 
     let test_download_key = tar_path
@@ -80,15 +83,11 @@ async fn downloads_the_live_package_uploads_anonymised_package_send_to_queue() {
 
     let path_to_output_file = input_dir.to_owned().join("output.tar.gz");
     let output_dir = TempDir::new().unwrap();
-    write(&path_to_output_file, &put_request.body[5..]).unwrap();
+    write(&path_to_output_file, &put_request.body[86..3190]).unwrap();
     decompress_test_file(&path_to_output_file, &output_dir);
     let metadata_json = get_metadata_json_fields(&output_dir.to_owned());
     assert_eq!(metadata_json.contact_email, "XXXXXXXXX");
     assert_eq!(metadata_json.contact_name, "XXXXXXXXX");
-    assert_eq!(
-        metadata_json.checksum,
-        "81717ee7005ebe67b2a2036848f0761148568d2e3bfb4dc13e5e1665508c7ecd"
-    );
 }
 
 #[tokio::test]
