@@ -45,8 +45,8 @@ def get_clients(account_number, environment):
     access_key = credentials['AccessKeyId']
     secret_key = credentials['SecretAccessKey']
     session_token = credentials['SessionToken']
-    s3_client = boto3.client("s3", aws_access_key_id=access_key, aws_secret_access_key=secret_key, aws_session_token=session_token)
-    sqs_client = boto3.client("sqs", aws_access_key_id=access_key, aws_secret_access_key=secret_key, aws_session_token=session_token)
+    s3_client = boto3.client("s3", aws_access_key_id=access_key, aws_secret_access_key=secret_key, aws_session_token=session_token, config=config)
+    sqs_client = boto3.client("sqs", aws_access_key_id=access_key, aws_secret_access_key=secret_key, aws_session_token=session_token, config=config)
     return s3_client, sqs_client
 
 
@@ -74,8 +74,10 @@ def process_redacted(assets_to_process):
     for asset in assets_to_process:
         if asset['type_ref'] == 100:
             file_reference = asset['metadata']['FileReference']
+            iaid = asset['metadata']['IAID']
             rel_ref = asset['rel_ref']
             asset['metadata'].update({'FileReference': f"{file_reference}/{rel_ref - 1}"})
+            asset['metadata'].update({'IAID': f"{iaid}_{rel_ref - 1}"})
     return assets_to_process
 
 def migrate():
@@ -115,6 +117,7 @@ def migrate():
             description_two = row[column_indexes["DESC2"]]
             sort_order = row[column_indexes["SORTORDER"]]
             security_tag = row[column_indexes["SECURITYTAG"]]
+            unit_ref = row[column_indexes["UNITREF"]]
             description = description_one if description_one else description_two
             metadata = {
                 "Series": row[column_indexes["SERIES"]],
@@ -128,6 +131,7 @@ def migrate():
                 "ClientSideOriginalFilepath": file_path,
                 "digitalAssetSource": security_tag,
                 "sortOrder": sort_order,
+                "IAID": unit_ref.replace("-","")
             }
             if consignment_reference:
                 metadata["ConsignmentReference"] = consignment_reference

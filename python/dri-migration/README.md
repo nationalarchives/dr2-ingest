@@ -89,6 +89,6 @@ WHERE du.CATALOGUEREFERENCE LIKE 'TEST/123%'
    - Get the file metadata from the database.
    - If this is a test run, get the path of the skeleton file from DROID otherwise get the path to the real file.
    - If this is a test run generate checksums for the skeleton file for each original algorithm in Preservica.
-   - If the file is a redacted version (with a `type_ref` of 100), append `rel_ref - 1` to the `FileReference field.
+   - If the file is a redacted version (with a `type_ref` of 100), append `rel_ref - 1` to the `FileReference field and the IAID field.
    - Write the metadata and file to S3 in a JSON format suitable for the package builder lambda.
    - Send an SQS message to the <env>-dr2-preingest-dri-importer queue to trigger the copy lambda.
