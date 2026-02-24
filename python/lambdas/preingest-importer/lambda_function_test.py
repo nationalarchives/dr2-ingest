@@ -96,7 +96,7 @@ class TestLambdaFunction(unittest.TestCase):
         context = {}
         with self.assertRaises(Exception) as cm:
             lambda_function.lambda_handler(event, context)
-        self.assertEqual(str(cm.exception), "S3 copy_object failed")
+        self.assertEqual("S3 copy_object failed", str(cm.exception))
 
     @patch('lambda_function.s3_client.list_objects')
     @patch('lambda_function.s3_client.head_object')
@@ -127,9 +127,9 @@ class TestLambdaFunction(unittest.TestCase):
         context = {}
         with self.assertRaises(Exception) as cm:
             lambda_function.lambda_handler(event, context)
-        self.assertEqual(str(cm.exception), "S3 upload_part_copy failed")
+        self.assertEqual("S3 upload_part_copy failed", str(cm.exception))
         expected_abort_call = {'Bucket': 'destination-bucket', 'Key': key, 'UploadId': 'test-upload-id'}
-        self.assertEqual(abort_multipart_upload.call_args_list[0][1], expected_abort_call)
+        self.assertEqual(expected_abort_call, abort_multipart_upload.call_args_list[0][1])
 
     @patch('lambda_function.s3_client.list_objects')
     @patch('lambda_function.s3_client.head_object')
@@ -161,9 +161,9 @@ class TestLambdaFunction(unittest.TestCase):
         context = {}
         with self.assertRaises(Exception) as cm:
             lambda_function.lambda_handler(event, context)
-        self.assertEqual(str(cm.exception), "S3 complete_multipart_upload failed")
+        self.assertEqual("S3 complete_multipart_upload failed", str(cm.exception))
         expected_abort_call = {'Bucket': 'destination-bucket', 'Key': key, 'UploadId': 'test-upload-id'}
-        self.assertEqual(abort_multipart_upload.call_args_list[0][1], expected_abort_call)
+        self.assertEqual(expected_abort_call, abort_multipart_upload.call_args_list[0][1])
 
     @patch('lambda_function.s3_client.list_objects')
     @patch('lambda_function.s3_client.head_object')
@@ -189,7 +189,7 @@ class TestLambdaFunction(unittest.TestCase):
 
         with self.assertRaises(Exception) as cm:
             lambda_function.lambda_handler(event, context)
-        self.assertEqual(str(cm.exception), "SQS Send message failed")
+        self.assertEqual("SQS Send message failed", str(cm.exception))
 
     @patch('lambda_function.s3_client.delete_objects')
     @patch('lambda_function.s3_client.list_objects')
@@ -217,9 +217,9 @@ class TestLambdaFunction(unittest.TestCase):
 
         with self.assertRaises(Exception) as cm:
             lambda_function.lambda_handler(event, context)
-        self.assertEqual(str(cm.exception), "Delete object failed")
+        self.assertEqual("Delete object failed", str(cm.exception))
 
-        self.assertEqual(mock_send_message.call_count, 0)
+        self.assertEqual(0, mock_send_message.call_count)
 
     def test_should_successfully_validate_when_the_fields_are_valid(self):
         mock_response_body = json.dumps(self.valid_metadata())

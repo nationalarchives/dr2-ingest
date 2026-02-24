@@ -38,24 +38,24 @@ def copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exis
 
     expected_sqs_args = {'MessageBody': json.dumps(expected_message_body), 'QueueUrl': 'destination-queue'}
 
-    self.assertEqual(mock_copy.call_count, 1)
-    self.assertEqual(mock_list_objects.call_count, 2)
+    self.assertEqual(1, mock_copy.call_count)
+    self.assertEqual(2, mock_list_objects.call_count)
 
-    self.assertEqual(mock_copy.call_args_list[0].args[0], 'destination-bucket')
-    self.assertEqual(sorted(mock_copy.call_args_list[0].args[1]), sorted([f['Key'] for f in content_files]))
+    self.assertEqual('destination-bucket', mock_copy.call_args_list[0].args[0])
+    self.assertEqual(sorted([f['Key'] for f in content_files]), sorted(mock_copy.call_args_list[0].args[1]))
 
 
-    self.assertEqual(mock_copy.call_count, 1)
-    self.assertEqual(mock_send_message.call_args_list[0][1], expected_sqs_args)
+    self.assertEqual(1, mock_copy.call_count)
+    self.assertEqual(expected_sqs_args, mock_send_message.call_args_list[0][1])
 
     mock_validate_mandatory_fields_exist.assert_called_once()
     mock_validate_formats.assert_called_once()
 
     if should_delete:
-        self.assertEqual(mock_delete_object.call_count, 2)
-        self.assertEqual(mock_delete_object.call_args_list[0].kwargs['Bucket'], 'source-bucket')
-        self.assertEqual(mock_delete_object.call_args_list[1].kwargs['Bucket'], 'source-bucket')
-        self.assertEqual(len(mock_delete_object.call_args_list[0].kwargs['Delete']['Objects']), 1000)
-        self.assertEqual(len(mock_delete_object.call_args_list[1].kwargs['Delete']['Objects']), 1)
+        self.assertEqual(2, mock_delete_object.call_count)
+        self.assertEqual('source-bucket', mock_delete_object.call_args_list[0].kwargs['Bucket'])
+        self.assertEqual('source-bucket', mock_delete_object.call_args_list[1].kwargs['Bucket'])
+        self.assertEqual(1000, len(mock_delete_object.call_args_list[0].kwargs['Delete']['Objects']))
+        self.assertEqual(1, len(mock_delete_object.call_args_list[1].kwargs['Delete']['Objects']))
     else:
-        self.assertEqual(mock_delete_object.call_count, 0)
+        self.assertEqual(0, mock_delete_object.call_count)
