@@ -14,7 +14,8 @@ module "dr2_archivists_key" {
 }
 
 module "ingest_adhoc_cache_bucket" {
-  source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
-  bucket_name = local.adhoc_bucket_name
-  kms_key_arn = module.dr2_archivists_key.kms_key_arn
+  source          = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
+  bucket_name     = local.adhoc_bucket_name
+  kms_key_arn     = module.dr2_archivists_key.kms_key_arn
+  lifecycle_rules = local.lifecycle_rules
 }
