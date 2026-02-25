@@ -168,7 +168,7 @@ def migrate():
             file_id = metadata['fileId']
             all_metadata.append(metadata)
             if test_run:
-                windows_file_path = PureWindowsPath(file_path[1:])
+                windows_file_path = file_path
             else:
                 windows_file_path = PureWindowsPath(os.environ['NETWORK_LOCATION'], file_path[1:])
             s3_client.upload_file(windows_file_path, bucket, f'{asset_uuid}/{file_id}')

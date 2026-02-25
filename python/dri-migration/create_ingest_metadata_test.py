@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import PureWindowsPath
+from sndhdr import test_au
 from unittest.mock import patch, MagicMock, mock_open, call
 from parameterized import parameterized
 from migrate import create_ingest_metadata
@@ -42,11 +43,11 @@ def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows, test_run
 
 class TestMigrate(unittest.TestCase):
     @parameterized.expand([
-        ('tru','test', '/network-location/'),
-        ('true','abc123', ''),
-        ('false','test', '/network-location/'),
-        ('test','test', '/network-location/'),
-        (None,'abc123', ''),
+        ('tru','test'),
+        ('true','abc123'),
+        ('false','test'),
+        ('test','test'),
+        (None,'abc123'),
     ])
     @patch('oracledb.connect')
     @patch('oracledb.init_oracle_client')
@@ -55,7 +56,7 @@ class TestMigrate(unittest.TestCase):
     @patch('migrate.create_ingest_metadata.calculate_checksum')
     @patch('migrate.create_ingest_metadata.get_clients')
     def test_migrate_s3_sqs(
-            self, test_run, checksum, network_location, get_clients, mock_checksum,
+            self, test_run, checksum, get_clients, mock_checksum,
             mock_create_skeleton, _, __, mock_connect
     ):
         row_fmt = [
@@ -80,9 +81,14 @@ class TestMigrate(unittest.TestCase):
 
         create_ingest_metadata.migrate()
 
+        if test_run == "true" or not test_run:
+            call_paths = ("/test/file1", "/test/file2")
+        else:
+            call_paths = (PureWindowsPath("/network-location/test/file1"), PureWindowsPath("/network-location/test/file2"))
+
         calls = [
-            call(PureWindowsPath(f"{network_location}test/file1"), "testenv-dr2-ingest-dri-migration-cache", "uuid-abc/fileid-xyz"),
-            call(PureWindowsPath(f"{network_location}test/file2"), "testenv-dr2-ingest-dri-migration-cache", "uuid-def/fileid-xyz")
+            call(call_paths[0], "testenv-dr2-ingest-dri-migration-cache", "uuid-abc/fileid-xyz"),
+            call(call_paths[1], "testenv-dr2-ingest-dri-migration-cache", "uuid-def/fileid-xyz")
         ]
 
         mock_s3.upload_file.assert_has_calls(calls)
