@@ -38,16 +38,13 @@
       }
     },
     {
-      "Action": [
-        "s3:GetObject",
-        "s3:ListBucket"
-      ],
+      "Action": ${source_bucket_permissions},
       "Effect": "Allow",
       "Resource": [
         "${bucket_arn}",
         "${bucket_arn}/*"
       ],
-      "Sid": "readFromTREBucket",
+      "Sid": "sourceBucketPermissions",
       "Condition":  {
         "ArnEquals": {
           "aws:SourceVpcArn": "${vpc_arn}"

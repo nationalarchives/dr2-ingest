@@ -209,7 +209,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         case SourceSystem.TDR => List(IdField("BornDigitalRef", packageMetadata.fileReference), IdField(upstreamSystemRefIdKey, packageMetadata.fileReference))
         case SourceSystem.DRI =>
           List(IdField(upstreamSystemRefIdKey, s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
-            packageMetadata.driBatchReference.map(driBatchRef => List(IdField("DRIBatchReference", driBatchRef))).getOrElse(Nil)
+            packageMetadata.driBatchReference.map(driBatchRef => IdField("DRIBatchReference", driBatchRef)).toList ++
+            packageMetadata.IAID.map(iaid => IdField(discoveryIaidKey, iaid)).toList
         case SourceSystem.PA =>
           packageMetadata.IAID.map(iaid => IdField(discoveryIaidKey, iaid)).toList
         case SourceSystem.ADHOC =>

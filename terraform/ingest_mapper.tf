@@ -23,6 +23,7 @@ module "dr2_ingest_mapper_lambda" {
   plaintext_env_vars = {
     FILES_DDB_TABLE    = local.files_dynamo_table_name
     OUTPUT_BUCKET_NAME = local.ingest_state_bucket_name
+    TTL_DAYS           = local.environment == "prod" ? 100 : 30
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets

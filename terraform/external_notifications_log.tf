@@ -2,7 +2,8 @@ locals {
   external_notifications_name = "${local.environment}-external-notifications"
 }
 resource "aws_cloudwatch_log_group" "external_notification_log_group" {
-  name = "/${local.external_notifications_name}"
+  name              = "/${local.external_notifications_name}"
+  retention_in_days = 30
 }
 
 module "dr2_external_notifications_pipes_role" {

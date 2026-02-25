@@ -66,7 +66,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       _ <- log(s"Processing batchRef ${input.batchId}")
 
       hundredDaysFromNowInEpochSecs <- IO {
-        val hundredDaysFromNow: Instant = dependencies.time().plus(100, ChronoUnit.DAYS)
+        val hundredDaysFromNow: Instant = dependencies.time().plus(config.ttlDays, ChronoUnit.DAYS)
         Num(hundredDaysFromNow.getEpochSecond.toDouble)
       }
 
@@ -126,6 +126,6 @@ object Lambda {
       archiveHierarchyFolders: List[UUID]
   )
   case class Input(groupId: String, batchId: String, metadataPackage: URI, executionName: String)
-  case class Config(dynamoTableName: String, discoveryApiUrl: String, ingestStateBucket: String) derives ConfigReader
+  case class Config(dynamoTableName: String, discoveryApiUrl: String, ingestStateBucket: String, ttlDays: Int) derives ConfigReader
   case class Dependencies(metadataService: MetadataService, dynamo: DADynamoDBClient[IO], s3: DAS3Client[IO], time: () => Instant = () => Generators().generateInstant)
 }
