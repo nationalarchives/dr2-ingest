@@ -261,7 +261,10 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     testData.tdrRef.foreach(tdrRef => checkIdField("ConsignmentReference", tdrRef))
     checkIdField("RecordID", tdrFileId.toString)
 
-    if List(SourceSystem.ADHOC, SourceSystem.PA).contains(testData.upstreamSystem) && testData.iaid.isDefined then checkIdField("DiscoveryIAID", testData.iaid.get)
+    if List(SourceSystem.ADHOC, SourceSystem.PA, SourceSystem.DRI).contains(testData.upstreamSystem) && testData.iaid.isDefined then
+      checkIdField("DiscoveryIAID", testData.iaid.get)
+
+    if testData.upstreamSystem == SourceSystem.DRI && testData.driBatchRef.isDefined && testData.tdrRef.isEmpty then checkIdField("DRIBatchReference", testData.driBatchRef.get)
 
     allTestData.sortBy(p => natural(p.fileName.fileString)).zipWithIndex.foreach { (testData, idx) =>
       val potentialFileObject = fileObjects.find(_.id == testData.fileId)

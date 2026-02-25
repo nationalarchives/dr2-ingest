@@ -18,6 +18,7 @@ SELECT
     REPLACE(REGEXP_SUBSTR(du.CATALOGUEREFERENCE, '^([A-Z]{1,}\/[0-9]{1,}|HGD[0-9]{1,}_FX)'), '/', ' ') series,
     df.FILEREF AS FILEID,
     dum.MANIFESTATIONREF AS UUID,
+    du.DELIVERABLEUNITREF as UNITREF,
     TO_CLOB(REGEXP_SUBSTR(x.XMLCLOB, '<dcterms:description xmlns:dcterms="http://purl.org/dc/terms/" rdf:datatype="xs:string">(.*?)</dcterms:description>', 1, 1, NULL, 1)) AS DESC1,
     TO_CLOB(REGEXP_SUBSTR(x.XMLCLOB, '<dc:description xmlns:dc="http://purl.org/dc/terms/" rdf:datatype="xs:string">(.*?)</dc:description>', 1, 1, NULL, 1)) AS DESC2,
     a.DATE_ transferInitiatedDateTime,

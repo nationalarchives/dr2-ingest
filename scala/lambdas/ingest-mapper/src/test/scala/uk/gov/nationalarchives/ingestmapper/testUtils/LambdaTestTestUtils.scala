@@ -38,7 +38,7 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
     "0dcc4151-b1d0-44ac-a4a1-5415d7d50d65",
     "7a2fca81-0766-49ad-a8c3-63aef4200344"
   )
-  val config: Config = Config("test", "http://localhost:9015", "testInputStateBucket")
+  val config: Config = Config("test", "http://localhost:9015", "testInputStateBucket", 10)
   def input(s3Prefix: String = "TEST/"): Input = Input("TEST", "TEST_0", URI.create(s"s3://$inputBucket/${s3Prefix}metadata.json"), "executionName")
 
   def notImplemented[T]: IO[T] = IO.raiseError(new Exception("Not implemented"))
