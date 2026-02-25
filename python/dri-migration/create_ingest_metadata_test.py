@@ -29,7 +29,7 @@ def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows, test_run
     }
     mock_cursor = MagicMock()
     mock_cursor.description = [
-        ("PUID",), ("UUID",), ("UNITREF",), ("FILEID",), ("FILE_PATH",), ("FIXITIES",),
+        ("PUID",), ("UUID",), ("UNITREF",), ("FILEID",), ("FILE_PATH",), ("FULLPATH",), ("FIXITIES",),
         ("SERIES",), ("DESC1",), ("DESC2",), ("TRANSFERINITIATEDDATETIME",),
         ("CONSIGNMENTREFERENCE",), ("DRIBATCHREFERENCE",), ("FILENAME",),
         ("FILEREFERENCE",), ("METADATA",), ("MANIFESTATIONRELREF",), ("TYPEREF",), ('SORTORDER',), ('SECURITYTAG',)
@@ -59,13 +59,13 @@ class TestMigrate(unittest.TestCase):
             mock_create_skeleton, _, __, mock_connect
     ):
         row_fmt = [
-            "fmt/123", "uuid-abc", "unitref-abc", "fileid-xyz", "/test/file1",
+            "fmt/123", "uuid-abc", "unitref-abc", "fileid-xyz", "/test/file1", "/dri/a/1/test/file1",
             json.dumps([{"SHA256": "test"}]),
             "series1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
             "filename.txt", "fileref", "meta", "1", "1", 1, "BornDigital"
         ]
         row_x_fmt = [
-            "x-fmt/123", "uuid-def", "unitref-def", "fileid-xyz", "/test/file2",
+            "x-fmt/123", "uuid-def", "unitref-def", "fileid-xyz", "/test/file2", "/dri/a/1/test/file2",
             json.dumps([{"SHA256": "test"}]),
             "series1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
             "filename.txt", "fileref", "meta", "1", "1", 1, "Surrogate"
@@ -83,7 +83,7 @@ class TestMigrate(unittest.TestCase):
         if test_run == "true" or not test_run:
             call_paths = ("/test/file1", "/test/file2")
         else:
-            call_paths = (PureWindowsPath("/network-location/test/file1"), PureWindowsPath("/network-location/test/file2"))
+            call_paths = (PureWindowsPath("/network-location/dri/a/1/test/file1"), PureWindowsPath("/network-location/dri/a/1/test/file2"))
 
         calls = [
             call(call_paths[0], "testenv-dr2-ingest-dri-migration-cache", "uuid-abc/fileid-xyz"),
@@ -132,7 +132,7 @@ class TestMigrate(unittest.TestCase):
             mock_create_skeleton, ___, ____, mock_connect,
     ):
         row = [
-            "fmt/123", "uuid-abc", "unitref-abc", "fileid-xyz", "/test/file1",
+            "fmt/123", "uuid-abc", "unitref-abc", "fileid-xyz", "/test/file1", "/dri/a/1/test/file1",
             json.dumps([{"SHA256": "test"}]),
             "series1", "desc1", "desc2", "2021-01-01", None, None,
             "filename.txt", "fileref", "meta", "1", "1", 1, "BornDigital"

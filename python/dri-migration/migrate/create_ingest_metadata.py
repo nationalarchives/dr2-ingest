@@ -109,6 +109,7 @@ def migrate():
             asset_uuid = row[column_indexes["UUID"]]
             file_id = row[column_indexes["FILEID"]]
             file_path = row[column_indexes["FILE_PATH"]]
+            full_path = row[column_indexes["FULLPATH"]]
             checksums = json.loads(row[column_indexes["FIXITIES"]])
             consignment_reference = row[column_indexes["CONSIGNMENTREFERENCE"]]
             dri_batch_reference = row[column_indexes["DRIBATCHREFERENCE"]]
@@ -149,6 +150,7 @@ def migrate():
                         file_path = puid_lookup[puid]['file_path']
                         fingerprint = calculate_checksum(file_path, algorithm_lower)
                     else:
+                        file_path = full_path
                         fingerprint = each_checksum[algorithm]
                     metadata[f"checksum_{algorithm_lower}"] = fingerprint
 
