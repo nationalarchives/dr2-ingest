@@ -4,7 +4,6 @@ import os
 import tempfile
 import unittest
 from pathlib import PureWindowsPath
-from sndhdr import test_au
 from unittest.mock import patch, MagicMock, mock_open, call
 from parameterized import parameterized
 from migrate import create_ingest_metadata
