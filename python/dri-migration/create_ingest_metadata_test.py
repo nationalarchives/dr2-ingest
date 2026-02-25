@@ -237,6 +237,7 @@ class TestMigrate(unittest.TestCase):
             'Credentials': {'AccessKeyId': 'TestAccessKey', 'SecretAccessKey': 'TestSecret', 'SessionToken': 'TestSessionToken'},
         }
         def check_client(client):
+            self.assertEqual('eu-west-2', client._client_config.region_name)
             self.assertEqual('TestAccessKey', client._get_credentials().access_key)
             self.assertEqual('TestSecret', client._get_credentials().secret_key)
             self.assertEqual('TestSessionToken', client._get_credentials().token)
