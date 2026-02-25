@@ -225,6 +225,25 @@ class TestMigrate(unittest.TestCase):
         self.assertEqual(1, count('FileReference', 'ABC/Z/1'))
         self.assertEqual(1, count('FileReference', 'DEF/Z'))
 
+    @patch('migrate.create_ingest_metadata.sts_client')
+    def test_get_clients(self,  mock_sts_client):
+        mock_sts_client.assume_role.return_value = {
+            'Credentials': {'AccessKeyId': 'TestAccessKey', 'SecretAccessKey': 'TestSecret', 'SessionToken': 'TestSessionToken'},
+        }
+        def check_client(client):
+            self.assertEqual('TestAccessKey', client._get_credentials().access_key)
+            self.assertEqual('TestSecret', client._get_credentials().secret_key)
+            self.assertEqual('TestSessionToken', client._get_credentials().token)
+
+        (s3_client, sqs_client) = create_ingest_metadata.get_clients(12345, "test")
+
+        sts_args = mock_sts_client.assume_role.call_args_list[0][1]
+        self.assertEqual('arn:aws:iam::12345:role/test-dr2-ingest-dri-migration-role', sts_args['RoleArn'])
+        self.assertEqual('dri-migration', sts_args['RoleSessionName'])
+
+        check_client(s3_client)
+        check_client(sqs_client)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -36,8 +36,9 @@ page_size = 100
 
 config = Config(region_name="eu-west-2")
 
+sts_client = boto3.client("sts")
+
 def get_clients(account_number, environment):
-    sts_client = boto3.client("sts")
     credentials = sts_client.assume_role(
         RoleArn=f"arn:aws:iam::{account_number}:role/{environment}-dr2-ingest-dri-migration-role",
         RoleSessionName="dri-migration"
@@ -75,9 +76,9 @@ def process_redacted(assets_to_process):
         if asset['type_ref'] == 100:
             file_reference = asset['metadata']['FileReference']
             iaid = asset['metadata']['IAID']
-            rel_ref = asset['rel_ref']
-            asset['metadata'].update({'FileReference': f"{file_reference}/{rel_ref - 1}"})
-            asset['metadata'].update({'IAID': f"{iaid}_{rel_ref - 1}"})
+            redacted_id = asset['rel_ref'] - 1
+            asset['metadata'].update({'FileReference': f"{file_reference}/{redacted_id}"})
+            asset['metadata'].update({'IAID': f"{iaid}_{redacted_id}"})
     return assets_to_process
 
 def migrate():
