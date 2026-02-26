@@ -77,6 +77,17 @@
         "arn:aws:s3:::${ingest_state_bucket_name}/*"
       ],
       "Sid": "readWriteIngestState"
+    },
+    {
+      "Action": [
+        "s3:DeleteObject"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:s3:::${ingest_state_bucket_name}/*",
+        "arn:aws:s3:::${ingest_raw_cache_bucket_name}/*"
+      ],
+      "Sid": "cleanupIngestFiles"
     }
   ],
   "Version": "2012-10-17"
