@@ -1,0 +1,77 @@
+[
+  {
+    "code" : "EWCA",
+    "dept" : "J",
+    "series" : "J 347"
+  },
+  {
+    "code" : "UKEAT",
+    "dept" : "LE",
+    "series" : "LE 10"
+  },
+  {
+    "code" : "EWCRC",
+    "dept" : "J",
+    "series" : "J 355"
+  },
+  {
+    "code" : "UKFTT",
+    "dept" : "LE",
+    "series" : "LE 11"
+  },
+  {
+    "code" : "EAT",
+    "dept" : "LE",
+    "series" : "LE 10"
+  },
+  {
+    "code" : "UKUT",
+    "dept" : "LE",
+    "series" : "LE 9"
+  },
+  {
+    "code" : "EWCC",
+    "dept" : "J",
+    "series" : "J 354"
+  },
+  {
+    "code" : "EWCOP",
+    "dept" : "J",
+    "series" : "J 349"
+  },
+  {
+    "code" : "UKPC",
+    "dept" : "PCAP",
+    "series" : "PCAP 16"
+  },
+  {
+    "code" : "UKSC",
+    "dept" : "UKSC",
+    "series" : "UKSC 2"
+  },
+  {
+    "code" : "EWHC",
+    "dept" : "J",
+    "series" : "J 348"
+  },
+  {
+    "code" : "EWFC",
+    "dept" : "J",
+    "series" : "J 350"
+  },
+  {
+    "code" : "EWCR",
+    "dept" : "J",
+    "series" : "J 355"
+  },
+  {
+    "code" : "UKET",
+    "dept" : "LE",
+    "series" : "LE 12"
+  },
+  {
+    "code" : "UKIPTRIB",
+    "dept" : "HO",
+    "series" : "HO 654"
+  }
+]

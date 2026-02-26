@@ -11,7 +11,7 @@ import java.net.URI
 class SeriesMapperTest extends AnyFlatSpec with TableDrivenPropertyChecks {
 
   "seriesMap" should "have 15 entries" in {
-    seriesMap.size should equal(15)
+    seriesMap.unsafeRunSync().size should equal(15)
   }
 
   val courtToSeries: TableFor2[String, String] = Table(
@@ -35,7 +35,7 @@ class SeriesMapperTest extends AnyFlatSpec with TableDrivenPropertyChecks {
 
   private val s3Uri: URI = URI.create("s3://upload/key")
 
-  assert(courtToSeries.length == seriesMap.size)
+  assert(courtToSeries.length == seriesMap.unsafeRunSync().size)
 
   forAll(courtToSeries) { (court, series) =>
     "createDepartmentAndSeries" should s"return $series for court $court" in {
