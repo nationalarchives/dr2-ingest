@@ -12,7 +12,7 @@ import reactor.core.publisher.Flux
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse, PutObjectTaggingResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import sttp.client4.impl.cats.CatsMonadAsyncError
 import sttp.client4.testing.WebSocketStreamBackendStub
@@ -209,4 +209,6 @@ object LambdaTestTestUtils extends TableDrivenPropertyChecks {
       override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = notImplemented
 
       override def listObjects(bucket: String, prefix: Option[String]): IO[ListObjectsV2Response] = notImplemented
+
+      override def updateObjectTags(bucket: String, key: String, newTags: Map[String, String], potentialVersionId: Option[String]): IO[PutObjectTaggingResponse] = notImplemented
 }
