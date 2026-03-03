@@ -34,6 +34,8 @@ lazy val ingestLambdasRoot = (project in file("."))
     preIngestTdrPackageBuilder,
     preingestDriPackageBuilder,
     preingestAdHocPackageBuilder,
+    preingestRestorePackageBuilder,
+    preingestRestoreAggregator,
     rotatePreservationSystemPassword,
     startWorkflow
   )
@@ -306,6 +308,15 @@ lazy val packageBuilderSettings = Seq(
   dependencyOverrides += jawnParser
 )
 
+lazy val preingestRestorePackageBuilder = (project in file("preingest-restore-package-builder"))
+  .settings(name := baseDirectory.value.getName)
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies += scalaXml
+  )
+  .dependsOn(utils, dynamoFormatters)
+  .settings(packageBuilderSettings)
+
 lazy val preIngestTdrPackageBuilder = (project in file("preingest-tdr-package-builder"))
   .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
@@ -370,6 +381,15 @@ lazy val preingestAdHocAggregator = (project in file("preingest-tdr-aggregator")
   .settings(
     name := "preingest-adhoc-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-adhoc-aggregator"
+  )
+  .settings(commonSettings)
+  .dependsOn(utils)
+  .settings(aggregatorSettings)
+
+lazy val preingestRestoreAggregator = (project in file("preingest-tdr-aggregator"))
+  .settings(
+    name := "preingest-restore-aggregator",
+    target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-restore-aggregator"
   )
   .settings(commonSettings)
   .dependsOn(utils)
