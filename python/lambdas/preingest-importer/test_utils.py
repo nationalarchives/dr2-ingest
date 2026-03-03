@@ -7,7 +7,7 @@ import lambda_function
 
 def copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object, mock_delete_object,
                 mock_send_message, mock_copy,
-                mock_head_object, mock_list_objects, potential_message_id=None, should_delete=False):
+                mock_head_object, mock_list_objects, potential_message_id=None, should_delete=False, should_validate=True):
     content_length = 5 * 1024 * 1024 * 1024
     asset_id = str(uuid.uuid4())
     def key(): return f'{asset_id}/{str(uuid.uuid4())}'
@@ -48,8 +48,12 @@ def copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exis
     self.assertEqual(1, mock_copy.call_count)
     self.assertEqual(expected_sqs_args, mock_send_message.call_args_list[0][1])
 
-    mock_validate_mandatory_fields_exist.assert_called_once()
-    mock_validate_formats.assert_called_once()
+    if should_validate:
+        mock_validate_mandatory_fields_exist.assert_called_once()
+        mock_validate_formats.assert_called_once()
+    else:
+        mock_validate_mandatory_fields_exist.assert_not_called()
+        mock_validate_formats.assert_not_called()
 
     if should_delete:
         self.assertEqual(2, mock_delete_object.call_count)
