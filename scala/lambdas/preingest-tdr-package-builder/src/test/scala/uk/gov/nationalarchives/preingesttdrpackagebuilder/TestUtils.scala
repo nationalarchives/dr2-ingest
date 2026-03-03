@@ -12,7 +12,7 @@ import org.scanamo.request.RequestCondition
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse, S3Object}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse, PutObjectTaggingResponse, S3Object}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{IngestLockTableItem, checksumPrefix}
 import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
@@ -119,5 +119,7 @@ object TestUtils:
         }.toList
         ListObjectsV2Response.builder.contents(s3Objects*).build
       }
+
+      override def updateObjectTags(bucket: String, key: String, newTags: Map[String, String], potentialVersionId: Option[String]): IO[PutObjectTaggingResponse] = IO.stub
     }
   }
