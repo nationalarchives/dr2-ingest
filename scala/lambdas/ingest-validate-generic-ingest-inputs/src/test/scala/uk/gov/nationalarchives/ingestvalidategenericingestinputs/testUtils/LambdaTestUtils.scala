@@ -10,7 +10,7 @@ import io.circe.{Decoder, HCursor, Json}
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse, PutObjectTaggingResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.DAS3Client
 import uk.gov.nationalarchives.ingestvalidategenericingestinputs.Lambda
@@ -57,6 +57,8 @@ object LambdaTestUtils {
     override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = notImplemented
 
     override def listObjects(bucket: String, prefix: Option[String]): IO[ListObjectsV2Response] = notImplemented
+
+    override def updateObjectTags(bucket: String, key: String, newTags: Map[String, String], potentialVersionId: Option[String]): IO[PutObjectTaggingResponse] = notImplemented
 
   def runLambda(inputFile: String, filesFoundInS3: Boolean = true): (List[String], List[String]) = {
     val inputString = Source.fromResource(s"inputjson/$inputFile").getLines().mkString
