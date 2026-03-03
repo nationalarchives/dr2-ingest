@@ -13,7 +13,7 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse, PutObjectTaggingResponse}
 import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityResponse, DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.{DAS3Client, DASQSClient}
@@ -86,6 +86,8 @@ object TestUtils:
     override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = IO.never
 
     override def listObjects(bucket: String, prefix: Option[String]): IO[ListObjectsV2Response] = IO.never
+
+    override def updateObjectTags(bucket: String, key: String, newTags: Map[String, String], potentialVersionId: Option[String]): IO[PutObjectTaggingResponse] = IO.stub
 
   val reference = "TEST-REFERENCE"
 

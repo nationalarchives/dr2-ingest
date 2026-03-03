@@ -270,7 +270,7 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
       upickle,
       reactorTest % Test
     ),
-    dependencyOverrides += jawnParser
+    dependencyOverrides ++= Seq(jawnParser, jacksonCore)
   )
 
 lazy val postIngestStateChangeHandler = (project in file("postingest-state-change-handler"))
