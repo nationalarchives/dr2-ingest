@@ -8,7 +8,7 @@ import org.scanamo.request.RequestCondition
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse, PutObjectTaggingResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
 import uk.gov.nationalarchives.utils.ExternalUtils.{MetadataObject, StepFunctionInput}
@@ -53,6 +53,8 @@ object TestUtils:
     override def deleteObjects(bucket: String, keys: List[String]): IO[DeleteObjectsResponse] = IO.stub
 
     override def listCommonPrefixes(bucket: String, keysPrefixedWith: String): IO[SdkPublisher[String]] = IO.stub
+
+    override def updateObjectTags(bucket: String, key: String, newTags: Map[String, String], potentialVersionId: Option[String]): IO[PutObjectTaggingResponse] = IO.stub
   }
 
   def dynamoClient(items: List[IngestLockTableItem]): DADynamoDBClient[IO] = new DADynamoDBClient[IO] {
