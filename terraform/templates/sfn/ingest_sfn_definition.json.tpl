@@ -306,13 +306,42 @@
         {
           "Variable": "$.Count",
           "NumericEquals": 0,
-          "Next": "Do nothing, as items have been removed from lock table"
+          "Next": "Delete assets.json & files.json"
         }
       ],
       "Default": "Check if retryCount is less than 2"
     },
-    "Do nothing, as items have been removed from lock table": {
-      "Type": "Pass",
+    "Delete assets.json & files.json": {
+      "Type": "Task",
+      "Parameters": {
+        "Bucket": "${ingest_state_bucket_name}",
+        "Delete": {
+          "Objects": [
+            {
+              "Key.$": "States.Format('{}/assets.json', $$.Execution.Input.batchId)"
+            },
+            {
+              "Key.$": "States.Format('{}/files.json', $$.Execution.Input.batchId)"
+            }
+          ]
+        }
+      },
+      "Resource": "arn:aws:states:::aws-sdk:s3:deleteObjects",
+      "Next": "Delete metadata.json"
+    },
+    "Delete metadata.json": {
+      "Type": "Task",
+      "Parameters": {
+        "Bucket": "${ingest_raw_cache_bucket_name}",
+        "Delete": {
+          "Objects": [
+            {
+              "Key.$": "States.Format('{}/metadata.json', $$.Execution.Input.batchId)"
+            }
+          ]
+        }
+      },
+      "Resource": "arn:aws:states:::aws-sdk:s3:deleteObjects",
       "End": true
     },
     "Check if retryCount is less than 2": {
