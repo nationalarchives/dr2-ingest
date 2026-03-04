@@ -434,6 +434,7 @@ module "dr2_ingest_step_function" {
     ingest_run_workflow_sfn_name                      = local.ingest_run_workflow_step_function_name
     notifications_topic_name                          = local.notifications_topic_name
     ingest_state_bucket_name                          = local.ingest_state_bucket_name
+    ingest_raw_cache_bucket_name                      = local.ingest_raw_cache_bucket_name
     preservica_bucket_name                            = local.preservica_ingest_bucket
     ingest_files_table_name                           = local.files_dynamo_table_name
     ingest_queue_table_name                           = local.ingest_queue_dynamo_table_name
@@ -496,6 +497,7 @@ module "dr2_ingest_step_function_policy" {
     notifications_topic_name                          = local.notifications_topic_name
     ingest_queue_table_name                           = local.ingest_queue_dynamo_table_name
     ingest_state_bucket_name                          = local.ingest_state_bucket_name
+    ingest_raw_cache_bucket_name                      = local.ingest_raw_cache_bucket_name
     ingest_sfn_name                                   = local.ingest_step_function_name
     ingest_run_workflow_sfn_name                      = local.ingest_run_workflow_step_function_name
     tna_to_preservica_role_arn                        = local.tna_to_preservica_role_arn
