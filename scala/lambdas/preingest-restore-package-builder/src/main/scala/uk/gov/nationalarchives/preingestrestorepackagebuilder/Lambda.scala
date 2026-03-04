@@ -33,11 +33,13 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
     val contentFolderId = dependencies.uuidGenerator()
 
     def createFiles(metadata: Elem, assetId: UUID): IO[List[FileMetadataObject]] = {
-      (metadata \ "CCContentObjects" \ "CCContentObject").zipWithIndex
+      metadata
+        .pathNodes("CCContentObjects", "CCContentObject")
+        .zipWithIndex
         .traverse { case (co, sortOrder) =>
           for
             coRef <- co.pathValue("ContentObject", "Ref").map(UUID.fromString).liftF("Cannot get a Ref from a CO")
-            fileId <- co.pathValue("Bitstreams", "Bitstream").flatMap(_.split("\\.").headOption).map(UUID.fromString).liftF("Cannot extract id from bitstream name")
+            fileId <- co.pathValue("Bitstreams", "Bitstream").flatMap(_.split("\\.").headOption).map(UUID.fromString).liftF(s"Cannot extract id from bitstream name for CO $coRef")
             title <- co.pathValue("ContentObject", "Title").liftF(s"Title not found for file $fileId")
             fileSize <- co.pathValue("Bitstream", "FileSize").map(_.toInt).liftF(s"File size not found for file $fileId")
           yield FileMetadataObject(
@@ -50,7 +52,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             RepresentationType.Preservation,
             1,
             URI.create(s"s3://${config.rawCacheBucket}/$assetId/$coRef"),
-            co.pathList("Bitstream", "Fixities", "Fixity").map(f => Checksum((f \ "FixityAlgorithmRef").text, (f \ "FixityValue").text))
+            co.pathNodes("Bitstream", "Fixities", "Fixity").map(f => Checksum((f \ "FixityAlgorithmRef").text, (f \ "FixityValue").text))
           )
         }
         .map(_.toList)
@@ -72,9 +74,9 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         for
           assetRef <- metadata.pathValue("InformationObject", "Ref").map(UUID.fromString).liftF("Preservation system Ref not found")
           assetId <- identifierByName("SourceID").map(UUID.fromString)
-          title <- metadata.pathValue("InformationObject", "Title").liftF("Title not found")
-          upstreamSystem <- metadata.metadataSource("UpstreamSystem").flatMap(SourceSystem.fromDisplayName).liftF("Source system not found")
-          digitalAssetSource <- metadata.metadataSource("DigitalAssetSource").liftF("Asset source not found")
+          title <- metadata.pathValue("InformationObject", "Title").liftF(s"Title not found for $assetRef")
+          upstreamSystem <- metadata.metadataSource("UpstreamSystem").flatMap(SourceSystem.fromDisplayName).liftF(s"Source system not found for $assetRef")
+          digitalAssetSource <- metadata.metadataSource("DigitalAssetSource").liftF(s"Asset source not found for $assetRef")
           files <- createFiles(metadata, assetId)
         yield
           val asset = AssetMetadataObject(
@@ -82,7 +84,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             contentFolderId.some,
             title,
             assetId.toString,
-            metadata.pathList("Metadata", "Content", "Source", "OriginalMetadataFiles", "File").map(e => UUID.fromString(e.text)),
+            metadata.pathNodes("Metadata", "Content", "Source", "OriginalMetadataFiles", "File").map(e => UUID.fromString(e.text)),
             metadata.pathValue("InformationObject", "Description"),
             metadata.metadataSource("TransferringBody"),
             metadata.metadataSource("TransferDateTime").map(OffsetDateTime.parse),
@@ -109,7 +111,6 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         .flatMap(_.toStreamBuffered[IO](1024 * 5))
         .map(bb => XML.loadString(bb.array().map(_.toChar).mkString))
         .flatMap(xmlToJson)
-
     }
 
     def processLockTableItems(lockTableItems: List[IngestLockTableItem]): IO[Unit] = {
@@ -150,11 +151,11 @@ object Lambda:
   extension [T](o: Option[T]) def liftF(msg: String): IO[T] = IO.fromOption(o)(new Exception(msg))
 
   extension (xml: NodeSeq)
-    def pathList(path: String*): List[Node] = path.foldLeft(xml)(_ \ _).toList
+    def pathNodes(path: String*): List[Node] = path.foldLeft(xml)(_ \ _).toList
 
     def metadataSource(path: String): Option[String] = pathValue("Metadata", "Content", "Source", path)
 
     def pathValue(path: String*): Option[String] = {
-      val value = pathList(path*).headOption.map(_.text)
+      val value = pathNodes(path*).headOption.map(_.text)
       if value.contains("") then None else value
     }

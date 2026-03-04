@@ -18,7 +18,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       <InformationObject>
         <Ref>deaef74e-9870-4303-9985-3a8ce64edf0c</Ref>
         <Title>Test title</Title>
-        <xip:Description>Test description</xip:Description>
+        <xip:Description/>
       </InformationObject>
       <Identifier>
         <Type>SourceID</Type>
@@ -89,7 +89,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     asset.id should equal(UUID.fromString("8e5b9cea-62a5-43f1-a268-74bb740e2f70"))
     asset.parentId.get should equal(contentFolder.id)
     asset.originalMetadataFiles should equal(List(UUID.fromString("9deee21f-5062-4aaa-82f4-2d31fb4262b4")))
-    asset.description.get should equal("Test description")
+    asset.description.isEmpty should equal(true)
     asset.transferringBody should equal(None)
     asset.transferCompleteDatetime.get should equal(OffsetDateTime.parse("2023-03-24T10:13:04.280Z"))
     asset.upstreamSystem.display should equal("Parliament Migration")
@@ -138,10 +138,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val res = runLambda(List(lockTableItem), Map("key" -> xml.toString))
     val err = res.output.left.value
 
-    err.getMessage should equal("Title not found")
+    err.getMessage should equal("Title not found for 1f1cd3e0-4700-4c04-b556-4fccd83bd819")
   }
 
-  "lambda" should "error if the the source system is missing" in {
+  "lambda" should "error if the source system is missing" in {
     val xml = <XIP>
       <InformationObject><Ref>1f1cd3e0-4700-4c04-b556-4fccd83bd819</Ref><Title>Test</Title></InformationObject>
       <Identifier><Type>SourceID</Type> <Value>8e5b9cea-62a5-43f1-a268-74bb740e2f70</Value></Identifier>
@@ -149,10 +149,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val res = runLambda(List(lockTableItem), Map("key" -> xml.toString))
     val err = res.output.left.value
 
-    err.getMessage should equal("Source system not found")
+    err.getMessage should equal("Source system not found for 1f1cd3e0-4700-4c04-b556-4fccd83bd819")
   }
 
-  "lambda" should "error if the the asset source is missing" in {
+  "lambda" should "error if the asset source is missing" in {
     val xml = <XIP>
       <InformationObject><Ref>1f1cd3e0-4700-4c04-b556-4fccd83bd819</Ref> <Title>Test</Title></InformationObject>
       <Identifier><Type>SourceID</Type> <Value>8e5b9cea-62a5-43f1-a268-74bb740e2f70</Value></Identifier>
@@ -169,10 +169,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val res = runLambda(List(lockTableItem), Map("key" -> xml.toString))
     val err = res.output.left.value
 
-    err.getMessage should equal("Asset source not found")
+    err.getMessage should equal("Asset source not found for 1f1cd3e0-4700-4c04-b556-4fccd83bd819")
   }
 
-  "lambda" should "error if the the content object ref is missing" in {
+  "lambda" should "error if the content object ref is missing" in {
     val xml = <XIP>
       <InformationObject>
         <Ref>1f1cd3e0-4700-4c04-b556-4fccd83bd819</Ref> <Title>Test</Title>
@@ -203,7 +203,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     err.getMessage should equal("Cannot get a Ref from a CO")
   }
 
-  "lambda" should "error if the the bitstream name is missing" in {
+  "lambda" should "error if the bitstream name is missing" in {
     val xml = <XIP>
       <InformationObject>
         <Ref>1f1cd3e0-4700-4c04-b556-4fccd83bd819</Ref> <Title>Test</Title>
@@ -230,10 +230,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val res = runLambda(List(lockTableItem), Map("key" -> xml.toString))
     val err = res.output.left.value
 
-    err.getMessage should equal("Cannot extract id from bitstream name")
+    err.getMessage should equal("Cannot extract id from bitstream name for CO 4b02b6a2-8daf-46b4-af73-2c6e485cca69")
   }
 
-  "lambda" should "error if the the content object title is missing" in {
+  "lambda" should "error if the content object title is missing" in {
     val xml = <XIP>
       <InformationObject>
         <Ref>1f1cd3e0-4700-4c04-b556-4fccd83bd819</Ref> <Title>Test</Title>
@@ -268,7 +268,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     err.getMessage should equal("Title not found for file e7c8511b-6a9b-4146-839d-33d7a40e9232")
   }
 
-  "lambda" should "error if the the file size is missing" in {
+  "lambda" should "error if the file size is missing" in {
     val xml = <XIP>
       <InformationObject>
         <Ref>1f1cd3e0-4700-4c04-b556-4fccd83bd819</Ref> <Title>Test</Title>

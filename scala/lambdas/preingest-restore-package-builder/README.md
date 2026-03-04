@@ -1,8 +1,8 @@
 # DR2 CC Restore Preingest package builder
 
-This code is used for the custodial copy restore preingest.
+This code is used for the Custodial Copy restore preingest.
 
-Because of aggregation, assets are grouped and therefore each have group ID in the Ingest lock table.
+Because of aggregation, assets are grouped and therefore each have a group ID in the Ingest lock table.
 
 1. The lambda passes in the group ID it gets from the input and lock table name in a call to DDB
 2. It retrieves only the items from the ingest lock table that match the group ID
@@ -13,7 +13,7 @@ Because of aggregation, assets are grouped and therefore each have group ID in t
       "location": "s3://raw-cache-bucket/0c76c5d0-bb8e-4ebb-98c7-5900dc26a1a0.metadata"
     }
     ```
-4. For each asset:
+4. For each item:
    1. get the url from the `location` field and use it to download the metadata file (from S3). The metadata is XML from Custodial Copy.
    2. convert the byte array returned into a string
    3. decode this string into a scala XML element
