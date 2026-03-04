@@ -43,8 +43,9 @@ The lambda doesn't return anything, but it sends a message to `OUTPUT_QUEUE_URL`
 
 ## Environment Variables
 
-| Name               | Description                                                                                                  |
-|--------------------|--------------------------------------------------------------------------------------------------------------|
-| OUTPUT_BUCKET_NAME | The DR2 bucket to copy the files to                                                                          |
-| OUTPUT_QUEUE_URL   | The SQS queue to send the non-metadata file locations to                                                     |
-| DELETE_FROM_SOURCE | An optional variable. If set to 'true', the lambda will delete all files and metadata from the source bucket |
+| Name               | Description                                                                                                                   |
+|--------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| OUTPUT_BUCKET_NAME | The DR2 bucket to copy the files to                                                                                           |
+| OUTPUT_QUEUE_URL   | The SQS queue to send the non-metadata file locations to                                                                      |
+| DELETE_FROM_SOURCE | An optional variable. If set to 'true', the lambda will delete all files and metadata from the source bucket                  |
+| SKIP_VALIDATION    | An optional variable. If set to 'true', the lambda will not validate the metadata. This is used when the metadata is not JSON |
