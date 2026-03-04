@@ -72,7 +72,7 @@ class TestLambdaFunction(unittest.TestCase):
     def test_copy_with_skip_validation(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_delete_object,
                   mock_get_object, mock_send_message, mock_copy, mock_head_object, mock_list_objects):
         copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object, mock_delete_object,
-                    mock_send_message, mock_copy, mock_head_object, mock_list_objects, should_validate=False)
+                    mock_send_message, mock_copy, mock_head_object, mock_list_objects, skip_validation=True)
 
     @patch('lambda_function.s3_client.list_objects')
     @patch('lambda_function.s3_client.head_object')
