@@ -17,7 +17,7 @@ def get_ids(conn, code):
         print(f"No rows found for code {code}")
         exit(1)
     elif len(row) > 1:
-        print(f"More than one ID found for code {code}")
+        print(f"More than one row found for code {code}")
         exit(1)
     else:
         return {'object_id': row[0][0], 'source_id': row[0][1]}
@@ -34,11 +34,11 @@ def get_ocfl_root_path(repo_path, object_id):
     return f"{repo_path}/{path}"
 
 
-def get_content_object_ids(root_path, io_metadata_path):
+def get_content_object_ids(root_path, io_metadata_path, xip_version):
     with open(f"{root_path}/{io_metadata_path}", "r") as io_metadata_file:
         io_metadata_xml = io_metadata_file.read()
     root = ET.fromstring(io_metadata_xml)
-    ns = {"xip": "http://preservica.com/XIP/v7.7"}
+    ns = {"xip": f"http://preservica.com/XIP/{xip_version}"}
 
     return [e.text for e in root.findall(".//xip:ContentObjects/xip:ContentObject", ns)]
 
@@ -53,11 +53,11 @@ def get_file_paths(root_path):
     return paths
 
 
-def generate_co_xml(path):
+def generate_co_xml(path, xip_version):
     with open(path) as co_file:
         f = co_file.read()
         co_elem = ET.fromstring(f)
-    ns = {"xip": "http://preservica.com/XIP/v7.7"}
+    ns = {"xip": f"http://preservica.com/XIP/{xip_version}"}
     co_root = ET.Element("CCContentObject")
 
     content_objects = co_elem.findall("./xip:ContentObject", ns)
@@ -68,14 +68,14 @@ def generate_co_xml(path):
     co_root.extend(bitstream_object)
     return co_root
 
-def run(conn, repo_path, output_directory, code):
+def run(conn, repo_path, output_directory, code, xip_version):
     ids = get_ids(conn, code)
     object_id = ids['object_id']
     source_id = ids['source_id']
     root_path = get_ocfl_root_path(repo_path, object_id)
     file_paths = get_file_paths(root_path)
     io_metadata_path = [x for x in file_paths if x.endswith("IO_Metadata.xml")][0]
-    content_object_ids = get_content_object_ids(root_path, io_metadata_path)
+    content_object_ids = get_content_object_ids(root_path, io_metadata_path, xip_version)
     pathlib.Path(f"{output_directory}/{source_id}").mkdir(parents=True, exist_ok=True)
     cc_cos = ET.Element("CCContentObjects")
 
@@ -84,7 +84,7 @@ def run(conn, repo_path, output_directory, code):
         co_metadata_path = [f for f in co_files if f.endswith("CO_Metadata.xml")][0]
         file_path = [f for f in co_files if not f.endswith("CO_Metadata.xml")][0]
         shutil.copyfile(f"{root_path}/{file_path}", f"{output_directory}/{source_id}/{co_id}")
-        cc_co_elem = generate_co_xml(f"{root_path}/{co_metadata_path}")
+        cc_co_elem = generate_co_xml(f"{root_path}/{co_metadata_path}", xip_version)
         cc_cos.append(cc_co_elem)
 
     io_full_path = f"{root_path}/{io_metadata_path}"
@@ -96,4 +96,7 @@ def run(conn, repo_path, output_directory, code):
 
 
 if __name__ == "__main__":
-    run(sqlite3.connect(os.environ['DB_PATH']), os.environ['REPO_PATH'], os.environ['OUTPUT_DIRECTORY'], sys.argv[1])
+    db_path = os.environ['DB_PATH']
+    ocfl_repo_path = os.environ['REPO_PATH']
+    output_dir = os.environ['OUTPUT_DIRECTORY']
+    run(sqlite3.connect(db_path), ocfl_repo_path, output_dir, sys.argv[1], sys.argv[2])

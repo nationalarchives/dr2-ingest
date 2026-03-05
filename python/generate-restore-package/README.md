@@ -11,10 +11,10 @@ the Python standard library.
 
 ## Steps
 
-* Query the DB builder database for the object id and source id for the code provided in the argument.
+* Query the DB builder database for the object id and source id for the code provided in first the argument.
 * Get the root path for the OCFL object.
 * Get the file paths from the `inventory.json` file in the OCFL object.
-* Read the IO metadata file and extract the list of content object ids.
+* Read the IO metadata file and extract the list of content object ids using the xip version provided in the second argument.
 * For each content object id, add the metadata from the CO_Metadata file to a list and copy the file to the output
   directory.
 * Concatenate the `IO_Metadata` and list of `CO_Metadata` to a new file in the output directory.
@@ -22,7 +22,7 @@ the Python standard library.
 ## Running the script
 
 ```bash
-OUTPUT_DIRECTORY=/path/to/output/ DB_PATH=/path/to/builder.db REPO_PATH=/path/to/ocfl/repo python3 generate_restore_files.py ABC/D/1
+OUTPUT_DIRECTORY=/path/to/output/ DB_PATH=/path/to/builder.db REPO_PATH=/path/to/ocfl/repo python3 generate_restore_files.py ABC/D/1 v7.7
 ```
 
 ## Environment variables
