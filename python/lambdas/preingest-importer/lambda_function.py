@@ -17,6 +17,7 @@ def lambda_handler(event, context):
     destination_bucket = os.environ["OUTPUT_BUCKET_NAME"]
     destination_queue = os.environ["OUTPUT_QUEUE_URL"]
     delete_from_source = os.getenv("DELETE_FROM_SOURCE", "false") == "true"
+    skip_validation = os.getenv("SKIP_VALIDATION", "false") == "true"
     for record in event["Records"]:
         body: dict[str, str] = json.loads(record["body"])
         asset_id = body["assetId"] if "assetId" in body else body["fileId"]
@@ -24,7 +25,8 @@ def lambda_handler(event, context):
         source_bucket = body["bucket"]
         try:
             file_objects = assert_objects_exist_in_bucket(source_bucket, asset_id)
-            validate_metadata(source_bucket, metadata_file_id)
+            if not skip_validation:
+                validate_metadata(source_bucket, metadata_file_id)
             transfer_files = [f['Key'] for f in file_objects]
             copy_objects(destination_bucket, transfer_files, source_bucket)
             potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
@@ -115,3 +117,4 @@ def copy_objects(destination_bucket, s3_keys, source_bucket):
         except Exception as e:
             print(f"Error during copy of '{s3_key}' from '{source_bucket}' to '{destination_bucket}': {e}")
             raise e
+
