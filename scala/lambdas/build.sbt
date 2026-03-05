@@ -1,7 +1,5 @@
 import Dependencies.*
-import uk.gov.nationalarchives.sbt.Log4j2MergePlugin.log4j2MergeStrategy
-
-import java.nio.file.{Files, StandardCopyOption}
+import sbtassembly.Log4j2MergeStrategy
 
 ThisBuild / organization := "uk.gov.nationalarchives"
 name := "lambdas"
@@ -61,7 +59,7 @@ lazy val commonSettings = Seq(
   dependencyOverrides ++= Seq(awsDynamo, commonsLogging, jawnParser),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
-    case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => log4j2MergeStrategy
+    case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => Log4j2MergeStrategy.plugincache
     case _                                                   => MergeStrategy.first
   },
   scalacOptions ++= Seq("-Yretain-trees", "-Xmax-inlines", "40", "-Wunused:imports", "-Werror", "-deprecation", "-feature", "-language:implicitConversions"),

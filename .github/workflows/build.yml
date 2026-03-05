@@ -24,9 +24,7 @@ jobs:
           aws-region: eu-west-2
           role-session-name: GitHubActionsRole
       - id: next-tag
-        uses: nationalarchives/dr2-github-actions/.github/actions/get-next-version@917201e254f112ff041b952dae76ef767cae7378
-        with:
-          repo-name: dr2-ingest
+        run: echo next-version=$(curl -s $GITHUB_API_URL/repos/nationalarchives/dr2-ingest/tags | jq -r '.[0].name' | awk -F. -v OFS=. '{ $3++; print }') >> "$GITHUB_OUTPUT"
       - run: |
           rm -rf target/outputs
           mkdir -p target/outputs
