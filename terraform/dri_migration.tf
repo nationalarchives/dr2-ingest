@@ -3,6 +3,7 @@ locals {
   dri_migration_policy_name = "${local.environment}-dr2-ingest-dri-migration-policy"
   dri_migration_role_name   = "${local.environment}-dr2-ingest-dri-migration-role"
 }
+
 module "dr2_dri_migration_key" {
   source   = "git::https://github.com/nationalarchives/da-terraform-modules//kms"
   key_name = "${local.environment}-kms-dr2-dri-migration"
