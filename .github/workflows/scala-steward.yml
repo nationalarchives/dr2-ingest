@@ -1,6 +1,8 @@
 name: Run Scala Steward
 on:
   push:
+    branches:
+      - run-scala-steward-for-this-repo
 permissions:
   contents: write
   pull-requests: write
