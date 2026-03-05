@@ -85,3 +85,27 @@ module "court_document_preingest" {
   vpc_id  = module.vpc.vpc.id
   vpc_arn = module.vpc.vpc.arn
 }
+
+module "cc_restore_preingest" {
+  source                              = "./preingest"
+  environment                         = local.environment
+  ingest_lock_dynamo_table_name       = local.ingest_lock_dynamo_table_name
+  ingest_lock_table_arn               = module.ingest_lock_table.table_arn
+  ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
+  ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
+  ingest_step_function_name           = local.ingest_step_function_name
+  source_name                         = "restore"
+  copy_source_bucket_arn              = "arn:aws:s3:::${local.cc_restore_bucket_name}"
+  private_security_group_ids          = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
+  private_subnet_ids                  = module.vpc.private_subnets
+  delete_from_source                  = true
+  additional_importer_lambda_env_vars = {
+    SKIP_VALIDATION = "true"
+  }
+  package_builder_lambda = {
+    handler = "uk.gov.nationalarchives.preingestrestorepackagebuilder.Lambda::handleRequest"
+  }
+  vpc_id  = module.vpc.vpc.id
+  vpc_arn = module.vpc.vpc.arn
+}
+

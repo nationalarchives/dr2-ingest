@@ -354,6 +354,9 @@ module "dr2_kms_key" {
       module.ad_hoc_preingest.aggregator_lambda.role,
       module.ad_hoc_preingest.package_builder_lambda.role,
       module.ad_hoc_preingest.importer_lambda.role,
+      module.cc_restore_preingest.aggregator_lambda.role,
+      module.cc_restore_preingest.package_builder_lambda.role,
+      module.cc_restore_preingest.importer_lambda.role,
       module.court_document_preingest.aggregator_lambda.role,
       module.court_document_preingest.package_builder_lambda.role,
       module.court_document_preingest.importer_lambda.role,
@@ -504,6 +507,7 @@ module "dr2_ingest_step_function_policy" {
     preingest_tdr_step_function_arn                   = module.tdr_preingest.preingest_sfn_arn
     preingest_dri_step_function_arn                   = module.dri_preingest.preingest_sfn_arn
     preingest_adhoc_step_function_arn                 = module.ad_hoc_preingest.preingest_sfn_arn
+    preingest_restore_step_function_arn               = module.cc_restore_preingest.preingest_sfn_arn
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
     postingest_table_name                             = module.postingest.postingest_table_name
   })

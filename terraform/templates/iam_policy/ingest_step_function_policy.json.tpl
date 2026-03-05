@@ -61,6 +61,8 @@
       "Resource": [
         "${preingest_dri_step_function_arn}",
         "${preingest_tdr_step_function_arn}",
+        "${preingest_adhoc_step_function_arn}",
+        "${preingest_restore_step_function_arn}",
         "${ingest_run_workflow_sfn_arn}"
       ]
     },
