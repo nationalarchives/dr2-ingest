@@ -412,6 +412,24 @@ module "ingest_raw_cache_bucket" {
   lifecycle_rules = local.lifecycle_rules
 }
 
+resource "aws_s3_bucket_lifecycle_configuration" "delete_tagged_objects" {
+  bucket = local.ingest_raw_cache_bucket_name
+  
+  rule {
+    id     = "delete-objects-with-to-be-deleted-tag"
+    status = "Enabled"
+    filter {
+      tag {
+        key   = "TO_BE_DELETED"
+        value = "true"
+      }
+    }
+    expiration {
+      days = 1
+    }
+  }
+}
+
 module "sample_files_bucket" {
   source            = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name       = local.sample_files_bucket_name
