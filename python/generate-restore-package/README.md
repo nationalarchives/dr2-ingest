@@ -11,7 +11,7 @@ the Python standard library.
 
 ## Steps
 
-* Query the DB builder database for the object id and source id for the code provided in first the argument.
+* Query the DB builder database for the object id and source id for the code provided in the first argument.
 * Get the root path for the OCFL object.
 * Get the file paths from the `inventory.json` file in the OCFL object.
 * Read the IO metadata file and extract the list of content object ids using the xip version provided in the second argument.
