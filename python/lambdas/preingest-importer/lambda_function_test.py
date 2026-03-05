@@ -66,6 +66,22 @@ class TestLambdaFunction(unittest.TestCase):
     @patch('lambda_function.s3_client.delete_objects')
     @patch('lambda_function.validate_mandatory_fields_exist')
     @patch('lambda_function.validate_formats')
+    @patch.dict(os.environ, {'OUTPUT_BUCKET_NAME': 'destination-bucket'})
+    @patch.dict(os.environ, {'SOURCE_SYSTEM': 'dri'})
+    @patch.dict(os.environ, {'SKIP_VALIDATION': 'true'})
+    def test_copy_with_skip_validation(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_delete_object,
+                  mock_get_object, mock_send_message, mock_copy, mock_head_object, mock_list_objects):
+        copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object, mock_delete_object,
+                    mock_send_message, mock_copy, mock_head_object, mock_list_objects, skip_validation=True)
+
+    @patch('lambda_function.s3_client.list_objects')
+    @patch('lambda_function.s3_client.head_object')
+    @patch('lambda_function.copy_objects')
+    @patch('lambda_function.sqs_client.send_message')
+    @patch('lambda_function.s3_client.get_object')
+    @patch('lambda_function.s3_client.delete_objects')
+    @patch('lambda_function.validate_mandatory_fields_exist')
+    @patch('lambda_function.validate_formats')
     @patch.dict(os.environ, {'DESTINATION_BUCKET': 'destination-bucket'})
     @patch.dict(os.environ, {'SOURCE_SYSTEM': 'dri'})
     def test_copy_returns_messageId_when_in_body(self, mock_validate_formats, mock_validate_mandatory_fields_exist,
