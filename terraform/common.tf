@@ -27,7 +27,8 @@ locals {
   python_timeout_seconds                               = 30
   step_function_failure_log_group                      = "step-function-failures"
   terraform_role_arn                                   = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.environment_title}TerraformRole"
-  preservica_tenant                                    = local.environment == "prod" ? "tna" : "tnatest"
+  dr2_preservica_tenants                               = { "intg" = "tnatest", "staging" = "tnastage", "prod" = "tna" }
+  preservica_tenant                                    = local.dr2_preservica_tenants[local.environment]
   preservica_ingest_bucket                             = "com.preservica.${local.preservica_tenant}.bulk1"
   tna_to_preservica_role_arn                           = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.environment}-tna-to-preservica-ingest-s3-${local.preservica_tenant}"
   creator                                              = "dr2-terraform-environments"
