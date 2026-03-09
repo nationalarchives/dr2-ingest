@@ -93,7 +93,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       input.metadataPackage,
       bucketInfo(1),
       bucketInfo.head,
-      archiveFolderIds
+      archiveFolderIds,
+      assetIds.size
     )
 
   override def dependencies(config: Config): IO[Dependencies] = {
@@ -123,7 +124,8 @@ object Lambda {
       metadataPackage: URI,
       assets: BucketInfo,
       folders: BucketInfo,
-      archiveHierarchyFolders: List[UUID]
+      archiveHierarchyFolders: List[UUID],
+      totalAssetCount: Int
   )
   case class Input(groupId: String, batchId: String, metadataPackage: URI, executionName: String)
   case class Config(dynamoTableName: String, discoveryApiUrl: String, ingestStateBucket: String, ttlDays: Int) derives ConfigReader
