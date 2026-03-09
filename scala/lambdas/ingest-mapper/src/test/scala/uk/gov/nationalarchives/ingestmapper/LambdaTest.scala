@@ -33,6 +33,7 @@ class LambdaTest extends AnyFlatSpec {
     stateOutput.assets.key should be("executionName/assets.json")
     stateOutput.folders.bucket should be("testInputStateBucket")
     stateOutput.folders.key should be("executionName/folders.json")
+    stateOutput.totalAssetCount should be(2)
 
     val assetsFileContent = s3Objects.head.fileContent
     val foldersFileContent = s3Objects(1).fileContent
