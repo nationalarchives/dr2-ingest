@@ -52,8 +52,9 @@ module "cleanup_handler_lambda" {
     security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   }
   plaintext_env_vars = {
-    FILES_DDB_TABLE       = local.files_dynamo_table_name
-    RAW_CACHE_BUCKET_NAME = local.ingest_raw_cache_bucket_name
+    FILES_DDB_TABLE                      = local.files_dynamo_table_name
+    FILES_DDB_TABLE_BATCHPARENT_GSI_NAME = local.files_table_batch_parent_global_secondary_index_name
+    RAW_CACHE_BUCKET_NAME                = local.ingest_raw_cache_bucket_name
   }
 }
       
