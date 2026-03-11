@@ -57,4 +57,4 @@ module "cleanup_handler_lambda" {
     RAW_CACHE_BUCKET_NAME                = local.ingest_raw_cache_bucket_name
   }
 }
-      
+
