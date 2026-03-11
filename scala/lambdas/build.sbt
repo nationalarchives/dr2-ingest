@@ -23,6 +23,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestWorkflowMonitor,
     postIngestStateChangeHandler,
     postingestMessageResender,
+    postprocessCleanup,
     preingestCourtDocImporter,
     preingestCourtDocPackageBuilder,
     preingestTdrAggregator,
@@ -435,6 +436,17 @@ lazy val postingestMessageResender = (project in file("postingest-message-resend
     )
   )
 
+lazy val postprocessCleanup = (project in file("postprocess-cleanup"))
+  .settings(name := baseDirectory.value.getName)
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      s3Client
+    )
+  )
+
 lazy val utils = (project in file("utils"))
   .settings(commonSettings)
   .dependsOn(dynamoFormatters)
@@ -452,3 +464,4 @@ lazy val dynamoFormatters = (project in file("dynamo-formatters"))
     dependencyOverrides += awsDynamo
   )
   .disablePlugins(AssemblyPlugin)
+
