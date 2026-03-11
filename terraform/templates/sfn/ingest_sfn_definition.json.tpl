@@ -27,6 +27,10 @@
     "Get metadata and update Files table": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_mapper_lambda_name}",
+      "Assign": {
+        "assetsFile.$": "$.assets.key",
+        "foldersFile.$": "$.folders.key"
+      },
       "Parameters": {
         "groupId.$": "$$.Execution.Input.groupId",
         "batchId.$": "$.batchId",
@@ -306,22 +310,22 @@
         {
           "Variable": "$.Count",
           "NumericEquals": 0,
-          "Next": "Delete assets.json & files.json"
+          "Next": "Delete assets file & folders file"
         }
       ],
       "Default": "Check if retryCount is less than 2"
     },
-    "Delete assets.json & files.json": {
+    "Delete assets file & folders file": {
       "Type": "Task",
       "Parameters": {
         "Bucket": "${ingest_state_bucket_name}",
         "Delete": {
           "Objects": [
             {
-              "Key.$": "States.Format('{}/assets.json', $$.Execution.Input.batchId)"
+              "Key.$": "$assetsFile"
             },
             {
-              "Key.$": "States.Format('{}/files.json', $$.Execution.Input.batchId)"
+              "Key.$": "$foldersFile"
             }
           ]
         }
