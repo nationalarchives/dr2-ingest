@@ -413,7 +413,7 @@ module "ingest_raw_cache_bucket" {
     local.lifecycle_rules,
     [
       {
-        id     = "delete-objects-having-to-be-deleted-tag"
+        id     = "delete-objects-with-to-be-deleted-tag"
         status = "Enabled"
         filter = {
           tag = {
