@@ -408,7 +408,7 @@ module "ingest_raw_cache_bucket" {
     lambda_role_arns = jsonencode([local.parliament_ingest_role]),
     bucket_name      = local.ingest_raw_cache_bucket_name
   })
-  kms_key_arn     = module.dr2_kms_key.kms_key_arn
+  kms_key_arn = module.dr2_kms_key.kms_key_arn
   lifecycle_rules = concat(
     local.lifecycle_rules,
     [
@@ -425,7 +425,7 @@ module "ingest_raw_cache_bucket" {
           days = 1
         }
       }
-    ])
+  ])
 }
 
 
