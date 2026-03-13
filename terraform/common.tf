@@ -409,62 +409,25 @@ module "ingest_raw_cache_bucket" {
     bucket_name      = local.ingest_raw_cache_bucket_name
   })
   kms_key_arn     = module.dr2_kms_key.kms_key_arn
-  lifecycle_rules = local.lifecycle_rules
+  lifecycle_rules = concat(
+    local.lifecycle_rules,
+    [
+      {
+        id     = "delete-objects-having-to-be-deleted-tag"
+        status = "Enabled"
+        filter = {
+          tag = {
+            key   = "TO_BE_DELETED"
+            value = "true"
+          }
+        }
+        expiration = {
+          days = 1
+        }
+      }
+    ])
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "delete_tagged_objects" {
-  bucket = local.ingest_raw_cache_bucket_name
-  dynamic "rule" {
-    for_each = concat(
-      local.lifecycle_rules,
-      [
-        {
-          id     = "delete-objects-having-to-be-deleted-tag"
-          status = "Enabled"
-          filter = {
-            tag = {
-              key   = "TO_BE_DELETED"
-              value = "true"
-            }
-          }
-          expiration = {
-            days = 1
-          }
-        }
-      ]
-    )
-
-    content {
-      id     = rule.value.id
-      status = rule.value.status
-
-      dynamic "filter" {
-        for_each = try(rule.value.filter, null) == null ? [] : [rule.value.filter]
-        content {
-          tag {
-            key   = filter.value.tag.key
-            value = filter.value.tag.value
-          }
-        }
-      }
-
-      dynamic "expiration" {
-        for_each = try(rule.value.expiration, null) == null ? [] : [rule.value.expiration]
-        content {
-          days                         = try(expiration.value.days, null)
-          expired_object_delete_marker = try(expiration.value.expired_object_delete_marker, null)
-        }
-      }
-
-      dynamic "noncurrent_version_expiration" {
-        for_each = try(rule.value.noncurrent_version_expiration, null) == null ? [] : [rule.value.noncurrent_version_expiration]
-        content {
-          noncurrent_days = noncurrent_version_expiration.value.noncurrent_days
-        }
-      }
-    }
-  }
-}
 
 module "sample_files_bucket" {
   source            = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
