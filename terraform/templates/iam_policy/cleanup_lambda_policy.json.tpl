@@ -3,7 +3,7 @@
     {
       "Effect": "Allow",
       "Action": "dynamodb:UpdateTimeToLive",
-        "Resource": "${dynamodb_table_arn}"
+      "Resource": "${dynamodb_table_arn}"
     },
     {
       "Effect": "Allow",
