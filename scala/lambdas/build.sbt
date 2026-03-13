@@ -464,4 +464,3 @@ lazy val dynamoFormatters = (project in file("dynamo-formatters"))
     dependencyOverrides += awsDynamo
   )
   .disablePlugins(AssemblyPlugin)
-
