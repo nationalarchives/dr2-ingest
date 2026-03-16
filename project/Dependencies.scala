@@ -2,25 +2,25 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.25.3"
   lazy val pureConfigVersion = "0.17.10"
-  lazy val daAwsClientsVersion = "0.1.149"
-  private val fs2Version = "3.13.0-M8"
+  lazy val daAwsClientsVersion = "0.1.150"
+  private val fs2Version = "3.13.0"
   private val sttpVersion = "4.0.19"
   private val circeVersion = "0.15.0-M1"
-  private val log4CatsVersion = "2.7.1"
+  private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
   private lazy val scalaTestVersion = "3.2.19"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.43.7"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.43.8"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.3"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.7.0"
   lazy val circeCore = "io.circe" %% "circe-core" % circeVersion
   lazy val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
   lazy val circeFs2 = "io.circe" %% "circe-fs2" % "0.14.1"
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.28.0"
-  lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.5"
+  lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.6"
   lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.20.0"
-  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.42.8"
+  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.42.12"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
@@ -30,7 +30,7 @@ object Dependencies {
   lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.5.0-RC1"
   lazy val jawnParser = "org.typelevel" %% "jawn-parser" % "1.6.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
-  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "3.0.0"
+  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "3.0.1"
   lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.4.0"
   lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.16.1"
   lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion
@@ -39,10 +39,10 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % "3.2.18.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.164"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.165"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
-  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.8.3"
+  lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.8.4"
   lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.19.0"
   lazy val scalaCheckPlus = "org.scalatestplus" %% "scalacheck-1-16" % "3.2.14.0"
   lazy val scanamo = "org.scanamo" %% "scanamo" % "6.0.0"
