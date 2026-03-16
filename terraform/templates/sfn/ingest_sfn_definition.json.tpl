@@ -29,7 +29,8 @@
       "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_mapper_lambda_name}",
       "Assign": {
         "assetsFile.$": "$.assets.key",
-        "foldersFile.$": "$.folders.key"
+        "foldersFile.$": "$.folders.key",
+        "stateBucket.$": "$.assets.bucket"
       },
       "Parameters": {
         "groupId.$": "$$.Execution.Input.groupId",
@@ -55,8 +56,8 @@
           "InputType": "JSON"
         },
         "Parameters": {
-          "Bucket.$": "$.assets.bucket",
-          "Key.$": "$.assets.key"
+          "Bucket.$": "$stateBucket",
+          "Key.$": "$assetsFile"
         }
       },
       "ItemProcessor": {
@@ -96,8 +97,8 @@
           "InputType": "JSON"
         },
         "Parameters": {
-          "Bucket.$": "$.folders.bucket",
-          "Key.$": "$.folders.key"
+          "Bucket.$": "$stateBucket",
+          "Key.$": "$foldersFile"
         }
       },
       "ItemSelector": {
@@ -179,8 +180,8 @@
           "InputType": "JSON"
         },
         "Parameters": {
-          "Bucket.$": "$.assets.bucket",
-          "Key.$": "$.assets.key"
+          "Bucket.$": "$stateBucket",
+          "Key.$": "$assetsFile"
         }
       },
       "MaxConcurrency": 25,
