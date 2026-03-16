@@ -84,7 +84,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     getBoolean(skipIngest),
     stringToScalaType[URI](location, getPotentialStringValue(location), URI.create),
     getPotentialStringValue(correlationId),
-    getValidatedMandatoryAttributeAsString(filePath)
+    getValidatedMandatoryAttributeAsString(filePath),
+    getNumber(ttl, _.toLong)
   )
 
   private def stringToType(potentialTypeString: Option[String]): ValidatedNel[InvalidProperty, Type] =
@@ -252,8 +253,9 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableAttributes.id,
       allValidatedFileTableAttributes.name,
       allValidatedFileTableAttributes.`type`,
-      allValidatedFileTableAttributes.childCount
-    ).mapN { (batchId, id, name, rowType, childCount) =>
+      allValidatedFileTableAttributes.childCount,
+      allValidatedFileTableAttributes.ttl
+    ).mapN { (batchId, id, name, rowType, childCount, ttl) =>
       ArchiveFolderDynamoItem(
         batchId,
         id,
@@ -263,7 +265,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
         allValidatedFileTableAttributes.potentialTitle,
         allValidatedFileTableAttributes.potentialDescription,
         allValidatedFileTableAttributes.identifiers,
-        childCount
+        childCount,
+        ttl
       )
     }.toEither
       .left
@@ -275,8 +278,9 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableAttributes.id,
       allValidatedFileTableAttributes.name,
       allValidatedFileTableAttributes.`type`,
-      allValidatedFileTableAttributes.childCount
-    ).mapN { (batchId, id, name, rowType, childCount) =>
+      allValidatedFileTableAttributes.childCount,
+      allValidatedFileTableAttributes.ttl
+    ).mapN { (batchId, id, name, rowType, childCount, ttl) =>
       ContentFolderDynamoItem(
         batchId,
         id,
@@ -286,7 +290,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
         allValidatedFileTableAttributes.potentialTitle,
         allValidatedFileTableAttributes.potentialDescription,
         allValidatedFileTableAttributes.identifiers,
-        childCount
+        childCount,
+        ttl
       )
     }.toEither
       .left
@@ -302,7 +307,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableAttributes.`type`,
       allValidatedFileTableAttributes.childCount,
       allValidatedFileTableAttributes.skipIngest,
-      allValidatedFileTableAttributes.filePath
+      allValidatedFileTableAttributes.filePath,
+      allValidatedFileTableAttributes.ttl
     ).mapN {
       (
           batchId,
@@ -313,7 +319,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
           rowType,
           childCount,
           skipIngest,
-          filePath
+          filePath,
+          ttl
       ) =>
         AssetDynamoItem(
           batchId,
@@ -332,7 +339,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
           childCount,
           skipIngest,
           allValidatedFileTableAttributes.correlationId,
-          filePath
+          filePath,
+          ttl
         )
     }.toEither
       .left
@@ -350,7 +358,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       allValidatedFileTableAttributes.representationType,
       allValidatedFileTableAttributes.representationSuffix,
       allValidatedFileTableAttributes.childCount,
-      allValidatedFileTableAttributes.location
+      allValidatedFileTableAttributes.location,
+      allValidatedFileTableAttributes.ttl
     ).mapN {
       (
           batchId,
@@ -363,7 +372,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
           representationType,
           representationSuffix,
           childCount,
-          location
+          location,
+          ttl
       ) =>
         FileDynamoItem(
           batchId,
@@ -381,7 +391,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
           representationSuffix,
           allValidatedFileTableAttributes.identifiers,
           childCount,
-          location
+          location,
+          ttl,
         )
     }.toEither
       .left
