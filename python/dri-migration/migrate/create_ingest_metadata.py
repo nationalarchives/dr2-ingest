@@ -11,8 +11,10 @@ from os import listdir
 import boto3
 import oracledb
 from botocore.config import Config
-from pathlib import PureWindowsPath
+from pathlib import PureWindowsPath, PurePosixPath
+from dotenv import load_dotenv
 
+load_dotenv()
 
 def create_skeleton_suite_lookup(prefixes):
     puid_lookup = {}
@@ -82,6 +84,7 @@ def process_redacted(assets_to_process):
     return assets_to_process
 
 def migrate():
+    database_host = os.environ.get("DATABASE_HOST", "localhost")
     account_number = os.environ["ACCOUNT_NUMBER"]
     environment = os.environ["ENVIRONMENT"]
     test_run = os.getenv("TEST_RUN", "true") == "true"
@@ -92,7 +95,7 @@ def migrate():
     puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt']) if test_run else {}
     oracledb.defaults.fetch_lobs = False
     oracledb.init_oracle_client(lib_dir=os.environ['CLIENT_LOCATION'])
-    conn = oracledb.connect(dsn='localhost/SDB4', user="STORE", password=os.environ['STORE_PASSWORD'])
+    conn = oracledb.connect(dsn=f'{database_host}/SDB4', user="STORE", password=os.environ['STORE_PASSWORD'])
     cur = conn.cursor()
 
     with open("ingest_query.sql") as query:
@@ -170,11 +173,13 @@ def migrate():
             file_id = metadata['fileId']
             all_metadata.append(metadata)
             if test_run:
-                windows_file_path = file_path
+                upload_file_path = file_path
+            elif os.name == "nt":
+                upload_file_path = PureWindowsPath(os.environ['NETWORK_LOCATION'], file_path[1:])
             else:
-                windows_file_path = PureWindowsPath(os.environ['NETWORK_LOCATION'], file_path[1:])
-            s3_client.upload_file(windows_file_path, bucket, f'{asset_uuid}/{file_id}')
+                upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], file_path[1:])
 
+            s3_client.upload_file(upload_file_path, bucket, f'{asset_uuid}/{file_id}')
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
         s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")
         all_sqs_messages.append(json.dumps({'assetId': asset_uuid, 'bucket': bucket}))
