@@ -3,7 +3,7 @@ import json
 import os
 import tempfile
 import unittest
-from pathlib import PureWindowsPath
+from pathlib import PureWindowsPath, PurePosixPath
 from unittest.mock import patch, MagicMock, mock_open, call
 from parameterized import parameterized
 from migrate import create_ingest_metadata
@@ -83,7 +83,10 @@ class TestMigrate(unittest.TestCase):
         if test_run == "true" or not test_run:
             call_paths = ("/test/file1", "/test/file2")
         else:
-            call_paths = (PureWindowsPath("/network-location/dri/a/1/test/file1"), PureWindowsPath("/network-location/dri/a/1/test/file2"))
+            if os.name == "posix":
+                call_paths = (PurePosixPath("/network-location/dri/a/1/test/file1"), PurePosixPath("/network-location/dri/a/1/test/file2"))
+            else:
+                call_paths = (PureWindowsPath("/network-location/dri/a/1/test/file1"), PureWindowsPath("/network-location/dri/a/1/test/file2"))
 
         calls = [
             call(call_paths[0], "testenv-dr2-ingest-dri-migration-cache", "uuid-abc/fileid-xyz"),
