@@ -87,7 +87,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       (name, "name"),
       (typeField, typeValue),
       (childCount, "1"),
-      (ttl , "1868313600")
+      (ttl, "1868313600")
     )
     val fields = typeValue match {
       case "ArchiveFolder" => baseFields

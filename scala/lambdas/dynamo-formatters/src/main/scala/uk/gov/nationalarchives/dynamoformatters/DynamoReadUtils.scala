@@ -392,7 +392,7 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
           allValidatedFileTableAttributes.identifiers,
           childCount,
           location,
-          ttl,
+          ttl
         )
     }.toEither
       .left
