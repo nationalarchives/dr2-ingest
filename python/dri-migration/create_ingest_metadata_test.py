@@ -80,7 +80,7 @@ class TestMigrate(unittest.TestCase):
 
         create_ingest_metadata.migrate()
 
-        if test_run == "true" or not test_run:
+        if test_run == "true" or test_run is None:
             call_paths = ("/test/file1", "/test/file2")
         else:
             if os.name == "posix":
