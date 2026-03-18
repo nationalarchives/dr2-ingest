@@ -176,7 +176,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with BeforeAndAfterEach with
     Some(s"mock title_$suffix"),
     Some(s"mock description_$suffix"),
     identifiers,
-    1
+    1,
+    1779382126L
   )
   case class EntityWithIdentifiers(entity: Entity, identifiers: List[Identifier])
 

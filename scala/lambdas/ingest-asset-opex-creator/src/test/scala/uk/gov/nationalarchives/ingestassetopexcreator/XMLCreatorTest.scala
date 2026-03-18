@@ -162,7 +162,8 @@ class XMLCreatorTest extends AnyFlatSpec {
     1,
     false,
     None,
-    "/a/file/path"
+    "/a/file/path",
+    1779382126L
   )
   val uuids: List[UUID] = List(UUID.fromString("a814ee41-89f4-4975-8f92-303553fe9a02"), UUID.fromString("9ecbba86-437f-42c6-aeba-e28b678bbf4c"))
   val representationTypes: List[(FileRepresentationType, Int)] = List((PreservationRepresentationType, 1), (AccessRepresentationType, 1))
@@ -183,7 +184,8 @@ class XMLCreatorTest extends AnyFlatSpec {
       representationTypes(suffix)._2,
       List(Identifier("Test2", "testIdentifier4"), Identifier("Test", "testIdentifier3"), Identifier("UpstreamSystemReference", "testSystemRef2")),
       1,
-      URI.create("s3://bucket/key")
+      URI.create("s3://bucket/key"),
+      1779382126L
     )
   }
 
