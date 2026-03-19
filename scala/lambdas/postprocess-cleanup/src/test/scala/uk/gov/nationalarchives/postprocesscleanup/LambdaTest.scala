@@ -55,7 +55,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       s"""{"body": {"parameters": {"assetId": "3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}}"""
     )
 
-    val oneItem = createDynamoItem(UUID.fromString("3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce"), "3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce", "s3://some-bucket/some-key", "some-other-parent", DynamoFormatters.Type.Asset)
+    val oneItem = createDynamoItem(
+      UUID.fromString("3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce"),
+      "3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce",
+      "s3://some-bucket/some-key",
+      "some-other-parent",
+      DynamoFormatters.Type.Asset
+    )
     val allInitialItems = oneItem :: createInitialData.dynamoItems
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
@@ -82,7 +88,9 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     sqsEvent.setRecords(List(message).asJava)
     val result = runLambda(sqsEvent, List(initialFileItem), Map.empty)
     result.result.isLeft should equal(true)
-    result.result.left.value.getMessage should equal("Failed to decode SQS message body: Attempt to decode value on failed cursor: DownField(assetId),DownField(parameters),DownField(body)")
+    result.result.left.value.getMessage should equal(
+      "Failed to decode SQS message body: Attempt to decode value on failed cursor: DownField(assetId),DownField(parameters),DownField(body)"
+    )
   }
 
   "lambda handler" should "throw an exception when asset does not exist in the table" in {

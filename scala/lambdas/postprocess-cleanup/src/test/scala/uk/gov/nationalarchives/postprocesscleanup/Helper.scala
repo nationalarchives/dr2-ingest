@@ -29,7 +29,7 @@ object Helper {
 
   case class InitialData(dynamoItems: List[DynamoItem], s3Objects: Map[String, Map[String, String]])
 
-  def createDynamoItem(id: UUID, name: String, location: String, parentPath: String, dynamoItemType: DynamoFormatters.Type): DynamoFormatters.DynamoItem = 
+  def createDynamoItem(id: UUID, name: String, location: String, parentPath: String, dynamoItemType: DynamoFormatters.Type): DynamoFormatters.DynamoItem =
     dynamoItemType match {
       case DynamoFormatters.Type.Asset =>
         AssetDynamoItem(
@@ -99,7 +99,7 @@ object Helper {
           ttl = 1779382126L
         )
     }
-  
+
   //   The initial data contains a hierarchy of 6 items in total, with the following structure:
   //   * 1 asset with a parent path of pattern "ContentFolder/Grandparent/Parent"
   //   * its 2 children, each has a valid location and corresponding object in s3
@@ -149,7 +149,6 @@ object Helper {
         file2Id -> Map.empty
       )
     )
-
 
   def notImplemented[T]: IO[Nothing] = IO.raiseError(new Exception("Not implemented"))
   val config: Config = Config("files-table", "dynamo-gsi", "raw-cache-bucket")
@@ -210,10 +209,10 @@ object Helper {
       ref
         .update: existingItems =>
           existingItems.map: item =>
-            if item.id.toString.equals(assetIdToUpdate) then { 
+            if item.id.toString.equals(assetIdToUpdate) then {
               item match {
-                case file: FileDynamoItem => file.copy(ttl = newTtl.toLong)
-                case asset: AssetDynamoItem => asset.copy(ttl = newTtl.toLong)
+                case file: FileDynamoItem                   => file.copy(ttl = newTtl.toLong)
+                case asset: AssetDynamoItem                 => asset.copy(ttl = newTtl.toLong)
                 case archiveFolder: ArchiveFolderDynamoItem => archiveFolder.copy(ttl = newTtl.toLong)
                 case contentFolder: ContentFolderDynamoItem => contentFolder.copy(ttl = newTtl.toLong)
               }
