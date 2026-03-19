@@ -10,7 +10,7 @@ import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectTaggingResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileDynamoItem
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoItem, AssetDynamoItem, ContentFolderDynamoItem, DynamoItem, FileDynamoItem}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import uk.gov.nationalarchives.postprocesscleanup.Lambda.*
 
@@ -22,12 +22,12 @@ object Helper {
 
   def runLambda(
       sqsEvent: SQSEvent,
-      initialItemsInTable: List[FileDynamoItem],
+      initialItemsInTable: List[DynamoItem],
       initialS3Objects: Map[String, Map[String, String]] = Map.empty
   ): LambdaRunResults = {
 
     for {
-      dynamoRef <- Ref.of[IO, List[FileDynamoItem]](initialItemsInTable)
+      dynamoRef <- Ref.of[IO, List[DynamoItem]](initialItemsInTable)
       s3Ref <- Ref.of[IO, Map[String, Map[String, String]]](initialS3Objects)
       dependencies = Dependencies(dynamoClient(dynamoRef), s3Client(s3Ref))
       result <- new Lambda().handler(sqsEvent, config, dependencies).attempt
@@ -36,9 +36,9 @@ object Helper {
     } yield LambdaRunResults(result, dynamoResult, s3Result)
   }.unsafeRunSync()
 
-  case class LambdaRunResults(result: Either[Throwable, Unit], finalItemsInTable: List[FileDynamoItem], finalsObjectsInS3: Map[String, Map[String, String]])
+  case class LambdaRunResults(result: Either[Throwable, Unit], finalItemsInTable: List[DynamoItem], finalsObjectsInS3: Map[String, Map[String, String]])
 
-  def dynamoClient(ref: Ref[IO, List[FileDynamoItem]]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
+  def dynamoClient(ref: Ref[IO, List[DynamoItem]]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
     private def normaliseConditions(conditions: Map[String, String]): Map[String, String] =
       if conditions.keys.exists(_.startsWith("conditionAttributeValue")) then
         conditions.map { case (key, value) =>
@@ -47,7 +47,7 @@ object Helper {
         }
       else conditions
 
-    private def satisfiesCondition(item: FileDynamoItem, conditions: Map[String, String]): Boolean =
+    private def satisfiesCondition(item: DynamoItem, conditions: Map[String, String]): Boolean =
       conditions.forall {
         case ("id", value)         => item.id.toString.equals(value)
         case ("batchId", value)    => item.batchId.equals(value)
@@ -76,8 +76,14 @@ object Helper {
       ref
         .update: existingItems =>
           existingItems.map: item =>
-            if item.id.toString.equals(assetIdToUpdate) then item.copy(ttl = newTtl.toLong)
-            else item
+            if item.id.toString.equals(assetIdToUpdate) then { 
+              item match {
+                case file: FileDynamoItem => file.copy(ttl = newTtl.toLong)
+                case asset: AssetDynamoItem => asset.copy(ttl = newTtl.toLong)
+                case archiveFolder: ArchiveFolderDynamoItem => archiveFolder.copy(ttl = newTtl.toLong)
+                case contentFolder: ContentFolderDynamoItem => contentFolder.copy(ttl = newTtl.toLong)
+              }
+            } else item
         .map(_ => 1)
     }
 

@@ -6,7 +6,7 @@ import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Checksum, FileDynamoItem}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoItem, AssetDynamoItem, Checksum, DynamoItem, FileDynamoItem}
 import uk.gov.nationalarchives.postprocesscleanup.Helper.*
 
 import java.time.{Instant, LocalDate, ZoneOffset}
@@ -18,14 +18,14 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda handler" should "update ttl value of the current asset to be tomorrow" in {
     val id = UUID.randomUUID
-    val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", Some("parent1/parent2"))
+    val initialAssetItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
     val message = new SQSMessage()
     message.setBody(
       s"""{"parameters": {"assetId": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "COURTDOC_TST-2025-C4PD_0", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
-    val result = runLambda(sqsEvent, List(initialFileItem), Map.empty)
+    val result = runLambda(sqsEvent, List(initialAssetItem), Map.empty)
     result.result.isLeft should equal(false)
     result.finalItemsInTable.size should equal(1)
     toDate(result.finalItemsInTable.head.ttl) shouldBe tomorrow
@@ -55,7 +55,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       s"""{"parameters": {"assetId": "3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "COURTDOC_TST-2025-C4PD_0", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
 
-    val oneItem = createDynamoItem(UUID.fromString("3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce"), "file-out-of-hierarchy.txt", "s3://some-bucket/some-key", Some("some-other-parent"))
+    val oneItem = createDynamoItem(UUID.fromString("3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce"), "3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce", "s3://some-bucket/some-key", "some-other-parent", DynamoFormatters.Type.Asset)
     val allInitialItems = oneItem :: createInitialData.dynamoItems
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
@@ -73,7 +73,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda handler" should "throw an exception when there is no SQS records in the SQS event" in {
     val id = UUID.randomUUID
-    val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", Some("parent1/parent2"))
+    val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List.empty[SQSEvent.SQSMessage].asJava)
     val result = runLambda(sqsEvent, List(initialFileItem), Map.empty)
@@ -83,7 +83,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda handler" should "throw an exception when it cannot decode the sqs message" in {
     val id = UUID.randomUUID
-    val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", Some("parent1/parent2"))
+    val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
     val message = new SQSMessage()
     message.setBody(
       s"""{"parameters": {"asset_Id": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "COURTDOC_TST-2025-C4PD_0", "messageType": "preserve.digital.asset.ingest.complete"}}"""
@@ -97,7 +97,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda handler" should "throw an exception when asset does not exist in the table" in {
     val id = UUID.randomUUID
-    val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", Some("parent1/parent2"))
+    val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
     val message = new SQSMessage()
     message.setBody(
       s"""{"parameters": {"assetId": "non-existent", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "COURTDOC_TST-2025-C4PD_0", "messageType": "preserve.digital.asset.ingest.complete"}}"""
@@ -111,8 +111,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   "lambda handler" should "throw an exception when more than one item exists in the table" in {
     val id = UUID.randomUUID
-    val initialItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", Some("parent1/parent2"))
-    val anotherItem = createDynamoItem(id, "file2.txt", "s3://some-bucket/another-key", Some("parent1/parent2/parent3"))
+    val initialItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
+    val anotherItem = createDynamoItem(id, "file2.txt", "s3://some-bucket/another-key", "parent1/parent2/parent3", DynamoFormatters.Type.Asset)
     val message = new SQSMessage()
     message.setBody(
       s"""{"parameters": {"assetId": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "COURTDOC_TST-2025-C4PD_0", "messageType": "preserve.digital.asset.ingest.complete"}}"""
@@ -130,26 +130,77 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       .atZone(ZoneOffset.UTC)
       .toLocalDate
 
-  private def createDynamoItem(id: UUID, name: String, location: String, parentPath: Option[String] = None): FileDynamoItem =
-    FileDynamoItem(
-      batchId = "some_batchId",
-      id = id,
-      potentialParentPath = parentPath,
-      name = name,
-      `type` = DynamoFormatters.Type.File,
-      potentialTitle = None,
-      potentialDescription = None,
-      sortOrder = 1,
-      fileSize = 46L,
-      checksums = List(Checksum("some_algorithm", "some_fingerprint")),
-      potentialFileExtension = Some("txt"),
-      representationType = DynamoFormatters.FileRepresentationType.PreservationRepresentationType,
-      representationSuffix = 1,
-      identifiers = Nil,
-      childCount = 0,
-      location = new java.net.URI(location),
-      ttl = 1779382126L
-    )
+  private def createDynamoItem(id: UUID, name: String, location: String, parentPath: String, dynamoItemType: DynamoFormatters.Type): DynamoFormatters.DynamoItem = {
+    dynamoItemType match {
+      case DynamoFormatters.Type.Asset =>
+        AssetDynamoItem(
+          batchId = "some_batchId",
+          id = id,
+          potentialParentPath = Some(parentPath),
+          `type` = DynamoFormatters.Type.Asset,
+          potentialTitle = None,
+          potentialDescription = None,
+          transferringBody = None,
+          transferCompleteDatetime = None,
+          upstreamSystem = "some_upstream_system",
+          digitalAssetSource = "some_digital_asset_source",
+          potentialDigitalAssetSubtype = None,
+          originalMetadataFiles = Nil,
+          identifiers = Nil,
+          childCount = 0,
+          skipIngest = false,
+          correlationId = None,
+          filePath = "some_file_path",
+          ttl = 1779382126L
+        )
+      case DynamoFormatters.Type.ArchiveFolder =>
+        ArchiveFolderDynamoItem(
+          batchId = "some_batchId",
+          id = id,
+          potentialParentPath = Some(parentPath),
+          name = name,
+          `type` = DynamoFormatters.Type.ArchiveFolder,
+          potentialTitle = None,
+          potentialDescription = None,
+          identifiers = Nil,
+          childCount = 1,
+          ttl = 1779382126L
+        )
+      case DynamoFormatters.Type.ContentFolder =>
+        ArchiveFolderDynamoItem(
+          batchId = "some_batchId",
+          id = id,
+          potentialParentPath = Some(parentPath),
+          name = name,
+          `type` = DynamoFormatters.Type.ContentFolder,
+          potentialTitle = None,
+          potentialDescription = None,
+          identifiers = Nil,
+          childCount = 1,
+          ttl = 1779382126L
+        )
+      case DynamoFormatters.Type.File =>
+        FileDynamoItem(
+          batchId = "some_batchId",
+          id = id,
+          potentialParentPath = Some(parentPath),
+          name = name,
+          `type` = DynamoFormatters.Type.File,
+          potentialTitle = None,
+          potentialDescription = None,
+          sortOrder = 1,
+          fileSize = 46L,
+          checksums = List(Checksum("some_algorithm", "some_fingerprint")),
+          potentialFileExtension = Some("txt"),
+          representationType = DynamoFormatters.FileRepresentationType.PreservationRepresentationType,
+          representationSuffix = 1,
+          identifiers = Nil,
+          childCount = 0,
+          location = new java.net.URI(location),
+          ttl = 1779382126L
+        )
+    }
+  }
 
 //   The initial data contains a hierarchy of 6 items in total, with the following structure:
 //   * 1 asset with a parent path of pattern "A/B/C"
@@ -160,28 +211,32 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       UUID.fromString("d5c74859-b4fa-403e-a11c-0c7652265f03"),
       "d5c74859-b4fa-403e-a11c-0c7652265f03",
       "",
-      Some("d1ad2270-1711-47db-b663-c530bc518e87/9385ad5c-e205-40fd-8cb2-c157d1331167/d086e29a-83ed-4129-b20c-8e2041bac4f7")
+      "d1ad2270-1711-47db-b663-c530bc518e87/9385ad5c-e205-40fd-8cb2-c157d1331167/d086e29a-83ed-4129-b20c-8e2041bac4f7",
+      DynamoFormatters.Type.Asset
     )
     val childOne = createDynamoItem(
       UUID.fromString("a5788834-3b45-491e-91d8-fd008351a3ad"),
       "child-one.json",
       "s3://some-bucket/a5788834-3b45-491e-91d8-fd008351a3ad",
-      Some("d1ad2270-1711-47db-b663-c530bc518e87/9385ad5c-e205-40fd-8cb2-c157d1331167/d086e29a-83ed-4129-b20c-8e2041bac4f7/d5c74859-b4fa-403e-a11c-0c7652265f03")
+      "d1ad2270-1711-47db-b663-c530bc518e87/9385ad5c-e205-40fd-8cb2-c157d1331167/d086e29a-83ed-4129-b20c-8e2041bac4f7/d5c74859-b4fa-403e-a11c-0c7652265f03",
+      DynamoFormatters.Type.File
     )
     val childTwo = createDynamoItem(
       UUID.fromString("d665011c-f6b6-4bf9-9df1-9218b7429cd5"),
       "child-two.json",
       "s3://some-bucket/d665011c-f6b6-4bf9-9df1-9218b7429cd5",
-      Some("d1ad2270-1711-47db-b663-c530bc518e87/9385ad5c-e205-40fd-8cb2-c157d1331167/d086e29a-83ed-4129-b20c-8e2041bac4f7/d5c74859-b4fa-403e-a11c-0c7652265f03")
+      "d1ad2270-1711-47db-b663-c530bc518e87/9385ad5c-e205-40fd-8cb2-c157d1331167/d086e29a-83ed-4129-b20c-8e2041bac4f7/d5c74859-b4fa-403e-a11c-0c7652265f03",
+        DynamoFormatters.Type.File
     )
     val ancestor1 = createDynamoItem(
       UUID.fromString("d086e29a-83ed-4129-b20c-8e2041bac4f7"),
       "parent-one",
       "",
-      Some("d1ad2270-1711-47db-b663-c530bc518e87/9385ad5c-e205-40fd-8cb2-c157d1331167")
+      "d1ad2270-1711-47db-b663-c530bc518e87/9385ad5c-e205-40fd-8cb2-c157d1331167",
+      DynamoFormatters.Type.ArchiveFolder
     )
-    val ancestor2 = createDynamoItem(UUID.fromString("9385ad5c-e205-40fd-8cb2-c157d1331167"), "parent-two", "", Some("d1ad2270-1711-47db-b663-c530bc518e87"))
-    val ancestor3 = createDynamoItem(UUID.fromString("d1ad2270-1711-47db-b663-c530bc518e87"), "parent-three", "", None)
+    val ancestor2 = createDynamoItem(UUID.fromString("9385ad5c-e205-40fd-8cb2-c157d1331167"), "parent-two", "", "d1ad2270-1711-47db-b663-c530bc518e87", DynamoFormatters.Type.ArchiveFolder)
+    val ancestor3 = createDynamoItem(UUID.fromString("d1ad2270-1711-47db-b663-c530bc518e87"), "parent-three", "", "", DynamoFormatters.Type.ContentFolder)
     InitialData(
       List(assetItem, childOne, childTwo, ancestor1, ancestor2, ancestor3),
       Map(
@@ -190,4 +245,4 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       )
     )
 
-  case class InitialData(dynamoItems: List[FileDynamoItem], s3Objects: Map[String, Map[String, String]])
+  case class InitialData(dynamoItems: List[DynamoItem], s3Objects: Map[String, Map[String, String]])

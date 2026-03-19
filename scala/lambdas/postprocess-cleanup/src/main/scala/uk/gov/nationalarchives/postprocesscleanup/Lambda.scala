@@ -46,34 +46,34 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 
       assetId = messageBody.params.assetId
 
-      items <- dependencies.dynamoClient.queryItems[FileDynamoItem](
+      assetItems <- dependencies.dynamoClient.queryItems[AssetDynamoItem](
         config.filesTableName,
         DynamoFormatters.id === assetId,
         Option(config.dynamoGsiName)
       )
 
-      item <- IO.fromEither(
-        items.size match {
+      assetItem <- IO.fromEither(
+        assetItems.size match {
           case 0 => Left(new RuntimeException(s"No item found for assetId=$assetId"))
-          case 1 => Right(items.head)
+          case 1 => Right(assetItems.head)
           case _ => Left(new RuntimeException(s"More than one item found for assetId=$assetId"))
         }
       )
 
-      _ <- updateTtl(item.id.toString)
+      _ <- updateTtl(assetItem.id.toString)
 
-      childrenParentPath = s"${item.potentialParentPath.map(path => s"$path/").getOrElse("")}${item.id}"
-      children <- dependencies.dynamoClient.queryItems[FileDynamoItem](
+      childrenParentPath = s"${assetItem.potentialParentPath.map(path => s"$path/").getOrElse("")}${assetItem.id}"
+      fileItems <- dependencies.dynamoClient.queryItems[FileDynamoItem](
         config.filesTableName,
-        DynamoFormatters.parentPath === childrenParentPath and DynamoFormatters.batchId === item.batchId,
+        DynamoFormatters.parentPath === childrenParentPath and DynamoFormatters.batchId === assetItem.batchId,
         Option(config.dynamoGsiName)
       )
 
-      _ <- children.traverse { child =>
-        dependencies.s3Client.updateObjectTags(config.rawCacheBucketName, child.location.toString, Map(deletionTag)) >>
-          updateTtl(child.id.toString)
+      _ <- fileItems.traverse { eachFile =>
+        dependencies.s3Client.updateObjectTags(config.rawCacheBucketName, eachFile.location.toString, Map(deletionTag)) >>
+          updateTtl(eachFile.id.toString)
       }
-      _ <- updateAllAncestorsTtl(item.potentialParentPath.getOrElse(""))
+      _ <- updateAllAncestorsTtl(assetItem.potentialParentPath.getOrElse(""))
     } yield ()
   }
 
