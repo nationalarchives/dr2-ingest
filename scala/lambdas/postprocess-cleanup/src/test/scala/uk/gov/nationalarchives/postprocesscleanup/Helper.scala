@@ -10,13 +10,147 @@ import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectTaggingResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
-import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoItem, AssetDynamoItem, ContentFolderDynamoItem, DynamoItem, FileDynamoItem}
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{ArchiveFolderDynamoItem, AssetDynamoItem, Checksum, ContentFolderDynamoItem, DynamoItem, FileDynamoItem}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
 import uk.gov.nationalarchives.postprocesscleanup.Lambda.*
 
 import java.nio.ByteBuffer
+import java.time.{Instant, LocalDate, ZoneOffset}
+import java.util.UUID
 
 object Helper {
+
+  def toDate(ttl: Long): LocalDate =
+    Instant
+      .ofEpochSecond(ttl)
+      .atZone(ZoneOffset.UTC)
+      .toLocalDate
+
+  case class InitialData(dynamoItems: List[DynamoItem], s3Objects: Map[String, Map[String, String]])
+
+  def createDynamoItem(id: UUID, name: String, location: String, parentPath: String, dynamoItemType: DynamoFormatters.Type): DynamoFormatters.DynamoItem = 
+    dynamoItemType match {
+      case DynamoFormatters.Type.Asset =>
+        AssetDynamoItem(
+          batchId = "some_batchId",
+          id = id,
+          potentialParentPath = Some(parentPath),
+          `type` = DynamoFormatters.Type.Asset,
+          potentialTitle = None,
+          potentialDescription = None,
+          transferringBody = None,
+          transferCompleteDatetime = None,
+          upstreamSystem = "some_upstream_system",
+          digitalAssetSource = "some_digital_asset_source",
+          potentialDigitalAssetSubtype = None,
+          originalMetadataFiles = Nil,
+          identifiers = Nil,
+          childCount = 0,
+          skipIngest = false,
+          correlationId = None,
+          filePath = "some_file_path",
+          ttl = 1779382126L
+        )
+      case DynamoFormatters.Type.ArchiveFolder =>
+        ArchiveFolderDynamoItem(
+          batchId = "some_batchId",
+          id = id,
+          potentialParentPath = Some(parentPath),
+          name = name,
+          `type` = DynamoFormatters.Type.ArchiveFolder,
+          potentialTitle = None,
+          potentialDescription = None,
+          identifiers = Nil,
+          childCount = 1,
+          ttl = 1779382126L
+        )
+      case DynamoFormatters.Type.ContentFolder =>
+        ArchiveFolderDynamoItem(
+          batchId = "some_batchId",
+          id = id,
+          potentialParentPath = None,
+          name = name,
+          `type` = DynamoFormatters.Type.ContentFolder,
+          potentialTitle = None,
+          potentialDescription = None,
+          identifiers = Nil,
+          childCount = 1,
+          ttl = 1779382126L
+        )
+      case DynamoFormatters.Type.File =>
+        FileDynamoItem(
+          batchId = "some_batchId",
+          id = id,
+          potentialParentPath = Some(parentPath),
+          name = name,
+          `type` = DynamoFormatters.Type.File,
+          potentialTitle = None,
+          potentialDescription = None,
+          sortOrder = 1,
+          fileSize = 46L,
+          checksums = List(Checksum("some_algorithm", "some_fingerprint")),
+          potentialFileExtension = Some("txt"),
+          representationType = DynamoFormatters.FileRepresentationType.PreservationRepresentationType,
+          representationSuffix = 1,
+          identifiers = Nil,
+          childCount = 0,
+          location = new java.net.URI(location),
+          ttl = 1779382126L
+        )
+    }
+  
+  //   The initial data contains a hierarchy of 6 items in total, with the following structure:
+  //   * 1 asset with a parent path of pattern "ContentFolder/Grandparent/Parent"
+  //   * its 2 children, each has a valid location and corresponding object in s3
+  //   * 3 ancestors each with correct parent path hierarchy and no location
+  def createInitialData: InitialData =
+    val assetId = "d5c74859-b4fa-403e-a11c-0c7652265f03"
+    val contentFolderId = "d1ad2270-1711-47db-b663-c530bc518e87"
+    val parentId = "d086e29a-83ed-4129-b20c-8e2041bac4f7"
+    val grandparentId = "9385ad5c-e205-40fd-8cb2-c157d1331167"
+    val file1Id = "a5788834-3b45-491e-91d8-fd008351a3ad"
+    val file2Id = "d665011c-f6b6-4bf9-9df1-9218b7429cd5"
+    val parentArchiveFolderPath = s"$contentFolderId/$grandparentId"
+    val assetItem = createDynamoItem(
+      UUID.fromString(assetId),
+      assetId,
+      "",
+      s"$parentArchiveFolderPath/$parentId",
+      DynamoFormatters.Type.Asset
+    )
+    val childOne = createDynamoItem(
+      UUID.fromString(file1Id),
+      "child-one.json",
+      s"s3://some-bucket/$file1Id",
+      s"$parentArchiveFolderPath/$parentId/$assetId",
+      DynamoFormatters.Type.File
+    )
+    val childTwo = createDynamoItem(
+      UUID.fromString(file2Id),
+      "child-two.json",
+      s"s3://some-bucket/$file2Id",
+      s"$parentArchiveFolderPath/$parentId/$assetId",
+      DynamoFormatters.Type.File
+    )
+    val ancestor1 = createDynamoItem(
+      UUID.fromString(parentId),
+      "parent",
+      "",
+      parentArchiveFolderPath,
+      DynamoFormatters.Type.ArchiveFolder
+    )
+    val ancestor2 = createDynamoItem(UUID.fromString(grandparentId), "grandparent", "", contentFolderId, DynamoFormatters.Type.ArchiveFolder)
+    val ancestor3 = createDynamoItem(UUID.fromString(contentFolderId), "content", "", "", DynamoFormatters.Type.ContentFolder)
+    InitialData(
+      List(assetItem, childOne, childTwo, ancestor1, ancestor2, ancestor3),
+      Map(
+        file1Id -> Map("TAG_ONE" -> "ONE", "TAG_TWO" -> "TWO"),
+        file2Id -> Map.empty
+      )
+    )
+
+
   def notImplemented[T]: IO[Nothing] = IO.raiseError(new Exception("Not implemented"))
   val config: Config = Config("files-table", "dynamo-gsi", "raw-cache-bucket")
 
