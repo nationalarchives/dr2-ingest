@@ -408,9 +408,26 @@ module "ingest_raw_cache_bucket" {
     lambda_role_arns = jsonencode([local.parliament_ingest_role]),
     bucket_name      = local.ingest_raw_cache_bucket_name
   })
-  kms_key_arn     = module.dr2_kms_key.kms_key_arn
-  lifecycle_rules = local.lifecycle_rules
+  kms_key_arn = module.dr2_kms_key.kms_key_arn
+  lifecycle_rules = concat(
+    local.lifecycle_rules,
+    [
+      {
+        id     = "delete-objects-with-to-be-deleted-tag"
+        status = "Enabled"
+        filter = {
+          tag = {
+            key   = "TO_BE_DELETED"
+            value = "true"
+          }
+        }
+        expiration = {
+          days = 1
+        }
+      }
+  ])
 }
+
 
 module "sample_files_bucket" {
   source            = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
