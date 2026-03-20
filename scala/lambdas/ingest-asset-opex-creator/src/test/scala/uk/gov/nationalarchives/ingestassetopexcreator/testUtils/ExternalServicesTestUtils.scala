@@ -135,7 +135,8 @@ object ExternalServicesTestUtils:
     1,
     false,
     None,
-    "/a/file/path"
+    "/a/file/path",
+    1779382126L
   )
 
   def generateFile: FileDynamoItem = FileDynamoItem(
@@ -154,7 +155,8 @@ object ExternalServicesTestUtils:
     1,
     Nil,
     1,
-    URI.create("s3://bucket/key")
+    URI.create("s3://bucket/key"),
+    1779382126L
   )
 
   def generateExpectedOpex(asset: AssetDynamoItem, files: List[FileDynamoItem]): Elem = {
