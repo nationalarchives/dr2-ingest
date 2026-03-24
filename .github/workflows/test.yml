@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: sbt/setup-sbt@dd1ef7d7798fab5ce802a6adab3b782817b8c2d0 # v1.1.20
+      - uses: sbt/setup-sbt@efad9461479a6e19d0b4aa72d2e1188c5fc04e48 # v1.1.21
       - uses: scalacenter/sbt-dependency-submission@f43202114d7522a4b233e052f82c2eea8d658134 # v3.2.1
       - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
       - uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4.0.0
