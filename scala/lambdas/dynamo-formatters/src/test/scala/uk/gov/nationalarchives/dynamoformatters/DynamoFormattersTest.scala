@@ -29,7 +29,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       title -> fromS("title"),
       description -> fromS("description"),
       "id_Test" -> fromS("testIdentifier"),
-      childCount -> fromN("1")
+      childCount -> fromN("1"),
+      ttl -> fromN("1868313600")
     )
 
   val allFileFieldsPopulated: Map[String, AttributeValue] =
@@ -49,7 +50,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       representationSuffix -> fromN("1"),
       "id_Test" -> fromS("testIdentifier"),
       childCount -> fromN("1"),
-      location -> fromS("s3://bucket/key")
+      location -> fromS("s3://bucket/key"),
+      ttl -> fromN("1868313600")
     )
   val allAssetFieldsPopulated: Map[String, AttributeValue] = {
     Map(
@@ -70,7 +72,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       childCount -> fromN("1"),
       skipIngest -> fromBool(false),
       filePath -> fromS("/a/file/path"),
-      correlationId -> fromS("correlationId")
+      correlationId -> fromS("correlationId"),
+      ttl -> fromN("1868313600")
     )
   }
 
@@ -83,7 +86,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       (batchId, "batchId"),
       (name, "name"),
       (typeField, typeValue),
-      (childCount, "1")
+      (childCount, "1"),
+      (ttl, "1868313600")
     )
     val fields = typeValue match {
       case "ArchiveFolder" => baseFields
@@ -234,7 +238,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     ),
     (
       invalidTypeAttributeValue,
-      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'checksum': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing, 'location': missing",
+      "'batchId': missing, 'id': missing, 'name': missing, 'sortOrder': missing, 'fileSize': missing, 'checksum': missing, 'type': missing, 'representationType': missing, 'representationSuffix': missing, 'childCount': missing, 'location': missing, 'ttl': missing",
       File
     ),
     (
@@ -340,6 +344,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     assetRow.identifiers.sortBy(_.identifierName) should equal(
       List(Identifier("Test2", "testIdentifier2"), Identifier("Test", "testIdentifier")).sortBy(_.identifierName)
     )
+    assetRow.ttl should equal(1868313600L)
   }
 
   "fileItemFormat read" should "return a valid object when all file fields are populated" in {
@@ -357,6 +362,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     fileRow.checksums.head.fingerprint should equal("testChecksumAlgo1")
     fileRow.potentialFileExtension.get should equal("testFileExtension")
     fileRow.location.toString should equal("s3://bucket/key")
+    fileRow.ttl should equal(1868313600L)
   }
 
   "fileItemFormat read" should "return a valid object when more than one checksum is provided in the file fields" in {
@@ -378,6 +384,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     fileRow.checksums.find(_.algorithm.equals("Algorithm2")).get.fingerprint should equal("testChecksumAlgo2")
     fileRow.potentialFileExtension.get should equal("testFileExtension")
     fileRow.location.toString should equal("s3://bucket/key")
+    fileRow.ttl should equal(1868313600L)
   }
 
   "fileItemFormat write" should "write all mandatory fields and ignore any optional ones" in {
@@ -400,6 +407,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap("representationSuffix").n() should equal("1")
     resultMap("id_FileIdentifier1").s() should equal("FileIdentifier1Value")
     resultMap(location).s() should equal("s3://bucket/key")
+    resultMap(ttl).n() should equal("1868313600")
   }
 
   "archiveFolderItemFormat read" should "return a valid object when all folder fields are populated" in {
@@ -412,6 +420,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     folderItem.`type` should equal(ArchiveFolder)
     folderItem.potentialTitle.get should equal("title")
     folderItem.potentialDescription.get should equal("description")
+    folderItem.ttl should equal(1868313600L)
   }
 
   "archiveFolderItemFormat write" should "write all mandatory fields and ignore any optional ones" in {
@@ -427,6 +436,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(title).s() should equal("title")
     resultMap(description).s() should equal("description")
     resultMap(typeField).s() should equal("ArchiveFolder")
+    resultMap(ttl).n() should equal("1868313600")
   }
 
   "assetItemFormat write" should "write all mandatory fields and ignore any optional ones" in {
@@ -449,7 +459,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       1,
       false,
       None,
-      ""
+      "",
+      1868313600L
     )
     val res = assetItemFormat.write(dynamoItem)
     val resultMap = res.toAttributeValue.m().asScala
@@ -461,6 +472,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(upstreamSystem).s() should equal(upstreamSystem)
     resultMap(digitalAssetSource).s() should equal(digitalAssetSource)
     resultMap(originalMetadataFiles).ss().asScala.toList should equal(List(originalMetadataFilesUuid.toString))
+    resultMap(ttl).n() should equal("1868313600")
     val optionalsInResult =
       List(parentPath, title, description, sortOrder, fileSize, "checksums", fileExtension, "identifiers", skipIngest, correlationId, digitalAssetSubtype).filter(
         resultMap.contains
@@ -476,7 +488,6 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     }
     skipIngestValue(false).isDefined should be(false)
     skipIngestValue(true).contains(true) should be(true)
-
   }
 
   "contentFolderItemFormat read" should "return a valid object when all folder fields are populated" in {
@@ -490,6 +501,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     folderItem.potentialTitle.get should equal("title")
     folderItem.potentialDescription.get should equal("description")
     folderItem.identifiers should equal(List(Identifier("Test", "testIdentifier")))
+    folderItem.ttl should equal(1868313600L)
   }
 
   "contentFolderItemFormat write" should "write all mandatory fields and ignore any optional ones" in {
@@ -505,6 +517,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     resultMap(title).s() should equal("title")
     resultMap(description).s() should equal("description")
     resultMap(typeField).s() should equal("ContentFolder")
+    resultMap(ttl).n() should equal("1868313600")
   }
 
   "filesTablePkFormat read" should "read the correct fields" in {
@@ -828,7 +841,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       1,
       skipIngest,
       Option("correlationId"),
-      ""
+      "",
+      1868313600L
     )
   }
 
@@ -851,7 +865,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       1,
       List(Identifier("FileIdentifier1", "FileIdentifier1Value")),
       1,
-      URI.create("s3://bucket/key")
+      URI.create("s3://bucket/key"),
+      1868313600L
     )
   }
 
@@ -865,7 +880,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       Option(title),
       Option(description),
       Nil,
-      1
+      1,
+      1868313600L
     )
   }
 
@@ -879,6 +895,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
       Option(title),
       Option(description),
       Nil,
-      1
+      1,
+      1868313600L
     )
 }

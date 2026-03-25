@@ -62,7 +62,8 @@ module "deploy_lambda_policy" {
         module.pause_preservica_activity_lambda.lambda_arn,
         local.anonymiser_lambda_arns,
         module.postingest.postingest_state_change_lambda_arn,
-        module.postingest.postingest_resender_lambda_arn
+        module.postingest.postingest_resender_lambda_arn,
+        module.cleanup_handler_lambda.lambda_arn
       ]
     ))
     bucket_name = "mgmt-dp-code-deploy",

@@ -361,6 +361,7 @@ module "dr2_kms_key" {
       module.court_document_preingest.aggregator_lambda.role,
       module.court_document_preingest.package_builder_lambda.role,
       module.court_document_preingest.importer_lambda.role,
+      module.cleanup_handler_lambda.lambda_role_arn,
       local.tna_to_preservica_role_arn,
       local.parliament_ingest_role,
     ], local.additional_user_roles, local.anonymiser_roles, local.e2e_test_roles)

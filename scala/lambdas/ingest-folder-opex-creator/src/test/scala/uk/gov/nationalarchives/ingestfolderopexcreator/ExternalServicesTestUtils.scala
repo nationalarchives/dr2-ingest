@@ -131,7 +131,8 @@ object ExternalServicesTestUtils:
     1,
     false,
     None,
-    "/a/file/path"
+    "/a/file/path",
+    1779382126L
   )
 
   def generateFolder: ArchiveFolderDynamoItem = ArchiveFolderDynamoItem(
@@ -143,7 +144,8 @@ object ExternalServicesTestUtils:
     None,
     None,
     List(Identifier("Code", "Code")),
-    1
+    1,
+    1779382126L
   )
 
   def generateExpectedOpex(assets: List[AssetDynamoItem]): Elem = {

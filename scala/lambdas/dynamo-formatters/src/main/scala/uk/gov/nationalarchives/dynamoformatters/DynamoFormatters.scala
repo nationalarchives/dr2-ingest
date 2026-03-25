@@ -102,6 +102,7 @@ object DynamoFormatters {
   val taskToken = "taskToken"
   val executionName = "executionName"
   val filePath = "filePath"
+  val ttl = "ttl"
 
   // Attribute names as defined in the dynamodb lock table
   val assetId = "assetId"
@@ -193,6 +194,7 @@ object DynamoFormatters {
     def potentialDescription: Option[String]
     def identifiers: List[Identifier]
     def childCount: Int
+    def ttl: Long
   }
 
   sealed trait FolderDynamoItem extends DynamoItem {
@@ -244,7 +246,8 @@ object DynamoFormatters {
       skipIngest: ValidatedAttribute[Boolean],
       location: ValidatedAttribute[URI],
       correlationId: Option[String],
-      filePath: ValidatedAttribute[String]
+      filePath: ValidatedAttribute[String],
+      ttl: ValidatedAttribute[Long]
   )
 
   case class ArchiveFolderDynamoItem(
@@ -256,7 +259,8 @@ object DynamoFormatters {
       potentialTitle: Option[String],
       potentialDescription: Option[String],
       identifiers: List[Identifier],
-      childCount: Int
+      childCount: Int,
+      ttl: Long
   ) extends FolderDynamoItem
 
   case class ContentFolderDynamoItem(
@@ -268,7 +272,8 @@ object DynamoFormatters {
       potentialTitle: Option[String],
       potentialDescription: Option[String],
       identifiers: List[Identifier],
-      childCount: Int
+      childCount: Int,
+      ttl: Long
   ) extends FolderDynamoItem
 
   case class AssetDynamoItem(
@@ -288,7 +293,8 @@ object DynamoFormatters {
       childCount: Int,
       skipIngest: Boolean,
       correlationId: Option[String],
-      filePath: String
+      filePath: String,
+      ttl: Long
   ) extends DynamoItem
 
   case class FileDynamoItem(
@@ -307,7 +313,8 @@ object DynamoFormatters {
       representationSuffix: Int,
       identifiers: List[Identifier],
       childCount: Int,
-      location: URI
+      location: URI,
+      ttl: Long
   ) extends DynamoItem
 
   case class Identifier(identifierName: String, value: String)
