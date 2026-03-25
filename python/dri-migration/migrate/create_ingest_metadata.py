@@ -4,8 +4,10 @@ import itertools
 import json
 import os
 import re
+import sqlite3
 import uuid
 from collections import defaultdict
+from contextlib import closing
 from os import listdir
 
 import boto3
@@ -87,6 +89,7 @@ def migrate():
     database_host = os.environ.get("DATABASE_HOST", "localhost")
     account_number = os.environ["ACCOUNT_NUMBER"]
     environment = os.environ["ENVIRONMENT"]
+    migrated_files_db_name = os.environ["MIGRATED_FILES_DB_NAME"]
     test_run = os.getenv("TEST_RUN", "true") == "true"
     assets = []
     bucket = f"{environment}-dr2-ingest-dri-migration-cache"
@@ -161,11 +164,11 @@ def migrate():
 
     assets_with_redacted = process_redacted(assets)
 
-    grouped_assets = group_assets(assets_with_redacted)
+    grouped_assets = group_assets(assets_with_redacted).items()
 
     all_sqs_messages = []
 
-    for asset_uuid, assets_list in grouped_assets.items():
+    for asset_uuid, assets_list in grouped_assets:
         all_metadata = []
         for asset in assets_list:
             file_path = asset['file_path']
@@ -188,6 +191,15 @@ def migrate():
         entries = [{'MessageBody': msg, 'Id': str(uuid.uuid4())} for msg in batch]
         sqs_client.send_message_batch(QueueUrl=queue_url, Entries=entries)
 
+    with closing(sqlite3.connect(migrated_files_db_name)) as connection:
+        with connection:
+            for asset_uuid, assets_list in grouped_assets:
+                for asset in assets_list:
+                    file_id = asset['metadata']['fileId']
+                    file_path = asset['file_path']
+
+                    blob_cursor = connection.cursor()
+                    blob_cursor.execute(f"INSERT INTO dri_files VALUES (?, ?);", (file_id, file_path))
 
 
 if __name__ == "__main__":
