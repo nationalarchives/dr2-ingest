@@ -17,8 +17,8 @@
 #           in such cases, it is important to enclose the parameters in single quotes.
 #
 
+import getpass
 import pyPreservica
-import sys
 import requests
 
 # Note: The following url is a placeholder, Change it to be the correct url corresponding to your environment
@@ -26,13 +26,10 @@ SERVER = "demo.example.com"
 DIGITAL_ASSET_SUBTYPE_EMPTY = "<DigitalAssetSubtype></DigitalAssetSubtype>"
 DIGITAL_ASSET_SUBTYPE_TDR = "<DigitalAssetSubtype>TDR</DigitalAssetSubtype>"
 
-if len(sys.argv) < 4:
-    print("Usage: python3 remove-digital-asset-subtype.py '<username>' '<password>' '<consignment_reference>'")
-    print("Note: Make sure to enclose the parameters in single quotes to avoid problems with characters like $")
-    sys.exit(1)
-username = sys.argv[1]
-password = sys.argv[2]
-consignment_reference = sys.argv[3]
+username = input("Username: ").strip()
+# If script is run via an IDE, an "GetPassWarning" will appear, informing you that password might be echoed
+password = getpass.getpass(prompt="Password: ").strip()
+consignment_reference = input("Consignment Reference: ").strip()
 
 entity_client = pyPreservica.EntityAPI(username, password, None, SERVER)
 assets = entity_client.identifier("ConsignmentReference", consignment_reference)
