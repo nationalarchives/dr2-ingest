@@ -56,8 +56,11 @@ def main():
      6) Modify the `<Source>` element to change the DigitalAssetSubtype to be empty
      7) Invoke the PUT method for the same metadata URL with the modified XML
 
-     Usage: The script can be run in a python environment by passing parameters on the command line
-         e.g. Usage: python3 remove-digital-asset-subtype.py
+     Usage: The script can be run on the command line, like:
+         1. python3 remove-digital-asset-subtype.py
+         2. type in the Username
+         3. type in the Password
+         4. type in the Consignment Reference
 
     """
     # Note: The following url is a placeholder, Change it to be the correct url corresponding to your environment
