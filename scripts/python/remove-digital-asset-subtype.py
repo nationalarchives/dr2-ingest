@@ -2,11 +2,12 @@ import getpass
 import pyPreservica
 import requests
 
+CLOSING_SOURCE_TAG = "</Source>"
+CLOSING_SOURCE_TAG_LEN = len(CLOSING_SOURCE_TAG)
+DIGITAL_ASSET_SUBTYPE_EMPTY = "<DigitalAssetSubtype></DigitalAssetSubtype>"
+DIGITAL_ASSET_SUBTYPE_TDR = "<DigitalAssetSubtype>TDR</DigitalAssetSubtype>"
 
 def remove_digital_asset_subtype(username, password, consignment_reference, server):
-    DIGITAL_ASSET_SUBTYPE_EMPTY = "<DigitalAssetSubtype></DigitalAssetSubtype>"
-    DIGITAL_ASSET_SUBTYPE_TDR = "<DigitalAssetSubtype>TDR</DigitalAssetSubtype>"
-
     entity_client = pyPreservica.EntityAPI(username, password, None, server)
     assets = entity_client.identifier("ConsignmentReference", consignment_reference)
     for asset in assets:
@@ -22,9 +23,9 @@ def remove_digital_asset_subtype(username, password, consignment_reference, serv
             if source_element_start_index == -1:
                 print(f"Source element not found in the metadata xml for {asset.reference}")
                 continue
-            source_element_end_index = metadata_response_text.find("</Source>", source_element_start_index)
+            source_element_end_index = metadata_response_text.find(CLOSING_SOURCE_TAG, source_element_start_index)
             source_fragment = metadata_response_text[
-                source_element_start_index: source_element_end_index + len("</Source>")
+                source_element_start_index: source_element_end_index + CLOSING_SOURCE_TAG_LEN
             ]
 
             # ==== Modify the extracted fragment and invoke a PUT request
