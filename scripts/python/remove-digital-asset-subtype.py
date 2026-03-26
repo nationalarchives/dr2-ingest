@@ -38,7 +38,8 @@ for asset in assets:
     asset_entity = entity_client.asset(asset.reference)
     metadata_urls = asset_entity.metadata.keys()
     for metadata_url in metadata_urls:
-        metadata_response_text = requests.get(metadata_url, headers={"Preservica-Access-Token": f"{entity_client.token}"}).text
+        metadata_response_text = requests.get(metadata_url,
+                                              headers={"Preservica-Access-Token": f"{entity_client.token}"}).text
 
         # ==== Locate the Source fragment by finding the starting and ending tag in the metadata response
         source_element_start_index = metadata_response_text.find("<Source")
@@ -46,12 +47,16 @@ for asset in assets:
             print(f"Source element not found in the metadata xml for {asset.reference}")
             continue
         source_element_end_index = metadata_response_text.find("</Source>", source_element_start_index)
-        source_fragment = metadata_response_text[source_element_start_index: source_element_end_index + len("</Source>")]
+        source_fragment = metadata_response_text[
+            source_element_start_index: source_element_end_index + len("</Source>")
+        ]
 
         # ==== Modify the extracted fragment and invoke a PUT request
         if DIGITAL_ASSET_SUBTYPE_TDR in source_fragment:
             modified_source_fragment = source_fragment.replace(DIGITAL_ASSET_SUBTYPE_TDR, DIGITAL_ASSET_SUBTYPE_EMPTY)
-            put_response = requests.put(metadata_url, modified_source_fragment, headers={"Content-Type":"application/xml", "Preservica-Access-Token": f"{entity_client.token}"})
+            put_response = requests.put(metadata_url, modified_source_fragment,
+                                        headers={"Content-Type": "application/xml",
+                                                 "Preservica-Access-Token": f"{entity_client.token}"})
             if put_response.status_code == 200:
                 print(f"DigitalAssetSubtype for {asset.reference} successfully removed")
             else:
