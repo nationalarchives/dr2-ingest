@@ -10,7 +10,7 @@ object Dependencies {
   private val awsLibraryVersion = "1.12.797"
   private lazy val scalaTestVersion = "3.2.19"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.43.8"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.43.9"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.7.0"
   lazy val circeCore = "io.circe" %% "circe-core" % circeVersion
@@ -20,7 +20,7 @@ object Dependencies {
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.28.0"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.6"
   lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.20.0"
-  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.42.13"
+  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.42.20"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
@@ -39,7 +39,7 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-10" % "3.2.18.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.166"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.167"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.8.4"
