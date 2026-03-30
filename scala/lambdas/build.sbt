@@ -57,7 +57,20 @@ lazy val commonSettings = Seq(
     scalaTest % Test,
     wiremock % Test
   ),
-  dependencyOverrides ++= Seq(awsDynamo, commonsLogging, jawnParser, nettyCodecHttp),
+  dependencyOverrides ++= Seq(
+    awsDynamo,
+    commonsLogging,
+    jawnParser,
+    nettyBuffer,
+    nettyCodecHttp2,
+    nettyCodecHttp,
+    nettyCodec,
+    nettyCommon,
+    nettyHandler,
+    nettyResolver,
+    nettyTransportClasses,
+    nettyTransport
+  ),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => Log4j2MergeStrategy.plugincache
