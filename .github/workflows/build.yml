@@ -6,16 +6,19 @@ on:
     paths-ignore:
       - "docs/**"
       - "**/*.md"
-permissions:
-  id-token: write
-  contents: write
+permissions: {}
 jobs:
   pre-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
     outputs:
       next-version: ${{ steps.next-tag.outputs.next-version }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: sbt/setup-sbt@508b753e53cb6095967669e0911487d2b9bc9f41 # v1.1.22
       - name: Configure AWS credentials from management account
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
@@ -48,14 +51,19 @@ jobs:
           zip -jA court-document-package-anonymiser rust/lambdas/courtdoc-anonymiser/target/lambda/lambda/bootstrap
           cp court-document-package-anonymiser target/outputs
           cd target/outputs
-          aws s3 sync . s3://mgmt-dp-code-deploy/${{ steps.next-tag.outputs.next-version }}/
-          git tag ${{ steps.next-tag.outputs.next-version }}
-          git push origin ${{ steps.next-tag.outputs.next-version }}
+          aws s3 sync . s3://mgmt-dp-code-deploy/$NEXT_VERSION/
+          git tag $NEXT_VERSION
+          git push origin $NEXT_VERSION
+        env:
+          NEXT_VERSION: ${{ steps.next-tag.outputs.next-version }}
   deploy:
     needs: pre-deploy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=${{ needs.pre-deploy.outputs.next-version }}
+        with:
+          persist-credentials: false
+      - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=$NEXT_VERSION
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          NEXT_VERSION: ${{ needs.pre-deploy.outputs.next-version }}
