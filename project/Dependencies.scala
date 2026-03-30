@@ -9,6 +9,7 @@ object Dependencies {
   private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
   private lazy val scalaTestVersion = "3.2.19"
+  private lazy val nettyVersion = "4.1.132.Final"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.43.8"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
@@ -20,7 +21,7 @@ object Dependencies {
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.28.0"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.6"
   lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.20.0"
-  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.42.13"
+  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.42.23"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
@@ -61,4 +62,13 @@ object Dependencies {
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.6"
   lazy val upickle = "com.lihaoyi" %% "upickle" % "4.4.3"
   lazy val wiremock = "org.wiremock" % "wiremock" % "3.13.2"
+  lazy val nettyBuffer = "io.netty" % "netty-buffer" % nettyVersion
+  lazy val nettyCodecHttp2 = "io.netty" % "netty-codec-http2" % nettyVersion
+  lazy val nettyCodecHttp = "io.netty" % "netty-codec-http" % nettyVersion
+  lazy val nettyCodec = "io.netty" % "netty-codec" % nettyVersion
+  lazy val nettyCommon = "io.netty" % "netty-common" % nettyVersion
+  lazy val nettyHandler = "io.netty" % "netty-handler" % nettyVersion
+  lazy val nettyResolver = "io.netty" % "netty-resolver" % nettyVersion
+  lazy val nettyTransportClasses = "io.netty" % "netty-transport-classes-epoll" % nettyVersion
+  lazy val nettyTransport = "io.netty" % "netty-transport" % nettyVersion
 }
