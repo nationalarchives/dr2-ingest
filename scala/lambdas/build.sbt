@@ -60,16 +60,7 @@ lazy val commonSettings = Seq(
   dependencyOverrides ++= Seq(
     awsDynamo,
     commonsLogging,
-    jawnParser,
-    nettyBuffer,
-    nettyCodecHttp2,
-    nettyCodecHttp,
-    nettyCodec,
-    nettyCommon,
-    nettyHandler,
-    nettyResolver,
-    nettyTransportClasses,
-    nettyTransport
+    jawnParser
   ),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
@@ -465,7 +456,18 @@ lazy val utils = (project in file("utils"))
   .dependsOn(dynamoFormatters)
   .settings(
     libraryDependencies += scanamo,
-    dependencyOverrides += awsDynamo
+    dependencyOverrides ++= Seq(
+      awsDynamo,
+      nettyBuffer,
+      nettyCodecHttp2,
+      nettyCodecHttp,
+      nettyCodec,
+      nettyCommon,
+      nettyHandler,
+      nettyResolver,
+      nettyTransportClasses,
+      nettyTransport
+    )
   )
 
 lazy val dynamoFormatters = (project in file("dynamo-formatters"))
@@ -474,6 +476,17 @@ lazy val dynamoFormatters = (project in file("dynamo-formatters"))
       scanamo,
       scalaTest % Test
     ),
-    dependencyOverrides += awsDynamo
+    dependencyOverrides ++= Seq(
+      awsDynamo,
+      nettyBuffer,
+      nettyCodecHttp2,
+      nettyCodecHttp,
+      nettyCodec,
+      nettyCommon,
+      nettyHandler,
+      nettyResolver,
+      nettyTransportClasses,
+      nettyTransport
+    )
   )
   .disablePlugins(AssemblyPlugin)
