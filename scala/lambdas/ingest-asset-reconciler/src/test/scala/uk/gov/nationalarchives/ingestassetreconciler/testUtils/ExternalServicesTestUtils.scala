@@ -166,7 +166,8 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
     1,
     false,
     None,
-    "/a/file/path"
+    "/a/file/path",
+    1779382126L
   )
 
   def generateFile: FileDynamoItem = FileDynamoItem(
@@ -185,7 +186,8 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
     1,
     List(DynamoIdentifier("Test2", "testIdentifier4")),
     1,
-    URI.create("s3://bucket/key")
+    URI.create("s3://bucket/key"),
+    1779382126L
   )
 
   def runLambda(

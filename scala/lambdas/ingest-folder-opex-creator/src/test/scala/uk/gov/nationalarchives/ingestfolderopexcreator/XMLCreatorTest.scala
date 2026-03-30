@@ -110,7 +110,8 @@ class XMLCreatorTest extends AnyFlatSpec {
     Option("title"),
     Option("description"),
     Nil,
-    1
+    1,
+    1779382126L
   )
   val assetUuids: List[UUID] = List(UUID.fromString("a814ee41-89f4-4975-8f92-303553fe9a02"), UUID.fromString("9ecbba86-437f-42c6-aeba-e28b678bbf4c"))
   val folderUuids: List[UUID] = List(UUID.fromString("7fcd94a9-be3f-456d-875f-bc697f7ed106"), UUID.fromString("9ecbba86-437f-42c6-aeba-e28b678bbf4c"))

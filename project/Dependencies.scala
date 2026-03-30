@@ -4,11 +4,11 @@ object Dependencies {
   lazy val pureConfigVersion = "0.17.10"
   lazy val daAwsClientsVersion = "0.1.153"
   private val fs2Version = "3.13.0"
-  private val sttpVersion = "4.0.19"
+  private val sttpVersion = "4.0.20"
   private val circeVersion = "0.15.0-M1"
   private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
-  private lazy val scalaTestVersion = "3.2.19"
+  private lazy val scalaTestVersion = "3.2.20"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.43.9"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
@@ -20,13 +20,13 @@ object Dependencies {
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.28.0"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.3.6"
   lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.20.0"
-  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.42.20"
+  lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.42.23"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
   lazy val fs2IO = "co.fs2" %% "fs2-io" % fs2Version
   lazy val fs2Reactive = "co.fs2" %% "fs2-reactive-streams" % fs2Version
-  lazy val jacksonCore = "tools.jackson.core" % "jackson-core" % "3.1.0"
+  lazy val jacksonCore = "tools.jackson.core" % "jackson-core" % "3.1.1"
   lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.5.0"
   lazy val jawnParser = "org.typelevel" %% "jawn-parser" % "1.6.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"

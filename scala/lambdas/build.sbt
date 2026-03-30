@@ -23,6 +23,7 @@ lazy val ingestLambdasRoot = (project in file("."))
     ingestWorkflowMonitor,
     postIngestStateChangeHandler,
     postingestMessageResender,
+    postprocessCleanup,
     preingestCourtDocImporter,
     preingestCourtDocPackageBuilder,
     preingestTdrAggregator,
@@ -432,6 +433,17 @@ lazy val postingestMessageResender = (project in file("postingest-message-resend
     libraryDependencies ++= Seq(
       dynamoClient,
       sqsClient
+    )
+  )
+
+lazy val postprocessCleanup = (project in file("postprocess-cleanup"))
+  .settings(name := baseDirectory.value.getName)
+  .settings(commonSettings)
+  .dependsOn(utils, dynamoFormatters)
+  .settings(
+    libraryDependencies ++= Seq(
+      dynamoClient,
+      s3Client
     )
   )
 

@@ -18,7 +18,8 @@ object DynamoWriteUtils {
     Map(
       "batchId" -> DynamoValue.fromString(item.batchId),
       "id" -> DynamoValue.fromString(item.id.toString),
-      "type" -> DynamoValue.fromString(item.`type`.toString)
+      "type" -> DynamoValue.fromString(item.`type`.toString),
+      "ttl" -> DynamoValue.fromNumber[Long](item.ttl)
     ) ++ item.identifiers.map(id => s"id_${id.identifierName}" -> DynamoValue.fromString(id.value)).toMap ++
       optionalFields
   }
