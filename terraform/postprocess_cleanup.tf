@@ -1,7 +1,7 @@
 locals {
   cleanup_trigger_queue_name = "${local.environment}-dr2-cleanup-trigger-queue"
   notifications_topic_arn    = "arn:aws:sns:${local.aws_region_name}:${data.aws_caller_identity.current.account_id}:${local.notifications_topic_name}"
-  cleanup_lambda_name        = "${local.environment}-dr2-cleanup-handler"
+  cleanup_lambda_name        = "${local.environment}-dr2-postprocess-cleanup-handler"
   sqs_queue_arn              = "arn:aws:sqs:${local.aws_region_name}:${data.aws_caller_identity.current.account_id}:${local.cleanup_trigger_queue_name}"
 }
 

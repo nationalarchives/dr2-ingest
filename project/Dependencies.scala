@@ -9,6 +9,7 @@ object Dependencies {
   private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
   private lazy val scalaTestVersion = "3.2.20"
+  private lazy val nettyVersion = "4.1.132.Final"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.43.9"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
@@ -61,4 +62,13 @@ object Dependencies {
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.6"
   lazy val upickle = "com.lihaoyi" %% "upickle" % "4.4.3"
   lazy val wiremock = "org.wiremock" % "wiremock" % "3.13.2"
+  lazy val nettyBuffer = "io.netty" % "netty-buffer" % nettyVersion
+  lazy val nettyCodecHttp2 = "io.netty" % "netty-codec-http2" % nettyVersion
+  lazy val nettyCodecHttp = "io.netty" % "netty-codec-http" % nettyVersion
+  lazy val nettyCodec = "io.netty" % "netty-codec" % nettyVersion
+  lazy val nettyCommon = "io.netty" % "netty-common" % nettyVersion
+  lazy val nettyHandler = "io.netty" % "netty-handler" % nettyVersion
+  lazy val nettyResolver = "io.netty" % "netty-resolver" % nettyVersion
+  lazy val nettyTransportClasses = "io.netty" % "netty-transport-classes-epoll" % nettyVersion
+  lazy val nettyTransport = "io.netty" % "netty-transport" % nettyVersion
 }

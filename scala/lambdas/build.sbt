@@ -57,7 +57,19 @@ lazy val commonSettings = Seq(
     scalaTest % Test,
     wiremock % Test
   ),
-  dependencyOverrides ++= Seq(awsDynamo, commonsLogging, jawnParser),
+  dependencyOverrides ++= Seq(
+    nettyBuffer,
+    nettyCodecHttp2,
+    nettyCodecHttp,
+    nettyCodec,
+    nettyCommon,
+    nettyHandler,
+    nettyResolver,
+    nettyTransportClasses,
+    nettyTransport,
+    commonsLogging,
+    jawnParser
+  ),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
     case PathList(ps @ _*) if ps.last == "Log4j2Plugins.dat" => Log4j2MergeStrategy.plugincache
@@ -452,7 +464,17 @@ lazy val utils = (project in file("utils"))
   .dependsOn(dynamoFormatters)
   .settings(
     libraryDependencies += scanamo,
-    dependencyOverrides += awsDynamo
+    dependencyOverrides ++= Seq(
+      nettyBuffer,
+      nettyCodecHttp2,
+      nettyCodecHttp,
+      nettyCodec,
+      nettyCommon,
+      nettyHandler,
+      nettyResolver,
+      nettyTransportClasses,
+      nettyTransport
+    )
   )
 
 lazy val dynamoFormatters = (project in file("dynamo-formatters"))
@@ -461,6 +483,16 @@ lazy val dynamoFormatters = (project in file("dynamo-formatters"))
       scanamo,
       scalaTest % Test
     ),
-    dependencyOverrides += awsDynamo
+    dependencyOverrides ++= Seq(
+      nettyBuffer,
+      nettyCodecHttp2,
+      nettyCodecHttp,
+      nettyCodec,
+      nettyCommon,
+      nettyHandler,
+      nettyResolver,
+      nettyTransportClasses,
+      nettyTransport
+    )
   )
   .disablePlugins(AssemblyPlugin)
