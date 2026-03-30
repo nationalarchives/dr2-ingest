@@ -52,6 +52,7 @@ jobs:
           cp court-document-package-anonymiser target/outputs
           cd target/outputs
           aws s3 sync . s3://mgmt-dp-code-deploy/$NEXT_VERSION/
+          git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/nationalarchives/dr2-ingest.git"
           git tag $NEXT_VERSION
           git push origin $NEXT_VERSION
         env:
