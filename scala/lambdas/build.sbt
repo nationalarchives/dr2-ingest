@@ -58,7 +58,15 @@ lazy val commonSettings = Seq(
     wiremock % Test
   ),
   dependencyOverrides ++= Seq(
-    awsDynamo,
+    nettyBuffer,
+    nettyCodecHttp2,
+    nettyCodecHttp,
+    nettyCodec,
+    nettyCommon,
+    nettyHandler,
+    nettyResolver,
+    nettyTransportClasses,
+    nettyTransport,
     commonsLogging,
     jawnParser
   ),
@@ -457,7 +465,6 @@ lazy val utils = (project in file("utils"))
   .settings(
     libraryDependencies += scanamo,
     dependencyOverrides ++= Seq(
-      awsDynamo,
       nettyBuffer,
       nettyCodecHttp2,
       nettyCodecHttp,
@@ -477,7 +484,6 @@ lazy val dynamoFormatters = (project in file("dynamo-formatters"))
       scalaTest % Test
     ),
     dependencyOverrides ++= Seq(
-      awsDynamo,
       nettyBuffer,
       nettyCodecHttp2,
       nettyCodecHttp,
