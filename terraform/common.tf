@@ -104,18 +104,18 @@ locals {
   ]))
   flow_control_configs = {
     intg = {
-      max_concurrency = 4
-      tdr_reserved_channels = 1
+      max_concurrency            = 4
+      tdr_reserved_channels      = 1
       courtdoc_reserved_channels = 1
     }
     prod = {
-      max_concurrency = 5
-      tdr_reserved_channels = 2
+      max_concurrency            = 5
+      tdr_reserved_channels      = 2
       courtdoc_reserved_channels = 2
     }
     staging = {
-      max_concurrency = 1
-      tdr_reserved_channels = 0
+      max_concurrency            = 1
+      tdr_reserved_channels      = 0
       courtdoc_reserved_channels = 0
     }
   }
@@ -622,11 +622,11 @@ data "aws_ssm_parameter" "slack_token" {
 }
 
 resource "aws_ssm_parameter" "flow_control_config" {
-  name  = "/${local.environment}/flow-control-config"
-  type  = "String"
+  name = "/${local.environment}/flow-control-config"
+  type = "String"
   value = templatefile("${path.module}/templates/ssm/ingest_flow_control_config.json.tpl", {
-    max_concurrency = local.selected_flow_control_config.max_concurrency,
-    tdr_reserved_channels = local.selected_flow_control_config.tdr_reserved_channels,
+    max_concurrency            = local.selected_flow_control_config.max_concurrency,
+    tdr_reserved_channels      = local.selected_flow_control_config.tdr_reserved_channels,
     courtdoc_reserved_channels = local.selected_flow_control_config.courtdoc_reserved_channels
   })
 }
