@@ -1,15 +1,15 @@
 {
-  "maxConcurrency": 5,
+  "maxConcurrency": ${max_concurrency},
   "enabled": true,
   "sourceSystems": [
     {
       "systemName": "TDR",
-      "reservedChannels": 2,
+      "reservedChannels": ${tdr_reserved_channels},
       "probability": 50
     },
     {
       "systemName": "COURTDOC",
-      "reservedChannels": 2,
+      "reservedChannels": ${courtdoc_reserved_channels},
       "probability": 30
     },
     {
