@@ -15,25 +15,29 @@ on:
         description: 'Version to deploy'
         required: true
 
-permissions:
-  id-token: write
-  contents: write
+env:
+  ENVIRONMENT: ${{ github.event.inputs.environment }}
+  TO_DEPLOY: ${{ github.event.inputs.to-deploy }}
 jobs:
   terraform_plan:
+    permissions:
+      id-token: write
+      contents: write
     runs-on: ubuntu-latest
     outputs:
       changes: ${{ steps.detect_changes.outputs.changes }}
-    environment: ${{ github.event.inputs.environment }}
+    environment: $ENVIRONMENT
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: recursive
           token: ${{ secrets.WORKFLOW_TOKEN }}
+          persist-credentials: false
       - uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4.0.0
         with:
           terraform_wrapper: false
       - id: role-name
-        run: echo role-name="$(echo ${{ github.event.inputs.environment }} | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
+        run: echo role-name="$(echo $ENVIRONMENT | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
       - uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
@@ -44,7 +48,7 @@ jobs:
         working-directory: terraform
         run: |
           terraform init
-          terraform workspace select ${{ github.event.inputs.environment }}
+          terraform workspace select $ENVIRONMENT
           terraform plan -detailed-exitcode || echo $? > exit-code
       - id: detect_changes
         run: |
@@ -61,6 +65,9 @@ jobs:
             :book: Terraform plan ready for environment ${{ github.event.inputs.environment }}
             :white_check_mark: <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|Approve the workflow>
   terraform_apply:
+    permissions:
+      id-token: write
+      contents: write
     needs: terraform_plan
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
@@ -70,9 +77,10 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.WORKFLOW_TOKEN }}
+          persist-credentials: false
       - uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4.0.0
       - id: role-name
-        run: echo role-name="$(echo ${{ github.event.inputs.environment }} | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
+        run: echo role-name="$(echo $ENVIRONMENT | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
       - uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
@@ -81,22 +89,27 @@ jobs:
       - run: pip install boto3
       - run: |
           terraform init
-          terraform workspace select ${{ github.event.inputs.environment }}
+          terraform workspace select $ENVIRONMENT
           terraform apply --auto-approve
           python ../.github/scripts/send_message.py
         working-directory: terraform
         env:
           MESSAGE: ":white_check_mark: terraform deploy successful for ${{ github.event.inputs.environment }}"
       - run: |
-          git branch -f release-${{ github.event.inputs.environment }} HEAD
-          git push -f origin release-${{ github.event.inputs.environment }}
+          git branch -f release-$ENVIRONMENT HEAD
+          git push -f origin release-$ENVIRONMENT
   deploy:
+    permissions:
+      id-token: write
+      contents: write
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - id: role-name
-        run: echo role-name="$(echo ${{ github.event.inputs.environment }} | sed -r 's/(^|-)(\w)/\U\2/g')DPGithubActionsDeployLambdaRole" >> $GITHUB_OUTPUT
+        run: echo role-name="$(echo $ENVIRONMENT | sed -r 's/(^|-)(\w)/\U\2/g')DPGithubActionsDeployLambdaRole" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials for Lambda
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
@@ -105,6 +118,6 @@ jobs:
           role-session-name: ECRLogin
       - run: | 
           pip install boto3
-          git branch -f release-${{ github.event.inputs.environment }} HEAD
-          git push -f origin release-${{ github.event.inputs.environment }}
-          python .github/scripts/deploy.py ${{ github.event.inputs.environment }} ${{ github.event.inputs.to-deploy }}
+          git branch -f release-$ENVIRONMENT HEAD
+          git push -f origin release-$ENVIRONMENT
+          python .github/scripts/deploy.py $ENVIRONMENT $TO_DEPLOY        
