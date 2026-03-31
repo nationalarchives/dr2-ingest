@@ -32,7 +32,6 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.WORKFLOW_TOKEN }}
-          persist-credentials: false
       - uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4.0.0
         with:
           terraform_wrapper: false
@@ -77,7 +76,6 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.WORKFLOW_TOKEN }}
-          persist-credentials: false
       - uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4.0.0
       - id: role-name
         run: echo role-name="$(echo $ENVIRONMENT | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
@@ -98,6 +96,8 @@ jobs:
       - run: |
           git branch -f release-$ENVIRONMENT HEAD
           git push -f origin release-$ENVIRONMENT
+        env:
+          GH_TOKEN: ${{ github.token }}
   deploy:
     permissions:
       id-token: write
@@ -106,8 +106,6 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
       - id: role-name
         run: echo role-name="$(echo $ENVIRONMENT | sed -r 's/(^|-)(\w)/\U\2/g')DPGithubActionsDeployLambdaRole" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials for Lambda
