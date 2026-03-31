@@ -17,8 +17,6 @@ jobs:
       next-version: ${{ steps.next-tag.outputs.next-version }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
       - uses: sbt/setup-sbt@508b753e53cb6095967669e0911487d2b9bc9f41 # v1.1.22
       - name: Configure AWS credentials from management account
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
@@ -52,7 +50,6 @@ jobs:
           cp court-document-package-anonymiser target/outputs
           cd target/outputs
           aws s3 sync . s3://mgmt-dp-code-deploy/$NEXT_VERSION/
-          git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/nationalarchives/dr2-ingest.git"
           git tag $NEXT_VERSION
           git push origin $NEXT_VERSION
         env:
@@ -63,8 +60,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
       - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=$NEXT_VERSION
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
