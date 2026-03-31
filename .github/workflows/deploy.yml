@@ -14,7 +14,6 @@ on:
       to-deploy:
         description: 'Version to deploy'
         required: true
-
 env:
   ENVIRONMENT: ${{ github.event.inputs.environment }}
   TO_DEPLOY: ${{ github.event.inputs.to-deploy }}
@@ -26,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changes: ${{ steps.detect_changes.outputs.changes }}
-    environment: $ENVIRONMENT
+    environment: ${{ github.event.inputs.environment }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
