@@ -1,8 +1,9 @@
 locals {
-  cleanup_trigger_queue_name = "${local.environment}-dr2-cleanup-trigger-queue"
-  notifications_topic_arn    = "arn:aws:sns:${local.aws_region_name}:${data.aws_caller_identity.current.account_id}:${local.notifications_topic_name}"
-  cleanup_lambda_name        = "${local.environment}-dr2-postprocess-cleanup-handler"
-  sqs_queue_arn              = "arn:aws:sqs:${local.aws_region_name}:${data.aws_caller_identity.current.account_id}:${local.cleanup_trigger_queue_name}"
+  cleanup_trigger_queue_name         = "${local.environment}-dr2-cleanup-trigger-queue"
+  notifications_topic_arn            = "arn:aws:sns:${local.aws_region_name}:${data.aws_caller_identity.current.account_id}:${local.notifications_topic_name}"
+  cleanup_lambda_name                = "${local.environment}-dr2-postprocess-cleanup-handler"
+  sqs_queue_arn                      = "arn:aws:sqs:${local.aws_region_name}:${data.aws_caller_identity.current.account_id}:${local.cleanup_trigger_queue_name}"
+  cleanup_messages_visible_threshold = 100
 }
 
 module "cleanup_trigger_queue" {
@@ -13,8 +14,9 @@ module "cleanup_trigger_queue" {
     queue_name = local.cleanup_trigger_queue_name
     topic_arn  = local.notifications_topic_arn
   })
-  encryption_type    = local.sse_encryption
-  visibility_timeout = local.visibility_timeout
+  queue_cloudwatch_alarm_visible_messages_threshold = local.cleanup_messages_visible_threshold
+  encryption_type                                   = local.sse_encryption
+  visibility_timeout                                = local.visibility_timeout
 }
 
 resource "aws_sns_topic_subscription" "cleanup_trigger_queue_subscription" {
