@@ -8,8 +8,8 @@ import uk.gov.nationalarchives.dp.client.ProcessMonitorClient.*
 import uk.gov.nationalarchives.ingestworkflowmonitor.Lambda.{Dependencies, Input}
 
 class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChecks:
-  val executionId = "5619e6b0-e959-4e61-9f6e-17170f7c06e2-3a3443ae-92c4-4fc8-9cbd-10c2a58b6045"
-  val monitorName = s"opex/$executionId"
+  val batchId = "5619e6b0-e959-4e61-9f6e-17170f7c06e2-3a3443ae-92c4-4fc8-9cbd-10c2a58b6045"
+  val monitorName = s"opex/$batchId"
   val defaultMonitor: Monitors = Monitors(
     "a69099e5236501684d415d70b9e8ec7d",
     monitorName,
@@ -44,7 +44,7 @@ class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChec
     ("Succeeded", "Succeeded")
   )
 
-  val input: Input = Input(executionId)
+  val input: Input = Input(batchId)
 
   def createDependencies(monitors: IO[Seq[Monitors]]): Dependencies = {
     val processMonitorClient: ProcessMonitorClient[IO] = new ProcessMonitorClient[IO]:

@@ -5,7 +5,7 @@ A lambda triggered by our `dr2-ingest` Step Function once an OPEX package has be
 ## Input
 ```json
 {
-  "executionId": "step-function-execution-id",
+  "batchId": "step-function-batch-id",
   "workflowContextName": "Ingest workflow name"
 }
 ```

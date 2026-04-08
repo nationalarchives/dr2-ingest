@@ -6,7 +6,7 @@ A Lambda triggered by our dr2-ingest Step Function to get an ingest monitor
 The lambda takes the following input:
 
 ```json
-{"executionId": "step-function-execution-id"}
+{"batchId": "step-function-batch-id"}
 ```
 
 ## Lambda output
