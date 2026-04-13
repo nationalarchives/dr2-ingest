@@ -1,17 +1,17 @@
 import sbt._
 object Dependencies {
-  lazy val logbackVersion = "2.25.3"
+  lazy val logbackVersion = "2.25.4"
   lazy val pureConfigVersion = "0.17.10"
-  lazy val daAwsClientsVersion = "0.1.153"
+  lazy val daAwsClientsVersion = "0.1.155"
   private val fs2Version = "3.13.0"
-  private val sttpVersion = "4.0.20"
+  private val sttpVersion = "4.0.21"
   private val circeVersion = "0.15.0-M1"
   private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
   private lazy val scalaTestVersion = "3.2.20"
-  private lazy val nettyVersion = "4.1.132.Final"
+  private lazy val nettyVersion = "4.2.12.Final"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.43.9"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.44.0"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.7.0"
   lazy val circeCore = "io.circe" %% "circe-core" % circeVersion

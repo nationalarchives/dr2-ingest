@@ -448,7 +448,7 @@ lazy val postingestMessageResender = (project in file("postingest-message-resend
     )
   )
 
-lazy val postprocessCleanup = (project in file("postprocess-cleanup"))
+lazy val postprocessCleanup = (project in file("postprocess-cleanup-handler"))
   .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils, dynamoFormatters)
