@@ -9,7 +9,7 @@ object Dependencies {
   private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
   private lazy val scalaTestVersion = "3.2.20"
-  private lazy val nettyVersion = "4.1.132.Final"
+  private lazy val nettyVersion = "4.2.12.Final"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.44.0"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
