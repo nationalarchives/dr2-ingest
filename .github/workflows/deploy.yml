@@ -93,8 +93,8 @@ jobs:
         env:
           MESSAGE: ":white_check_mark: terraform deploy successful for ${{ github.event.inputs.environment }}"
       - run: |
-          git branch -f release-$ENVIRONMENT HEAD
-          git push -f origin release-$ENVIRONMENT
+          git tag $TO_DEPLOY
+          git push origin $TO_DEPLOY
         env:
           GH_TOKEN: ${{ github.token }}
   deploy:
@@ -115,6 +115,6 @@ jobs:
           role-session-name: ECRLogin
       - run: | 
           pip install boto3
-          git branch -f release-$ENVIRONMENT HEAD
-          git push -f origin release-$ENVIRONMENT
-          python .github/scripts/deploy.py $ENVIRONMENT $TO_DEPLOY        
+          git tag $TO_DEPLOY
+          git push origin $TO_DEPLOY
+          python .github/scripts/deploy.py $ENVIRONMENT $TO_DEPLOY
