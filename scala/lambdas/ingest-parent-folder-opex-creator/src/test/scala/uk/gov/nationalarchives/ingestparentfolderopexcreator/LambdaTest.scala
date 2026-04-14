@@ -15,7 +15,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
   val config: Config = Config("stagingCacheBucketName", "role-arn")
 
   "handler" should "upload opex files to S3" in {
-    val initialS3State: List[S3Object] = List(1, 2, 3).map(suffix => S3Object("bucket", s"opex/executionId/key$suffix", "content"))
+    val initialS3State: List[S3Object] = List(1, 2, 3).map(suffix => S3Object("bucket", s"opex/batchId/key$suffix", "content"))
     val (_, finalS3State) = runLambda(initialS3State)
     val expectedOpex = trim(<opex:OPEXMetadata xmlns:opex="http://www.openpreservationexchange.org/opex/v1.2">
       <opex:Transfer>
@@ -30,7 +30,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     </opex:OPEXMetadata>)
 
     val resultOpex = finalS3State
-      .find(objects => objects.bucket == "bucketName" && objects.key == "opex/executionId/executionId.opex")
+      .find(objects => objects.bucket == "bucketName" && objects.key == "opex/batchId/batchId.opex")
       .map(obj => trim(loadString(obj.content)))
       .get
 
@@ -46,7 +46,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
   "handler" should "not return an error if no prefixes were returned" in {
     val (result, _) = runLambda(Nil)
 
-    result.left.value.getMessage should equal("No uploads were attempted for 'opex/executionId/'")
+    result.left.value.getMessage should equal("No uploads were attempted for 'opex/batchId/'")
   }
 
   "handler" should "return an exception and not send an s3 'upload' request if 'listCommonPrefixes' returns an exception" in {
@@ -55,7 +55,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
   }
 
   "handler" should "return an exception if an s3 'upload' attempt returns an exception" in {
-    val initialS3State = List(S3Object("bucket", s"opex/executionId/key", "content"))
+    val initialS3State = List(S3Object("bucket", s"opex/batchId/key", "content"))
     val (result, finalS3State) = runLambda(initialS3State, Errors(upload = true).some)
     result.left.value.getMessage should equal("Upload has failed")
   }

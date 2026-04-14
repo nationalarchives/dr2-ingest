@@ -71,8 +71,8 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
   private def isFolder(rowType: Type) = List(ContentFolder, ArchiveFolder).contains(rowType)
 
-  private def generateKey(executionName: String, folder: DynamoItem) =
-    s"opex/$executionName/${formatParentPath(folder.potentialParentPath)}${folder.id}/${folder.id}.opex"
+  private def generateKey(batchId: String, folder: DynamoItem) =
+    s"opex/$batchId/${formatParentPath(folder.potentialParentPath)}${folder.id}/${folder.id}.opex"
 
   private def formatParentPath(potentialParentPath: Option[String]): String = potentialParentPath.map(parentPath => s"$parentPath/").getOrElse("")
 
@@ -92,10 +92,10 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         dependencies.s3Client.upload(destinationBucket, key, FlowAdapters.toPublisher(publisher))
       }
 
-    def getAssetRowsWithFileSize(children: List[FolderOrAssetItem], bucketName: String, executionName: String): IO[List[AssetWithFileSize]] =
+    def getAssetRowsWithFileSize(children: List[FolderOrAssetItem], bucketName: String, batchId: String): IO[List[AssetWithFileSize]] =
       children.collect {
         case child @ asset if child.`type` == Asset =>
-          val key = s"opex/$executionName/${formatParentPath(asset.parentPath)}${asset.id}.pax.opex"
+          val key = s"opex/$batchId/${formatParentPath(asset.parentPath)}${asset.id}.pax.opex"
           dependencies.s3Client
             .headObject(bucketName, key)
             .map(headResponse => AssetWithFileSize(asset, headResponse.contentLength()))
@@ -124,13 +124,13 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
       _ <- IO.fromOption(children.headOption)(new Exception(s"No children found for ${input.id} and ${input.batchId}"))
       _ <- log(s"Fetched ${children.length} children from Dynamo")
 
-      assetRows <- getAssetRowsWithFileSize(childrenWithoutSkip, config.bucketName, input.executionName)
+      assetRows <- getAssetRowsWithFileSize(childrenWithoutSkip, config.bucketName, input.batchId)
       _ <- log("File sizes for assets fetched from S3")
 
       folderRows <- IO.pure(childrenWithoutSkip.filter(child => isFolder(child.`type`)))
       folderOpex <- dependencies.xmlCreator.createFolderOpex(folder, assetRows, folderRows, folder.identifiers, Unknown)
       _ <- xmlValidator(PreservicaSchema.OpexMetadataSchema).xmlStringIsValid("""<?xml version="1.0" encoding="UTF-8"?>""" + folderOpex)
-      key = generateKey(input.executionName, folder)
+      key = generateKey(input.batchId, folder)
       _ <- uploadXMLToS3(folderOpex, config.bucketName, key)
       _ <- log(s"Uploaded OPEX $key to S3 ${config.bucketName}")
     } yield ()
@@ -146,7 +146,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 object Lambda {
   case class Config(dynamoTableName: String, bucketName: String, dynamoGsiName: String, roleArn: String) derives ConfigReader
 
-  case class Input(id: UUID, batchId: String, executionName: String)
+  case class Input(id: UUID, batchId: String)
 
   case class AssetWithFileSize(asset: FolderOrAssetItem, fileSize: Long)
 

@@ -19,11 +19,10 @@ Given the input
 ```json
 {
     "batchId": "AAA_95b8f7b6-0b70-45ee-a76e-532dc36318c2_0",
-    "executionName": "AnExecution",
     "id": "68b1c80b-36b8-4f0f-94d6-92589002d87e"
 }
 ```
-it will fetch the asset from DyamoDB
+it will fetch the asset from DynamoDB
 
 ```json
 {

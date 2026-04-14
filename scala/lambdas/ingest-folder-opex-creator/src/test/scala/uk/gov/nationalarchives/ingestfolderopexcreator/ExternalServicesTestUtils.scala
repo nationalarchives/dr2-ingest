@@ -30,7 +30,7 @@ object ExternalServicesTestUtils:
   case class FolderWithChildren(folder: ArchiveFolderDynamoItem, children: List[AssetDynamoItem])
   case class S3Object(bucket: String, key: String, content: String)
 
-  def generateInput(assetId: UUID): Input = Input(assetId, batchId, batchId)
+  def generateInput(assetId: UUID): Input = Input(assetId, batchId)
 
   val config: Config = Config("", "sourceBucket", "destinationBucket", "roleArn")
 

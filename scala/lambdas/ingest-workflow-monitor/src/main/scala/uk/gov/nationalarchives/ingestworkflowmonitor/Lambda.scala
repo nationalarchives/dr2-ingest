@@ -27,13 +27,13 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies]:
       Dependencies
   ) => IO[StateOutput] = (input, _, dependencies) =>
     for {
-      logWithExecutionId <- IO(log(Map("executionId" -> input.executionId))(_))
-      _ <- logWithExecutionId(s"Getting Ingest Monitor for executionId ${input.executionId}")
+      logWithBatchId <- IO(log(Map("batchId" -> input.batchId))(_))
+      _ <- logWithBatchId(s"Getting Ingest Monitor for batchId ${input.batchId}")
       monitors <- dependencies.processMonitorClient.getMonitors(
-        GetMonitorsRequest(name = Some(s"opex/${input.executionId}"), category = List(Ingest))
+        GetMonitorsRequest(name = Some(s"opex/${input.batchId}"), category = List(Ingest))
       )
       monitor <- IO.fromOption(monitors.headOption)(new Exception(s"'Ingest' Monitor was not found!"))
-      _ <- logWithExecutionId(s"Retrieved Ingest monitor for ${input.executionId}")
+      _ <- logWithBatchId(s"Retrieved Ingest monitor for ${input.batchId}")
       monitorStatus <- IO.fromOption(mappedStatuses.get(monitor.status))(
         new Exception(s"'${monitor.status}' is an unexpected status!")
       )
@@ -43,7 +43,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies]:
     Fs2Client.processMonitorClient(config.secretName).map(Dependencies.apply)
 
 object Lambda:
-  case class Input(executionId: String)
+  case class Input(batchId: String)
 
   case class StateOutput(status: String, mappedId: String)
 
