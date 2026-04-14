@@ -1,22 +1,21 @@
 version: 2
 updates:
-
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      # Check for updates to GitHub Actions every week
-      interval: "weekly"
+      # Check for updates to GitHub Actions every month
+      interval: "monthly"
   - package-ecosystem: "pip"
     directory: "/python"
     schedule:
-      # Check for updates to python packages every week
-      interval: "weekly"
+      # Check for updates to python packages every month
+      interval: "monthly"
   - package-ecosystem: "gradle"
     directory: "/kotlin/gradle"
     schedule:
-      # Check for updates to kotlin packages every week
-      interval: "weekly"
+      # Check for updates to kotlin packages every month
+      interval: "monthly"
   - package-ecosystem: "cargo"
     directory: "/rust/lambdas/courtdoc-anonymiser"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
