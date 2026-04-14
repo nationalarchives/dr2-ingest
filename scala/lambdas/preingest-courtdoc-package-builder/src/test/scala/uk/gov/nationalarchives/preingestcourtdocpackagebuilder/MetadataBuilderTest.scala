@@ -191,7 +191,7 @@ class MetadataBuilderTest extends AnyFlatSpec with TableDrivenPropertyChecks:
               )
 
               val metadataBuilder =
-                MetadataBuilder(() => uuidsIterator.next, s3Client(s3Objects, Ref.unsafe(Nil)), seriesMapper, uriProcessor)
+                MetadataBuilder(() => uuidsIterator.next(), s3Client(s3Objects, Ref.unsafe(Nil)), seriesMapper, uriProcessor)
 
               val message = LockTableMessage(assetId, URI.create(s"s3://bucket/$metadataId"), fileId, potentialCorrelationId)
               val item = IngestLockTableItem(assetId, "group_ID", message.asJson.noSpaces, "1")

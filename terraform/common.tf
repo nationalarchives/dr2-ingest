@@ -7,7 +7,7 @@ locals {
   ingest_run_workflow_step_function_name               = "${local.environment}-dr2-ingest-run-workflow"
   additional_user_roles                                = local.environment != "prod" ? [data.aws_ssm_parameter.dev_admin_role.value] : []
   anonymiser_roles                                     = local.environment == "intg" ? flatten([module.dr2_court_document_package_anonymiser_lambda.*.lambda_role_arn]) : []
-  e2e_test_roles                                       = local.environment == "intg" ? [module.dr2_run_e2e_tests_role[0].role_arn] : []
+  e2e_test_roles                                       = local.environment == "prod" ? [] : [module.dr2_run_e2e_tests_role[0].role_arn]
   anonymiser_lambda_arns                               = local.environment == "intg" ? flatten([module.dr2_court_document_package_anonymiser_lambda.*.lambda_arn]) : []
   files_dynamo_table_name                              = "${local.environment}-dr2-ingest-files"
   ingest_lock_dynamo_table_name                        = "${local.environment}-dr2-ingest-lock"
@@ -108,17 +108,17 @@ locals {
   ]))
   flow_control_configs = {
     intg = {
-      max_concurrency            = 4
+      max_concurrency            = 3
       tdr_reserved_channels      = 1
       courtdoc_reserved_channels = 1
     }
     prod = {
-      max_concurrency            = 5
+      max_concurrency            = 4
       tdr_reserved_channels      = 2
       courtdoc_reserved_channels = 2
     }
     staging = {
-      max_concurrency            = 1
+      max_concurrency            = 3
       tdr_reserved_channels      = 0
       courtdoc_reserved_channels = 0
     }
