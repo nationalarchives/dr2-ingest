@@ -7,7 +7,7 @@ The input to this lambda is provided by the Step Function.
 
 ```json
 {
-	"executionId": "TDR-execution-id",
+	"batchId": "TDR-batch-id",
 	"taskToken": "some-task-token-which-identifies-a-task"
 }
 ```

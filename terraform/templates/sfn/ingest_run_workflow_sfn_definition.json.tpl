@@ -16,7 +16,7 @@
         "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_start_workflow_lambda_name}",
         "Payload": {
           "workflowContextName": "Ingest OPEX (Incremental)",
-          "executionId.$": "$.batchId"
+          "batchId.$": "$.batchId"
         }
       },
       "Retry": ${retry_statement},
@@ -33,7 +33,7 @@
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
         "Payload": {
-          "executionId.$": "$.batchId"
+          "batchId.$": "$.batchId"
         },
         "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_workflow_monitor_lambda_name}"
       },

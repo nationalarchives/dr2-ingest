@@ -1,12 +1,12 @@
 # DR2 Ingest - Parent Folder Opex Creator
 
-This Lambda lists the contents of our staging cache below the `opex/<executionName>/` prefix and creates an OPEX file with a folder entry for the next level down.
+This Lambda lists the contents of our staging cache below the `opex/<batchId>/` prefix and creates an OPEX file with a folder entry for the next level down.
 
 ## Lambda input
-The input is a json object with the execution id
+The input is a json object with the batch id
 ```json
 {
-  "executionId": "step-function-execution-id"
+  "batchId": "step-function-batch-id"
 }
 ```
 

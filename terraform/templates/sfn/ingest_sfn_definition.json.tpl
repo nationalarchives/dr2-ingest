@@ -47,8 +47,7 @@
       "ItemsPath": "$.contentAssets",
       "ItemSelector": {
         "id.$": "$$.Map.Item.Value",
-        "batchId.$": "$$.Execution.Input.batchId",
-        "executionName.$": "$$.Execution.Name"
+        "batchId.$": "$$.Execution.Input.batchId"
       },
       "ItemReader": {
         "Resource": "arn:aws:states:::s3:getObject",
@@ -103,8 +102,7 @@
       },
       "ItemSelector": {
         "id.$": "$$.Map.Item.Value",
-        "batchId.$": "$$.Execution.Input.batchId",
-        "executionName.$": "$$.Execution.Name"
+        "batchId.$": "$$.Execution.Input.batchId"
       },
       "ItemProcessor": {
         "ProcessorConfig": {
@@ -128,7 +126,7 @@
       "Type": "Task",
       "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_parent_folder_opex_creator_lambda_name}",
       "Parameters": {
-        "executionId.$": "$$.Execution.Name"
+        "batchId.$": "$$.Execution.Input.batchId"
       },
       "Retry": ${retry_statement},
       "ResultPath": null,

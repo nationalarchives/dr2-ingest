@@ -47,9 +47,9 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         }
     }
 
-    val keyPrefix = s"opex/${input.executionId}/"
-    val opexFileName = s"$keyPrefix${input.executionId}.opex"
-    val batchRef = input.executionId.split('-').take(3).mkString("-")
+    val keyPrefix = s"opex/${input.batchId}/"
+    val opexFileName = s"$keyPrefix${input.batchId}.opex"
+    val batchRef = input.batchId.split('-').take(3).mkString("-")
     val log = logger.info(Map("batchRef" -> batchRef))(_)
     for {
       publisher <- dependencies.s3Client.listCommonPrefixes(config.destinationBucket, keyPrefix)
@@ -74,7 +74,7 @@ object Lambda {
       fs2.interop.flow.fromPublisher[IO](FlowAdapters.toFlowPublisher(publisher), chunkSize = 16)
     }
 
-  case class Input(executionId: String)
+  case class Input(batchId: String)
   case class Config(destinationBucket: String, roleArn: String) derives ConfigReader
 
   case class Dependencies(s3Client: DAS3Client[IO])
