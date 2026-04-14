@@ -146,7 +146,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
   given PropertyCheckConfiguration = PropertyCheckConfiguration(minSuccessful = 100)
 
   forAll(testListDataGen) { allTestData =>
-    "lambda handler for multiple files" should s"write the correct metadata to s3 ${listTestCount.next}" in {
+    "lambda handler for multiple files" should s"write the correct metadata to s3 ${listTestCount.next()}" in {
       runPropertiesTest(allTestData)
     }
   }
@@ -158,7 +158,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     val tdrFileId = UUID.fromString("a2834c9d-46e8-42d9-a300-2a4ed31c1e1a")
     val uuidList = List.fill(100)(UUID.randomUUID)
     val uuids: Iterator[UUID] = Iterator(uuidList*)
-    val uuidIterator: () => UUID = () => uuids.next
+    val uuidIterator: () => UUID = () => uuids.next()
     def createPackageMetadata(testData: TestData) = PackageMetadata(
       testData.series,
       tdrFileId,
