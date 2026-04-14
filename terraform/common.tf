@@ -80,16 +80,20 @@ locals {
     module.ad_hoc_preingest.package_builder_lambda.function_name,
     module.ad_hoc_preingest.importer_lambda.function_name
   ], local.environment == "intg" ? [local.court_document_anonymiser_lambda_name] : [])
-  queues = [
-    module.court_document_preingest.importer_sqs,
+  ingest_queues = [
     module.dr2_custodial_copy_queue,
     module.dr2_custodial_copy_queue_creator_queue,
     module.dr2_custodial_copy_db_builder_queue,
     module.dr2_external_notifications_queue,
+    module.cleanup_trigger_queue
+  ]
+  importer_queues = [
+    module.court_document_preingest.importer_sqs,
     module.tdr_preingest.importer_sqs,
     module.dri_preingest.importer_sqs,
     module.ad_hoc_preingest.importer_sqs
   ]
+
   retry_statement            = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 6, BackoffRate = 2, JitterStrategy = "FULL" }])
   messages_visible_threshold = 1000000
   # The list comes from https://www.cloudflare.com/en-gb/ips
@@ -639,13 +643,13 @@ module "eventbridge_alarm_notifications_destination" {
 
 
 
-module "cloudwatch_event_alarm_event_bridge_rule_alarm_only" {
+module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_ingest_queues" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
   event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
-    cloudwatch_alarms = jsonencode(flatten([[for queue in local.queues : queue.event_alarms], [module.postingest.cc_confirmer_queue_oldest_message_alarm_arn]])),
+    cloudwatch_alarms = jsonencode(flatten([[for queue in local.ingest_queues : queue.event_alarms], [module.postingest.cc_confirmer_queue_oldest_message_alarm_arn]])),
     state_value       = "ALARM"
   })
-  name                = "${local.environment}-dr2-eventbridge-alarm-state-change-alarm-only"
+  name                = "${local.environment}-dr2-eventbridge-ingest-queue-state-change-alarm-only"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   api_destination_input_transformer = {
     input_paths = {
@@ -659,14 +663,55 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only" {
   }
 }
 
-module "cloudwatch_alarm_event_bridge_rule" {
+module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_importer_queues" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
+  event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
+    cloudwatch_alarms = jsonencode(flatten([[for queue in local.importer_queues : queue.event_alarms]])),
+    state_value       = "ALARM"
+  })
+  name                = "${local.environment}-dr2-eventbridge-importer-queue-state-change-alarm-only"
+  api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
+  api_destination_input_transformer = {
+    input_paths = {
+      "alarmName"    = "$.detail.alarmName",
+      "currentValue" = "$.detail.state.value"
+    }
+    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
+      channel_id   = local.dev_notifications_channel_id
+      slackMessage = ":warning: Cloudwatch alarm <alarmName> has entered state <currentValue>"
+    })
+  }
+}
+
+module "cloudwatch_alarm_event_bridge_rule_for_ingest_queues" {
   for_each = toset(["OK", "ALARM"])
   source   = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
   event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
-    cloudwatch_alarms = jsonencode(flatten([for queue in local.queues : queue.alarms]))
+    cloudwatch_alarms = jsonencode(flatten([for queue in local.ingest_queues : queue.alarms]))
     state_value       = each.value
   })
-  name                = "${local.environment}-dr2-eventbridge-alarm-state-change-${lower(each.value)}"
+  name                = "${local.environment}-dr2-eventbridge-state-change-ingest-queue-${lower(each.value)}"
+  api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
+  api_destination_input_transformer = {
+    input_paths = {
+      "alarmName"    = "$.detail.alarmName",
+      "currentValue" = "$.detail.state.value"
+    }
+    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
+      channel_id   = local.dev_notifications_channel_id
+      slackMessage = ":${each.value == "OK" ? "green-tick" : "alert-noflash-slow"}: Cloudwatch alarm <alarmName> has entered state <currentValue>"
+    })
+  }
+}
+
+module "cloudwatch_alarm_event_bridge_rule_for_importer_queues" {
+  for_each = toset(["OK", "ALARM"])
+  source   = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
+  event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
+    cloudwatch_alarms = jsonencode(flatten([for queue in local.importer_queues : queue.alarms]))
+    state_value       = each.value
+  })
+  name                = "${local.environment}-dr2-eventbridge-state-change-importer-queue-${lower(each.value)}"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   api_destination_input_transformer = {
     input_paths = {
