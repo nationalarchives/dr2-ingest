@@ -21,7 +21,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val initialAssetItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
     val message = new SQSMessage()
     message.setBody(
-      s"""{"body": {"parameters": {"assetId": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}}"""
+      s"""{"parameters": {"assetId": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
@@ -35,7 +35,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   "lambda handler" should "update ttl value for all items in the hierarchy of assetId sent in the message" in {
     val message = new SQSMessage()
     message.setBody(
-      s"""{"body": {"parameters": {"assetId": "d5c74859-b4fa-403e-a11c-0c7652265f03", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}}"""
+      s"""{"parameters": {"assetId": "d5c74859-b4fa-403e-a11c-0c7652265f03", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
@@ -52,7 +52,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
   "lambda handler" should "not update ttl value for any item that is not in the hierarchy of assetId sent in the message" in {
     val message = new SQSMessage()
     message.setBody(
-      s"""{"body": {"parameters": {"assetId": "3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}}"""
+      s"""{"parameters": {"assetId": "3cc1cbed-c4fc-49c4-b09e-b80cb4e0c9ce", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
 
     val oneItem = createDynamoItem(
@@ -82,14 +82,14 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
     val message = new SQSMessage()
     message.setBody(
-      s"""{"body": {"parameters": {"asset_Id": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}}"""
+      s"""{"parameters": {"asset_Id": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
     val result = runLambda(sqsEvent, List(initialFileItem), Map.empty)
     result.result.isLeft should equal(true)
     result.result.left.value.getMessage should equal(
-      "Failed to decode SQS message body: Attempt to decode value on failed cursor: DownField(assetId),DownField(parameters),DownField(body)"
+      "Failed to decode SQS message body: Attempt to decode value on failed cursor: DownField(assetId),DownField(parameters)"
     )
   }
 
@@ -98,7 +98,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
     val message = new SQSMessage()
     message.setBody(
-      s"""{"body": {"parameters": {"assetId": "non-existent", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}}"""
+      s"""{"parameters": {"assetId": "non-existent", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
@@ -113,7 +113,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val anotherItem = createDynamoItem(id, "file2.txt", "s3://some-bucket/another-key", "parent1/parent2/parent3", DynamoFormatters.Type.Asset)
     val message = new SQSMessage()
     message.setBody(
-      s"""{"body": {"parameters": {"assetId": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}}"""
+      s"""{"parameters": {"assetId": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)

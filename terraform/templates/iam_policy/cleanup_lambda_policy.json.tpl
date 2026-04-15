@@ -2,8 +2,15 @@
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": "dynamodb:UpdateTimeToLive",
-      "Resource": "${dynamodb_table_arn}"
+      "Action": [
+        "dynamodb:UpdateTimeToLive",
+        "dynamodb:Query",
+        "dynamodb:UpdateItem"
+      ],
+      "Resource": [
+        "${dynamodb_table_arn}",
+        "${dynamodb_table_arn}/index/${index_name}"
+      ]
     },
     {
       "Effect": "Allow",

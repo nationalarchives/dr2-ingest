@@ -39,11 +39,12 @@ module "cleanup_handler_lambda" {
       bucket_name        = module.ingest_raw_cache_bucket.s3_bucket_name
       region_name        = local.aws_region_name
       dynamodb_table_arn = module.files_table.table_arn
+      index_name         = local.files_table_batch_parent_global_secondary_index_name
       sqs_queue_arn      = local.sqs_queue_arn
     })
   }
-  timeout_seconds = 180
-  memory_size     = local.java_lambda_memory_size
+  timeout_seconds = 900
+  memory_size     = 1024
   runtime         = local.java_runtime
   tags            = {}
   lambda_sqs_queue_mappings = [{

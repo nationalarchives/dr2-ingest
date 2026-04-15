@@ -41,9 +41,9 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 
     sqsEvent.getRecords.asScala.toList.traverse { record =>
       for {
-        sqsMessage <- IO.fromEither(decode[SqsMessage](record.getBody).left.map(err => new RuntimeException(s"Failed to decode SQS message body: ${err.getMessage}")))
-        assetId = sqsMessage.body.params.assetId
-        batchId = sqsMessage.body.properties.executionId
+        sqsMessageBody <- IO.fromEither(decode[SqsMessageBody](record.getBody).left.map(err => new RuntimeException(s"Failed to decode SQS message body: ${err.getMessage}")))
+        assetId = sqsMessageBody.parameters.assetId
+        batchId = sqsMessageBody.properties.executionId
         assetItems <- dependencies.dynamoClient.queryItems[AssetDynamoItem](
           config.filesTableName,
           DynamoFormatters.id === assetId and DynamoFormatters.batchId === batchId
@@ -102,17 +102,11 @@ object Lambda {
       params <- c.downField("parameters").as[SqsMessageParams]
       properties <- c.downField("properties").as[SqsMessageProps]
     } yield SqsMessageBody(params, properties)
-
-  given Decoder[SqsMessage] = (c: io.circe.HCursor) =>
-    for {
-      body <- c.downField("body").as[SqsMessageBody]
-    } yield SqsMessage(body)
-
+  
   case class Config(filesTableName: String, dynamoGsiName: String, rawCacheBucketName: String) derives ConfigReader
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], s3Client: DAS3Client[IO])
 
   case class SqsMessageParams(assetId: String, status: String)
   case class SqsMessageProps(executionId: String, messageType: String)
-  case class SqsMessageBody(params: SqsMessageParams, properties: SqsMessageProps)
-  case class SqsMessage(body: SqsMessageBody)
+  case class SqsMessageBody(parameters: SqsMessageParams, properties: SqsMessageProps)
 }
