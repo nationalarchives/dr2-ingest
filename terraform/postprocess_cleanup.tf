@@ -31,7 +31,7 @@ resource "aws_sns_topic_subscription" "cleanup_trigger_queue_subscription" {
 module "cleanup_handler_lambda" {
   source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   function_name = local.cleanup_lambda_name
-  handler       = "uk.gov.nationalarchives.cleanuphandler.Lambda::handleRequest"
+  handler       = "uk.gov.nationalarchives.postprocesscleanup.Lambda::handleRequest"
   policies = {
     "${local.cleanup_lambda_name}-policy" = templatefile("./templates/iam_policy/cleanup_lambda_policy.json.tpl", {
       account_id         = data.aws_caller_identity.current.account_id
