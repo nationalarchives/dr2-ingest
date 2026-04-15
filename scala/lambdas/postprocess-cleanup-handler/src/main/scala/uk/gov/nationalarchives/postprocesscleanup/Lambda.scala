@@ -102,7 +102,7 @@ object Lambda {
       params <- c.downField("parameters").as[SqsMessageParams]
       properties <- c.downField("properties").as[SqsMessageProps]
     } yield SqsMessageBody(params, properties)
-  
+
   case class Config(filesTableName: String, dynamoGsiName: String, rawCacheBucketName: String) derives ConfigReader
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], s3Client: DAS3Client[IO])
 
