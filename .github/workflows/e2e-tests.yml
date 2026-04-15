@@ -8,9 +8,16 @@ on:
           - intg
           - staging
         description: "The environment to run the tests against"
+      to_deploy:
+        type: string
+        description: "The version to deploy to the next environment if the tests pass"
+        required: true
 permissions:
   id-token: write
   contents: write
+env:
+  ENVIRONMENT: ${{ github.event.inputs.environment }}
+  TO_DEPLOY: ${{ github.event.inputs.to-deploy }}
 jobs:
   run_tests:
     runs-on: ubuntu-latest
@@ -39,3 +46,9 @@ jobs:
           COPY_FILES_LOG_GROUP: arn:aws:logs:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:log-group:/aws/lambda/${{ inputs.environment }}-dr2-preingest-tdr-importer
           JUDGMENT_SQS_QUEUE: https://sqs.eu-west-2.amazonaws.com/${{ secrets.ACCOUNT_NUMBER }}/${{ inputs.environment }}-dr2-preingest-courtdoc-importer
           S3_BUCKET: ${{ inputs.environment }}-dr2-ingest-raw-cache
+      - run: |
+          gh workflow run deploy.yml -f environment=staging -f to-deploy=$TO_DEPLOY
+        if: ${{ inputs.environment == 'intg' }}
+      - run: |
+          gh workflow run deploy.yml -f environment=prod -f to-deploy=$TO_DEPLOY
+        if: ${{ inputs.environment == 'staging' }}

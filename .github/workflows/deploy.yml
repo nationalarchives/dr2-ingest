@@ -120,5 +120,5 @@ jobs:
           git push origin $TO_DEPLOY
           python .github/scripts/deploy.py $ENVIRONMENT $TO_DEPLOY
       - run: |
-          gh workflow run e2e-tests.yml -f environment=${{ github.event.inputs.environment }}
+          gh workflow run e2e-tests.yml -f environment=$ENVIRONMENT -f to_deploy=$TO_DEPLOY
         if: ${{ github.event.inputs.environment != 'prod' }}
