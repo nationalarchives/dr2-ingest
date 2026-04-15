@@ -649,7 +649,7 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_ingest_queues" {
     cloudwatch_alarms = jsonencode(flatten([[for queue in local.ingest_queues : queue.event_alarms], [module.postingest.cc_confirmer_queue_oldest_message_alarm_arn]])),
     state_value       = "ALARM"
   })
-  name                = "${local.environment}-dr2-eventbridge-ingest-queue-state-change-alarm-only"
+  name                = "${local.environment}-dr2-eventbridge-ingest-queue-alarm-only"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   api_destination_input_transformer = {
     input_paths = {
@@ -669,7 +669,7 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_importer_queues"
     cloudwatch_alarms = jsonencode(flatten([[for queue in local.importer_queues : queue.event_alarms]])),
     state_value       = "ALARM"
   })
-  name                = "${local.environment}-dr2-eventbridge-importer-queue-state-change-alarm-only"
+  name                = "${local.environment}-dr2-eventbridge-importer-queue-alarm-only"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   api_destination_input_transformer = {
     input_paths = {
@@ -690,7 +690,7 @@ module "cloudwatch_alarm_event_bridge_rule_for_ingest_queues" {
     cloudwatch_alarms = jsonencode(flatten([for queue in local.ingest_queues : queue.alarms]))
     state_value       = each.value
   })
-  name                = "${local.environment}-dr2-eventbridge-state-change-ingest-queue-${lower(each.value)}"
+  name                = "${local.environment}-dr2-eventbridge-ingest-queue-${lower(each.value)}"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   api_destination_input_transformer = {
     input_paths = {
@@ -711,7 +711,7 @@ module "cloudwatch_alarm_event_bridge_rule_for_importer_queues" {
     cloudwatch_alarms = jsonencode(flatten([for queue in local.importer_queues : queue.alarms]))
     state_value       = each.value
   })
-  name                = "${local.environment}-dr2-eventbridge-state-change-importer-queue-${lower(each.value)}"
+  name                = "${local.environment}-dr2-eventbridge-importer-queue-${lower(each.value)}"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   api_destination_input_transformer = {
     input_paths = {
