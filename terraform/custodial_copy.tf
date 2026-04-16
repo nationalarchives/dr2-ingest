@@ -3,6 +3,33 @@ locals {
   custodial_copy_db_builder_queue_name = "${local.custodial_copy_name}-db-builder"
 }
 
+module "custodial_copy_user_policy" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy?ref=main"
+  name   = local.custodial_copy_name
+  policy_string = templatefile("${path.module}/templates/iam_policy/custodial_copy_policy.json.tpl", {
+    account_id                     = data.aws_caller_identity.current.account_id
+    secrets_manager_secret_arn     = aws_secretsmanager_secret.preservica_read_metadata_read_content.arn
+    custodial_copy_queue           = module.dr2_custodial_copy_queue.sqs_arn
+    custodial_copy_confirmer_queue = module.postingest.postingest_confirmer_queue_arn
+    postingest_table               = module.postingest.postingest_table_arn
+    database_builder_queue         = module.dr2_custodial_copy_db_builder_queue.sqs_arn
+    management_account_id          = module.config.account_numbers["mgmt"]
+  })
+}
+
+module "custodial_copy_profile" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_roles_anywhere?ref=main"
+  roles = {
+    local.custodial_copy_name = {
+      # from environment secret
+      x509_subject_cn    = var.custodial_copy_x509_subject_cn
+      policy_attachments = { local.custodial_copy_name = module.custodial_copy_user_policy.policy_arn }
+      # from repository secret
+      allowed_subnets = { "site outbound subnet" = var.site_outbound_subnet }
+    }
+  }
+}
+
 resource "aws_iam_user" "custodial_copy_user" {
   name = local.custodial_copy_name
 }
