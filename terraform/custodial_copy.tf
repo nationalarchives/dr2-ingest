@@ -3,6 +3,19 @@ locals {
   custodial_copy_db_builder_queue_name = "${local.custodial_copy_name}-db-builder"
 }
 
+variable "site_outbound_subnet" {
+  type        = string
+  sensitive   = true
+  description = "IP address that web access from the Kew site goes through - provided via Github Secrets"
+  default     = ""
+}
+
+variable "custodial_copy_x509_subject_cn" {
+  type        = string
+  sensitive   = true
+  description = "x509 Subject CN of the certificate user will auth with to Roles Anywhere - provided via Github Secrets"
+}
+
 module "custodial_copy_user_policy" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy?ref=main"
   name   = local.custodial_copy_name
@@ -25,7 +38,7 @@ module "custodial_copy_profile" {
       x509_subject_cn    = var.custodial_copy_x509_subject_cn
       policy_attachments = { local.custodial_copy_name = module.custodial_copy_user_policy.policy_arn }
       # from repository secret
-      allowed_subnets = { "site outbound subnet" = var.site_outbound_subnet }
+      allowed_subnets = var.site_outbound_subnet == "" ? {} : { "site outbound subnet" = var.site_outbound_subnet }
     }
   }
 }
