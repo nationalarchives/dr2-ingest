@@ -2,7 +2,7 @@ locals {
   delete_lambda_version_name = "${local.environment}-dr2-delete-lambda-version"
 }
 module "dr2_delete_lambda_version_schedule" {
-  source                  = "git::https://github.com/nationalarchives/da-terraform-modules//cloudwatch_events"
+  source                  = "git::https://github.com/nationalarchives/da-terraform-modules//cloudwatch_events?ref=main"
   rule_name               = "${local.delete_lambda_version_name}-schedule"
   schedule                = "rate(1 day)"
   lambda_event_target_arn = "arn:aws:lambda:eu-west-2:${data.aws_caller_identity.current.account_id}:function:${local.entity_event_lambda_name}"
@@ -15,7 +15,7 @@ data "archive_file" "delete_lambda_version_code" {
 }
 
 module "dr2_delete_lambda_version_lambda" {
-  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda?ref=main"
   function_name   = local.delete_lambda_version_name
   handler         = "delete_lambda_versions.lambda_handler"
   filename        = data.archive_file.delete_lambda_version_code.output_path
