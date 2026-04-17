@@ -44,9 +44,6 @@ jobs:
       - run: pip install boto3
       - name: run_plan
         working-directory: terraform
-        env:
-          TF_VAR_site_outbound_subnet: ${{ secrets.kew_proxy_outgoing_ip }}
-          TF_VAR_custodial_copy_x509_subject_cn: ${{ secrets.custodial_copy_x509_subject_cn }}
         run: |
           terraform init
           terraform workspace select $ENVIRONMENT
@@ -94,8 +91,6 @@ jobs:
           python ../.github/scripts/send_message.py
         working-directory: terraform
         env:
-          TF_VAR_site_outbound_subnet: ${{ secrets.kew_proxy_outgoing_ip }}
-          TF_VAR_custodial_copy_x509_subject_cn: ${{ secrets.custodial_copy_x509_subject_cn }}
           MESSAGE: ":white_check_mark: terraform deploy successful for ${{ github.event.inputs.environment }}"
       - run: |
           git tag $TO_DEPLOY
