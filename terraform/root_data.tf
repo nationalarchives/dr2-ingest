@@ -12,4 +12,12 @@ data "aws_ssm_parameter" "preservica_api_user" {
   name = "/${local.environment}/preservica/user"
 }
 
+data "aws_ssm_parameter" "site_outbound_subnet" {
+  name = "/mgmt/custodial_copy/site_outbound_subnet"
+}
+
+data "aws_ssm_parameter" "custodial_copy_x509_subject_cn" {
+  name = "/${local.environment}/custodial_copy/x509_subject_cn"
+}
+
 data "aws_organizations_organization" "org" {}
