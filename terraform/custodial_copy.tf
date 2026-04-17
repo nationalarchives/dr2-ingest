@@ -21,10 +21,10 @@ module "custodial_copy_profile" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_roles_anywhere?ref=main"
   roles = {
     "${local.custodial_copy_name}" = {
-      x509_subject_cn    = aws.aws_ssm_parameter.custodial_copy_x509_subject_cn.value
+      x509_subject_cn    = data.aws_ssm_parameter.custodial_copy_x509_subject_cn.value
       policy_attachments = { "${local.custodial_copy_name}" = module.custodial_copy_user_policy.policy_arn }
-      allowed_subnets = aws.aws_ssm_parameter.site_outbound_subnet.value == null ? {} : {
-        "site outbound subnet" = aws.aws_ssm_parameter.site_outbound_subnet.value
+      allowed_subnets = data.aws_ssm_parameter.site_outbound_subnet.value == null ? {} : {
+        "site outbound subnet" = data.aws_ssm_parameter.site_outbound_subnet.value
       }
     }
   }
