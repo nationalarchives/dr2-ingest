@@ -1,5 +1,6 @@
 locals {
-  ingest_flow_control_lambda_name = "${local.environment}-dr2-ingest-flow-control"
+  ingest_flow_control_key_name    = "ingest-flow-control"
+  ingest_flow_control_lambda_name = "${local.environment}-dr2-${local.ingest_flow_control_key_name}"
 }
 
 module "dr2_ingest_flow_control_lambda" {
@@ -17,9 +18,12 @@ module "dr2_ingest_flow_control_lambda" {
       workflow_step_function_arn = module.dr2_ingest_run_workflow_step_function.step_function_arn
     })
   }
-
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  publish_version = true
+  snap_start      = true
+  memory_size     = local.java_lambda_memory_size
+  runtime         = local.java_runtime
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.ingest_flow_control_key_name}"
   plaintext_env_vars = {
     QUEUE_DDB_TABLE   = local.ingest_queue_dynamo_table_name
     CONFIG_PARAM_NAME = local.ingest_flow_control_config_ssm_parameter_name

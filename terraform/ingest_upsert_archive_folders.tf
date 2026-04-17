@@ -1,5 +1,6 @@
 locals {
-  ingest_upsert_archive_folders_lambda_name = "${local.environment}-dr2-ingest-upsert-archive-folders"
+  ingest_upsert_archive_folders_key_name    = "ingest-upsert-archive-folders"
+  ingest_upsert_archive_folders_lambda_name = "${local.environment}-dr2-${local.ingest_upsert_archive_folders_key_name}"
 }
 
 module "dr2_ingest_upsert_archive_folders_lambda" {
@@ -16,8 +17,12 @@ module "dr2_ingest_upsert_archive_folders_lambda" {
       vpc_id                     = module.vpc.vpc.id
     })
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  publish_version = true
+  snap_start      = true
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.ingest_upsert_archive_folders_key_name}"
+  memory_size     = local.java_lambda_memory_size
+  runtime         = local.java_runtime
   plaintext_env_vars = {
     FILES_DDB_TABLE        = local.files_dynamo_table_name
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.name

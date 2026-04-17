@@ -1,5 +1,6 @@
 locals {
-  ingest_start_workflow_lambda_name = "${local.environment}-dr2-ingest-start-workflow"
+  ingest_start_workflow_key_name    = "ingest-start-workflow"
+  ingest_start_workflow_lambda_name = "${local.environment}-dr2-${local.ingest_start_workflow_key_name}"
 }
 
 module "dr2_ingest_start_workflow_lambda" {
@@ -15,8 +16,12 @@ module "dr2_ingest_start_workflow_lambda" {
       vpc_id                     = module.vpc.vpc.id
     })
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.ingest_start_workflow_key_name}"
+  publish_version = true
+  snap_start      = true
+  memory_size     = local.java_lambda_memory_size
+  runtime         = local.java_runtime
   plaintext_env_vars = {
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_secret.name
   }

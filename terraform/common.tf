@@ -460,6 +460,27 @@ module "sample_files_bucket" {
   lifecycle_rules   = local.lifecycle_rules
 }
 
+resource "terraform_data" "create_ingest_sfn_lambda_alias" {
+  for_each = { for l in [
+    module.dr2_ingest_mapper_lambda.lambda_function,
+    module.dr2_ingest_validate_generic_ingest_inputs_lambda.lambda_function,
+    module.ingest_find_existing_asset.lambda_function,
+    module.dr2_ingest_asset_opex_creator_lambda.lambda_function,
+    module.dr2_ingest_folder_opex_creator_lambda.lambda_function,
+    module.dr2_ingest_parent_folder_opex_creator_lambda.lambda_function,
+    module.dr2_ingest_asset_reconciler_lambda.lambda_function,
+    module.dr2_ingest_flow_control_lambda.lambda_function,
+  ] : l.function_name => l }
+  triggers_replace = [
+    each.value.version
+  ]
+
+  provisioner "local-exec" {
+    command = "aws lambda create-alias --function-name ${each.key} --name ${local.lambda_alias_name} --function-version ${each.value.version}"
+  }
+}
+
+
 module "dr2_ingest_step_function" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//sfn"
   step_function_definition = templatefile("${path.module}/templates/sfn/ingest_sfn_definition.json.tpl", {
@@ -485,12 +506,29 @@ module "dr2_ingest_step_function" {
     ingest_flow_control_lambda_name                   = local.ingest_flow_control_lambda_name
     retry_statement                                   = local.retry_statement
     postingest_table_name                             = module.postingest.postingest_table_name
+    alias_name                                        = local.lambda_alias_name
   })
   step_function_name = local.ingest_step_function_name
   step_function_role_policy_attachments = {
     step_function_policy = module.dr2_ingest_step_function_policy.policy_arn
   }
+  depends_on = [terraform_data.create_ingest_sfn_lambda_alias]
 }
+
+resource "terraform_data" "create_run_workflow_sfn_lambda_alias" {
+  for_each = { for l in [
+    module.dr2_ingest_upsert_archive_folders_lambda.lambda_function,
+    module.dr2_ingest_start_workflow_lambda.lambda_function,
+    module.dr2_ingest_workflow_monitor_lambda.lambda_function
+  ] : l.function_name => l.version }
+  triggers_replace = [
+    each.value
+  ]
+  provisioner "local-exec" {
+    command = "aws lambda create-alias --function-name ${each.key} --name ${local.lambda_alias_name} --function-version ${each.value}"
+  }
+}
+
 
 module "dr2_ingest_run_workflow_step_function" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//sfn"
@@ -502,11 +540,13 @@ module "dr2_ingest_run_workflow_step_function" {
     ingest_workflow_monitor_lambda_name       = local.ingest_workflow_monitor_lambda_name
     retry_statement                           = local.retry_statement,
     upsert_lambda_retry_statement             = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = module.dr2_ingest_upsert_archive_folders_lambda.lambda_function.timeout, MaxAttempts = 10, BackoffRate = 1, JitterStrategy = "FULL" }])
+    alias_name                                = local.lambda_alias_name
   })
   step_function_name = local.ingest_run_workflow_step_function_name
   step_function_role_policy_attachments = {
     step_function_policy = module.dr2_ingest_run_workflow_step_function_policy.policy_arn
   }
+  depends_on = [terraform_data.create_run_workflow_sfn_lambda_alias]
 }
 
 module "ingest_state_bucket" {

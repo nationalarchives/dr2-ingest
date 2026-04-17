@@ -5,4 +5,5 @@ module "postingest" {
   private_security_group_ids = [module.outbound_https_access_for_dynamo_db.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
   private_subnet_ids         = module.vpc.private_subnets
   vpc_id                     = module.vpc.vpc.id
+  lambda_code_version        = var.lambda_code_version
 }

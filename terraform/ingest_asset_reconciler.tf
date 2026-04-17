@@ -1,5 +1,6 @@
 locals {
-  ingest_asset_reconciler_lambda_name = "${local.environment}-dr2-ingest-asset-reconciler"
+  ingest_asset_reconciler_key_name    = "ingest-asset-reconciler"
+  ingest_asset_reconciler_lambda_name = "${local.environment}-dr2-${local.ingest_asset_reconciler_key_name}"
 }
 
 module "dr2_ingest_asset_reconciler_lambda" {
@@ -18,8 +19,12 @@ module "dr2_ingest_asset_reconciler_lambda" {
       vpc_id                     = module.vpc.vpc.id
     })
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  publish_version = true
+  snap_start      = true
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.ingest_asset_reconciler_key_name}"
+  memory_size     = local.java_lambda_memory_size
+  runtime         = local.java_runtime
   plaintext_env_vars = {
     FILES_DDB_TABLE                      = local.files_dynamo_table_name
     FILES_DDB_TABLE_BATCHPARENT_GSI_NAME = local.files_table_batch_parent_global_secondary_index_name

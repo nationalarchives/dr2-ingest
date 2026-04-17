@@ -1,5 +1,6 @@
 locals {
-  ip_lock_checker_lambda_name = "${local.environment}-dr2-ip-lock-checker"
+  ip_lock_checker_lambda_key  = "ip-lock-checker"
+  ip_lock_checker_lambda_name = "${local.environment}-dr2-${local.ip_lock_checker_lambda_key}"
 }
 
 module "dr2_ip_lock_checker_cloudwatch_event" {
@@ -21,6 +22,8 @@ module "dr2_ip_lock_checker_lambda" {
       lambda_name = local.ip_lock_checker_lambda_name
     })
   }
+  s3_bucket = local.code_deploy_bucket
+  s3_key    = "${var.lambda_code_version}/${local.ip_lock_checker_lambda_key}"
   lambda_invoke_permissions = {
     "events.amazonaws.com" = module.dr2_ip_lock_checker_cloudwatch_event.event_arn
   }

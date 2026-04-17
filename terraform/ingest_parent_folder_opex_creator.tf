@@ -1,5 +1,6 @@
 locals {
-  ingest_parent_folder_opex_creator_lambda_name = "${local.environment}-dr2-ingest-parent-folder-opex-creator"
+  ingest_parent_folder_opex_creator_key_name    = "ingest-parent-folder-opex-creator"
+  ingest_parent_folder_opex_creator_lambda_name = "${local.environment}-dr2-${local.ingest_parent_folder_opex_creator_key_name}"
 }
 
 module "dr2_ingest_parent_folder_opex_creator_lambda" {
@@ -15,8 +16,12 @@ module "dr2_ingest_parent_folder_opex_creator_lambda" {
       vpc_id                      = module.vpc.vpc.id
     })
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  publish_version = true
+  snap_start      = true
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.ingest_parent_folder_opex_creator_key_name}"
+  memory_size     = local.java_lambda_memory_size
+  runtime         = local.java_runtime
   plaintext_env_vars = {
     DESTINATION_BUCKET = local.preservica_ingest_bucket
     S3_ROLE_ARN        = module.copy_tna_to_preservica_role.role_arn

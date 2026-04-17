@@ -45,6 +45,7 @@ jobs:
       - name: run_plan
         working-directory: terraform
         env:
+          TF_VAR_lambda_code_version: ${{ github.event.inputs.to-deploy }}
           TF_VAR_site_outbound_subnet: ${{ secrets.kew_proxy_outgoing_ip }}
           TF_VAR_custodial_copy_x509_subject_cn: ${{ secrets.custodial_copy_x509_subject_cn }}
         run: |
@@ -57,14 +58,22 @@ jobs:
           if [ "$EXITCODE" = "2" ]; then
             echo "changes=true" >> $GITHUB_OUTPUT
             python ../.github/scripts/send_message.py
-          else
+          elif [ "$EXITCODE" = "0" ]; then
             echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            exit 1
           fi
         working-directory: terraform
         env:
           MESSAGE: |
             :book: Terraform plan ready for environment ${{ github.event.inputs.environment }}
             :white_check_mark: <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|Approve the workflow>
+      - run: python .github/scripts/send_message.py
+        if: failure()
+        env:
+          MESSAGE: |
+            :alert-noflash-slow: Terraform plan has failed for $TO_DEPLOY
+            <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|View the logs>
   terraform_apply:
     permissions:
       id-token: write
@@ -94,32 +103,18 @@ jobs:
           python ../.github/scripts/send_message.py
         working-directory: terraform
         env:
+          TF_VAR_lambda_code_version: ${{ github.event.inputs.to-deploy }}
           TF_VAR_site_outbound_subnet: ${{ secrets.kew_proxy_outgoing_ip }}
           TF_VAR_custodial_copy_x509_subject_cn: ${{ secrets.custodial_copy_x509_subject_cn }}
-          MESSAGE: ":white_check_mark: terraform deploy successful for ${{ github.event.inputs.environment }}"
+          MESSAGE: ":white_check_mark: ingest deploy successful for ${{ github.event.inputs.environment }} for version ${{ github.event.inputs.to-deploy }}"
       - run: |
           git tag $TO_DEPLOY
           git push origin $TO_DEPLOY
         env:
           GH_TOKEN: ${{ github.token }}
-  deploy:
-    permissions:
-      id-token: write
-      contents: write
-    runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - id: role-name
-        run: echo role-name="$(echo $ENVIRONMENT | sed -r 's/(^|-)(\w)/\U\2/g')DPGithubActionsDeployLambdaRole" >> $GITHUB_OUTPUT
-      - name: Configure AWS credentials for Lambda
-        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
-          aws-region: eu-west-2
-          role-session-name: ECRLogin
-      - run: | 
-          pip install boto3
-          git tag $TO_DEPLOY
-          git push origin $TO_DEPLOY
-          python .github/scripts/deploy.py $ENVIRONMENT $TO_DEPLOY
+      - run: python .github/scripts/send_message.py
+        if: failure()
+        env:
+          MESSAGE: |
+            :alert-noflash-slow: Ingest deploy has failed for $TO_DEPLOY
+            <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|View the logs>

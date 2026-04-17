@@ -1,5 +1,6 @@
 locals {
-  ingest_mapper_lambda_name = "${local.environment}-dr2-ingest-mapper"
+  ingest_mapper_key_name    = "ingest-mapper"
+  ingest_mapper_lambda_name = "${local.environment}-dr2-${local.ingest_mapper_key_name}"
 }
 
 module "dr2_ingest_mapper_lambda" {
@@ -18,8 +19,12 @@ module "dr2_ingest_mapper_lambda" {
       vpc_arn                  = module.vpc.vpc.arn
     })
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  publish_version = true
+  snap_start      = true
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.ingest_mapper_key_name}"
+  memory_size     = local.java_lambda_memory_size
+  runtime         = local.java_runtime
   plaintext_env_vars = {
     FILES_DDB_TABLE    = local.files_dynamo_table_name
     OUTPUT_BUCKET_NAME = local.ingest_state_bucket_name

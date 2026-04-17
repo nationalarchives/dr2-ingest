@@ -3,9 +3,11 @@ locals {
   postingest_gsi_firstqueued_name     = "QueueFirstQueuedIdx"
   postingest_gsi_lastqueued_name      = "QueueLastQueuedIdx"
   custodial_copy_confirmer_queue_name = "${var.environment}-dr2-custodial-copy-confirmer"
-  state_change_lambda_name            = "${var.environment}-dr2-postingest-state-change-handler"
+  state_change_lambda_key             = "postingest-state-change-handler"
+  state_change_lambda_name            = "${var.environment}-dr2-${local.state_change_lambda_key}"
   state_change_lambda_dlq             = "${var.environment}-dr2-postingest-state-change-dlq"
-  resender_lambda_name                = "${var.environment}-dr2-postingest-message-resender"
+  resender_lambda_key                 = "postingest-message-resender"
+  resender_lambda_name                = "${var.environment}-dr2-${local.resender_lambda_key}"
   java_runtime                        = "java21"
   java_lambda_memory_size             = 512
   postingest_queue_config = [ // Before adding a new queue here, update the state change handler to expect it
@@ -14,6 +16,7 @@ locals {
   six_hours                  = 60 * 60 * 6
   seven_days                 = 60 * 60 * 24 * 7
   messages_visible_threshold = 1000000
+  code_deploy_bucket         = "mgmt-dp-code-deploy"
 }
 
 data "aws_caller_identity" "current" {}
@@ -112,6 +115,8 @@ module "dr2_state_change_lambda" {
       vpc_id                           = var.vpc_id
     })
   }
+  s3_bucket   = local.code_deploy_bucket
+  s3_key      = "${var.lambda_code_version}/${local.state_change_lambda_key}"
   memory_size = local.java_lambda_memory_size
   runtime     = local.java_runtime
   dynamo_stream_config = {
@@ -149,6 +154,8 @@ module "dr2_message_resender_lambda" {
       vpc_id                           = var.vpc_id
     })
   }
+  s3_bucket = local.code_deploy_bucket
+  s3_key    = "${var.lambda_code_version}/${local.resender_lambda_key}"
   lambda_invoke_permissions = {
     "events.amazonaws.com" = module.dr2_message_resender_cloudwatch_event.event_arn
   }
