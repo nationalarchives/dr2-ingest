@@ -112,6 +112,10 @@ jobs:
           git push origin $TO_DEPLOY
         env:
           GH_TOKEN: ${{ github.token }}
+      - run: gh workflow run e2e_tests.yml -f environment=${{ github.event.inputs.environment }} -f to-deploy=${{ github.event.inputs.to-deploy }}
+        if: ${{ github.event.inputs.environment != 'prod' }}
+        env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
       - run: python .github/scripts/send_message.py
         if: failure()
         env:
