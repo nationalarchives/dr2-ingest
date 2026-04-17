@@ -6,10 +6,10 @@ locals {
 module "dr2_custodial_copy_topic" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//sns"
   sns_policy = templatefile("./templates/sns/custodial_copy_topic_policy.json.tpl", {
-    cc_user_arn = flatten([
+    cc_user_arn = jsonencode(flatten([
       [aws_iam_user.custodial_copy_user.arn],
       values(module.custodial_copy_profile.roles)[*].role_arn
-    ])
+    ]))
     sns_topic = local.custodial_copy_topic_arn
   })
   tags       = {}

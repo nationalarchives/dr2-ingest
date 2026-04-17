@@ -46,8 +46,6 @@ jobs:
         working-directory: terraform
         env:
           TF_VAR_lambda_code_version: ${{ github.event.inputs.to-deploy }}
-          TF_VAR_site_outbound_subnet: ${{ secrets.kew_proxy_outgoing_ip }}
-          TF_VAR_custodial_copy_x509_subject_cn: ${{ secrets.custodial_copy_x509_subject_cn }}
         run: |
           terraform init
           terraform workspace select $ENVIRONMENT
@@ -104,8 +102,6 @@ jobs:
         working-directory: terraform
         env:
           TF_VAR_lambda_code_version: ${{ github.event.inputs.to-deploy }}
-          TF_VAR_site_outbound_subnet: ${{ secrets.kew_proxy_outgoing_ip }}
-          TF_VAR_custodial_copy_x509_subject_cn: ${{ secrets.custodial_copy_x509_subject_cn }}
           MESSAGE: ":white_check_mark: ingest deploy successful for ${{ github.event.inputs.environment }} for version ${{ github.event.inputs.to-deploy }}"
       - run: |
           git tag $TO_DEPLOY
