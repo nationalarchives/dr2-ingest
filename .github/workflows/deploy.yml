@@ -109,7 +109,7 @@ jobs:
       - run: python .github/scripts/send_message.py
         env:
           MESSAGE: ":white_check_mark: ingest deploy successful for ${{ github.event.inputs.environment }} for version ${{ github.event.inputs.to-deploy }}"
-      - run: gh workflow run e2e-tests.yml -f environment=$ENVIRONMENT -f to-deploy=$TO_DEPLOY --ref DR2-2783-allow-versions-and-aliases
+      - run: gh workflow run e2e-tests.yml -f environment=$ENVIRONMENT -f to-deploy=$TO_DEPLOY --ref DR2-2784-ingest-to-use-lambda-aliases
         if: ${{ github.event.inputs.environment != 'prod' }}
         env:
           GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
