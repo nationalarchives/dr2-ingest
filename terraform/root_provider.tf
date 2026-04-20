@@ -14,6 +14,11 @@ module "tdr_config" {
 }
 
 terraform {
+  required_providers {
+    archive = {
+      source = "hashicorp/archive"
+    }
+  }
   backend "s3" {
     bucket       = "mgmt-dp-terraform-state"
     key          = "terraform.state"
