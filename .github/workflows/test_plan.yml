@@ -10,6 +10,9 @@ jobs:
   test_plan:
     runs-on: ubuntu-latest
     environment: intg
+    concurrency:
+      group: intg
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -23,7 +26,6 @@ jobs:
           aws-region: eu-west-2
           role-session-name: TerraformTestPlan
       - run: |
-          pwd
           terraform init
           terraform workspace select intg
           terraform plan
