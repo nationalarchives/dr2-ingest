@@ -80,9 +80,8 @@ resource "terraform_data" "create_lambda_alias" {
   triggers_replace = [
     module.dr2_preingest_package_builder_lambda.lambda_function.version
   ]
-
   provisioner "local-exec" {
-    command = "aws lambda create-alias --function-name ${local.package_builder_lambda_name} --name ${local.alias_name} --function-version ${module.dr2_preingest_package_builder_lambda.lambda_function.version}"
+    command = "aws lambda create-alias --function-name ${local.package_builder_lambda_name} --name ${local.alias_name} --function-version ${module.dr2_preingest_package_builder_lambda.lambda_function.version} || true"
   }
 }
 

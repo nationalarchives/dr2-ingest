@@ -476,7 +476,7 @@ resource "terraform_data" "create_ingest_sfn_lambda_alias" {
   ]
 
   provisioner "local-exec" {
-    command = "aws lambda create-alias --function-name ${each.key} --name ${local.lambda_alias_name} --function-version ${each.value.version}"
+    command = "aws lambda create-alias --function-name ${each.key} --name ${local.lambda_alias_name} --function-version ${each.value.version} || true"
   }
 }
 
@@ -525,7 +525,7 @@ resource "terraform_data" "create_run_workflow_sfn_lambda_alias" {
     each.value
   ]
   provisioner "local-exec" {
-    command = "aws lambda create-alias --function-name ${each.key} --name ${local.lambda_alias_name} --function-version ${each.value}"
+    command = "aws lambda create-alias --function-name ${each.key} --name ${local.lambda_alias_name} --function-version ${each.value} || true"
   }
 }
 
