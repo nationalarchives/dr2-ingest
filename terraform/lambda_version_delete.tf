@@ -24,7 +24,7 @@ module "dr2_delete_lambda_version_lambda" {
   runtime         = local.python_runtime
   tags            = {}
   policies = {
-    delete_version_policy = templatefile("${path.module}/templates/iam_policy/version_delete.json.tpl", {
+    "${local.delete_lambda_version_name}-policy" = templatefile("${path.module}/templates/iam_policy/version_delete.json.tpl", {
       account_id  = data.aws_caller_identity.current.account_id,
       lambda_name = local.delete_lambda_version_name
     })
