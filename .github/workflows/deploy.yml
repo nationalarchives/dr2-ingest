@@ -98,16 +98,17 @@ jobs:
           terraform init
           terraform workspace select $ENVIRONMENT
           terraform apply --auto-approve
-          python ../.github/scripts/send_message.py
         working-directory: terraform
         env:
           TF_VAR_lambda_code_version: ${{ github.event.inputs.to-deploy }}
-          MESSAGE: ":white_check_mark: ingest deploy successful for ${{ github.event.inputs.environment }} for version ${{ github.event.inputs.to-deploy }}"
       - run: |
           git tag $TO_DEPLOY || true
           git push origin $TO_DEPLOY || true
         env:
           GH_TOKEN: ${{ github.token }}
+      - run: .github/scripts/send_message.py
+        env:
+          MESSAGE: ":white_check_mark: ingest deploy successful for ${{ github.event.inputs.environment }} for version ${{ github.event.inputs.to-deploy }}"
       - run: gh workflow run e2e_tests.yml -f environment=$ENVIRONMENT -f to-deploy=$TO_DEPLOY
         if: ${{ github.event.inputs.environment != 'prod' }}
         env:
@@ -116,5 +117,5 @@ jobs:
         if: failure()
         env:
           MESSAGE: |
-            :alert-noflash-slow: Ingest deploy has failed for $TO_DEPLOY
+            :alert-noflash-slow: Ingest deploy has failed for ${{ github.event.inputs.to-deploy }}
             <https://github.com/nationalarchives/dr2-ingest/actions/runs/${{ github.run_id }}|View the logs>
