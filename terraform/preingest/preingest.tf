@@ -56,6 +56,7 @@ module "dr2_preingest_aggregator_lambda" {
       dynamo_db_lock_table_arn   = var.ingest_lock_table_arn
       preingest_sfn_arn          = local.preingest_sfn_arn
       preingest_aggregator_queue = local.aggregator_queue_arn
+      sns_topic                  = var.notifications_topic_arn
     })
   }
   memory_size = local.java_lambda_memory_size

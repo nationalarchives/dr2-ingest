@@ -1,10 +1,10 @@
 package uk.gov.nationalarchives.preingesttdraggregator
 
 import cats.Parallel
+import cats.effect.Async
 import cats.effect.kernel.Outcome
 import cats.effect.std.AtomicCell
 import cats.effect.syntax.all.*
-import cats.effect.Async
 import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFailure
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
@@ -23,10 +23,11 @@ import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{Input, SFNArgu
 import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.*
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
-import uk.gov.nationalarchives.utils.ExternalUtils.NotificationMessage
-import uk.gov.nationalarchives.utils.ExternalUtils.given
+import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.IngestStarted
+import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.IngestUpdate
+import uk.gov.nationalarchives.utils.ExternalUtils.{NotificationMessage, OutputMessage, OutputParameters, OutputProperties, given}
 import uk.gov.nationalarchives.utils.Generators
-import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
+import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASNSClient}
 
 import java.time.Instant
 import java.util.UUID
@@ -60,7 +61,7 @@ object Aggregator:
   enum NewGroupReason:
     case NoExistingGroup, ExpiryBeforeLambdaTimeout, MaxGroupSizeExceeded
 
-  def apply[F[_]: {Async, Parallel}](sfnClient: DASFNClient[F], dynamoClient: DADynamoDBClient[F])(using Generators): Aggregator[F] =
+  def apply[F[_]: {Async, Parallel}](sfnClient: DASFNClient[F], dynamoClient: DADynamoDBClient[F], snsClient: DASNSClient[F])(using Generators): Aggregator[F] =
     new Aggregator[F]:
       private val logger: SelfAwareStructuredLogger[F] = Slf4jFactory.create[F].getLogger
 
@@ -69,9 +70,15 @@ object Aggregator:
 
       private def toDynamoString(value: String): AttributeValue = AttributeValue.builder.s(value).build
 
-      def writeToLockTable(id: UUID, msgBody: String, config: Config, groupId: GroupId): F[Int] = {
+      def writeToLockTable(id: UUID, msgBody: String, config: Config, groupId: GroupId): F[Unit] = {
+        val batchId = BatchId(groupId)
         val dynamoLockTableItem: DynamoValue = DynamoWriteUtils.writeLockTableItem(
           IngestLockTableItem(id, groupId.groupValue, msgBody, Generators().generateInstant.toString)
+        )
+
+        val outputMessage = OutputMessage(
+          OutputProperties(batchId.batchValue, Generators().generateRandomUuid, None, Instant.now, IngestUpdate),
+          OutputParameters(id, IngestStarted)
         )
 
         dynamoClient.writeItem(
@@ -80,7 +87,7 @@ object Aggregator:
             dynamoLockTableItem.toAttributeValue.m().asScala.toMap,
             Some(s"attribute_not_exists(assetId)")
           )
-        )
+        ) >> snsClient.publish(config.notificationsTopic)(List(outputMessage)).void
       }
 
       private def startNewGroup(config: Config, groupExpiryTime: Milliseconds, id: UUID, msgBody: String)(using enc: Encoder[SFNArguments]): F[Group] = {

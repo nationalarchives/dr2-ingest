@@ -15,7 +15,7 @@ import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.utils.Generators.given
-import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
+import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASNSClient}
 
 import java.time.Instant
 import scala.jdk.CollectionConverters.*
@@ -28,7 +28,7 @@ class Lambda extends RequestHandler[SQSEvent, SQSBatchResponse]:
   override def handleRequest(input: SQSEvent, context: Context): SQSBatchResponse = {
     for {
       config <- ConfigSource.default.loadF[IO, Config]()
-      batchResponse <- run(Aggregator[IO](DASFNClient[IO](), DADynamoDBClient[IO]()), input, context, config)
+      batchResponse <- run(Aggregator[IO](DASFNClient[IO](), DADynamoDBClient[IO](), DASNSClient[IO]()), input, context, config)
     } yield batchResponse
   }.unsafeRunSync()
 
@@ -44,4 +44,5 @@ object Lambda:
 
   given ConfigReader[Seconds] = (cur: ConfigCursor) => cur.asInt.map(i => i.seconds)
 
-  case class Config(lockTable: String, sourceSystem: String, sfnArn: String, maxSecondaryBatchingWindow: Seconds, maxBatchSize: Int) derives ConfigReader
+  case class Config(lockTable: String, sourceSystem: String, sfnArn: String, maxSecondaryBatchingWindow: Seconds, maxBatchSize: Int, notificationsTopic: String)
+      derives ConfigReader
