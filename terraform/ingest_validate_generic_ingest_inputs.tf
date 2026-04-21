@@ -27,6 +27,8 @@ module "dr2_ingest_validate_generic_ingest_inputs_lambda" {
     security_group_ids = [module.outbound_https_access_for_s3.security_group_id]
   }
   tags = {
-    Name = local.ingest_validate_generic_ingest_inputs_lambda_name
+    Name        = local.ingest_validate_generic_ingest_inputs_lambda_name
+    SfnFunction = "true"
+
   }
 }

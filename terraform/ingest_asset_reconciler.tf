@@ -36,7 +36,8 @@ module "dr2_ingest_asset_reconciler_lambda" {
     security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]])
   }
   tags = {
-    Name = local.ingest_asset_reconciler_lambda_name
+    Name        = local.ingest_asset_reconciler_lambda_name
+    SfnFunction = "true"
   }
 }
 

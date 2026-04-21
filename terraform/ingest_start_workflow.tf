@@ -30,6 +30,7 @@ module "dr2_ingest_start_workflow_lambda" {
     security_group_ids = local.clouflare_and_vpc_endpoints_security_groups
   }
   tags = {
-    Name = local.ingest_start_workflow_lambda_name
+    Name        = local.ingest_start_workflow_lambda_name
+    SfnFunction = "true"
   }
 }

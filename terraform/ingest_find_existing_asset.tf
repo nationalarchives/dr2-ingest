@@ -34,6 +34,7 @@ module "ingest_find_existing_asset" {
     security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]])
   }
   tags = {
-    Name = local.ingest_find_existing_asset_name
+    Name        = local.ingest_find_existing_asset_name
+    SfnFunction = "true"
   }
 }

@@ -2,13 +2,20 @@
   "Statement": [
     {
       "Action": [
-        "lambda:ListFunctions",
         "lambda:ListVersionsByFunction",
         "lambda:DeleteFunction"
       ],
       "Effect": "Allow",
-      "Resource": ["arn:aws:lambda:eu-west-2:${account_id}:function:*", "arn:aws:lambda:eu-west-2:${account_id}:function:*:*"],
+      "Resource": ${lambdas_to_delete},
       "Sid": "updateLambdaVersions"
+    },
+    {
+      "Action": [
+        "lambda:ListFunctions"
+      ],
+      "Effect": "Allow",
+      "Resource": "*",
+      "Sid": "listFunctions"
     },
     {
       "Action": [

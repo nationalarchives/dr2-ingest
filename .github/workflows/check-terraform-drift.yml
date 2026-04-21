@@ -27,6 +27,7 @@ jobs:
         run: |
           terraform init
           terraform workspace select prod
+          export TF_VAR_lambda_code_version=$(curl https://api.github.com/repos/nationalarchives/dr2-ingest/tags | jq -r '.[0].name')
           terraform plan -detailed-exitcode || echo $? > exit-code
       - id: detect_changes
         run: |

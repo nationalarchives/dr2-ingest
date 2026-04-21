@@ -40,6 +40,7 @@ module "dr2_ingest_asset_opex_creator_lambda" {
   }
 
   tags = {
-    Name = local.ingest_asset_opex_creator_lambda_name
+    Name        = local.ingest_asset_opex_creator_lambda_name
+    SfnFunction = "true"
   }
 }

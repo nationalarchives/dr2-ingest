@@ -30,6 +30,7 @@ module "dr2_ingest_flow_control_lambda" {
     INGEST_SFN_ARN    = module.dr2_ingest_run_workflow_step_function.step_function_arn
   }
   tags = {
-    Name = local.ingest_flow_control_lambda_name
+    Name        = local.ingest_flow_control_lambda_name
+    SfnFunction = "true"
   }
 }

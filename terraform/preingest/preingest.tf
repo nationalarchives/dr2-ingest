@@ -81,7 +81,10 @@ resource "terraform_data" "create_lambda_alias" {
     module.dr2_preingest_package_builder_lambda.lambda_function.version
   ]
   provisioner "local-exec" {
-    command = "aws lambda create-alias --function-name ${local.package_builder_lambda_name} --name ${local.alias_name} --function-version ${module.dr2_preingest_package_builder_lambda.lambda_function.version} || true"
+    command = <<-EOT
+      aws lambda update-alias --function-name ${local.package_builder_lambda_name} --name ${local.alias_name} --function-version ${module.dr2_preingest_package_builder_lambda.lambda_function.version} || \
+      aws lambda create-alias --function-name ${local.package_builder_lambda_name} --name ${local.alias_name} --function-version ${module.dr2_preingest_package_builder_lambda.lambda_function.version}
+    EOT
   }
 }
 
@@ -144,6 +147,7 @@ module "dr2_preingest_package_builder_lambda" {
     security_group_ids = var.private_security_group_ids
   }
   tags = {
-    Name = local.package_builder_lambda_name
+    Name        = local.package_builder_lambda_name
+    SfnFunction = "true"
   }
 }

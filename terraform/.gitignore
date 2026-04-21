@@ -1,4 +1,4 @@
 .DS_Store
 .idea/
 .terraform/
-lambda/function.zip
+templates/lambda/function.zip

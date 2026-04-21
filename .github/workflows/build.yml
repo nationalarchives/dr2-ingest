@@ -49,7 +49,7 @@ jobs:
           zip -jA court-document-package-anonymiser rust/lambdas/courtdoc-anonymiser/target/lambda/lambda/bootstrap
           cp court-document-package-anonymiser target/outputs
           cd target/outputs
-          aws s3 sync . s3://mgmt-dp-code-deploy/$NEXT_VERSION/
+          python .github/scripts/upload_files.py $NEXT_VERSION 
           git tag $NEXT_VERSION
           git push origin $NEXT_VERSION
         env:
