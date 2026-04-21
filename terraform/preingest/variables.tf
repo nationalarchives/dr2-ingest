@@ -90,3 +90,5 @@ variable "delete_from_source" {
 }
 
 variable "lambda_code_version" {}
+
+variable "notifications_topic_arn" {}
