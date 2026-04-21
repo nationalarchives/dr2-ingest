@@ -17,6 +17,7 @@ module "tdr_preingest" {
   private_subnet_ids         = module.vpc.private_subnets
   vpc_id                     = module.vpc.vpc.id
   vpc_arn                    = module.vpc.vpc.arn
+  notifications_topic_arn    = module.dr2_notifications_sns.sns_arn
 }
 
 module "dri_preingest" {
@@ -35,6 +36,7 @@ module "dri_preingest" {
   vpc_id                                       = module.vpc.vpc.id
   vpc_arn                                      = module.vpc.vpc.arn
   delete_from_source                           = true
+  notifications_topic_arn                      = module.dr2_notifications_sns.sns_arn
 }
 
 module "ad_hoc_preingest" {
@@ -53,6 +55,7 @@ module "ad_hoc_preingest" {
   vpc_id                                       = module.vpc.vpc.id
   vpc_arn                                      = module.vpc.vpc.arn
   delete_from_source                           = true
+  notifications_topic_arn                      = module.dr2_notifications_sns.sns_arn
 }
 
 module "court_document_preingest" {
@@ -82,8 +85,9 @@ module "court_document_preingest" {
   package_builder_lambda = {
     handler = "uk.gov.nationalarchives.preingestcourtdocpackagebuilder.Lambda::handleRequest"
   }
-  vpc_id  = module.vpc.vpc.id
-  vpc_arn = module.vpc.vpc.arn
+  vpc_id                  = module.vpc.vpc.id
+  vpc_arn                 = module.vpc.vpc.arn
+  notifications_topic_arn = module.dr2_notifications_sns.sns_arn
 }
 
 module "cc_restore_preingest" {
@@ -105,7 +109,8 @@ module "cc_restore_preingest" {
   package_builder_lambda = {
     handler = "uk.gov.nationalarchives.preingestrestorepackagebuilder.Lambda::handleRequest"
   }
-  vpc_id  = module.vpc.vpc.id
-  vpc_arn = module.vpc.vpc.arn
+  vpc_id                  = module.vpc.vpc.id
+  vpc_arn                 = module.vpc.vpc.arn
+  notifications_topic_arn = module.dr2_notifications_sns.sns_arn
 }
 

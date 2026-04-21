@@ -88,3 +88,5 @@ variable "delete_from_source" {
   description = "Whether to delete the files and metadata from the source bucket"
   default     = false
 }
+
+variable "notifications_topic_arn" {}

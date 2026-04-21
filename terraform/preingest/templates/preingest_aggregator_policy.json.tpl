@@ -15,6 +15,16 @@
     },
     {
       "Action": [
+        "sns:Publish"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "${sns_topic}"
+      ],
+      "Sid": "publishToNotificationsTopic"
+    },
+    {
+      "Action": [
         "logs:PutLogEvents",
         "logs:CreateLogStream",
         "logs:CreateLogGroup"

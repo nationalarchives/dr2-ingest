@@ -18,7 +18,7 @@ import scala.jdk.CollectionConverters.*
 
 class LambdaTest extends AnyFlatSpec {
 
-  private val config = Config("", "", "", Seconds(1), 1)
+  private val config = Config("", "", "", Seconds(1), 1, "")
 
   "lambda run" should "return the failed messages if there are failures" in {
     val aggregator = new Aggregator[IO] {

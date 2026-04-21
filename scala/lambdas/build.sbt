@@ -370,7 +370,8 @@ lazy val preingestAdHocPackageBuilder = (project in file("preingest-tdr-package-
 
 lazy val aggregatorSettings = libraryDependencies ++= Seq(
   dynamoClient,
-  sfnClient
+  sfnClient,
+  snsClient
 )
 
 lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
