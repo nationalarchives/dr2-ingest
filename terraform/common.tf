@@ -746,7 +746,7 @@ module "failed_ingest_step_function_event_bridge_rule" {
     }
     input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
       channel_id   = local.dev_notifications_channel_id
-      slackMessage = ":alert-noflash-slow: Step function `<sfnArn>` with name <name> has <status>"
+      slackMessage = ":warning: Step function `<sfnArn>` with name <name> has <status>"
     })
   }
   log_group_destination_input_transformer = {
