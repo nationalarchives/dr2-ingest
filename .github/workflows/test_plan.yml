@@ -10,9 +10,6 @@ jobs:
   test_plan:
     runs-on: ubuntu-latest
     environment: intg
-    concurrency:
-      group: intg
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -29,5 +26,5 @@ jobs:
           terraform init
           terraform workspace select intg
           export TF_VAR_lambda_code_version=$(curl https://api.github.com/repos/nationalarchives/dr2-ingest/tags | jq -r '.[0].name')
-          terraform plan
+          terraform plan -refresh=false -lock=false
         working-directory: terraform
