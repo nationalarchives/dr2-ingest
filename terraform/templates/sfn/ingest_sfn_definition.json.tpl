@@ -293,6 +293,7 @@
         "TableName": "${ingest_lock_table_name}",
         "IndexName": "${ingest_lock_table_group_id_gsi_name}",
         "KeyConditionExpression": "groupId = :lookUpId",
+        "Select": "COUNT",
         "ExpressionAttributeValues": {
           ":lookUpId": {
             "S.$": "$$.Execution.Input.groupId"
