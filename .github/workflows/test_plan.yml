@@ -28,5 +28,6 @@ jobs:
       - run: |
           terraform init
           terraform workspace select intg
+          export TF_VAR_lambda_code_version=$(curl https://api.github.com/repos/nationalarchives/dr2-ingest/tags | jq -r '.[0].name')
           terraform plan
         working-directory: terraform
