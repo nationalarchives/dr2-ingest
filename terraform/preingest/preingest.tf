@@ -67,6 +67,7 @@ module "dr2_preingest_aggregator_lambda" {
     MAX_SECONDARY_BATCHING_WINDOW = local.aggregator_secondary_grouping_window_seconds
     PREINGEST_SFN_ARN             = local.preingest_sfn_arn
     SOURCE_SYSTEM                 = upper(var.source_name)
+    NOTIFICATIONS_TOPIC           = var.notifications_topic_arn
   }
   tags = {
     Name = local.aggregator_name
