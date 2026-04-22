@@ -7,6 +7,7 @@ module "dr2_records_metadata_key" {
   default_policy_variables = {
     ci_roles = [local.terraform_role_arn],
     user_roles = [
+      data.aws_iam_role.org_wiz_access_role.arn,
       data.aws_ssm_parameter.dev_admin_role.value
     ]
   }
