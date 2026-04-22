@@ -100,7 +100,6 @@ locals {
   cloudflare_ip_ranges                        = toset(["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"])
   clouflare_and_vpc_endpoints_security_groups = [module.outbound_cloudflare_https_access.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
   tdr_export_bucket                           = "tdr-export-${local.environment}"
-  parliament_ingest_role                      = module.config.terraform_config[local.environment]["parliament_ingest_role"]
   lifecycle_rules = jsondecode(local.environment == "prod" ? "[]" : jsonencode([
     { id = "delete-noncurrent-versions", status = "Enabled", noncurrent_version_expiration = { noncurrent_days = 1 } },
     { id = "expire-current-versions", status = "Enabled", expiration = { days = 29 } },
@@ -427,10 +426,6 @@ data "aws_ssm_parameter" "archivist_role" {
 module "ingest_raw_cache_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_raw_cache_bucket_name
-  bucket_policy = templatefile("./templates/s3/lambda_access_bucket_policy.json.tpl", {
-    lambda_role_arns = jsonencode([local.parliament_ingest_role]),
-    bucket_name      = local.ingest_raw_cache_bucket_name
-  })
   kms_key_arn = module.dr2_kms_key.kms_key_arn
   lifecycle_rules = concat(
     local.lifecycle_rules,
