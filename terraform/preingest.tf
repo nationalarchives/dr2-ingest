@@ -19,6 +19,7 @@ module "tdr_preingest" {
   vpc_arn                    = module.vpc.vpc.arn
   lambda_code_version        = var.lambda_code_version
   notifications_topic_arn    = module.dr2_notifications_sns.sns_arn
+  code_deploy_bucket         = "mgmt-dp-code-deploy"
 }
 
 module "dri_preingest" {
@@ -39,6 +40,7 @@ module "dri_preingest" {
   delete_from_source                           = true
   lambda_code_version                          = var.lambda_code_version
   notifications_topic_arn                      = module.dr2_notifications_sns.sns_arn
+  code_deploy_bucket                           = "mgmt-dp-code-deploy"
 }
 
 module "ad_hoc_preingest" {
@@ -59,6 +61,7 @@ module "ad_hoc_preingest" {
   delete_from_source                           = true
   lambda_code_version                          = var.lambda_code_version
   notifications_topic_arn                      = module.dr2_notifications_sns.sns_arn
+  code_deploy_bucket                           = "mgmt-dp-code-deploy"
 }
 
 module "court_document_preingest" {
@@ -92,6 +95,7 @@ module "court_document_preingest" {
   vpc_arn                 = module.vpc.vpc.arn
   lambda_code_version     = var.lambda_code_version
   notifications_topic_arn = module.dr2_notifications_sns.sns_arn
+  code_deploy_bucket      = "mgmt-dp-code-deploy"
 }
 
 module "cc_restore_preingest" {
@@ -117,5 +121,6 @@ module "cc_restore_preingest" {
   vpc_arn                 = module.vpc.vpc.arn
   lambda_code_version     = var.lambda_code_version
   notifications_topic_arn = module.dr2_notifications_sns.sns_arn
+  code_deploy_bucket      = "mgmt-dp-code-deploy"
 }
 

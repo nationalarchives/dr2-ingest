@@ -48,8 +48,7 @@ jobs:
           (cd rust/lambdas/courtdoc-anonymiser && cargo lambda build --release -p lambda)
           zip -jA court-document-package-anonymiser rust/lambdas/courtdoc-anonymiser/target/lambda/lambda/bootstrap
           cp court-document-package-anonymiser target/outputs
-          cd target/outputs
-          python .github/scripts/upload_files.py $NEXT_VERSION 
+          python .github/scripts/upload_files.py target/outputs $NEXT_VERSION 
           git tag $NEXT_VERSION
           git push origin $NEXT_VERSION
         env:

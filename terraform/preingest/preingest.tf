@@ -77,16 +77,10 @@ module "dr2_preingest_aggregator_lambda" {
   }
 }
 
-resource "terraform_data" "create_lambda_alias" {
-  triggers_replace = [
-    module.dr2_preingest_package_builder_lambda.lambda_function.version
-  ]
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws lambda update-alias --function-name ${local.package_builder_lambda_name} --name ${local.alias_name} --function-version ${module.dr2_preingest_package_builder_lambda.lambda_function.version} || \
-      aws lambda create-alias --function-name ${local.package_builder_lambda_name} --name ${local.alias_name} --function-version ${module.dr2_preingest_package_builder_lambda.lambda_function.version}
-    EOT
-  }
+module "create_lambda_alias" {
+  source     = "../create_lambda_alias"
+  lambdas    = { (local.package_builder_lambda_name) = module.dr2_preingest_package_builder_lambda.lambda_function.version }
+  alias_name = local.alias_name
 }
 
 module "dr2_preingest_step_function" {
@@ -102,7 +96,7 @@ module "dr2_preingest_step_function" {
   step_function_role_policy_attachments = {
     preingest_step_function_policy = module.dr2_preingest_step_function_policy.policy_arn
   }
-  depends_on = [terraform_data.create_lambda_alias]
+  depends_on = [module.create_lambda_alias]
 }
 
 module "dr2_preingest_step_function_policy" {

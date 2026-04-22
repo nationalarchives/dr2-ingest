@@ -25,6 +25,8 @@ jobs:
       - run: |
           terraform init
           terraform workspace select intg
-          export TF_VAR_lambda_code_version=$(curl https://api.github.com/repos/nationalarchives/dr2-ingest/tags | jq -r '.[0].name')
+          export TF_VAR_lambda_code_version=$(gh api /repos/nationalarchives/dr2-ingest/tags | jq -r '.[0].name')
           terraform plan -refresh=false -lock=false
         working-directory: terraform
+        env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}

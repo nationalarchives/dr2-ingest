@@ -460,26 +460,18 @@ module "sample_files_bucket" {
   lifecycle_rules   = local.lifecycle_rules
 }
 
-resource "terraform_data" "create_ingest_sfn_lambda_alias" {
-  for_each = { for l in [
-    module.dr2_ingest_mapper_lambda.lambda_function,
-    module.dr2_ingest_validate_generic_ingest_inputs_lambda.lambda_function,
-    module.ingest_find_existing_asset.lambda_function,
-    module.dr2_ingest_asset_opex_creator_lambda.lambda_function,
-    module.dr2_ingest_folder_opex_creator_lambda.lambda_function,
-    module.dr2_ingest_parent_folder_opex_creator_lambda.lambda_function,
-    module.dr2_ingest_asset_reconciler_lambda.lambda_function,
-    module.dr2_ingest_flow_control_lambda.lambda_function,
-  ] : l.function_name => l }
-  triggers_replace = [
-    each.value.version
-  ]
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws lambda update-alias --function-name ${each.key} --name ${local.lambda_alias_name} --function-version ${each.value.version} || \
-      aws lambda create-alias --function-name ${each.key} --name ${local.lambda_alias_name} --function-version ${each.value.version}
-    EOT
+module "create_ingest_sfn_lambda_alias" {
+  source     = "./create_lambda_alias"
+  alias_name = local.lambda_alias_name
+  lambdas = {
+    (local.ingest_mapper_lambda_name)                         = module.dr2_ingest_mapper_lambda.lambda_function.version
+    (local.ingest_validate_generic_ingest_inputs_lambda_name) = module.dr2_ingest_validate_generic_ingest_inputs_lambda.lambda_function.version
+    (local.ingest_find_existing_asset_name)                   = module.ingest_find_existing_asset.lambda_function.version
+    (local.ingest_asset_opex_creator_lambda_name)             = module.dr2_ingest_asset_opex_creator_lambda.lambda_function.version
+    (local.ingest_folder_opex_creator_lambda_name)            = module.dr2_ingest_folder_opex_creator_lambda.lambda_function.version
+    (local.ingest_parent_folder_opex_creator_lambda_name)     = module.dr2_ingest_parent_folder_opex_creator_lambda.lambda_function.version
+    (local.ingest_asset_reconciler_lambda_name)               = module.dr2_ingest_asset_reconciler_lambda.lambda_function.version
+    (local.ingest_flow_control_lambda_name)                   = module.dr2_ingest_flow_control_lambda.lambda_function.version
   }
 }
 
@@ -515,24 +507,17 @@ module "dr2_ingest_step_function" {
   step_function_role_policy_attachments = {
     step_function_policy = module.dr2_ingest_step_function_policy.policy_arn
   }
-  depends_on = [terraform_data.create_ingest_sfn_lambda_alias]
+  depends_on = [module.create_ingest_sfn_lambda_alias]
 }
 
-resource "terraform_data" "create_run_workflow_sfn_lambda_alias" {
-  for_each = { for l in [
-    module.dr2_ingest_upsert_archive_folders_lambda.lambda_function,
-    module.dr2_ingest_start_workflow_lambda.lambda_function,
-    module.dr2_ingest_workflow_monitor_lambda.lambda_function
-  ] : l.function_name => l.version }
-  triggers_replace = [
-    each.value
-  ]
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws lambda update-alias --function-name ${each.key} --name ${local.lambda_alias_name} --function-version ${each.value} || \
-      aws lambda create-alias --function-name ${each.key} --name ${local.lambda_alias_name} --function-version ${each.value}
-    EOT
+module "create_run_workflow_sfn_lambda_alias" {
+  source = "./create_lambda_alias"
+  lambdas = {
+    (local.ingest_upsert_archive_folders_lambda_name) = module.dr2_ingest_upsert_archive_folders_lambda.lambda_function.version
+    (local.ingest_start_workflow_lambda_name)         = module.dr2_ingest_start_workflow_lambda.lambda_function.version
+    (local.ingest_workflow_monitor_lambda_name)       = module.dr2_ingest_workflow_monitor_lambda.lambda_function.version
   }
+  alias_name = local.lambda_alias_name
 }
 
 
@@ -552,7 +537,7 @@ module "dr2_ingest_run_workflow_step_function" {
   step_function_role_policy_attachments = {
     step_function_policy = module.dr2_ingest_run_workflow_step_function_policy.policy_arn
   }
-  depends_on = [terraform_data.create_run_workflow_sfn_lambda_alias]
+  depends_on = [module.create_run_workflow_sfn_lambda_alias]
 }
 
 module "ingest_state_bucket" {

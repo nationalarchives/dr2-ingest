@@ -13,3 +13,5 @@ variable "private_subnet_ids" {
 variable "vpc_id" {}
 
 variable "lambda_code_version" {}
+
+variable "code_deploy_bucket" {}

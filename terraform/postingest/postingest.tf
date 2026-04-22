@@ -16,7 +16,7 @@ locals {
   six_hours                  = 60 * 60 * 6
   seven_days                 = 60 * 60 * 24 * 7
   messages_visible_threshold = 1000000
-  code_deploy_bucket         = "mgmt-dp-code-deploy"
+  code_deploy_bucket         = var.code_deploy_bucket
 }
 
 data "aws_caller_identity" "current" {}

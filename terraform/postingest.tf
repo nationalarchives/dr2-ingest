@@ -6,4 +6,5 @@ module "postingest" {
   private_subnet_ids         = module.vpc.private_subnets
   vpc_id                     = module.vpc.vpc.id
   lambda_code_version        = var.lambda_code_version
+  code_deploy_bucket         = "mgmt-dp-code-deploy"
 }
