@@ -447,6 +447,13 @@ module "ingest_raw_cache_bucket" {
         expiration = {
           days = 1
         }
+      },
+      {
+        id     = "delete-noncurrent-versions-after-seven-days"
+        status = "Enabled"
+        noncurrent_version_expiration = {
+          noncurrent_days = 7
+        }
       }
   ])
 }
