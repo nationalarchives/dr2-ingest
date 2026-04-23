@@ -1,5 +1,6 @@
 locals {
-  pause_ingest = "${local.environment}-dr2-pause-ingest"
+  pause_ingest_key = "pause-ingest"
+  pause_ingest     = "${local.environment}-dr2-${local.pause_ingest_key}"
 }
 module "pause_ingest_lambda" {
   source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
@@ -12,6 +13,8 @@ module "pause_ingest_lambda" {
       lambda_name    = local.pause_ingest
     })
   }
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.pause_ingest_key}"
   timeout_seconds = 10
   memory_size     = local.python_lambda_memory_size
   runtime         = local.python_runtime

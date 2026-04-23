@@ -1,5 +1,6 @@
 locals {
-  ingest_validate_generic_ingest_inputs_lambda_name = "${local.environment}-dr2-ingest-validate-generic-ingest-inputs"
+  ingest_validate_generic_ingest_inputs_key_name    = "ingest-validate-generic-ingest-inputs"
+  ingest_validate_generic_ingest_inputs_lambda_name = "${local.environment}-dr2-${local.ingest_validate_generic_ingest_inputs_key_name}"
 }
 
 module "dr2_ingest_validate_generic_ingest_inputs_lambda" {
@@ -15,13 +16,19 @@ module "dr2_ingest_validate_generic_ingest_inputs_lambda" {
       vpc_arn               = module.vpc.vpc.arn
     })
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  publish_version = true
+  snap_start      = true
+  memory_size     = local.java_lambda_memory_size
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.ingest_validate_generic_ingest_inputs_key_name}"
+  runtime         = local.java_runtime
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
     security_group_ids = [module.outbound_https_access_for_s3.security_group_id]
   }
   tags = {
-    Name = local.ingest_validate_generic_ingest_inputs_lambda_name
+    Name        = local.ingest_validate_generic_ingest_inputs_lambda_name
+    SfnFunction = "true"
+
   }
 }

@@ -1,5 +1,6 @@
 locals {
-  rotate_preservation_system_password_name = "${local.environment}-dr2-rotate-preservation-system-password"
+  rotate_preservation_system_password_key  = "rotate-preservation-system-password"
+  rotate_preservation_system_password_name = "${local.environment}-dr2-${local.rotate_preservation_system_password_key}"
 }
 
 module "dr2_rotate_preservation_system_password_lambda" {
@@ -20,6 +21,8 @@ module "dr2_rotate_preservation_system_password_lambda" {
       vpc_id      = module.vpc.vpc.id
     })
   }
+  s3_bucket   = local.code_deploy_bucket
+  s3_key      = "${var.lambda_code_version}/${local.rotate_preservation_system_password_key}"
   memory_size = local.java_lambda_memory_size
   runtime     = local.java_runtime
   vpc_config = {

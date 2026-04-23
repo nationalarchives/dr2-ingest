@@ -1,7 +1,8 @@
 locals {
   cleanup_trigger_queue_name         = "${local.environment}-dr2-cleanup-trigger-queue"
   notifications_topic_arn            = "arn:aws:sns:${local.aws_region_name}:${data.aws_caller_identity.current.account_id}:${local.notifications_topic_name}"
-  cleanup_lambda_name                = "${local.environment}-dr2-postprocess-cleanup-handler"
+  cleanup_lambda_key                 = "postprocess-cleanup-handler"
+  cleanup_lambda_name                = "${local.environment}-dr2-${local.cleanup_lambda_key}"
   sqs_queue_arn                      = "arn:aws:sqs:${local.aws_region_name}:${data.aws_caller_identity.current.account_id}:${local.cleanup_trigger_queue_name}"
   cleanup_messages_visible_threshold = 100
 }
@@ -43,6 +44,8 @@ module "cleanup_handler_lambda" {
       sqs_queue_arn      = local.sqs_queue_arn
     })
   }
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.cleanup_lambda_key}"
   timeout_seconds = 900
   memory_size     = 1024
   runtime         = local.java_runtime

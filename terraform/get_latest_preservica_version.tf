@@ -1,5 +1,6 @@
 locals {
-  get_latest_preservica_version              = "${local.environment}-dr2-get-latest-preservica-version-lambda"
+  get_latest_preservica_version_key          = "get-latest-preservica-version-lambda"
+  get_latest_preservica_version              = "${local.environment}-dr2-${local.get_latest_preservica_version_key}"
   latest_preservica_version_event_topic_name = "${local.environment}-dr2-latest-preservica-version-topic"
   dr2_preservica_version_table_name          = "${local.environment}-dr2-preservica-version"
   latest_preservica_version_event_topic_arn  = "arn:aws:sns:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.latest_preservica_version_event_topic_name}"
@@ -27,6 +28,8 @@ module "dr2_get_latest_preservica_version_lambda" {
       vpc_id                     = module.vpc.vpc.id
     })
   }
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.get_latest_preservica_version_key}"
   timeout_seconds = 180
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime

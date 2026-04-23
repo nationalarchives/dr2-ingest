@@ -20,13 +20,13 @@
     },
     "Validate input": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_validate_generic_ingest_inputs_lambda_name}",
+      "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_validate_generic_ingest_inputs_lambda_name}:${alias_name}",
       "Retry": ${retry_statement},
       "Next": "Get metadata and update Files table"
     },
     "Get metadata and update Files table": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_mapper_lambda_name}",
+      "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_mapper_lambda_name}:${alias_name}",
       "Assign": {
         "assetsFile.$": "$.assets.key",
         "foldersFile.$": "$.folders.key",
@@ -68,13 +68,13 @@
         "States": {
           "Check if asset has already been ingested": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_find_existing_asset_name_lambda_name}",
+            "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_find_existing_asset_name_lambda_name}:${alias_name}",
             "Retry": ${retry_statement},
             "Next": "Create Asset OPEX"
           },
           "Create Asset OPEX": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_asset_opex_creator_lambda_name}",
+            "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_asset_opex_creator_lambda_name}:${alias_name}",
             "Retry": ${retry_statement},
             "End": true
           }
@@ -113,7 +113,7 @@
         "States": {
           "Create Folder OPEX": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_folder_opex_creator_lambda_name}",
+            "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_folder_opex_creator_lambda_name}:${alias_name}",
             "Retry": ${retry_statement},
             "End": true
           }
@@ -124,7 +124,7 @@
     },
     "Create '.opex' manifest file for ingest container folder": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_parent_folder_opex_creator_lambda_name}",
+      "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_parent_folder_opex_creator_lambda_name}:${alias_name}",
       "Parameters": {
         "batchId.$": "$$.Execution.Input.batchId"
       },
@@ -137,7 +137,7 @@
       "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
       "ResultPath": null,
       "Parameters": {
-        "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_flow_control_lambda_name}",
+        "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_flow_control_lambda_name}:${alias_name}",
         "Payload": {
           "taskToken.$": "$$.Task.Token",
           "executionName.$": "$$.Execution.Name"
@@ -163,7 +163,7 @@
       "Resource": "arn:aws:states:::lambda:invoke",
       "ResultPath": null,
       "Parameters": {
-        "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_flow_control_lambda_name}",
+        "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_flow_control_lambda_name}:${alias_name}",
         "Payload": {}
       },
       "Retry": ${retry_statement},
@@ -197,7 +197,7 @@
         "States": {
           "Reconcile assetId and children": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_asset_reconciler_lambda_name}",
+            "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_asset_reconciler_lambda_name}:${alias_name}",
             "Retry": ${retry_statement},
             "Next": "Check if Reconciliation succeeded and post to Slack if it didn't"
           },

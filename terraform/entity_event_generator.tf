@@ -1,8 +1,9 @@
 locals {
-  entity_event_lambda_name = "${local.environment}-dr2-entity-event-generator-lambda"
-  entity_event_topic_name  = "${local.environment}-dr2-entity-event-generator-topic"
-  last_polled_table_name   = "${local.environment}-dr2-entity-event-lambda-updated-since-query-start-datetime"
-  entity_event_topic_arn   = "arn:aws:sns:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.entity_event_topic_name}"
+  entity_event_lambda_key_name = "entity-event-generator-lambda"
+  entity_event_lambda_name     = "${local.environment}-dr2-${local.entity_event_lambda_key_name}"
+  entity_event_topic_name      = "${local.environment}-dr2-entity-event-generator-topic"
+  last_polled_table_name       = "${local.environment}-dr2-entity-event-lambda-updated-since-query-start-datetime"
+  entity_event_topic_arn       = "arn:aws:sns:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.entity_event_topic_name}"
 }
 
 module "dr2_entity_event_cloudwatch_event" {
@@ -26,6 +27,8 @@ module "dr2_entity_event_generator_lambda" {
       vpc_id                     = module.vpc.vpc.id
     })
   }
+  s3_bucket            = local.code_deploy_bucket
+  s3_key               = "${var.lambda_code_version}/${local.entity_event_lambda_key_name}"
   timeout_seconds      = 60
   memory_size          = local.java_lambda_memory_size
   runtime              = local.java_runtime
