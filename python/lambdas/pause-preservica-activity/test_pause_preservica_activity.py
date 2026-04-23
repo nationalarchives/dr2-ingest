@@ -31,7 +31,7 @@ def test_pause_preservica_activity(env, boto3_mocks):
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
             "Source": "preservica-activity-pause",
-            "DetailType": "DR2DevMessage",
+            "DetailType": "DR2Message",
             "Detail": json.dumps(detail),
             "EventBusName": "default"
         }]
@@ -54,7 +54,7 @@ def test_resume_preservica_activity(env, boto3_mocks):
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
             "Source": "preservica-activity-pause",
-            "DetailType": "DR2DevMessage",
+            "DetailType": "DR2Message",
             "Detail": '{"slackMessage": ":green-tick: Preservica activity has been resumed in environment test"}',
             "EventBusName": "default"
         }]
@@ -107,7 +107,7 @@ def test_one_secret_rotation_disabled(env, boto3_mocks):
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
             "Source": "preservica-activity-pause",
-            "DetailType": "DR2DevMessage",
+            "DetailType": "DR2Message",
             "Detail": json.dumps(detail),
             "EventBusName": "default"
         }]
@@ -130,7 +130,7 @@ def test_all_secret_rotation_disabled(env, boto3_mocks):
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
             "Source": "preservica-activity-pause",
-            "DetailType": "DR2DevMessage",
+            "DetailType": "DR2Message",
             "Detail": json.dumps(detail),
             "EventBusName": "default"
         }]
@@ -153,7 +153,7 @@ def test_secret_rotation_enabled_rule_disabled(env, boto3_mocks):
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
             "Source": "preservica-activity-pause",
-            "DetailType": "DR2DevMessage",
+            "DetailType": "DR2Message",
             "Detail": json.dumps(detail),
             "EventBusName": "default"
         }]

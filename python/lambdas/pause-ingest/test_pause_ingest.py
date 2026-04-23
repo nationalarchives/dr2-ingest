@@ -62,7 +62,7 @@ def test_pause_ingest(env, boto3_mocks):
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
             "Source": "pause-ingest",
-            "DetailType": "DR2DevMessage",
+            "DetailType": "DR2Message",
             "Detail": '{"slackMessage": ":alert-noflash-slow: Ingest has been paused in environment test"}',
             "EventBusName": "default"
         }]
@@ -130,7 +130,7 @@ def test_resume_ingest(env, boto3_mocks):
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
             "Source": "pause-ingest",
-            "DetailType": "DR2DevMessage",
+            "DetailType": "DR2Message",
             "Detail": '{"slackMessage": ":green-tick: Ingest has been resumed in environment test"}',
             "EventBusName": "default"
         }]
@@ -171,7 +171,7 @@ def test_scheduled_event_agg_disabled(env, boto3_mocks):
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
             "Source": "pause-ingest",
-            "DetailType": "DR2DevMessage",
+            "DetailType": "DR2Message",
             "Detail": '{"slackMessage": ":alert-noflash-slow: Ingest is still paused on environment test"}',
             "EventBusName": "default"
         }]
@@ -190,7 +190,7 @@ def test_scheduled_event_court_disabled(env, boto3_mocks):
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
             "Source": "pause-ingest",
-            "DetailType": "DR2DevMessage",
+            "DetailType": "DR2Message",
             "Detail": '{"slackMessage": ":alert-noflash-slow: Ingest is still paused on environment test"}',
             "EventBusName": "default"
         }]
@@ -209,7 +209,7 @@ def test_scheduled_event_max_concurrency_zero(env, boto3_mocks):
     eventbridge_mock.put_events.assert_called_once_with(
         Entries=[{
             "Source": "pause-ingest",
-            "DetailType": "DR2DevMessage",
+            "DetailType": "DR2Message",
             "Detail": '{"slackMessage": ":alert-noflash-slow: Ingest is still paused on environment test"}',
             "EventBusName": "default"
         }]
