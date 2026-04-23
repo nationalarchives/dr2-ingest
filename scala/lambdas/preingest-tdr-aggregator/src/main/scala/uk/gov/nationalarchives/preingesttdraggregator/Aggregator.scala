@@ -9,7 +9,7 @@ import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFailure
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import io.circe.*
-import io.circe.generic.auto.*
+import io.circe.generic.semiauto.deriveDecoder
 import io.circe.parser.decode
 import org.scanamo.DynamoValue
 import org.typelevel.log4cats.SelfAwareStructuredLogger
@@ -24,6 +24,7 @@ import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
 import uk.gov.nationalarchives.preingesttdraggregator.Ids.*
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.IngestStarted
+import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.IngestUpdate
 import uk.gov.nationalarchives.utils.ExternalUtils.{NotificationMessage, OutputMessage, OutputParameters, OutputProperties, given}
 import uk.gov.nationalarchives.utils.Generators
@@ -51,6 +52,8 @@ object Aggregator:
         ("retryCount", Json.fromInt(a.retryCount))
       )
     )
+    
+  given Decoder[Input] = deriveDecoder[Input]
 
   type Input = NotificationMessage
 
