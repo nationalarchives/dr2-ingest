@@ -52,7 +52,7 @@ object Aggregator:
         ("retryCount", Json.fromInt(a.retryCount))
       )
     )
-    
+
   given Decoder[Input] = deriveDecoder[Input]
 
   type Input = NotificationMessage
