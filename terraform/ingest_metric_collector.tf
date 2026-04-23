@@ -1,7 +1,8 @@
 locals {
-  ingest_metric_collector_lambda_name = "${local.environment}-dr2-ingest-metric-collector"
-  invocation_event_rule_name          = "${local.environment}-dr2-ingest-metric-collector-invocation-rule"
-  cloudwatch_event_target_lambda      = "${local.environment}-dr2-ingest-metric-collector-lambda-target"
+  ingest_metric_collector_lambda_key  = "ingest-metric-collector"
+  ingest_metric_collector_lambda_name = "${local.environment}-dr2-${local.ingest_metric_collector_lambda_key}"
+  invocation_event_rule_name          = "${local.environment}-dr2-${local.ingest_metric_collector_lambda_key}-invocation-rule"
+  cloudwatch_event_target_lambda      = "${local.environment}-dr2-${local.ingest_metric_collector_lambda_key}-lambda-target"
 }
 
 module "dr2_ingest_metric_collector_lambda" {
@@ -11,6 +12,8 @@ module "dr2_ingest_metric_collector_lambda" {
   handler         = "ingest_metric_collector.lambda_handler"
   timeout_seconds = local.python_timeout_seconds
   runtime         = local.python_runtime
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.ingest_metric_collector_lambda_key}"
   policies = {
     "${local.ingest_metric_collector_lambda_name}-policy" = templatefile("./templates/iam_policy/ingest_metric_collection_lambda_policy.json.tpl", {
       account_id                 = data.aws_caller_identity.current.account_id

@@ -12,7 +12,7 @@
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
         "Payload.$": "$",
-        "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${package_builder_lambda_name}"
+        "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${package_builder_lambda_name}:${alias_name}"
       },
       "Retry": ${retry_statement},
       "Next": "Start Ingest Step Function",

@@ -1,6 +1,7 @@
 locals {
-  court_document_anonymiser_lambda_name = "${local.environment}-dr2-court-document-package-anonymiser"
-  court_document_anonymiser_queue_name  = "${local.environment}-dr2-court-document-package-anonymiser"
+  court_document_anonymiser_key_name    = "court-document-package-anonymiser"
+  court_document_anonymiser_lambda_name = "${local.environment}-dr2-${local.court_document_anonymiser_key_name}"
+  court_document_anonymiser_queue_name  = "${local.environment}-dr2-${local.court_document_anonymiser_key_name}"
   court_document_anonymiser_queue_arn   = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.court_document_anonymiser_queue_name}"
   court_document_anonymiser_count       = local.environment == "intg" ? 1 : 0
   tre_terraform_prod_config             = module.tre_config.terraform_config["prod"]
@@ -27,6 +28,8 @@ module "dr2_court_document_package_anonymiser_lambda" {
       tre_kms_arn                         = module.tre_config.terraform_config["prod_s3_court_document_pack_out_kms_arn"]
     })
   }
+  s3_bucket   = local.code_deploy_bucket
+  s3_key      = "${var.lambda_code_version}/${local.court_document_anonymiser_key_name}"
   memory_size = 128
   runtime     = "provided.al2023"
   plaintext_env_vars = {

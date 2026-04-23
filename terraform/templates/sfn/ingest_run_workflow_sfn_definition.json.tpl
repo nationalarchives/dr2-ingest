@@ -4,7 +4,7 @@
   "States": {
     "Create or update folders in Preservica": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_upsert_archive_folders_lambda_name}",
+      "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_upsert_archive_folders_lambda_name}:${alias_name}",
       "Retry": ${upsert_lambda_retry_statement},
       "Next": "Start workflow",
       "ResultPath": null
@@ -13,7 +13,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_start_workflow_lambda_name}",
+        "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_start_workflow_lambda_name}:${alias_name}",
         "Payload": {
           "workflowContextName": "Ingest OPEX (Incremental)",
           "batchId.$": "$.batchId"
@@ -35,7 +35,7 @@
         "Payload": {
           "batchId.$": "$.batchId"
         },
-        "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_workflow_monitor_lambda_name}"
+        "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_workflow_monitor_lambda_name}:${alias_name}"
       },
       "Retry": ${retry_statement},
       "ResultSelector": {

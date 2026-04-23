@@ -1,5 +1,6 @@
 locals {
-  ingest_failure_notifications_lambda_name = "${local.environment}-dr2-ingest-failure-notifications"
+  ingest_failure_notifications_lambda_key  = "ingest-failure-notifications"
+  ingest_failure_notifications_lambda_name = "${local.environment}-dr2-${local.ingest_failure_notifications_lambda_key}"
 }
 
 module "dr2_ingest_failure_notifications_lambda" {
@@ -16,6 +17,8 @@ module "dr2_ingest_failure_notifications_lambda" {
       vpc_id                   = module.vpc.vpc.id
     })
   }
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.ingest_failure_notifications_lambda_key}"
   timeout_seconds = local.java_timeout_seconds
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime

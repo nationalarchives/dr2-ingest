@@ -1,5 +1,6 @@
 locals {
-  pause_preservica_activity = "${local.environment}-dr2-pause-preservica-activity"
+  pause_preservica_activity_key = "pause-preservica-activity"
+  pause_preservica_activity     = "${local.environment}-dr2-${local.pause_preservica_activity_key}"
 }
 module "pause_preservica_activity_lambda" {
   source        = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
@@ -15,6 +16,8 @@ module "pause_preservica_activity_lambda" {
       secret_rotation_arn  = module.dr2_rotate_preservation_system_password_lambda.lambda_arn
     })
   }
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.pause_preservica_activity_key}"
   timeout_seconds = 10
   memory_size     = local.python_lambda_memory_size
   runtime         = local.python_runtime

@@ -1,5 +1,6 @@
 locals {
-  ingest_find_existing_asset_name = "${local.environment}-dr2-ingest-find-existing-asset"
+  ingest_find_existing_asset_key_name = "ingest-find-existing-asset"
+  ingest_find_existing_asset_name     = "${local.environment}-dr2-${local.ingest_find_existing_asset_key_name}"
 }
 
 module "ingest_find_existing_asset" {
@@ -18,8 +19,12 @@ module "ingest_find_existing_asset" {
       }
     )
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  publish_version = true
+  snap_start      = true
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/${local.ingest_find_existing_asset_key_name}"
+  memory_size     = local.java_lambda_memory_size
+  runtime         = local.java_runtime
   plaintext_env_vars = {
     FILES_DDB_TABLE        = local.files_dynamo_table_name
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_metadata.name
@@ -29,6 +34,7 @@ module "ingest_find_existing_asset" {
     security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]])
   }
   tags = {
-    Name = local.ingest_find_existing_asset_name
+    Name        = local.ingest_find_existing_asset_name
+    SfnFunction = "true"
   }
 }

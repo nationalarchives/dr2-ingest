@@ -18,6 +18,8 @@ locals {
   aggregator_group_size                        = 10000                                                                                      # Max size of an aggregation group.
   aggregator_queue_visibility_timeout          = local.aggregator_primary_grouping_window_seconds + local.aggregator_lambda_timeout_seconds # <=43200 for SQS.
   messages_visible_threshold                   = 1000000
+  code_deploy_bucket                           = "mgmt-dp-code-deploy"
+  alias_name                                   = replace(var.lambda_code_version, ".", "-")
 }
 
 module "dr2_preingest_aggregator_queue" {
@@ -48,6 +50,8 @@ module "dr2_preingest_aggregator_lambda" {
     sqs_queue_concurrency = 2
     ignore_enabled_status = true
   }]
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/preingest-${var.source_name}-aggregator"
   timeout_seconds = local.aggregator_lambda_timeout_seconds
   policies = {
     "${local.aggregator_name}-policy" = templatefile("${path.module}/templates/preingest_aggregator_policy.json.tpl", {
@@ -74,6 +78,12 @@ module "dr2_preingest_aggregator_lambda" {
   }
 }
 
+module "create_lambda_alias" {
+  source     = "../create_lambda_alias"
+  lambdas    = { (local.package_builder_lambda_name) = module.dr2_preingest_package_builder_lambda.lambda_function.version }
+  alias_name = local.alias_name
+}
+
 module "dr2_preingest_step_function" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//sfn"
   step_function_definition = templatefile("${path.module}/templates/preingest_sfn_definition.json.tpl", {
@@ -81,11 +91,13 @@ module "dr2_preingest_step_function" {
     account_id                  = data.aws_caller_identity.current.account_id
     package_builder_lambda_name = local.package_builder_lambda_name
     retry_statement             = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 6, BackoffRate = 2, JitterStrategy = "FULL" }])
+    alias_name                  = local.alias_name
   })
   step_function_name = local.preingest_name
   step_function_role_policy_attachments = {
     preingest_step_function_policy = module.dr2_preingest_step_function_policy.policy_arn
   }
+  depends_on = [module.create_lambda_alias]
 }
 
 module "dr2_preingest_step_function_policy" {
@@ -114,8 +126,12 @@ module "dr2_preingest_package_builder_lambda" {
       vpc_arn                  = var.vpc_arn
     })
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  publish_version = true
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/preingest-${var.source_name}-package-builder"
+  snap_start      = true
+  memory_size     = local.java_lambda_memory_size
+  runtime         = local.java_runtime
   plaintext_env_vars = {
     LOCK_DDB_TABLE                  = var.ingest_lock_dynamo_table_name
     LOCK_DDB_TABLE_GROUPID_GSI_NAME = var.ingest_lock_table_group_id_gsi_name
@@ -127,6 +143,7 @@ module "dr2_preingest_package_builder_lambda" {
     security_group_ids = var.private_security_group_ids
   }
   tags = {
-    Name = local.package_builder_lambda_name
+    Name        = local.package_builder_lambda_name
+    SfnFunction = "true"
   }
 }

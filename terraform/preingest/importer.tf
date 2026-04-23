@@ -1,5 +1,6 @@
 locals {
-  importer_name             = "${local.environment}-dr2-preingest-${var.source_name}-importer"
+  importer_key              = "preingest-${var.source_name}-importer"
+  importer_name             = "${local.environment}-dr2-${local.importer_key}"
   importer_queue_arn        = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.importer_name}"
   sse_encryption            = "sse"
   visibility_timeout        = 180
@@ -39,6 +40,8 @@ module "dr2_importer_lambda" {
   }, var.additional_importer_lambda_policies)
   memory_size = var.importer_lambda.memory_size
   runtime     = var.importer_lambda.runtime
+  s3_bucket   = local.code_deploy_bucket
+  s3_key      = "${var.lambda_code_version}/${local.importer_key}"
   plaintext_env_vars = merge(
     {
       OUTPUT_BUCKET_NAME = var.ingest_raw_cache_bucket_name
