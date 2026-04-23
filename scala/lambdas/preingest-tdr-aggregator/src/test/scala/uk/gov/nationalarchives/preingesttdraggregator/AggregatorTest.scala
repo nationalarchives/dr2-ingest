@@ -9,10 +9,9 @@ import io.circe.Encoder
 import org.scalatest.flatspec.AnyFlatSpec
 import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{*, given}
 import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
-import uk.gov.nationalarchives.utils.ExternalUtils.{OutputMessage, given}
+import uk.gov.nationalarchives.utils.ExternalUtils.OutputMessage
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASNSClient, utils}
 import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
-import io.circe.generic.auto.*
 import org.scalatest.{Assertion, EitherValues}
 import org.scalatest.matchers.should.Matchers.*
 import org.scanamo.DynamoFormat
