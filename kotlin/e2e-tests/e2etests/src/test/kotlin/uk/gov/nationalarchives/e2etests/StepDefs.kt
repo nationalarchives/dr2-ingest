@@ -42,16 +42,6 @@ class StepDefs {
         utils.createJudgment()
     }
 
-    @When("I send a message to the judgment queue")
-    fun iSendAMessageToTheJudgmentQueue() = runBlocking {
-        utils.sendJudgmentMessage()
-    }
-
-    @When("I send messages to the input queue")
-    fun iSendMessagesToTheInputQueue() = runBlocking {
-        utils.sendTdrMessages()
-    }
-
     @Then("I receive an ingest complete message")
     fun iReceiveAnIngestCompleteMessage() = runBlocking {
         utils.checkForIngestStatusMessages(config.getString("externalLogGroup"), 2 * 60 * 60 * 1000, "complete")
@@ -74,6 +64,15 @@ class StepDefs {
         utils.createBatch()
     }
 
+    @When("I send a message to the {string} importer queue")
+    fun iSendMessageToTheImporterQueue(sourceSystem: String) = runBlocking {
+        if (sourceSystem == "TDR") 
+            utils.sendTdrMessages()
+        else if (sourceSystem == "Judgment")
+            utils.sendJudgmentMessage()
+        else 
+            throw Exception("Source system $sourceSystem is not implemented")
+    }
 
     @Given("An ingest with {int} file with an invalid checksum")
     fun anIngestWithFileWithAnInvalidChecksum(numberOfFiles: Int) = runBlocking {

@@ -133,4 +133,18 @@ object JsonUtils {
     @Serializable
     data class TREInput(val parameters: TREInputParameters)
 
+    @Serializable
+    data class AdhocMetadata(
+        val Series: String?,
+        @Contextual val UUID: UUID?,
+        @Contextual val fileId: UUID,
+        val description: String?,
+        val Filename: String,
+        val FileReference: String,
+        val ClientSideOriginalFilepath: String,
+        val IAID: String,
+        val formerRefDept: String?,
+        val formerRefTNA: String?,
+        val checksum_sha256: String
+    )
 }

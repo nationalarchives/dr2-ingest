@@ -2,12 +2,12 @@ Feature: Ingest tests
 
   Scenario: Ingest should succeed if all metadata is valid
     Given An ingest with 50 files
-    When I send messages to the input queue
+    When I send a message to the "TDR" importer queue
     Then I receive an ingest complete message
 
   Scenario: Judgment should succeed if all metadata is valid
     Given A judgment
-    When I send a message to the judgment queue
+    When I send a message to the "Judgment" importer queue
     Then I receive an ingest complete message
 
   Scenario: Ingest should fail if there is an empty checksum
@@ -20,7 +20,12 @@ Feature: Ingest tests
     When I create a batch with this file
     Then I receive an ingest error message
 
-  Scenario: Ingest should fail if there is invalid TDR metadata
-    Given An ingest with 1 file with invalid metadata
-    When I send messages to the input queue
+  Scenario Outline: Ingest should fail if there is invalid TDR metadata
+    Given An ingest with <count> file with invalid metadata
+    When I send a message to the "<source>" importer queue
     Then I receive an error in the validation queue
+    
+    Examples:
+      | count | source   |
+      | 1     | TDR      |
+    
