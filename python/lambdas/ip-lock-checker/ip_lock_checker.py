@@ -53,7 +53,7 @@ def send_error_messages_to_eventbridge(websites: dict[str, Website]):
                    f"*Expected Response*: {str(website.expected_response)}",
                    f"*Actual Response*: {website.actual_response}")
         detail_message = json.dumps({"slackMessage": "\n".join(err_msg)})
-        entries = [{'Source': 'IPLockCheckerSlackMessage', 'DetailType': 'DR2DevMessage', 'Detail': detail_message}]
+        entries = [{'Source': 'IPLockCheckerSlackMessage', 'DetailType': 'DR2Message', 'Detail': detail_message}]
         client.put_events(Entries=entries)
 
 
