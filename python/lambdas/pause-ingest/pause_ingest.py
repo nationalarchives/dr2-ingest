@@ -11,7 +11,7 @@ def send_eventbridge_message(detail):
         Entries=[
             {
                 "Source": "pause-ingest",
-                "DetailType": "DR2DevMessage",
+                "DetailType": "DR2Message",
                 "Detail": json.dumps(detail),
                 "EventBusName": "default"
             }

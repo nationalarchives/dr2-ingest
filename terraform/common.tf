@@ -689,7 +689,7 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_ingest_queues" {
       "currentValue" = "$.detail.state.value"
     }
     input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
-      channel_id   = local.dev_notifications_channel_id
+      channel_id   = local.general_notifications_channel_id
       slackMessage = ":warning: Cloudwatch alarm <alarmName> has entered state <currentValue>"
     })
   }
@@ -709,7 +709,7 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_importer_queues"
       "currentValue" = "$.detail.state.value"
     }
     input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
-      channel_id   = local.dev_notifications_channel_id
+      channel_id   = local.general_notifications_channel_id
       slackMessage = ":warning: Cloudwatch alarm <alarmName> has entered state <currentValue>"
     })
   }
@@ -730,7 +730,7 @@ module "cloudwatch_alarm_event_bridge_rule_for_ingest_queues" {
       "currentValue" = "$.detail.state.value"
     }
     input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
-      channel_id   = local.dev_notifications_channel_id
+      channel_id   = local.general_notifications_channel_id
       slackMessage = ":${each.value == "OK" ? "green-tick" : "alert-noflash-slow"}: Cloudwatch alarm <alarmName> has entered state <currentValue>"
     })
   }
@@ -751,7 +751,7 @@ module "cloudwatch_alarm_event_bridge_rule_for_importer_queues" {
       "currentValue" = "$.detail.state.value"
     }
     input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
-      channel_id   = local.dev_notifications_channel_id
+      channel_id   = local.general_notifications_channel_id
       slackMessage = ":${each.value == "OK" ? "green-tick" : "alert-noflash-slow"}: Cloudwatch alarm <alarmName> has entered state <currentValue>"
     })
   }
@@ -777,7 +777,7 @@ module "failed_ingest_step_function_event_bridge_rule" {
       "sfnArn" = "$.detail.stateMachineArn"
     }
     input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
-      channel_id   = local.dev_notifications_channel_id
+      channel_id   = local.general_notifications_channel_id
       slackMessage = ":warning: Step function `<sfnArn>` with name <name> has <status>"
     })
   }
@@ -810,7 +810,9 @@ module "guard_duty_findings_eventbridge_rule" {
       "region" : "$.region",
       "title" : "$.detail.title"
     }
-    input_template = templatefile("${path.module}/templates/eventbridge/guard_duty_slack_message.json.tpl", {})
+    input_template = templatefile("${path.module}/templates/eventbridge/guard_duty_slack_message.json.tpl", {
+      channel_id = local.general_notifications_channel_id
+    })
   }
 }
 
@@ -826,7 +828,7 @@ module "secret_rotation_eventbridge_rule" {
       "secretId" : "$.detail.additionalEventData.SecretId"
     }
     input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
-      channel_id   = local.dev_notifications_channel_id
+      channel_id   = local.general_notifications_channel_id
       slackMessage = ":alert-noflash-slow: Secret rotation for secret `<secretId>` has failed"
     })
   }
