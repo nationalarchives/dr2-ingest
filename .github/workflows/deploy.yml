@@ -102,8 +102,10 @@ jobs:
         env:
           TF_VAR_lambda_code_version: ${{ github.event.inputs.to-deploy }}
       - run: |
-          git tag $ENVIRONMENT || true
-          git push origin $ENVIRONMENT || true
+          git tag -d $ENVIRONMENT
+          git push -d origin $ENVIRONMENT
+          git tag $ENVIRONMENT 
+          git push origin $ENVIRONMENT
         env:
           GH_TOKEN: ${{ github.token }}
       - run: python .github/scripts/send_message.py
