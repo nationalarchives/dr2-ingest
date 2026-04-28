@@ -21,11 +21,12 @@ Feature: Ingest tests
     Then I receive an ingest error message
 
   Scenario Outline: Ingest should fail if there is invalid TDR metadata
-    Given An ingest with <count> file with invalid metadata
+    Given An ingest with <count> file with invalid metadata for "<source>" source system
     When I send a message to the "<source>" importer queue
     Then I receive an error in the validation queue
     
     Examples:
       | count | source   |
       | 1     | TDR      |
+      | 1     | Adhoc    |
     

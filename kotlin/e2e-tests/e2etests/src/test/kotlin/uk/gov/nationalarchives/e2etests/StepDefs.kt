@@ -66,11 +66,13 @@ class StepDefs {
 
     @When("I send a message to the {string} importer queue")
     fun iSendMessageToTheImporterQueue(sourceSystem: String) = runBlocking {
-        if (sourceSystem == "TDR") 
+        if (sourceSystem == "TDR")
             utils.sendTdrMessages()
         else if (sourceSystem == "Judgment")
             utils.sendJudgmentMessage()
-        else 
+        else if (sourceSystem == "Adhoc")
+            utils.sendTdrMessages()
+        else
             throw Exception("Source system $sourceSystem is not implemented")
     }
 
@@ -79,8 +81,8 @@ class StepDefs {
         utils.createFiles(numberOfFiles, invalidChecksum = true)
     }
 
-    @Given("An ingest with {int} file with invalid metadata")
-    fun anIngestWithFileWithInvalidMetadata(numberOfFiles: Int) = runBlocking {
+    @Given("An ingest with {int} file with invalid metadata for {string} source system")
+    fun anIngestWithFileWithInvalidMetadata(numberOfFiles: Int, sourceSystem: String) = runBlocking {
         utils.createFiles(numberOfFiles, invalidMetadata = true)
     }
 
@@ -88,6 +90,4 @@ class StepDefs {
     fun iReceiveAnErrorInTheValidationQueue() {
         utils.checkForValidationFailureMessages(config.getString("copyFilesLogGroup"), 40 * 60 * 1000)
     }
-
-
-}
+}    
