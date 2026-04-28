@@ -26,7 +26,7 @@
         "sqs:SendMessage"
       ],
       "Effect": "Allow",
-      "Resource": ["${judgment_input_queue}", "${copy_files_from_tdr_queue}"],
+      "Resource": ["${judgment_input_queue}", "${copy_files_from_tdr_queue}", "${adhoc_import_queue}"],
       "Sid": "sendSqsMessage"
     },
     {
@@ -47,7 +47,9 @@
       "Effect": "Allow",
       "Resource": [
         "arn:aws:s3:::${input_bucket_name}",
-        "arn:aws:s3:::${input_bucket_name}/*"
+        "arn:aws:s3:::${input_bucket_name}/*",
+        "arn:aws:s3:::${adhoc_input_bucket_name}",
+        "arn:aws:s3:::${adhoc_input_bucket_name}/*"
       ],
       "Sid": "writeToRawCache"
     }
