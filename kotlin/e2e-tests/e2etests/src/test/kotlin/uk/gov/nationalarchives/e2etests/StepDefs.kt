@@ -13,6 +13,7 @@ import io.cucumber.java.en.When
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import uk.gov.nationalarchives.lib.IngestUtils
+import uk.gov.nationalarchives.lib.SourceSystem
 import java.util.*
 
 class StepDefs {
@@ -66,12 +67,12 @@ class StepDefs {
 
     @When("I send a message to the {string} importer queue")
     fun iSendMessageToTheImporterQueue(sourceSystem: String) = runBlocking {
-        if (sourceSystem == "TDR")
-            utils.sendTdrMessages()
-        else if (sourceSystem == "Judgment")
-            utils.sendJudgmentMessage()
-        else if (sourceSystem == "Adhoc")
-            utils.sendTdrMessages()
+        if (sourceSystem == SourceSystem.TDR.systemName)
+            utils.sendImportMessages(sourceSystem)
+        else if (sourceSystem == SourceSystem.JUDGMENT.systemName)
+            utils.sendJudgmentImportMessage()
+        else if (sourceSystem == SourceSystem.ADHOC.systemName)
+            utils.sendImportMessages(sourceSystem)
         else
             throw Exception("Source system $sourceSystem is not implemented")
     }
@@ -83,7 +84,7 @@ class StepDefs {
 
     @Given("An ingest with {int} file with invalid metadata for {string} source system")
     fun anIngestWithFileWithInvalidMetadata(numberOfFiles: Int, sourceSystem: String) = runBlocking {
-        utils.createFiles(numberOfFiles, invalidMetadata = true)
+        utils.createFiles(numberOfFiles, sourceSystem, invalidMetadata = true)
     }
 
     @Then("I receive an error in the validation queue")

@@ -11,7 +11,6 @@ import kotlinx.serialization.SerializationException
 import java.time.LocalDate
 import java.util.*
 import java.util.concurrent.TimeoutException
-import kotlin.math.exp
 import kotlin.test.*
 
 class IngestUtilsTest {
@@ -137,7 +136,7 @@ class IngestUtilsTest {
     fun testSendTdrMessagesSendsAllFiles() {
         val returnedFiles: MutableList<UUID> = mutableListOf()
         val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
-        runBlocking { sqsIngestUtils(returnedFiles, files).sendTdrMessages() }
+        runBlocking { sqsIngestUtils(returnedFiles, files).sendImportMessages() }
         assertContentEquals(files, returnedFiles)
     }
 
@@ -145,7 +144,7 @@ class IngestUtilsTest {
     fun testSendTdrMessagesSendsNoFiles() {
         val returnedFiles: MutableList<UUID> = mutableListOf()
         val files = mutableListOf<UUID>()
-        runBlocking { sqsIngestUtils(returnedFiles, files).sendTdrMessages() }
+        runBlocking { sqsIngestUtils(returnedFiles, files).sendImportMessages() }
         assertContentEquals(files, returnedFiles)
     }
 
@@ -153,7 +152,7 @@ class IngestUtilsTest {
     fun testSendJudgmentMessagesSendsAllFiles() {
         val returnedFiles: MutableList<String> = mutableListOf()
         val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
-        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentMessage() }
+        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentImportMessage() }
         val expectedBatchRefs = files.map { it.toString().split("-").first() }
         assertContentEquals(expectedBatchRefs, returnedFiles)
     }
@@ -162,7 +161,7 @@ class IngestUtilsTest {
     fun testSendJudgmentMessagesSendsNoFiles() {
         val returnedFiles: MutableList<String> = mutableListOf()
         val files = mutableListOf<UUID>()
-        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentMessage() }
+        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentImportMessage() }
         val expectedBatchRefs = files.map { it.toString().split("-").first() }
         assertContentEquals(expectedBatchRefs, returnedFiles)
     }

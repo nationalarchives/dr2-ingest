@@ -29,6 +29,7 @@ import uk.gov.nationalarchives.lib.JsonUtils.TREMetadataParameters
 import uk.gov.nationalarchives.lib.JsonUtils.TREParams
 import uk.gov.nationalarchives.lib.JsonUtils.ValidationErrorMessage
 import uk.gov.nationalarchives.lib.JsonUtils.jsonCodec
+import uk.gov.nationalarchives.lib.JsonUtils.AdhocMetadata
 import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.security.MessageDigest
@@ -89,11 +90,13 @@ class IngestUtils(
 
     suspend fun createFiles(
         numberOfFiles: Int,
+        sourceSystem: String = "TDR",
         emptyChecksum: Boolean = false,
         invalidMetadata: Boolean = false,
         invalidChecksum: Boolean = false
     ) {
         val invalidChecksumValue = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        val bucketKey = if (sourceSystem == SourceSystem.ADHOC.systemName) "adhocBucket" else "s3Bucket" 
         assetIds.addAll(List<UUID>(numberOfFiles) { UUID.randomUUID() })
         coroutineScope {
             assetIds.map {
@@ -102,8 +105,8 @@ class IngestUtils(
                     else if (invalidChecksum) invalidChecksumValue
                     else hash(it.toString())
                     val fileId = UUID.randomUUID()
-                    uploadFileToS3("$it/${fileId}", ByteStream.fromString(it.toString()))
-                    uploadFileToS3("${it}.metadata", createMetadataJson(it, fileId, checksum, invalidMetadata))
+                    uploadFileToS3(bucketKey,"$it/${fileId}", ByteStream.fromString(it.toString()))
+                    uploadFileToS3(bucketKey,"${it}.metadata", createMetadataJson(sourceSystem, it, fileId, checksum, invalidMetadata))
                 }
             }
         }
@@ -151,19 +154,32 @@ class IngestUtils(
     }
 
     suspend fun createJudgment() {
+        val bucketKey = "s3Bucket"
         val id = UUID.randomUUID()
         assetIds.add(id)
         val metadataBytes = createJudgmentMetadata(id)
         val tarGz = createTarGzByteStream(id, metadataBytes)
-        uploadFileToS3("$id.tar.gz", tarGz)
+        uploadFileToS3(bucketKey,"$id.tar.gz", tarGz)
     }
 
-    suspend fun sendTdrMessages() = coroutineScope {
-        val bucket = config.getString("s3Bucket")
+    suspend fun sendImportMessages(sourceSystem: String) = coroutineScope {
+        val bucketKey = when (sourceSystem) {
+            SourceSystem.TDR.systemName -> "s3Bucket"
+            SourceSystem.JUDGMENT.systemName -> "s3Bucket"
+            SourceSystem.ADHOC.systemName -> "adhocBucket"
+            else -> {throw IllegalArgumentException("Invalid source system: $sourceSystem")}
+        }
+        val importerQueueKey = when (sourceSystem) {
+            SourceSystem.TDR.systemName -> "sqsQueue"
+            SourceSystem.JUDGMENT.systemName -> "judgmentSqsQueue"
+            SourceSystem.ADHOC.systemName -> "adhocSqsQueue"
+            else -> {throw IllegalArgumentException("Invalid source system: $sourceSystem")}
+        }
+        val bucket = config.getString(bucketKey)
         assetIds.map {
             async {
                 val request = SendMessageRequest {
-                    queueUrl = config.getString("sqsQueue")!!
+                    queueUrl = config.getString(importerQueueKey)!!
                     messageBody = jsonCodec.encodeToString(JsonUtils.SqsInputMessage(it, bucket))
                 }
                 sqsClient.sendMessage(request)
@@ -171,7 +187,7 @@ class IngestUtils(
         }
     }
 
-    suspend fun sendJudgmentMessage() = coroutineScope {
+    suspend fun sendJudgmentImportMessage() = coroutineScope {
         val bucket = config.getString("s3Bucket")
         assetIds.map {
             async {
@@ -228,14 +244,14 @@ class IngestUtils(
         return chars.shuffled(Random).take(length).joinToString("")
     }
 
-    private fun createMetadataJson(assetId: UUID, fileId: UUID, checksum: String, invalidMetadata: Boolean): ByteStream {
+    private fun createMetadataJson(sourceSystem: String, assetId: UUID, fileId: UUID, checksum: String, invalidMetadata: Boolean): ByteStream {
         val thisYear = LocalDate.now().year
         fun <T> generateValue(value: T): T? = if (invalidMetadata && Random.nextBoolean()) null else value
 
         fun generateSeries() = listOf(null, "TEST123", "").shuffled().first()
         val series = if (invalidMetadata) generateSeries() else "TEST 123"
 
-        val metadata = TDRMetadata(
+        val encodedMetadata = if (sourceSystem == SourceSystem.TDR.systemName) jsonCodec.encodeToString(listOf(TDRMetadata(
             series,
             generateValue(assetId),
             null,
@@ -247,12 +263,26 @@ class IngestUtils(
             "Z${makeReference(5)}",
             "/",
             fileId
-        )
-        return ByteStream.fromString(jsonCodec.encodeToString(listOf(metadata)))
+        ))) else if (sourceSystem == SourceSystem.ADHOC.systemName) jsonCodec.encodeToString(listOf(AdhocMetadata(
+            series,
+            generateValue(assetId),
+            UUID.randomUUID(),
+            null,
+            "${assetId}.txt",
+            "Z${makeReference(5)}",
+            "/",
+            "C12345678",
+            "some:file",
+            "SS 1/2/34",
+            checksum
+        ))) else {
+            throw IllegalArgumentException("Invalid source system: $sourceSystem")
+        }
+        return ByteStream.fromString(encodedMetadata)
     }
 
-    private suspend fun uploadFileToS3(objectKey: String, bodyStream: ByteStream) {
-        val bucketName = config.getString("s3Bucket")!!
+    private suspend fun uploadFileToS3(bucketKey: String, objectKey: String, bodyStream: ByteStream) {
+        val bucketName = config.getString(bucketKey)!!
         val request = PutObjectRequest {
             bucket = bucketName
             key = objectKey
@@ -288,4 +318,10 @@ class IngestUtils(
                 }
             }
         }
+}
+
+enum class SourceSystem (val systemName: String){
+    TDR("TDR"), 
+    JUDGMENT("Judgment"), 
+    ADHOC("Adhoc")
 }
