@@ -7,7 +7,7 @@ locals {
   ingest_run_workflow_step_function_name               = "${local.environment}-dr2-ingest-run-workflow"
   additional_user_roles                                = local.environment != "prod" ? [data.aws_ssm_parameter.dev_admin_role.value] : []
   anonymiser_roles                                     = local.environment == "intg" ? flatten([module.dr2_court_document_package_anonymiser_lambda.*.lambda_role_arn]) : []
-  e2e_test_roles                                       = local.environment == "prod" ? [] : [module.dr2_run_e2e_tests_role[0].role_arn]
+  e2e_test_roles                                       = local.environment == "intg" ? [module.dr2_run_e2e_tests_role[0].role_arn] : []
   anonymiser_lambda_arns                               = local.environment == "intg" ? flatten([module.dr2_court_document_package_anonymiser_lambda.*.lambda_arn]) : []
   files_dynamo_table_name                              = "${local.environment}-dr2-ingest-files"
   ingest_lock_dynamo_table_name                        = "${local.environment}-dr2-ingest-lock"

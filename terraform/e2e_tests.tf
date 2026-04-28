@@ -1,6 +1,6 @@
 locals {
   e2e_tests_name  = "${local.environment}-dr2-e2e-tests"
-  e2e_tests_count = local.environment == "prod" ? 0 : 1
+  e2e_tests_count = local.environment == "intg" ? 1 : 0
 }
 
 module "dr2_run_e2e_tests_role" {

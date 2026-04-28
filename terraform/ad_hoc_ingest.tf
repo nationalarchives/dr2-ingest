@@ -9,6 +9,7 @@ module "dr2_archivists_key" {
     user_roles = [
       data.aws_ssm_parameter.archivist_role.value,
       module.ad_hoc_preingest.importer_lambda.role,
+      local.e2e_test_roles[0]
     ]
   }
 }
