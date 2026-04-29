@@ -23,7 +23,7 @@ Feature: Ingest tests
   Scenario Outline: Ingest should fail if there is invalid TDR metadata
     Given An ingest with <count> file with invalid metadata for "<source>" source system
     When I send a message to the "<source>" importer queue
-    Then I receive an error in the validation queue
+    Then I receive an error in the "<source>" validation queue
     
     Examples:
       | count | source   |

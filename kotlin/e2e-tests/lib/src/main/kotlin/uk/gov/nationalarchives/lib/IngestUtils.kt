@@ -51,11 +51,19 @@ class IngestUtils(
     private val config: Config,
     private val assetIds: MutableList<UUID>
 ) {
-
+    private val timeout = 40 * 60 * 1000L
     private val completeStatus = "Asset has been written to custodial copy disk."
     private val failedStatus = "There has been an error ingesting the asset."
 
-    fun checkForValidationFailureMessages(logGroupArn: String, timeout: Long) {
+    fun checkForValidationFailureMessages(sourceSystem: String) {
+        val logGroupKey = when (sourceSystem) {
+            SourceSystem.TDR.systemName -> "copyFilesLogGroup"
+            SourceSystem.ADHOC.systemName -> "copyAdhocFilesLogGroup"
+            else -> {throw IllegalArgumentException("Invalid source system: $sourceSystem")}
+        }
+
+        val logGroupArn = config.getString(logGroupKey)
+        
         streamLogs(timeout, logGroupArn) { logEvents: List<LiveTailSessionLogEvent>? ->
             logEvents?.let { events ->
                 val assetIdsFromMessage = events

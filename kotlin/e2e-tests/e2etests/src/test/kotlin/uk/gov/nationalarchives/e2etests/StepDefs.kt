@@ -87,8 +87,8 @@ class StepDefs {
         utils.createFiles(numberOfFiles, sourceSystem, invalidMetadata = true)
     }
 
-    @Then("I receive an error in the validation queue")
-    fun iReceiveAnErrorInTheValidationQueue() {
-        utils.checkForValidationFailureMessages(config.getString("copyFilesLogGroup"), 40 * 60 * 1000)
+    @Then("I receive an error in the {string} validation queue")
+    fun iReceiveAnErrorInTheValidationQueue(sourceSystem: String) {
+        utils.checkForValidationFailureMessages(sourceSystem)
     }
 }    
