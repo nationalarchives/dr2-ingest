@@ -13,7 +13,6 @@ import io.cucumber.java.en.When
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import uk.gov.nationalarchives.lib.IngestUtils
-import uk.gov.nationalarchives.lib.SourceSystem
 import java.util.*
 
 class StepDefs {
@@ -33,9 +32,9 @@ class StepDefs {
         IngestUtils(sqsClient, s3Client, cloudWatchLogsClient, dynamoClient, sfnClient, config, fileIds)
     }
 
-    @Given("An ingest with {int} files")
-    fun anIngestWithFiles(numberOfFiles: Int) = runBlocking {
-        utils.createFiles(numberOfFiles)
+    @Given("An ingest with {int} files for {string} source system")
+    fun anIngestWithFiles(numberOfFiles: Int, sourceSystem: String) = runBlocking {
+        utils.createFiles(numberOfFiles, sourceSystem)
     }
 
     @Given("A judgment")
@@ -67,14 +66,7 @@ class StepDefs {
 
     @When("I send a message to the {string} importer queue")
     fun iSendMessageToTheImporterQueue(sourceSystem: String) = runBlocking {
-        if (sourceSystem == SourceSystem.TDR.systemName)
-            utils.sendImportMessages(sourceSystem)
-        else if (sourceSystem == SourceSystem.JUDGMENT.systemName)
-            utils.sendJudgmentImportMessage()
-        else if (sourceSystem == SourceSystem.ADHOC.systemName)
-            utils.sendImportMessages(sourceSystem)
-        else
-            throw Exception("Source system $sourceSystem is not implemented")
+        utils.sendImportMessages(sourceSystem)
     }
 
     @Given("An ingest with {int} file with an invalid checksum")
@@ -89,6 +81,6 @@ class StepDefs {
 
     @Then("I receive an error in the {string} validation queue")
     fun iReceiveAnErrorInTheValidationQueue(sourceSystem: String) {
-        utils.checkForValidationFailureMessages(sourceSystem)
+        utils.checkForValidationFailureMessages(sourceSystem, 40 * 60 * 1000)
     }
 }    

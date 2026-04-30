@@ -1,9 +1,12 @@
 Feature: Ingest tests
 
-  Scenario: Ingest should succeed if all metadata is valid
-    Given An ingest with 50 files
-    When I send a message to the "TDR" importer queue
+  Scenario Outline: Ingest should succeed if all metadata is valid
+    Given An ingest with <count> files for "<source>" source system
+    When I send a message to the "<source>" importer queue
     Then I receive an ingest complete message
+    Examples:
+      | count | source   |
+      | 50    | TDR      |
 
   Scenario: Judgment should succeed if all metadata is valid
     Given A judgment

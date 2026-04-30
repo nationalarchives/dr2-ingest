@@ -8,6 +8,7 @@ import aws.sdk.kotlin.services.sqs.SqsClient
 import com.typesafe.config.ConfigFactory
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerializationException
+import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
 import java.util.*
 import java.util.concurrent.TimeoutException
@@ -114,13 +115,13 @@ class IngestUtilsTest {
             "invalidJson"
         )
         messageIngestUtils(bodyList, mutableListOf(assetId))
-            .checkForValidationFailureMessages("", timeout)
+            .checkForValidationFailureMessages("TDR", timeout)
     }
 
     @Test
     fun testValidationFailureSucceedsIfNoFilesToCheck() {
         messageIngestUtils(emptyList(), mutableListOf())
-            .checkForValidationFailureMessages("", timeout)
+            .checkForValidationFailureMessages("TDR", timeout)
     }
 
     @Test
@@ -128,7 +129,7 @@ class IngestUtilsTest {
         val assetId = UUID.randomUUID()
         val bodyList = listOf("""{"error": "An error", "assetId": "${UUID.randomUUID()}"}""")
         assertFailsWith<TimeoutException> {
-            messageIngestUtils(bodyList, mutableListOf(assetId)).checkForValidationFailureMessages("", timeout)
+            messageIngestUtils(bodyList, mutableListOf(assetId)).checkForValidationFailureMessages("TDR", timeout)
         }
     }
 
@@ -136,7 +137,7 @@ class IngestUtilsTest {
     fun testSendTdrMessagesSendsAllFiles() {
         val returnedFiles: MutableList<UUID> = mutableListOf()
         val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
-        runBlocking { sqsIngestUtils(returnedFiles, files).sendImportMessages() }
+        runBlocking { sqsIngestUtils(returnedFiles, files).sendImportMessages("TDR") }
         assertContentEquals(files, returnedFiles)
     }
 
@@ -144,7 +145,7 @@ class IngestUtilsTest {
     fun testSendTdrMessagesSendsNoFiles() {
         val returnedFiles: MutableList<UUID> = mutableListOf()
         val files = mutableListOf<UUID>()
-        runBlocking { sqsIngestUtils(returnedFiles, files).sendImportMessages() }
+        runBlocking { sqsIngestUtils(returnedFiles, files).sendImportMessages("TDR") }
         assertContentEquals(files, returnedFiles)
     }
 
@@ -266,6 +267,33 @@ class IngestUtilsTest {
         assertEquals(metadata.parameters.TDR.`Source-Organization`, "TDR")
         assertEquals(metadata.parameters.TDR.`Internal-Sender-Identifier`, "id")
         assertEquals(metadata.parameters.TDR.`File-Reference`, expectedReference)
+    }
+    
+    @Test
+    fun configGivesCorrectValuesForImporterQueueBasedOnSourceSystem() : Unit = runBlocking {
+        val config = ConfigFactory.parseString("""
+            adhocBucket="test-adhoc-bucket-name"
+            adhocSqsQueue="https://sqs/adhoc-importer"
+            copyAdhocFilesLogGroup="arn:aws:logs:adhoc-importer"
+            copyFilesLogGroup="arn:aws:logs:importer"
+            externalLogGroup="arn:aws:logs:external"
+            sqsQueue="https://sqs/importer"
+            judgmentSqsQueue="https://sqs/courtdoc-importer"
+            s3Bucket="test-raw-cache-bucket-name"
+        """.trimIndent())
+        assertEquals("test-raw-cache-bucket-name",IngestUtils.SourceSystem.fromString("TDR").getBucket(config))
+        assertEquals("test-adhoc-bucket-name",IngestUtils.SourceSystem.fromString("Adhoc").getBucket(config))
+        assertEquals("https://sqs/importer", IngestUtils.SourceSystem.fromString("TDR").getImporterQueue(config))
+        assertEquals("https://sqs/adhoc-importer", IngestUtils.SourceSystem.fromString("Adhoc").getImporterQueue(config))
+        assertEquals("https://sqs/courtdoc-importer", IngestUtils.SourceSystem.fromString("Judgment").getImporterQueue(config))
+        assertEquals("arn:aws:logs:importer", IngestUtils.SourceSystem.fromString("TDR").getCopyFilesLogGroup(config))
+        assertEquals("arn:aws:logs:adhoc-importer", IngestUtils.SourceSystem.fromString("Adhoc").getCopyFilesLogGroup(config))
+        assertEquals("arn:aws:logs:external", IngestUtils.SourceSystem.fromString("Adhoc").getExternalLogGroup(config))
+        
+        val exception = assertThrows<NotImplementedError> {
+            IngestUtils.SourceSystem.fromString("Judgment").getCopyFilesLogGroup(config)
+        }
+        assertEquals("getCopyFilesLogGroup not implemented for Judgment", exception.message)
     }
 
     private fun createJudgmentFilesIngestUtils(fileContents: MutableList<ByteArray>, metadata: MutableList<JsonUtils.TREMetadata>): IngestUtils {
