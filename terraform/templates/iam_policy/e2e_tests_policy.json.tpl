@@ -37,7 +37,8 @@
       ],
       "Resource": [
         "${external_notifications_log_group}",
-        "${copy_files_from_tdr_log_group}"
+        "${copy_files_from_tdr_log_group}",
+        "${copy_files_from_adhoc_log_group}"
       ]
     },
     {
