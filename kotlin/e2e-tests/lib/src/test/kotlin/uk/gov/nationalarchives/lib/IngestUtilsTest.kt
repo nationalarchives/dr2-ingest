@@ -153,7 +153,8 @@ class IngestUtilsTest {
     fun testSendJudgmentMessagesSendsAllFiles() {
         val returnedFiles: MutableList<String> = mutableListOf()
         val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
-        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentImportMessage() }
+        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendImportMessages("Judgment") }
+        assertContentEquals(files.map { it.toString() }, returnedFiles)
         val expectedBatchRefs = files.map { it.toString().split("-").first() }
         assertContentEquals(expectedBatchRefs, returnedFiles)
     }
@@ -162,7 +163,7 @@ class IngestUtilsTest {
     fun testSendJudgmentMessagesSendsNoFiles() {
         val returnedFiles: MutableList<String> = mutableListOf()
         val files = mutableListOf<UUID>()
-        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentImportMessage() }
+        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendImportMessages("Judgment") }
         val expectedBatchRefs = files.map { it.toString().split("-").first() }
         assertContentEquals(expectedBatchRefs, returnedFiles)
     }
