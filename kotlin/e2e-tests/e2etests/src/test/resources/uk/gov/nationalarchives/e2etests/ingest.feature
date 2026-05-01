@@ -7,6 +7,7 @@ Feature: Ingest tests
     Examples:
       | count | source   |
       | 50    | TDR      |
+      | 10    | Adhoc    |
 
   Scenario: Judgment should succeed if all metadata is valid
     Given A judgment

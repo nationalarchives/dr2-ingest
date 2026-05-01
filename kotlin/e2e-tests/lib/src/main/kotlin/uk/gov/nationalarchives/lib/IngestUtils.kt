@@ -105,6 +105,7 @@ class IngestUtils(
                     else if (invalidChecksum) invalidChecksumValue
                     else hash(it.toString())
                     val fileId = UUID.randomUUID()
+                    println("Uploading assetId $it with fileID $fileId")
                     uploadFileToS3(bucketName,"$it/${fileId}", ByteStream.fromString(it.toString()))
                     uploadFileToS3(bucketName,"${it}.metadata", createMetadataJson(sourceSystem, it, fileId, checksum, invalidMetadata))
                 }
@@ -251,7 +252,7 @@ class IngestUtils(
         ))) else if (sourceSystem == SourceSystem.ADHOC.systemName) jsonCodec.encodeToString(listOf(AdhocMetadata(
             series,
             generateValue(assetId),
-            UUID.randomUUID(),
+            fileId,
             null,
             "${assetId}.txt",
             "Z${makeReference(5)}",
