@@ -105,7 +105,6 @@ class IngestUtils(
                     else if (invalidChecksum) invalidChecksumValue
                     else hash(it.toString())
                     val fileId = UUID.randomUUID()
-                    println("Uploading assetId $it with fileID $fileId")
                     uploadFileToS3(bucketName,"$it/${fileId}", ByteStream.fromString(it.toString()))
                     uploadFileToS3(bucketName,"${it}.metadata", createMetadataJson(sourceSystem, it, fileId, checksum, invalidMetadata))
                 }
