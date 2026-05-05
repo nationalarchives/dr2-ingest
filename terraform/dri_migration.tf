@@ -12,6 +12,7 @@ module "dr2_dri_migration_key" {
     user_roles = [
       module.dr2_dri_migration_role.role_arn,
       module.dri_preingest.importer_lambda.role,
+      local.e2e_test_roles[0]
     ]
   }
 }

@@ -26,11 +26,17 @@ module "dr2_e2e_tests_policy" {
   name   = "${local.e2e_tests_name}-policy"
   policy_string = templatefile("${path.module}/templates/iam_policy/e2e_tests_policy.json.tpl", {
     input_bucket_name                = local.ingest_raw_cache_bucket_name
+    adhoc_input_bucket_name          = local.adhoc_bucket_name
+    dri_input_bucket_name            = local.dri_migration_bucket_name
     copy_files_from_tdr_queue        = module.tdr_preingest.importer_sqs.sqs_arn
     judgment_input_queue             = module.court_document_preingest.importer_sqs.sqs_arn
+    adhoc_import_queue               = module.ad_hoc_preingest.importer_sqs.sqs_arn
+    dri_import_queue                 = module.dri_preingest.importer_sqs.sqs_arn
     preingest_sfn_arn                = module.tdr_preingest.preingest_sfn_arn
     dynamo_db_lock_table_arn         = module.ingest_lock_table.table_arn
     external_notifications_log_group = aws_cloudwatch_log_group.external_notification_log_group.arn
     copy_files_from_tdr_log_group    = "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${module.tdr_preingest.importer_lambda.function_name}"
+    copy_files_from_adhoc_log_group  = "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${module.ad_hoc_preingest.importer_lambda.function_name}"
+    copy_files_from_dri_log_group    = "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${module.dri_preingest.importer_lambda.function_name}"
   })
 }
