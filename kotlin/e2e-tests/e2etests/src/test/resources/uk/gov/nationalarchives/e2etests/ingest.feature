@@ -8,6 +8,7 @@ Feature: Ingest tests
       | count | source   |
       | 50    | TDR      |
       | 10    | Adhoc    |
+      | 10    | DRI      |
 
   Scenario: Judgment should succeed if all metadata is valid
     Given A judgment
