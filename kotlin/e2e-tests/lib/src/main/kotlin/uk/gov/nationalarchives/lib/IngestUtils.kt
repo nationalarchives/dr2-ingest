@@ -30,6 +30,7 @@ import uk.gov.nationalarchives.lib.JsonUtils.TREParams
 import uk.gov.nationalarchives.lib.JsonUtils.ValidationErrorMessage
 import uk.gov.nationalarchives.lib.JsonUtils.jsonCodec
 import uk.gov.nationalarchives.lib.JsonUtils.AdhocMetadata
+import uk.gov.nationalarchives.lib.JsonUtils.DRIMetadata
 import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.security.MessageDigest
@@ -54,8 +55,9 @@ class IngestUtils(
     private val completeStatus = "Asset has been written to custodial copy disk."
     private val failedStatus = "There has been an error ingesting the asset."
 
-    fun checkForValidationFailureMessages(sourceSystem: String, timeout: Long) {
-        val logGroupArn = SourceSystem.fromString(sourceSystem).getCopyFilesLogGroup(config)
+    fun checkForValidationFailureMessages(sourceSystemName: String, timeout: Long) {
+        val sourceSystem = SourceSystem.fromString(sourceSystemName)
+        val logGroupArn = sourceSystem.getCopyFilesLogGroup(config)
         streamLogs(timeout, logGroupArn) { logEvents: List<LiveTailSessionLogEvent>? ->
             logEvents?.let { events ->
                 val assetIdsFromMessage = events
@@ -90,13 +92,14 @@ class IngestUtils(
 
     suspend fun createFiles(
         numberOfFiles: Int,
-        sourceSystem: String = "TDR",
+        sourceSystemName: String = "TDR",
         emptyChecksum: Boolean = false,
         invalidMetadata: Boolean = false,
         invalidChecksum: Boolean = false
     ) {
+        val sourceSystem = SourceSystem.fromString(sourceSystemName)
         val invalidChecksumValue = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        val bucketName = SourceSystem.fromString(sourceSystem).getBucket(config)
+        val bucketName = sourceSystem.getBucket(config)
         assetIds.addAll(List<UUID>(numberOfFiles) { UUID.randomUUID() })
         coroutineScope {
             assetIds.map {
@@ -162,8 +165,9 @@ class IngestUtils(
         uploadFileToS3(bucketName,"$id.tar.gz", tarGz)
     }
 
-    suspend fun sendImportMessages(sourceSystem: String) = coroutineScope {
-        val queue = SourceSystem.fromString(sourceSystem).getImporterQueue(config)
+    suspend fun sendImportMessages(sourceSystemName: String) = coroutineScope {
+        val sourceSystem = SourceSystem.fromString(sourceSystemName)
+        val queue = sourceSystem.getImporterQueue(config)
         
         assetIds.map {
             async {
@@ -176,9 +180,9 @@ class IngestUtils(
         }
     }
     
-    fun buildMessageBody(sourceSystem: String, id: UUID): String {
-        val bucket = SourceSystem.fromString(sourceSystem).getBucket(config)
-        if (sourceSystem == SourceSystem.JUDGMENT.systemName) {
+    fun buildMessageBody(sourceSystem: SourceSystem, id: UUID): String {
+        val bucket = sourceSystem.getBucket(config)
+        if (sourceSystem == SourceSystem.JUDGMENT) {
             val inputParameters = JsonUtils.TREInputParameters("", idToRef(id), true, bucket, "$id.tar.gz")
             return jsonCodec.encodeToString(JsonUtils.TREInput(inputParameters))
         } else {
@@ -229,40 +233,59 @@ class IngestUtils(
         return chars.shuffled(Random).take(length).joinToString("")
     }
 
-    private fun createMetadataJson(sourceSystem: String, assetId: UUID, fileId: UUID, checksum: String, invalidMetadata: Boolean): ByteStream {
+    private fun createMetadataJson(sourceSystem: SourceSystem, assetId: UUID, fileId: UUID, checksum: String, invalidMetadata: Boolean): ByteStream {
         val thisYear = LocalDate.now().year
         fun <T> generateValue(value: T): T? = if (invalidMetadata && Random.nextBoolean()) null else value
 
         fun generateSeries() = listOf(null, "TEST123", "").shuffled().first()
         val series = if (invalidMetadata) generateSeries() else "TEST 123"
 
-        val encodedMetadata = if (sourceSystem == SourceSystem.TDR.systemName) jsonCodec.encodeToString(listOf(TDRMetadata(
-            series,
-            generateValue(assetId),
-            null,
-            "TestBody",
-            generateValue("2024-10-07 09:54:48"),
-            "E2E-${thisYear}-${makeReference(4)}",
-            "${assetId}.txt",
-            checksum,
-            "Z${makeReference(5)}",
-            "/",
-            fileId
-        ))) else if (sourceSystem == SourceSystem.ADHOC.systemName) jsonCodec.encodeToString(listOf(AdhocMetadata(
-            series,
-            generateValue(assetId),
-            fileId,
-            null,
-            "${assetId}.txt",
-            "Z${makeReference(5)}",
-            "/",
-            "C12345678",
-            "some:file",
-            "SS 1/2/34",
-            checksum
-        ))) else {
-            throw IllegalArgumentException("Invalid source system: $sourceSystem")
+        val encodedMetadata = when (sourceSystem) {
+            SourceSystem.TDR -> jsonCodec.encodeToString(listOf(TDRMetadata(
+                series,
+                generateValue(assetId),
+                null,
+                "TestBody",
+                generateValue("2024-10-07 09:54:48"),
+                "E2E-${thisYear}-${makeReference(4)}",
+                "${assetId}.txt",
+                checksum,
+                "Z${makeReference(5)}",
+                "/",
+                fileId
+            )))
+            SourceSystem.ADHOC -> jsonCodec.encodeToString(listOf(AdhocMetadata(
+                series,
+                generateValue(assetId),
+                fileId,
+                null,
+                "${assetId}.txt",
+                "Z${makeReference(5)}",
+                "/",
+                "C12345678",
+                "some:file",
+                "SS 1/2/34",
+                checksum
+            )))
+            SourceSystem.DRI -> jsonCodec.encodeToString(listOf(DRIMetadata(
+                series,
+                generateValue(assetId),
+                fileId,
+                null,
+                generateValue("2026-05-05 09:54:48"),
+                "${assetId}.txt",
+                "Z${makeReference(5)}",
+                "some_metadata",
+                "/",
+                "Unknown",
+                1,
+                "C12345678",
+                "someref",
+                checksum
+            )))
+            else -> throw IllegalArgumentException("Invalid source system: $sourceSystem")
         }
+        
         return ByteStream.fromString(encodedMetadata)
     }
 
@@ -320,6 +343,11 @@ class IngestUtils(
             override fun getBucket(config: Config): String {return config.getString( "adhocBucket")}
             override fun getImporterQueue(config: Config): String { return config.getString("adhocSqsQueue") }
             override fun getCopyFilesLogGroup(config: Config): String { return config.getString("copyAdhocFilesLogGroup") }
+        },
+        DRI("DRI") {
+            override fun getBucket(config: Config): String {return config.getString( "driBucket")}
+            override fun getImporterQueue(config: Config): String { return config.getString("driSqsQueue") }
+            override fun getCopyFilesLogGroup(config: Config): String { return config.getString("copyDRIFilesLogGroup") }
         };
     
         abstract fun getBucket(config: Config): String

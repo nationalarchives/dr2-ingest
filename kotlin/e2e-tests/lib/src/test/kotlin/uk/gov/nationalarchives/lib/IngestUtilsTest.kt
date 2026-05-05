@@ -154,7 +154,6 @@ class IngestUtilsTest {
         val returnedFiles: MutableList<String> = mutableListOf()
         val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
         runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendImportMessages("Judgment") }
-        assertContentEquals(files.map { it.toString() }, returnedFiles)
         val expectedBatchRefs = files.map { it.toString().split("-").first() }
         assertContentEquals(expectedBatchRefs, returnedFiles)
     }

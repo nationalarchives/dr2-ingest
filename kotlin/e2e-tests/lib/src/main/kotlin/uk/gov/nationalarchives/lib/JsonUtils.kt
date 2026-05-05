@@ -147,4 +147,22 @@ object JsonUtils {
         val formerRefTNA: String?,
         val checksum_sha256: String
     )
+    
+    @Serializable
+    data class DRIMetadata(
+        val Series : String?,
+        @Contextual val UUID: UUID?,
+        @Contextual val fileId: UUID,
+        val description: String?,
+        val TransferInitiatedDatetime: String?,
+        val Filename: String,
+        val FileReference: String,
+        val metadata: String,
+        val ClientSideOriginalFilepath: String,
+        val digitalAssetSource: String,
+        val sortOrder: Int,
+        val IAID: String,
+        val driBatchReference: String,
+        val checksum_sha256: String
+    )
 }

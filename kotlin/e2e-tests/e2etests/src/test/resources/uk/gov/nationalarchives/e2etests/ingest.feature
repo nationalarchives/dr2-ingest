@@ -33,4 +33,5 @@ Feature: Ingest tests
       | count | source   |
       | 1     | TDR      |
       | 1     | Adhoc    |
+      | 1     | DRI      |
     
