@@ -26,7 +26,7 @@
         "sqs:SendMessage"
       ],
       "Effect": "Allow",
-      "Resource": ["${judgment_input_queue}", "${copy_files_from_tdr_queue}", "${adhoc_import_queue}"],
+      "Resource": ["${judgment_input_queue}", "${copy_files_from_tdr_queue}", "${adhoc_import_queue}", "${dri_import_queue}"],
       "Sid": "sendSqsMessage"
     },
     {
@@ -38,7 +38,8 @@
       "Resource": [
         "${external_notifications_log_group}",
         "${copy_files_from_tdr_log_group}",
-        "${copy_files_from_adhoc_log_group}"
+        "${copy_files_from_adhoc_log_group}",
+        "${copy_files_from_dri_log_group}"
       ]
     },
     {
@@ -50,7 +51,9 @@
         "arn:aws:s3:::${input_bucket_name}",
         "arn:aws:s3:::${input_bucket_name}/*",
         "arn:aws:s3:::${adhoc_input_bucket_name}",
-        "arn:aws:s3:::${adhoc_input_bucket_name}/*"
+        "arn:aws:s3:::${adhoc_input_bucket_name}/*",
+        "arn:aws:s3:::${dri_input_bucket_name}",
+        "arn:aws:s3:::${dri_input_bucket_name}/*"
       ],
       "Sid": "writeToRawCache"
     }
