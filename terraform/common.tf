@@ -443,6 +443,13 @@ module "ingest_raw_cache_bucket" {
         }
       },
       {
+        id     = "delete-expired-delete-markers"
+        status = "Enabled",
+        expiration = {
+          expired_object_delete_marker = true
+        }
+      },
+      {
         id     = "delete-noncurrent-versions-after-seven-days"
         status = "Enabled"
         noncurrent_version_expiration = {

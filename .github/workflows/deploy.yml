@@ -85,6 +85,8 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.WORKFLOW_TOKEN }}
+          fetch-tags: true
+          persist-credentials: true
       - uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4.0.0
       - id: role-name
         run: echo role-name="$(echo $ENVIRONMENT | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
@@ -102,8 +104,10 @@ jobs:
         env:
           TF_VAR_lambda_code_version: ${{ github.event.inputs.to-deploy }}
       - run: |
-          git tag $ENVIRONMENT || true
-          git push origin $ENVIRONMENT || true
+          git tag -d $ENVIRONMENT
+          git push -d origin $ENVIRONMENT
+          git tag $ENVIRONMENT
+          git push origin $ENVIRONMENT
         env:
           GH_TOKEN: ${{ github.token }}
       - run: python .github/scripts/send_message.py
