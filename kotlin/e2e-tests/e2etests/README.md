@@ -2,19 +2,19 @@ e2e tests
 
 # How to run e2e tests locally 
 To run the e2e tests locally, you will need to have the following environment variables set:
-- `ADHOC_BUCKET` - The S3 bucket used for adhoc uploads
-- `ADHOC_SQS_QUEUE` - The SQS queue for adhoc importer
-- `COPY_ADHOC_FILES_LOG_GROUP` - The CloudWatch log group for copying adhoc files
-- `COPY_DRI_FILES_LOG_GROUP` - The CloudWatch log group for copying DRI files
-- `COPY_FILES_LOG_GROUP` - The CloudWatch log group for copying TDR and Judgment files
-- `DRI_BUCKET` - The S3 bucket used for DRI uploads
-- `DRI_SQS_QUEUE` - The SQS queue for DRI importer
-- `EXTERNAL_LOG_GROUP` - The CloudWatch log group for external notifications
-- `INGEST_SQS_QUEUE` - The SQS queue for ingest importer
-- `JUDGMENT_SQS_QUEUE` - The SQS queue for Judgment importer
-- `LOCK_TABLE` - The DynamoDB table used for locking
+- `ADHOC_BUCKET` - The S3 bucket name used for adhoc uploads
+- `ADHOC_SQS_QUEUE` - The URL of SQS queue for adhoc importer
+- `COPY_ADHOC_FILES_LOG_GROUP` - The ARN of CloudWatch log group of adhoc importer lambda 
+- `COPY_DRI_FILES_LOG_GROUP` - The ARN of CloudWatch log group for DRI importer lambda
+- `COPY_FILES_LOG_GROUP` - The ARN of CloudWatch log group for TDR importer lambda
+- `DRI_BUCKET` - The S3 bucket name used for DRI uploads
+- `DRI_SQS_QUEUE` - The URL of SQS queue for DRI importer
+- `EXTERNAL_LOG_GROUP` - The ARN of CloudWatch log group for external notifications
+- `INGEST_SQS_QUEUE` - The URL of SQS queue for TDR importer
+- `JUDGMENT_SQS_QUEUE` - The URL of SQS queue for Judgment importer
+- `LOCK_TABLE` - The name of DynamoDB lock table
 - `PREINGEST_SFN_ARN` - The ARN of the preingest Step Function
-- `S3_BUCKET` - The S3 bucket used by preingest 
+- `S3_BUCKET` - The S3 bucket name used for preingest 
 
 If you wish to run it on commandline, in the terminal window, 
 - Export the above environment variables with correct values for the environment where you wish the e2e tests to run
