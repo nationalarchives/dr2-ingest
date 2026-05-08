@@ -1,14 +1,15 @@
 Feature: Ingest tests
 
-  Scenario: Ingest should succeed if all metadata is valid
-    Given An ingest with 50 files
-    When I send messages to the input queue
+  Scenario Outline: Ingest should succeed if all metadata is valid
+    Given An ingest with <count> files for "<source>" source system
+    When I send a message to the "<source>" importer queue
     Then I receive an ingest complete message
-
-  Scenario: Judgment should succeed if all metadata is valid
-    Given A judgment
-    When I send a message to the judgment queue
-    Then I receive an ingest complete message
+    Examples:
+      | count | source   |
+      | 50    | TDR      |
+      | 10    | Adhoc    |
+      | 10    | DRI      |
+      | 1     | Judgment |
 
   Scenario: Ingest should fail if there is an empty checksum
     Given An ingest with 1 file with an empty checksum
@@ -20,7 +21,15 @@ Feature: Ingest tests
     When I create a batch with this file
     Then I receive an ingest error message
 
-  Scenario: Ingest should fail if there is invalid TDR metadata
-    Given An ingest with 1 file with invalid metadata
-    When I send messages to the input queue
-    Then I receive an error in the validation queue
+  Scenario Outline: Ingest should fail if there is invalid metadata
+    Given An ingest with <count> file with invalid metadata for "<source>" source system
+    When I send a message to the "<source>" importer queue
+    Then I receive an error in the "<source>" validation queue
+    
+    Examples:
+      | count | source   |
+      | 1     | TDR      |
+      | 1     | Adhoc    |
+      | 1     | DRI      |
+      | 1     | Judgment |
+    

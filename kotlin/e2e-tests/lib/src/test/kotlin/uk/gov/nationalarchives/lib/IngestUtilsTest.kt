@@ -11,7 +11,6 @@ import kotlinx.serialization.SerializationException
 import java.time.LocalDate
 import java.util.*
 import java.util.concurrent.TimeoutException
-import kotlin.math.exp
 import kotlin.test.*
 
 class IngestUtilsTest {
@@ -115,13 +114,13 @@ class IngestUtilsTest {
             "invalidJson"
         )
         messageIngestUtils(bodyList, mutableListOf(assetId))
-            .checkForValidationFailureMessages("", timeout)
+            .checkForValidationFailureMessages("TDR", timeout)
     }
 
     @Test
     fun testValidationFailureSucceedsIfNoFilesToCheck() {
         messageIngestUtils(emptyList(), mutableListOf())
-            .checkForValidationFailureMessages("", timeout)
+            .checkForValidationFailureMessages("TDR", timeout)
     }
 
     @Test
@@ -129,7 +128,7 @@ class IngestUtilsTest {
         val assetId = UUID.randomUUID()
         val bodyList = listOf("""{"error": "An error", "assetId": "${UUID.randomUUID()}"}""")
         assertFailsWith<TimeoutException> {
-            messageIngestUtils(bodyList, mutableListOf(assetId)).checkForValidationFailureMessages("", timeout)
+            messageIngestUtils(bodyList, mutableListOf(assetId)).checkForValidationFailureMessages("TDR", timeout)
         }
     }
 
@@ -137,7 +136,7 @@ class IngestUtilsTest {
     fun testSendTdrMessagesSendsAllFiles() {
         val returnedFiles: MutableList<UUID> = mutableListOf()
         val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
-        runBlocking { sqsIngestUtils(returnedFiles, files).sendTdrMessages() }
+        runBlocking { sqsIngestUtils(returnedFiles, files).sendImportMessages("TDR") }
         assertContentEquals(files, returnedFiles)
     }
 
@@ -145,7 +144,7 @@ class IngestUtilsTest {
     fun testSendTdrMessagesSendsNoFiles() {
         val returnedFiles: MutableList<UUID> = mutableListOf()
         val files = mutableListOf<UUID>()
-        runBlocking { sqsIngestUtils(returnedFiles, files).sendTdrMessages() }
+        runBlocking { sqsIngestUtils(returnedFiles, files).sendImportMessages("TDR") }
         assertContentEquals(files, returnedFiles)
     }
 
@@ -153,7 +152,7 @@ class IngestUtilsTest {
     fun testSendJudgmentMessagesSendsAllFiles() {
         val returnedFiles: MutableList<String> = mutableListOf()
         val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
-        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentMessage() }
+        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendImportMessages("Judgment") }
         val expectedBatchRefs = files.map { it.toString().split("-").first() }
         assertContentEquals(expectedBatchRefs, returnedFiles)
     }
@@ -162,7 +161,7 @@ class IngestUtilsTest {
     fun testSendJudgmentMessagesSendsNoFiles() {
         val returnedFiles: MutableList<String> = mutableListOf()
         val files = mutableListOf<UUID>()
-        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendJudgmentMessage() }
+        runBlocking { sqsJudgmentIngestUtils(returnedFiles, files).sendImportMessages("Judgment") }
         val expectedBatchRefs = files.map { it.toString().split("-").first() }
         assertContentEquals(expectedBatchRefs, returnedFiles)
     }
@@ -180,7 +179,7 @@ class IngestUtilsTest {
         files.forEach { file ->
             val attributeMap = dynamoItems.find { it["assetId"]?.equals(file.toString()) == true }.orEmpty()
             assertEquals(file.toString(), attributeMap["assetId"])
-            assertTrue(attributeMap["groupId"]?.startsWith("E2E_") == true)
+            assertTrue(attributeMap["groupId"]?.startsWith("E2E_")!!)
             val expectedJson = """{"id":"$file","location":"s3://input-bucket/$file.metadata"}"""
             assertEquals(expectedJson, attributeMap["message"])
         }
@@ -253,11 +252,13 @@ class IngestUtilsTest {
         val fileContents: MutableList<ByteArray> = mutableListOf()
         val metadataList: MutableList<JsonUtils.TREMetadata> = mutableListOf()
 
-        createJudgmentFilesIngestUtils(fileContents, metadataList).createJudgment()
+        val id = UUID.randomUUID()
+        createJudgmentFilesIngestUtils(fileContents, metadataList).createJudgment(id, false)
 
         assertContentEquals(fileContents.first(), expectedBytes)
         val metadata = metadataList.first()
         val expectedReference = metadata.parameters.TDR.UUID.toString().split("-").first()
+        assertEquals(metadata.parameters.TDR.UUID, id)
         assertEquals(metadata.parameters.PARSER.uri, "http://example.com/id/ijkl/2025/1/doc-type/3")
         assertEquals(metadata.parameters.PARSER.cite, "cite")
         assertEquals(metadata.parameters.PARSER.name, "test")
@@ -267,6 +268,41 @@ class IngestUtilsTest {
         assertEquals(metadata.parameters.TDR.`Source-Organization`, "TDR")
         assertEquals(metadata.parameters.TDR.`Internal-Sender-Identifier`, "id")
         assertEquals(metadata.parameters.TDR.`File-Reference`, expectedReference)
+    }
+
+    @Test
+    fun createJudgmentCreatesAnInvalidJudgmentPackage(): Unit = runBlocking {
+        val fileContents: MutableList<ByteArray> = mutableListOf()
+        val metadataList: MutableList<JsonUtils.TREMetadata> = mutableListOf()
+
+        val id = UUID.randomUUID()
+        createJudgmentFilesIngestUtils(fileContents, metadataList).createJudgment(id, true)
+
+        val metadata = metadataList.first()
+        assertNull(metadata.parameters.TDR.UUID)
+    }
+    
+    @Test
+    fun configGivesCorrectValuesForImporterQueueBasedOnSourceSystem() : Unit = runBlocking {
+        val config = ConfigFactory.parseString("""
+            adhocBucket="test-adhoc-bucket-name"
+            adhocSqsQueue="https://sqs/adhoc-importer"
+            copyAdhocFilesLogGroup="arn:aws:logs:adhoc-importer"
+            copyFilesLogGroup="arn:aws:logs:importer"
+            externalLogGroup="arn:aws:logs:external"
+            sqsQueue="https://sqs/importer"
+            judgmentSqsQueue="https://sqs/courtdoc-importer"
+            s3Bucket="test-raw-cache-bucket-name"
+            copyJudgmentFilesLogGroup="arn:aws:logs:eu-west-2:1:log-group:/judgment"
+        """.trimIndent())
+        assertEquals("test-raw-cache-bucket-name",IngestUtils.SourceSystem.valueOf("TDR").getBucket(config))
+        assertEquals("test-adhoc-bucket-name",IngestUtils.SourceSystem.valueOf("ADHOC").getBucket(config))
+        assertEquals("https://sqs/importer", IngestUtils.SourceSystem.valueOf("TDR").getImporterQueue(config))
+        assertEquals("https://sqs/adhoc-importer", IngestUtils.SourceSystem.valueOf("ADHOC").getImporterQueue(config))
+        assertEquals("https://sqs/courtdoc-importer", IngestUtils.SourceSystem.valueOf("JUDGMENT").getImporterQueue(config))
+        assertEquals("arn:aws:logs:importer", IngestUtils.SourceSystem.valueOf("TDR").getCopyFilesLogGroup(config))
+        assertEquals("arn:aws:logs:adhoc-importer", IngestUtils.SourceSystem.valueOf("ADHOC").getCopyFilesLogGroup(config))
+        assertEquals("arn:aws:logs:eu-west-2:1:log-group:/judgment", IngestUtils.SourceSystem.valueOf("JUDGMENT").getCopyFilesLogGroup(config))
     }
 
     private fun createJudgmentFilesIngestUtils(fileContents: MutableList<ByteArray>, metadata: MutableList<JsonUtils.TREMetadata>): IngestUtils {

@@ -73,7 +73,7 @@ object JsonUtils {
     data class AggregatorInputMessage(@Contextual val id: UUID, @Contextual val location: URI)
 
     @Serializable
-    data class ValidationErrorMessage(val error: String, @Contextual val assetId: UUID)
+    data class ValidationErrorMessage(val error: String, val assetId: String? = null, val s3Key: String? = null)
 
     @Serializable
     data class SqsInputMessage(@Contextual val fileId: UUID, val bucket: String)
@@ -118,7 +118,7 @@ object JsonUtils {
         val `Internal-Sender-Identifier`: String,
         @Contextual val `Consignment-Export-Datetime`: OffsetDateTime,
         val `File-Reference`: String?,
-        @Contextual val `UUID`: UUID
+        @Contextual val `UUID`: UUID?
     )
 
     @Serializable
@@ -133,4 +133,36 @@ object JsonUtils {
     @Serializable
     data class TREInput(val parameters: TREInputParameters)
 
+    @Serializable
+    data class AdhocMetadata(
+        val Series: String?,
+        @Contextual val UUID: UUID?,
+        @Contextual val fileId: UUID,
+        val description: String?,
+        val Filename: String,
+        val FileReference: String,
+        val ClientSideOriginalFilepath: String,
+        val IAID: String,
+        val formerRefDept: String?,
+        val formerRefTNA: String?,
+        val checksum_sha256: String
+    )
+    
+    @Serializable
+    data class DRIMetadata(
+        val Series : String?,
+        @Contextual val UUID: UUID?,
+        @Contextual val fileId: UUID,
+        val description: String?,
+        val TransferInitiatedDatetime: String?,
+        val Filename: String,
+        val FileReference: String,
+        val metadata: String,
+        val ClientSideOriginalFilepath: String,
+        val digitalAssetSource: String,
+        val sortOrder: Int,
+        val IAID: String,
+        val driBatchReference: String,
+        val checksum_sha256: String
+    )
 }

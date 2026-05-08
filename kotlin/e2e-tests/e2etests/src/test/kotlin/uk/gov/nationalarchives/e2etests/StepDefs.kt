@@ -32,24 +32,9 @@ class StepDefs {
         IngestUtils(sqsClient, s3Client, cloudWatchLogsClient, dynamoClient, sfnClient, config, fileIds)
     }
 
-    @Given("An ingest with {int} files")
-    fun anIngestWithFiles(numberOfFiles: Int) = runBlocking {
-        utils.createFiles(numberOfFiles)
-    }
-
-    @Given("A judgment")
-    fun aJudgment() = runBlocking {
-        utils.createJudgment()
-    }
-
-    @When("I send a message to the judgment queue")
-    fun iSendAMessageToTheJudgmentQueue() = runBlocking {
-        utils.sendJudgmentMessage()
-    }
-
-    @When("I send messages to the input queue")
-    fun iSendMessagesToTheInputQueue() = runBlocking {
-        utils.sendTdrMessages()
+    @Given("An ingest with {int} files for {string} source system")
+    fun anIngestWithFiles(numberOfFiles: Int, sourceSystem: String) = runBlocking {
+        utils.createFiles(numberOfFiles, sourceSystem)
     }
 
     @Then("I receive an ingest complete message")
@@ -74,21 +59,23 @@ class StepDefs {
         utils.createBatch()
     }
 
+    @When("I send a message to the {string} importer queue")
+    fun iSendMessageToTheImporterQueue(sourceSystem: String) = runBlocking {
+        utils.sendImportMessages(sourceSystem)
+    }
 
     @Given("An ingest with {int} file with an invalid checksum")
     fun anIngestWithFileWithAnInvalidChecksum(numberOfFiles: Int) = runBlocking {
         utils.createFiles(numberOfFiles, invalidChecksum = true)
     }
 
-    @Given("An ingest with {int} file with invalid metadata")
-    fun anIngestWithFileWithInvalidMetadata(numberOfFiles: Int) = runBlocking {
-        utils.createFiles(numberOfFiles, invalidMetadata = true)
+    @Given("An ingest with {int} file with invalid metadata for {string} source system")
+    fun anIngestWithFileWithInvalidMetadata(numberOfFiles: Int, sourceSystem: String) = runBlocking {
+        utils.createFiles(numberOfFiles, sourceSystem, invalidMetadata = true)
     }
 
-    @Then("I receive an error in the validation queue")
-    fun iReceiveAnErrorInTheValidationQueue() {
-        utils.checkForValidationFailureMessages(config.getString("copyFilesLogGroup"), 40 * 60 * 1000)
+    @Then("I receive an error in the {string} validation queue")
+    fun iReceiveAnErrorInTheValidationQueue(sourceSystem: String) {
+        utils.checkForValidationFailureMessages(sourceSystem, 40 * 60 * 1000)
     }
-
-
-}
+}    
