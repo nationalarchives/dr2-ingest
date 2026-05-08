@@ -112,8 +112,8 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
         metadataFileId <- IO.fromOption(fileNameToFileIds.get(s"$batchRef/TRE-$batchRef-metadata.json"))(
           new RuntimeException(s"Cannot find metadata for $batchRef")
         )
-        treMetadata <- readJsonFromPackage(metadataFileId).onError {
-          err => log(Map("error" -> err.getMessage, "s3Key" -> treInput.parameters.s3Key))(err.getMessage)
+        treMetadata <- readJsonFromPackage(metadataFileId).onError { err =>
+          log(Map("error" -> err.getMessage, "s3Key" -> treInput.parameters.s3Key))(err.getMessage)
         }
         fileId <- IO.fromOption(fileNameToFileIds.get(s"$batchRef/${treMetadata.parameters.TRE.payload.filename}"))(
           new RuntimeException(s"Cannot find file name for file belonging to $batchRef")
