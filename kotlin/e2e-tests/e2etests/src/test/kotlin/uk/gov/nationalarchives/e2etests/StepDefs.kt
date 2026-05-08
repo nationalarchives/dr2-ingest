@@ -37,11 +37,6 @@ class StepDefs {
         utils.createFiles(numberOfFiles, sourceSystem)
     }
 
-    @Given("A judgment")
-    fun aJudgment() = runBlocking {
-        utils.createJudgment()
-    }
-
     @Then("I receive an ingest complete message")
     fun iReceiveAnIngestCompleteMessage() = runBlocking {
         utils.checkForIngestStatusMessages(config.getString("externalLogGroup"), 2 * 60 * 60 * 1000, "complete")

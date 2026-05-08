@@ -49,6 +49,7 @@ jobs:
           COPY_FILES_LOG_GROUP: arn:aws:logs:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:log-group:/aws/lambda/${{ github.event.inputs.environment }}-dr2-preingest-tdr-importer
           COPY_ADHOC_FILES_LOG_GROUP: arn:aws:logs:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:log-group:/aws/lambda/${{ github.event.inputs.environment }}-dr2-preingest-adhoc-importer
           COPY_DRI_FILES_LOG_GROUP:  arn:aws:logs:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:log-group:/aws/lambda/${{ github.event.inputs.environment }}-dr2-preingest-dri-importer;
+          COPY_JUDGMENT_FILES_LOG_GROUP:  arn:aws:logs:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:log-group:/aws/lambda/${{ github.event.inputs.environment }}-dr2-preingest-courtdoc-importer;
           S3_BUCKET: ${{ github.event.inputs.environment }}-dr2-ingest-raw-cache
           ADHOC_BUCKET: ${{ github.event.inputs.environment }}-dr2-ingest-adhoc-cache
           DRI_BUCKET:  ${{ github.event.inputs.environment }}-dr2-ingest-dri-migration-cache

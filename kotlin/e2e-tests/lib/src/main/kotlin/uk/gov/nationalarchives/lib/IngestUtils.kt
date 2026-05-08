@@ -56,7 +56,7 @@ class IngestUtils(
     private val failedStatus = "There has been an error ingesting the asset."
 
     fun checkForValidationFailureMessages(sourceSystemName: String, timeout: Long) {
-        val sourceSystem = SourceSystem.fromString(sourceSystemName)
+        val sourceSystem = SourceSystem.valueOf(sourceSystemName.uppercase())
         val logGroupArn = sourceSystem.getCopyFilesLogGroup(config)
         streamLogs(timeout, logGroupArn) { logEvents: List<LiveTailSessionLogEvent>? ->
             logEvents?.let { events ->
@@ -68,7 +68,9 @@ class IngestUtils(
                             emptyList()
                         }
                     }
-                    .map { it.assetId }
+                    .map {
+                        UUID.fromString(it.assetId ?:it.s3Key?.split(".")?.first())
+                    }
                 assetIds.removeAll(assetIdsFromMessage)
                 assetIds.isEmpty()
             } ?: false
@@ -97,9 +99,8 @@ class IngestUtils(
         invalidMetadata: Boolean = false,
         invalidChecksum: Boolean = false
     ) {
-        val sourceSystem = SourceSystem.fromString(sourceSystemName)
+        val sourceSystem = SourceSystem.valueOf(sourceSystemName.uppercase())
         val invalidChecksumValue = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        val bucketName = sourceSystem.getBucket(config)
         assetIds.addAll(List<UUID>(numberOfFiles) { UUID.randomUUID() })
         coroutineScope {
             assetIds.map {
@@ -108,8 +109,7 @@ class IngestUtils(
                     else if (invalidChecksum) invalidChecksumValue
                     else hash(it.toString())
                     val fileId = UUID.randomUUID()
-                    uploadFileToS3(bucketName,"$it/${fileId}", ByteStream.fromString(it.toString()))
-                    uploadFileToS3(bucketName,"${it}.metadata", createMetadataJson(sourceSystem, it, fileId, checksum, invalidMetadata))
+                    uploadPackage(sourceSystem, it, fileId, checksum, invalidMetadata)
                 }
             }
         }
@@ -148,25 +148,24 @@ class IngestUtils(
         return ByteStream.fromBytes(byteArrayOutputStream.toByteArray())
     }
 
-    private fun createJudgmentMetadata(id: UUID): ByteArray {
+    private fun createJudgmentMetadata(id: UUID, invalid: Boolean): ByteArray {
+        val tdrUuid = if (invalid) null else id
         val parser = Parser("http://example.com/id/ijkl/2025/1/doc-type/3", "cite", "test", listOf(), listOf())
         val treParams = TREParams(idToRef(id), Payload("test.docx"))
         val checksum = "d315c315347b08cccbf38d48d54f24afa7f3d7c7740a86fdc85e2832f6367f95"
-        val tdrParams = TDRParams(checksum, "TDR", "id", OffsetDateTime.now(), idToRef(id), id)
+        val tdrParams = TDRParams(checksum, "TDR", "id", OffsetDateTime.now(), idToRef(id), tdrUuid)
         return jsonCodec.encodeToString(TREMetadata(TREMetadataParameters(parser, treParams, tdrParams))).toByteArray()
     }
 
-    suspend fun createJudgment() {
+    suspend fun createJudgment(id: UUID, invalid: Boolean) {
         val bucketName = SourceSystem.JUDGMENT.getBucket(config)
-        val id = UUID.randomUUID()
-        assetIds.add(id)
-        val metadataBytes = createJudgmentMetadata(id)
+        val metadataBytes = createJudgmentMetadata(id, invalid)
         val tarGz = createTarGzByteStream(id, metadataBytes)
         uploadFileToS3(bucketName,"$id.tar.gz", tarGz)
     }
 
     suspend fun sendImportMessages(sourceSystemName: String) = coroutineScope {
-        val sourceSystem = SourceSystem.fromString(sourceSystemName)
+        val sourceSystem = SourceSystem.valueOf(sourceSystemName.uppercase())
         val queue = sourceSystem.getImporterQueue(config)
         
         assetIds.map {
@@ -233,15 +232,21 @@ class IngestUtils(
         return chars.shuffled(Random).take(length).joinToString("")
     }
 
-    private fun createMetadataJson(sourceSystem: SourceSystem, assetId: UUID, fileId: UUID, checksum: String, invalidMetadata: Boolean): ByteStream {
+    private suspend fun uploadPackage(sourceSystem: SourceSystem, assetId: UUID, fileId: UUID, checksum: String, invalidMetadata: Boolean) {
         val thisYear = LocalDate.now().year
         fun <T> generateValue(value: T): T? = if (invalidMetadata && Random.nextBoolean()) null else value
 
         fun generateSeries() = listOf(null, "TEST123", "").shuffled().first()
         val series = if (invalidMetadata) generateSeries() else "TEST 123"
+        val bucketName = sourceSystem.getBucket(config)
 
-        val encodedMetadata = when (sourceSystem) {
-            SourceSystem.TDR -> jsonCodec.encodeToString(listOf(TDRMetadata(
+        suspend fun uploadNonJudgmentPackage(metadata: String) {
+            uploadFileToS3(bucketName,"$assetId/${fileId}", ByteStream.fromString(assetId.toString()))
+            uploadFileToS3(bucketName,"${assetId}.metadata", ByteStream.fromString(metadata))
+        }
+
+        when (sourceSystem) {
+            SourceSystem.TDR -> uploadNonJudgmentPackage(jsonCodec.encodeToString(listOf(TDRMetadata(
                 series,
                 generateValue(assetId),
                 null,
@@ -253,8 +258,8 @@ class IngestUtils(
                 "Z${makeReference(5)}",
                 "/",
                 fileId
-            )))
-            SourceSystem.ADHOC -> jsonCodec.encodeToString(listOf(AdhocMetadata(
+            ))))
+            SourceSystem.ADHOC -> uploadNonJudgmentPackage(jsonCodec.encodeToString(listOf(AdhocMetadata(
                 series,
                 generateValue(assetId),
                 fileId,
@@ -266,8 +271,8 @@ class IngestUtils(
                 "some:file",
                 "SS 1/2/34",
                 checksum
-            )))
-            SourceSystem.DRI -> jsonCodec.encodeToString(listOf(DRIMetadata(
+            ))))
+            SourceSystem.DRI -> uploadNonJudgmentPackage(jsonCodec.encodeToString(listOf(DRIMetadata(
                 series,
                 generateValue(assetId),
                 fileId,
@@ -282,11 +287,9 @@ class IngestUtils(
                 "C12345678",
                 "someref",
                 checksum
-            )))
-            else -> throw IllegalArgumentException("Invalid source system: $sourceSystem")
+            ))))
+            SourceSystem.JUDGMENT -> createJudgment(assetId, invalidMetadata)
         }
-        
-        return ByteStream.fromString(encodedMetadata)
     }
 
     private suspend fun uploadFileToS3(bucketName: String, objectKey: String, bodyStream: ByteStream) {
@@ -326,25 +329,23 @@ class IngestUtils(
             }
         }
 
-    enum class SourceSystem (val systemName: String){
-        TDR("TDR") {
+    enum class SourceSystem {
+        TDR {
             override fun getBucket(config: Config): String {return config.getString("s3Bucket")}
             override fun getImporterQueue(config: Config): String { return config.getString("sqsQueue") }
             override fun getCopyFilesLogGroup(config: Config): String { return config.getString("copyFilesLogGroup") }
         }, 
-        JUDGMENT("Judgment") {
+        JUDGMENT {
             override fun getBucket(config: Config): String {return config.getString("s3Bucket")}
             override fun getImporterQueue(config: Config): String { return config.getString("judgmentSqsQueue") }
-            override fun getCopyFilesLogGroup(config: Config): String {
-                throw NotImplementedError("getCopyFilesLogGroup not implemented for Judgment")
-            }
+            override fun getCopyFilesLogGroup(config: Config): String { return config.getString("copyJudgmentFilesLogGroup")}
         }, 
-        ADHOC("Adhoc") {
+        ADHOC {
             override fun getBucket(config: Config): String {return config.getString( "adhocBucket")}
             override fun getImporterQueue(config: Config): String { return config.getString("adhocSqsQueue") }
             override fun getCopyFilesLogGroup(config: Config): String { return config.getString("copyAdhocFilesLogGroup") }
         },
-        DRI("DRI") {
+        DRI {
             override fun getBucket(config: Config): String {return config.getString( "driBucket")}
             override fun getImporterQueue(config: Config): String { return config.getString("driSqsQueue") }
             override fun getCopyFilesLogGroup(config: Config): String { return config.getString("copyDRIFilesLogGroup") }
@@ -353,12 +354,5 @@ class IngestUtils(
         abstract fun getBucket(config: Config): String
         abstract fun getImporterQueue(config: Config): String
         abstract fun getCopyFilesLogGroup(config: Config): String
-        fun getExternalLogGroup(config: Config): String  {return config.getString("externalLogGroup")}
-        
-        companion object {
-            fun fromString(systemName: String): SourceSystem {
-                return entries.find { it.systemName == systemName } ?: throw IllegalArgumentException("Unknown source : $systemName")
-            }
-        }
     }
 }

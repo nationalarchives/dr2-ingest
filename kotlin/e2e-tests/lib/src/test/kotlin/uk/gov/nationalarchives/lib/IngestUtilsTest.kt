@@ -8,7 +8,6 @@ import aws.sdk.kotlin.services.sqs.SqsClient
 import com.typesafe.config.ConfigFactory
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerializationException
-import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
 import java.util.*
 import java.util.concurrent.TimeoutException
@@ -180,7 +179,7 @@ class IngestUtilsTest {
         files.forEach { file ->
             val attributeMap = dynamoItems.find { it["assetId"]?.equals(file.toString()) == true }.orEmpty()
             assertEquals(file.toString(), attributeMap["assetId"])
-            assertTrue(attributeMap["groupId"]?.startsWith("E2E_") == true)
+            assertTrue(attributeMap["groupId"]?.startsWith("E2E_")!!)
             val expectedJson = """{"id":"$file","location":"s3://input-bucket/$file.metadata"}"""
             assertEquals(expectedJson, attributeMap["message"])
         }
@@ -253,11 +252,13 @@ class IngestUtilsTest {
         val fileContents: MutableList<ByteArray> = mutableListOf()
         val metadataList: MutableList<JsonUtils.TREMetadata> = mutableListOf()
 
-        createJudgmentFilesIngestUtils(fileContents, metadataList).createJudgment()
+        val id = UUID.randomUUID()
+        createJudgmentFilesIngestUtils(fileContents, metadataList).createJudgment(id, false)
 
         assertContentEquals(fileContents.first(), expectedBytes)
         val metadata = metadataList.first()
         val expectedReference = metadata.parameters.TDR.UUID.toString().split("-").first()
+        assertEquals(metadata.parameters.TDR.UUID, id)
         assertEquals(metadata.parameters.PARSER.uri, "http://example.com/id/ijkl/2025/1/doc-type/3")
         assertEquals(metadata.parameters.PARSER.cite, "cite")
         assertEquals(metadata.parameters.PARSER.name, "test")
@@ -267,6 +268,18 @@ class IngestUtilsTest {
         assertEquals(metadata.parameters.TDR.`Source-Organization`, "TDR")
         assertEquals(metadata.parameters.TDR.`Internal-Sender-Identifier`, "id")
         assertEquals(metadata.parameters.TDR.`File-Reference`, expectedReference)
+    }
+
+    @Test
+    fun createJudgmentCreatesAnInvalidJudgmentPackage(): Unit = runBlocking {
+        val fileContents: MutableList<ByteArray> = mutableListOf()
+        val metadataList: MutableList<JsonUtils.TREMetadata> = mutableListOf()
+
+        val id = UUID.randomUUID()
+        createJudgmentFilesIngestUtils(fileContents, metadataList).createJudgment(id, true)
+
+        val metadata = metadataList.first()
+        assertNull(metadata.parameters.TDR.UUID)
     }
     
     @Test
@@ -280,20 +293,16 @@ class IngestUtilsTest {
             sqsQueue="https://sqs/importer"
             judgmentSqsQueue="https://sqs/courtdoc-importer"
             s3Bucket="test-raw-cache-bucket-name"
+            copyJudgmentFilesLogGroup="arn:aws:logs:eu-west-2:1:log-group:/judgment"
         """.trimIndent())
-        assertEquals("test-raw-cache-bucket-name",IngestUtils.SourceSystem.fromString("TDR").getBucket(config))
-        assertEquals("test-adhoc-bucket-name",IngestUtils.SourceSystem.fromString("Adhoc").getBucket(config))
-        assertEquals("https://sqs/importer", IngestUtils.SourceSystem.fromString("TDR").getImporterQueue(config))
-        assertEquals("https://sqs/adhoc-importer", IngestUtils.SourceSystem.fromString("Adhoc").getImporterQueue(config))
-        assertEquals("https://sqs/courtdoc-importer", IngestUtils.SourceSystem.fromString("Judgment").getImporterQueue(config))
-        assertEquals("arn:aws:logs:importer", IngestUtils.SourceSystem.fromString("TDR").getCopyFilesLogGroup(config))
-        assertEquals("arn:aws:logs:adhoc-importer", IngestUtils.SourceSystem.fromString("Adhoc").getCopyFilesLogGroup(config))
-        assertEquals("arn:aws:logs:external", IngestUtils.SourceSystem.fromString("Adhoc").getExternalLogGroup(config))
-        
-        val exception = assertThrows<NotImplementedError> {
-            IngestUtils.SourceSystem.fromString("Judgment").getCopyFilesLogGroup(config)
-        }
-        assertEquals("getCopyFilesLogGroup not implemented for Judgment", exception.message)
+        assertEquals("test-raw-cache-bucket-name",IngestUtils.SourceSystem.valueOf("TDR").getBucket(config))
+        assertEquals("test-adhoc-bucket-name",IngestUtils.SourceSystem.valueOf("ADHOC").getBucket(config))
+        assertEquals("https://sqs/importer", IngestUtils.SourceSystem.valueOf("TDR").getImporterQueue(config))
+        assertEquals("https://sqs/adhoc-importer", IngestUtils.SourceSystem.valueOf("ADHOC").getImporterQueue(config))
+        assertEquals("https://sqs/courtdoc-importer", IngestUtils.SourceSystem.valueOf("JUDGMENT").getImporterQueue(config))
+        assertEquals("arn:aws:logs:importer", IngestUtils.SourceSystem.valueOf("TDR").getCopyFilesLogGroup(config))
+        assertEquals("arn:aws:logs:adhoc-importer", IngestUtils.SourceSystem.valueOf("ADHOC").getCopyFilesLogGroup(config))
+        assertEquals("arn:aws:logs:eu-west-2:1:log-group:/judgment", IngestUtils.SourceSystem.valueOf("JUDGMENT").getCopyFilesLogGroup(config))
     }
 
     private fun createJudgmentFilesIngestUtils(fileContents: MutableList<ByteArray>, metadata: MutableList<JsonUtils.TREMetadata>): IngestUtils {
