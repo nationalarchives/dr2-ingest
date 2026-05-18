@@ -4,8 +4,11 @@ import itertools
 import json
 import os
 import re
+import sqlite3
+import sys
 import uuid
 from collections import defaultdict
+from contextlib import closing
 from os import listdir
 
 import boto3
@@ -164,6 +167,7 @@ def migrate():
     grouped_assets = group_assets(assets_with_redacted)
 
     all_sqs_messages = []
+    assets = []
 
     for asset_uuid, assets_list in grouped_assets.items():
         all_metadata = []
@@ -180,6 +184,7 @@ def migrate():
                 upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], file_path[1:])
 
             s3_client.upload_file(upload_file_path, bucket, f'{asset_uuid}/{file_id}')
+            assets.append((file_id, upload_file_path, asset_uuid))
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
         s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")
         all_sqs_messages.append(json.dumps({'assetId': asset_uuid, 'bucket': bucket}))
@@ -188,7 +193,25 @@ def migrate():
         entries = [{'MessageBody': msg, 'Id': str(uuid.uuid4())} for msg in batch]
         sqs_client.send_message_batch(QueueUrl=queue_url, Entries=entries)
 
+    return assets
+
+def write_to_ic_db(db_path, assets):
+    with closing(sqlite3.connect(db_path)) as connection:
+        with connection:
+            for (file_id, path, asset_id) in assets:
+                print("file_id, path, asset_id", file_id, path, asset_id)
+                blob_cursor = connection.cursor()
+                blob_cursor.execute(f"INSERT INTO dri_files VALUES (?, ?, ?);", (file_id, path, asset_id))
+
+def main(db_path):
+    assets = migrate()
+    write_to_ic_db(db_path, assets)
 
 
 if __name__ == "__main__":
-    migrate()
+    if len(sys.argv) > 1:
+        ic_db_path = sys.argv[0]
+        main(ic_db_path)
+
+    else:
+        raise Exception("Missing arg: Path to SQLite database.")
