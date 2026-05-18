@@ -268,17 +268,29 @@ class TestMigrate(unittest.TestCase):
 
 
     def test_writing_to_ic_db(self):
+        ic_db_name = "intelligent_caching_test_db.db"
+
+        if os.path.exists(ic_db_name):
+            os.remove(ic_db_name)
+
         assets = [
             ("fileId-abc", "/dri/a/1/test/file1", "assetId-abc"),
             ("fileId-def", "/dri/a/1/test/file2", "assetId-abc"),
             ("fileId-ghi", "/dri/a/1/test/file3", "assetId-abc")
         ]
-        ic_db_path = "./python/dri-migration/intelligent_caching_test_db.db"
-        processed_assets = create_ingest_metadata.write_to_ic_db(ic_db_path, assets)
 
-        with closing(sqlite3.connect(ic_db_path)) as connection:
+        with closing(sqlite3.connect(ic_db_name)) as connection:
             with connection:
                 blob_cursor = connection.cursor()
+                blob_cursor.execute("""
+                    CREATE TABLE "dri_files" (
+                        "file_id"    TEXT NOT NULL UNIQUE,
+                        "file_path"  TEXT NOT NULL UNIQUE,
+                        "asset_id"   TEXT NOT NULL,
+                        PRIMARY KEY("file_id")
+                    )"""
+                )
+                processed_assets = create_ingest_metadata.write_to_ic_db(ic_db_name, assets)
                 blob_cursor.execute("SELECT * FROM dri_files;")
                 blob_info = blob_cursor.fetchall()
                 self.assertEqual([
@@ -286,7 +298,10 @@ class TestMigrate(unittest.TestCase):
                     ("fileId-def", "/dri/a/1/test/file2", "assetId-abc"),
                     ("fileId-ghi", "/dri/a/1/test/file3", "assetId-abc")
                 ], blob_info)
-                blob_cursor.execute("DELETE FROM dri_files;")
+
+        if os.path.exists(ic_db_name):
+            os.remove(ic_db_name)
+
 
 if __name__ == "__main__":
     unittest.main()

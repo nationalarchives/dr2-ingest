@@ -14,7 +14,7 @@ from os import listdir
 import boto3
 import oracledb
 from botocore.config import Config
-from pathlib import PureWindowsPath, PurePosixPath
+from pathlib import PureWindowsPath, PurePosixPath, PurePath
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -184,7 +184,7 @@ def migrate():
                 upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], file_path[1:])
 
             s3_client.upload_file(upload_file_path, bucket, f'{asset_uuid}/{file_id}')
-            assets.append((file_id, upload_file_path, asset_uuid))
+            assets.append((file_id, upload_file_path.name if isinstance(upload_file_path, PurePath) else upload_file_path, asset_uuid))
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
         s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")
         all_sqs_messages.append(json.dumps({'assetId': asset_uuid, 'bucket': bucket}))
@@ -199,7 +199,6 @@ def write_to_ic_db(db_path, assets):
     with closing(sqlite3.connect(db_path)) as connection:
         with connection:
             for (file_id, path, asset_id) in assets:
-                print("file_id, path, asset_id", file_id, path, asset_id)
                 blob_cursor = connection.cursor()
                 blob_cursor.execute(f"INSERT INTO dri_files VALUES (?, ?, ?);", (file_id, path, asset_id))
 

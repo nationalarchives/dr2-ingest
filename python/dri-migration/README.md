@@ -70,7 +70,8 @@ Migrate a whole series
 WHERE du.CATALOGUEREFERENCE LIKE 'TEST/123%'
 ```
 
-* Run the Python script.
+* Run the Python script passing it the path to the Intelligent Caching SQLite database or for test runs, you can use
+   the `intelligent_caching_test_run_db.db` in the "migrate" folder of this project; do not commit this file.
 
 ### Environment variables
 
