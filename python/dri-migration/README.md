@@ -70,7 +70,8 @@ Migrate a whole series
 WHERE du.CATALOGUEREFERENCE LIKE 'TEST/123%'
 ```
 
-* Run the Python script.
+* Run the Python script passing it the path to the Intelligent Caching SQLite database or for test runs, you can use
+   the `intelligent_caching_test_run_db.db` in the "migrate" folder of this project; do not commit this file.
 
 ### Environment variables
 
@@ -92,3 +93,5 @@ WHERE du.CATALOGUEREFERENCE LIKE 'TEST/123%'
    - If the file is a redacted version (with a `type_ref` of 100), append `rel_ref - 1` to the `FileReference field and the IAID field.
    - Write the metadata and file to S3 in a JSON format suitable for the package builder lambda.
    - Send an SQS message to the <env>-dr2-preingest-dri-importer queue to trigger the copy lambda.
+   - Return the asset metadata.
+3. Write the asset metadata (file ID, file path and asset ID) to a database for the purpose of Intelligent Caching.

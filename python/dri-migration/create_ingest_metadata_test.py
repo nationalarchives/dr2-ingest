@@ -1,12 +1,15 @@
 import hashlib
 import json
 import os
+import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import PureWindowsPath, PurePosixPath
 from unittest.mock import patch, MagicMock, mock_open, call
 from parameterized import parameterized
 from migrate import create_ingest_metadata
+from migrate.create_ingest_metadata import main
 
 
 def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows, test_run):
@@ -41,6 +44,16 @@ def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows, test_run
 
 
 class TestMigrate(unittest.TestCase):
+
+    @patch("migrate.create_ingest_metadata.write_to_ic_db")
+    @patch("migrate.create_ingest_metadata.migrate")
+    def test_main(self, migrate, write_to_ic_db):
+        migrate.return_value = [("file-uuid-abc", "/dri/a/1/test/file1", "asset-uuid-def")]
+        main("a_db_path")
+        migrate.assert_called_once()
+        write_to_ic_db.assert_called_with("a_db_path", [("file-uuid-abc", "/dri/a/1/test/file1", "asset-uuid-def")])
+
+
     @parameterized.expand([
         ('tru','test'),
         ('true','abc123'),
@@ -254,5 +267,41 @@ class TestMigrate(unittest.TestCase):
         check_client(sqs_client)
 
 
-if __name__ == '__main__':
+    def test_writing_to_ic_db(self):
+        ic_db_name = "intelligent_caching_test_db.db"
+
+        if os.path.exists(ic_db_name):
+            os.remove(ic_db_name)
+
+        assets = [
+            ("fileId-abc", "/dri/a/1/test/file1", "assetId-abc"),
+            ("fileId-def", "/dri/a/1/test/file2", "assetId-abc"),
+            ("fileId-ghi", "/dri/a/1/test/file3", "assetId-abc")
+        ]
+
+        with closing(sqlite3.connect(ic_db_name)) as connection:
+            with connection:
+                blob_cursor = connection.cursor()
+                blob_cursor.execute("""
+                    CREATE TABLE "dri_files" (
+                        "file_id"    TEXT NOT NULL UNIQUE,
+                        "file_path"  TEXT NOT NULL UNIQUE,
+                        "asset_id"   TEXT NOT NULL,
+                        PRIMARY KEY("file_id")
+                    )"""
+                )
+                processed_assets = create_ingest_metadata.write_to_ic_db(ic_db_name, assets)
+                blob_cursor.execute("SELECT * FROM dri_files;")
+                blob_info = blob_cursor.fetchall()
+                self.assertEqual([
+                    ("fileId-abc", "/dri/a/1/test/file1", "assetId-abc"),
+                    ("fileId-def", "/dri/a/1/test/file2", "assetId-abc"),
+                    ("fileId-ghi", "/dri/a/1/test/file3", "assetId-abc")
+                ], blob_info)
+
+        if os.path.exists(ic_db_name):
+            os.remove(ic_db_name)
+
+
+if __name__ == "__main__":
     unittest.main()
