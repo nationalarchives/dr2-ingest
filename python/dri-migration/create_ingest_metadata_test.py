@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import PureWindowsPath, PurePosixPath
 from sqlite3 import Connection
-from unittest.mock import patch, MagicMock, mock_open, call
+from unittest.mock import patch, MagicMock, mock_open, call, Mock
 from parameterized import parameterized
 from migrate import create_ingest_metadata
 
@@ -41,6 +41,30 @@ def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows, mock_wri
     mock_connect.return_value.cursor.return_value = mock_cursor
     mock_checksum.return_value = "abc123"
     mock_write_to_ic_db.return_value = True
+
+
+def verify_function_calls(test: "TestMigrate", is_test_run, get_clients: Mock, mock_connect: Mock,
+                          mock_create_skeleton: Mock, mock_checksum: Mock, write_to_ic_db: Mock, ref_error_thrown=False):
+
+    get_clients.assert_called_with("123456789", "testenv")
+    mock_connect.assert_called_with(dsn="localhost/SDB4", user="STORE", password="password")
+    if ref_error_thrown:
+       mock_create_skeleton.assert_called_with(["fmt", "x-fmt"])
+       mock_checksum.assert_not_called()
+       write_to_ic_db.assert_not_called()
+    else:
+        if is_test_run:
+            mock_create_skeleton.assert_called_with(["fmt", "x-fmt"])
+            mock_checksum.assert_called_with("/test/file2", "sha256")
+        else:
+            mock_create_skeleton.assert_not_called()
+            mock_checksum.assert_not_called()
+
+        write_to_ic_args = write_to_ic_db.call_args_list[0][0]
+        path = "/test/" if is_test_run else ""
+        test.assertEqual([("fileid-xyz", f"{path}file1", "uuid-abc"), ("fileid-xyz", f"{path}file2", "uuid-def")],
+                         write_to_ic_args[0])
+        test.assertEqual(True, isinstance(write_to_ic_args[1], sqlite3.Connection))
 
 
 class TestMigrate(unittest.TestCase):
@@ -129,11 +153,9 @@ class TestMigrate(unittest.TestCase):
             self.assertEqual(rows[idx][1], sent_body["assetId"])
             self.assertEqual("testenv-dr2-ingest-dri-migration-cache", sent_body["bucket"])
 
-        write_to_ic_args = write_to_ic_db.call_args_list[0][0]
-        path = "/test/" if test_run == "true" or test_run is None else ""
-        self.assertEqual([("fileid-xyz", f"{path}file1", "uuid-abc"), ("fileid-xyz", f"{path}file2", "uuid-def")],
-                         write_to_ic_args[0])
-        self.assertEqual(True, isinstance(write_to_ic_args[1], sqlite3.Connection))
+        is_test_run = test_run == "true" or test_run is None
+        verify_function_calls(self, is_test_run, get_clients, mock_connect, mock_create_skeleton, mock_checksum,
+                              write_to_ic_db)
 
     @patch("migrate.create_ingest_metadata.write_to_ic_db")
     @patch('oracledb.connect')
@@ -161,6 +183,9 @@ class TestMigrate(unittest.TestCase):
             create_ingest_metadata.migrate(self.ic_db_name)
 
         self.assertEqual("We need either a consignment reference or a dri batch reference", str(cm.exception))
+
+        verify_function_calls(self, True, get_clients, mock_connect, mock_create_skeleton, write_to_ic_db,
+                              mock_checksum, ref_error_thrown=True)
 
     def test_skeleton_suite_lookup(self):
         self.test_dir = tempfile.mkdtemp()
