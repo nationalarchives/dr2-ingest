@@ -4,6 +4,24 @@ import sbtassembly.Log4j2MergeStrategy
 ThisBuild / organization := "uk.gov.nationalarchives"
 name := "lambdas"
 
+ThisBuild / commands += Command.command("listProjectIds") { state =>
+  val extracted = Project.extract(state)
+  val structure = extracted.structure
+
+  val projectIds =
+    structure.allProjectRefs
+      .map(_.project)
+      .distinct
+      .filterNot(List("ingestLambdasRoot", "root", "utils").contains)
+      .sorted
+
+  val json =
+    projectIds.map(id => "\"" + id + "\"").mkString("[", ",", "]")
+
+  println(json)
+  state
+}
+
 lazy val ingestLambdasRoot = (project in file("."))
   .aggregate(
     custodialCopyQueueCreator,
