@@ -43,7 +43,7 @@ def get_stepfunction_metrics(resources_prefix):
 
                 metric_data.extend(
                     {
-                        "MetricName": "ExecutionsRunningBySourceSystem",
+                        "MetricName": "ExecutionsRunning",
                         "Dimensions" : [
                             {"Name": "StateMachineArn", "Value": state_machine_arn},
                             {"Name": "StateMachineName", "Value": state_machine_name},
