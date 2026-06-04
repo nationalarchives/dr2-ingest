@@ -11,12 +11,20 @@ locals {
   java_runtime                        = "java21"
   java_lambda_memory_size             = 512
   postingest_queue_config = [ // Before adding a new queue here, update the state change handler to expect it
-    { "queueAlias" : "CC", "queueOrder" : 1, "queueUrl" : module.dr2_custodial_copy_confirmer_queue.sqs_queue_url }
+    { "queueAlias" : "CC", "queueOrder" : 1, "queueUrl" : module.confirmer_queues["cc_confirmer"].sqs_queue_url }
   ]
   six_hours                  = 60 * 60 * 6
   seven_days                 = 60 * 60 * 24 * 7
   messages_visible_threshold = 1000000
   code_deploy_bucket         = var.code_deploy_bucket
+  confirmer_queues = {
+    cc_confirmer = {
+      queue_name = "${var.environment}-dr2-custodial-copy-confirmer"
+    }
+    tape_confirmer = {
+      queue_name = "${var.environment}-dr2-tape-copy-confirmer"
+    }
+  }
 }
 
 data "aws_caller_identity" "current" {}
@@ -53,12 +61,13 @@ module "postingest_state_table" {
   point_in_time_recovery_enabled = true
 }
 
-module "dr2_custodial_copy_confirmer_queue" {
+module "confirmer_queues" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  queue_name = local.custodial_copy_confirmer_queue_name
+  for_each = local.confirmer_queues
+  queue_name = each.value.queue_name
   sqs_policy = templatefile("./templates/sqs/sqs_access_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.custodial_copy_confirmer_queue_name
+    queue_name = each.value.queue_name
   })
   create_dlq                                        = false
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
@@ -105,7 +114,7 @@ module "dr2_state_change_lambda" {
 
   policies = {
     "${local.state_change_lambda_name}-policy" = templatefile("${path.module}/templates/policies/state_change_lambda_policy.json.tpl", {
-      custodial_copy_checker_queue_arn = module.dr2_custodial_copy_confirmer_queue.sqs_arn
+      custodial_copy_checker_queue_arn = module.confirmer_queues["cc_confirmer"].sqs_arn
       dynamo_db_postingest_arn         = module.postingest_state_table.table_arn
       sns_external_notifications_arn   = var.notifications_topic_arn
       account_id                       = data.aws_caller_identity.current.account_id
@@ -146,7 +155,7 @@ module "dr2_message_resender_lambda" {
 
   policies = {
     "${local.resender_lambda_name}-policy" = templatefile("${path.module}/templates/policies/message_resender_lambda_policy.json.tpl", {
-      custodial_copy_checker_queue_arn = module.dr2_custodial_copy_confirmer_queue.sqs_arn
+      custodial_copy_checker_queue_arn = module.confirmer_queues["cc_confirmer"].sqs_arn
       postingest_state_arn             = module.postingest_state_table.table_arn
       account_id                       = data.aws_caller_identity.current.account_id
       lambda_name                      = local.resender_lambda_name
