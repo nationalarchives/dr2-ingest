@@ -89,7 +89,7 @@ class TestLambdaFunction(unittest.TestCase):
         metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2")
 
         # 1 metric for total executions + metrics per source system
-        self.assertEqual(1 + 5, len(metrics))  # total + sources + DEFAULT
+        self.assertEqual(1 + len(self.expected_source_systems), len(metrics))
 
         for n, (ss, executions) in enumerate(zip(self.expected_source_systems, (1, 1, 0, 0, 1))):
             expected_metric = generate_metrics(value=executions, source_system=ss)
