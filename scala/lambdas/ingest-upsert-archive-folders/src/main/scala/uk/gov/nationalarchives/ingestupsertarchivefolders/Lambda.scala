@@ -119,7 +119,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
       }
     }
 
-    val logWithBatchRef = log(Map("batchRef" -> stepFnInput.batchId))(_)
+    val logWithBatchId = log(Map("batchId" -> stepFnInput.batchId))(_)
 
     for {
       folderRows <- getFolderRows
@@ -129,7 +129,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
         val entity = entitiesByIdentifier(folderRow.name)
         for {
           _ <- createUpdateRequest(folderRow, folderRows, entity, entitiesByIdentifier).toList.traverse { updateEntityRequest =>
-            logWithBatchRef(s"Updating entity ${updateEntityRequest.ref}") >> dependencies.entityClient.updateEntity(updateEntityRequest)
+            logWithBatchId(s"Updating entity ${updateEntityRequest.ref}") >> dependencies.entityClient.updateEntity(updateEntityRequest)
           }
           identifiers <- dependencies.entityClient.getEntityIdentifiers(entity)
           identifiersToAdd <- findIdentifiersToAdd(folderRow.identifiers, identifiers)
@@ -138,7 +138,7 @@ class Lambda extends LambdaRunner[StepFnInput, Unit, Config, Dependencies] {
           _ <- identifiersToUpdate.traverse(itu => dependencies.entityClient.updateEntityIdentifiers(entity, identifiersToUpdate.map(_.newIdentifier)))
         } yield ()
       }
-      _ <- logWithBatchRef(s"Created ${folderRows.count(row => !entitiesByIdentifier.contains(row.name))} entities which did not previously exist")
+      _ <- logWithBatchId(s"Created ${folderRows.count(row => !entitiesByIdentifier.contains(row.name))} entities which did not previously exist")
     } yield ()
   }
 
