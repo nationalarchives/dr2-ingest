@@ -3,7 +3,7 @@
 **Date:** 2026-06-04
 
 ## Context
-As we [migrate from DRI](/python/dri-migration/README.md), we will be uploading files into our Preservation System (DR2) from Kew. Custodial Copy (CC),
+As we [migrate from DRI](/python/dri-migration/README.md), we will be uploading files into our Preservation System (DR2) from Kew. [Custodial Copy](https://github.com/nationalarchives/dr2-custodial-copy) (CC),
 in its current state, downloads files from the Preservation System and stores them in Kew which, for the files we 
 want to migrate from DRI, wastes resources, time, and adds extra cost since the files are already in Kew.
 
