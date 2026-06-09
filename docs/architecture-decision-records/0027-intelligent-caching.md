@@ -36,9 +36,9 @@ We would also want to begin the upload and ingest process from this cache locati
 
 ### Implementation
 
-- In the DRI migration script, after the writing of the results to JSON files in S3, we will add code that writes the
-  (local) file path, file id and asset id of each asset to a SQLite database (the path of which would be passed in
-    when the script is run).
+- In the DRI migration script (and potentially other scripts in the future, for e.g. [Adhoc Ingest](https://github.com/nationalarchives/dr2-ingest/tree/main/python/ad-hoc-ingest)), 
+  after the writing of the results to JSON files in S3, we will add code that writes the (local) file path, file id and 
+  asset id of each asset to a SQLite database (the path of which would be passed in when the script is run).
 - In CC, for a given file, right before it downloads the file from the Preservation System, it will use the file id in 
   order to call the SQLite database table and retrieve the file's local file path.
 - It will use the file path to download the file to the location where Preservation System downloads go to and then 
