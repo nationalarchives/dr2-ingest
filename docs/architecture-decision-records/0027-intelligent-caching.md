@@ -10,12 +10,16 @@ want to migrate from DRI, wastes resources, time, and adds extra cost since the 
 ## Decision
 
 We would want to establish the following arrangement: files that need to end up being stored in Kew will be held in a storage
-location (folder) in Kew. They might be held in arbitrary folder structures within this location.
+location (folder) in Kew. They might be held in arbitrary folder structures within this location. Files could be added to,
+or removed from, this cache by other parties/systems.
 
 When CC is about to download a file from the Preservation System, it will check this local cache to see if the exact file 
-is already available there, and sources it locally if so, otherwise, it will source it from the Preservation System; 
-files could be added to, or removed from, the cache by other parties/systems. We would want to begin the upload and 
-ingest process from this cache location also.
+is already available there, and sources it locally if so, otherwise, it will source it from the Preservation System.
+It has been decided that sourcing the files will be done via fileId rather than a checksum due to: simplicity as files can
+have multiple checksums so searching becomes more complex, the files already have a file id readily available in 
+both the migration script and in Custodial Copy, using a file id allows for faster database searching as the file id column
+would be unique whereas a checksum column couldn't be as you can have multiple files with the same checksum and using the 
+file's id requires fewer code changes than using a checksum.
 
 Due to the simplicity of this approach, the size of the information in the cache and no concurrent writes needed, 
 we will use a SQLite DB. We can't put the DB in the DA since it's possible that continuous writes could cause a lot of copies
@@ -28,6 +32,7 @@ We can set it to be backed up daily as the costs to set up or run would be low. 
 | 738c55cf-cfa1-4f57-98c9-c585577b9916 | path/to/local/file1   | 24fce28a-4605-4071-922b-f70ab12bcbe4 |
 | f07e6bb6-74b1-4607-af70-93bb6045d716 | path/to/local/file2   | 24fce28a-4605-4071-922b-f70ab12bcbe4 |
 
+We would also want to begin the upload and ingest process from this cache location.
 
 ### Implementation
 
