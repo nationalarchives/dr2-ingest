@@ -62,8 +62,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       Dependencies
   ) => IO[StateOutput] = (input, config, dependencies) =>
     for {
-      log <- IO(log(Map("batchRef" -> input.batchId)))
-      _ <- log(s"Processing batchRef ${input.batchId}")
+      log <- IO(log(Map("batchId" -> input.batchId)))
+      _ <- log(s"Processing batchId ${input.batchId}")
 
       hundredDaysFromNowInEpochSecs <- IO {
         val hundredDaysFromNow: Instant = dependencies.time().plus(config.ttlDays, ChronoUnit.DAYS)
