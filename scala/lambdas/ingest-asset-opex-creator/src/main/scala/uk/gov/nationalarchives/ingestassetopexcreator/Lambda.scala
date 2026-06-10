@@ -43,7 +43,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
             new Exception(s"No asset found for ${item.id} and ${item.batchId}")
           )
           fileReference = asset.identifiers.find(_.identifierName == "BornDigitalRef").map(_.value).orNull
-          log = logger.info(Map("batchRef" -> item.batchId, "fileReference" -> fileReference, "assetId" -> asset.id.toString))(_)
+          log = logger.info(Map("batchId" -> item.batchId, "fileReference" -> fileReference, "assetId" -> asset.id.toString))(_)
           _ <- IO.whenA(asset.`type` != Asset)(IO.raiseError(new Exception(s"Object ${asset.id} is of type ${asset.`type`} and not 'Asset'")))
           _ <- log(s"Asset ${asset.id} retrieved from Dynamo")
 

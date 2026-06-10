@@ -4,14 +4,17 @@ import itertools
 import json
 import os
 import re
+import sqlite3
+import sys
 import uuid
 from collections import defaultdict
+from contextlib import closing
 from os import listdir
 
 import boto3
 import oracledb
 from botocore.config import Config
-from pathlib import PureWindowsPath, PurePosixPath
+from pathlib import PureWindowsPath, PurePosixPath, PurePath
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -83,7 +86,7 @@ def process_redacted(assets_to_process):
             asset['metadata'].update({'IAID': f"{iaid}_{redacted_id}"})
     return assets_to_process
 
-def migrate():
+def migrate(ic_db_path):
     database_host = os.environ.get("DATABASE_HOST", "localhost")
     account_number = os.environ["ACCOUNT_NUMBER"]
     environment = os.environ["ENVIRONMENT"]
@@ -164,6 +167,7 @@ def migrate():
     grouped_assets = group_assets(assets_with_redacted)
 
     all_sqs_messages = []
+    assets = []
 
     for asset_uuid, assets_list in grouped_assets.items():
         all_metadata = []
@@ -180,15 +184,38 @@ def migrate():
                 upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], file_path[1:])
 
             s3_client.upload_file(upload_file_path, bucket, f'{asset_uuid}/{file_id}')
+            assets.append((file_id, upload_file_path.name if isinstance(upload_file_path, PurePath) else upload_file_path, asset_uuid))
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
         s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")
         all_sqs_messages.append(json.dumps({'assetId': asset_uuid, 'bucket': bucket}))
+
+    with closing(sqlite3.connect(ic_db_path)) as connection:
+        with connection:
+            write_to_ic_db(assets, connection)
 
     for batch in itertools.batched(all_sqs_messages, 10):
         entries = [{'MessageBody': msg, 'Id': str(uuid.uuid4())} for msg in batch]
         sqs_client.send_message_batch(QueueUrl=queue_url, Entries=entries)
 
 
+def write_to_ic_db(assets, connection: sqlite3.Connection):
+    for (file_id, path, asset_id) in assets:
+        blob_cursor = connection.cursor()
+        # If exact row exists (either because there are duplicates in DRI or script has been re-run) then skip,
+        # otherwise attempt insert
+        blob_cursor.execute("""
+            INSERT INTO dri_files (file_id, file_path, asset_id)
+            SELECT ?, ?, ?
+            WHERE NOT EXISTS (
+                SELECT 1 FROM dri_files
+                WHERE file_id = ? AND file_path = ? AND asset_id = ?
+            );""", (file_id, path, asset_id) * 2
+        )
+
 
 if __name__ == "__main__":
-    migrate()
+    if len(sys.argv) > 1:
+        intelligent_caching_db_path = sys.argv[0]
+        migrate(intelligent_caching_db_path)
+    else:
+        raise Exception("Missing arg: Path to SQLite database.")
