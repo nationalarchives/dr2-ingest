@@ -19,5 +19,5 @@ This lambda is triggered periodically by a scheduled event. On invocation, it pe
 | Name                                      | Description                                                               |
 |-------------------------------------------|---------------------------------------------------------------------------|
 | POSTINGEST_STATE_DDB_TABLE                | The name of the Postingest state dynamo table <br/>(dr2-postingest-state) |
-| POSTINGEST_DDB_TABLE_BATCHPARENT_GSI_NAME | The global secondary index name. Used to search by batchId and parentPath |
+| POSTINGEST_DDB_TABLE_LAST_QUEUED_GSI_NAME | The global secondary index name. Used to search by batchId and lastQueued |
 | POSTINGEST_QUEUES                         | The config for the queues                                                 |

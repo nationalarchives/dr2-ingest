@@ -1,17 +1,17 @@
 import sbt._
 object Dependencies {
-  lazy val logbackVersion = "2.25.4"
+  lazy val logbackVersion = "2.26.0"
   lazy val pureConfigVersion = "0.17.10"
   lazy val daAwsClientsVersion = "0.1.156"
   private val fs2Version = "3.13.0"
-  private val sttpVersion = "4.0.23"
+  private val sttpVersion = "4.0.25"
   private val circeVersion = "0.15.0-M1"
   private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
   private lazy val scalaTestVersion = "3.2.20"
-  private lazy val nettyVersion = "4.1.133.Final"
+  private lazy val nettyVersion = "4.1.135.Final"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.45.2"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.45.4"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.7.0"
   lazy val circeCore = "io.circe" %% "circe-core" % circeVersion
@@ -27,11 +27,11 @@ object Dependencies {
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
   lazy val fs2IO = "co.fs2" %% "fs2-io" % fs2Version
   lazy val fs2Reactive = "co.fs2" %% "fs2-reactive-streams" % fs2Version
-  lazy val jacksonCore = "tools.jackson.core" % "jackson-core" % "3.1.2"
+  lazy val jacksonCore = "tools.jackson.core" % "jackson-core" % "3.1.4"
   lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.5.0"
   lazy val jawnParser = "org.typelevel" %% "jawn-parser" % "1.6.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
-  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "3.0.2"
+  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "3.0.3"
   lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.4.0"
   lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.16.1"
   lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion
@@ -59,7 +59,7 @@ object Dependencies {
   lazy val sttpClient = "com.softwaremill.sttp.client4" %% "core" % sttpVersion
   lazy val sttpClientFs2 = "com.softwaremill.sttp.client4" %% "fs2" % sttpVersion
   lazy val sttpCirce = "com.softwaremill.sttp.client4" %% "circe" % sttpVersion
-  lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.7"
+  lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.8"
   lazy val upickle = "com.lihaoyi" %% "upickle" % "4.4.3"
   lazy val wiremock = "org.wiremock" % "wiremock" % "3.13.2"
   lazy val nettyBuffer = "io.netty" % "netty-buffer" % nettyVersion
