@@ -22,7 +22,7 @@ def generate_metrics(state_machine_arn="arn:some_arn", state_machine_name= "test
 
 
 class TestLambdaFunction(unittest.TestCase):
-    expected_source_systems = ("TDR", "COURTDOC", "ADHOC", "PA", "DEFAULT")
+    expected_source_systems = ("TDR", "COURTDOC", "ADHOC", "DRI", "PA", "DEFAULT")
 
     @patch("ingest_metric_collector.boto3.client")
     def test_get_stepfunction_metrics_should_return_empty_metrics_when_there_are_no_state_machines(self, mock_boto_client):
@@ -62,7 +62,7 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2-")
 
-        self.assertEqual(6, len(metrics))
+        self.assertEqual(7, len(metrics))
         expected_metric = generate_metrics()
         self.assertEqual(expected_metric, metrics[0])
 
@@ -91,7 +91,7 @@ class TestLambdaFunction(unittest.TestCase):
         # 1 metric for total executions + metrics per source system
         self.assertEqual(1 + len(self.expected_source_systems), len(metrics))
 
-        for n, (ss, executions) in enumerate(zip(self.expected_source_systems, (1, 1, 0, 0, 1))):
+        for n, (ss, executions) in enumerate(zip(self.expected_source_systems, (1, 1, 0, 0, 0, 1))):
             expected_metric = generate_metrics(value=executions, source_system=ss)
             self.assertEqual(expected_metric, metrics[n + 1])
 
@@ -103,7 +103,7 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2")
 
-        self.assertEqual(10, len(metrics))
+        self.assertEqual(12, len(metrics))
 
         for n, ss in enumerate(self.expected_source_systems):
             ingest_queued_metric = generate_metrics(metric_name="IngestsQueued", source_system=ss)
@@ -142,7 +142,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_boto_client.return_value = mock_dynamo
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2")
-        self.assertEqual(10, len(metrics))
+        self.assertEqual(12, len(metrics))
 
         for ss, (count, seconds) in zip(self.expected_source_systems, ((1, 60), (0, 0), (0, 0), (0, 0), (0, 0))):
             ingest_queued_metric = generate_metrics(value=count, metric_name="IngestsQueued", source_system=ss)
