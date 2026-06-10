@@ -63,6 +63,7 @@
         "${preingest_tdr_step_function_arn}",
         "${preingest_adhoc_step_function_arn}",
         "${preingest_restore_step_function_arn}",
+        "${preingest_court_document_step_function_arn}",
         "${ingest_run_workflow_sfn_arn}"
       ]
     },

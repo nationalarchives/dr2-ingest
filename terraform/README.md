@@ -108,6 +108,15 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
 
 10. Run `terraform fmt --recursive` to properly format your Terraform changes before pushing to a branch.
 
+### Adding preingest modules
+
+If new preingest module is created policy is not automatically assigned.
+
+1. Update the ingest_step_function_policy in dr2-ingest/terraform/common.tf by adding the new preingest module.
+Example: preingest_court_document_step_function_arn        = module.court_document_preingest.preingest_sfn_arn
+
+2. Update template file dr2-ingest/terraform/templates/iam_policy/ingest_step_function_policy.json.tpl with the same arn.
+
 ### Troubleshooting:
 
 1. If you get the message starting with `Failed to unlock state: failed to delete the lock file...`, ask the person in the
