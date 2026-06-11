@@ -49,8 +49,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
 
     val keyPrefix = s"opex/${input.batchId}/"
     val opexFileName = s"$keyPrefix${input.batchId}.opex"
-    val batchRef = input.batchId.split('-').take(3).mkString("-")
-    val log = logger.info(Map("batchRef" -> batchRef))(_)
+    val log = logger.info(Map("batchId" -> input.batchId))(_)
     for {
       publisher <- dependencies.s3Client.listCommonPrefixes(config.destinationBucket, keyPrefix)
       _ <- log(s"Retrieved prefixes for key $keyPrefix from bucket ${config.destinationBucket}")
