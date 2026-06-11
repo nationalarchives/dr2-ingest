@@ -588,6 +588,7 @@ module "dr2_ingest_step_function_policy" {
     preingest_dri_step_function_arn                   = module.dri_preingest.preingest_sfn_arn
     preingest_adhoc_step_function_arn                 = module.ad_hoc_preingest.preingest_sfn_arn
     preingest_restore_step_function_arn               = module.cc_restore_preingest.preingest_sfn_arn
+    preingest_court_document_step_function_arn        = module.court_document_preingest.preingest_sfn_arn
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
     postingest_table_name                             = module.postingest.postingest_table_name
   })
