@@ -22,9 +22,10 @@ would be unique whereas a checksum column couldn't be as you can have multiple f
 file's id requires fewer code changes than using a checksum.
 
 Due to the simplicity of this approach, the size of the information in the cache and no concurrent writes needed, 
-we will use a SQLite DB. We can't put the DB in the DA since it's possible that continuous writes could cause a lot of copies
-to be written to tape, therefore we need to create a new NFS share on filers that can be accessed from PRD and UAT.
-We can set it to be backed up daily as the costs to set up or run would be low. The format of the table will be like so:
+we will use a SQLite DB. We can't put the DB in the [Dark Archive](https://www.youtube.com/watch?v=NScGxjvoPE0) since
+it's possible that continuous writes could cause a lot of copies to be written to tape, therefore we need to create a
+new NFS share on filers that can be accessed from PRD and UAT. We can set it to be backed up daily as the costs to set
+up or run would be low. The format of the table will be like so:
 
 
 | file_id (type text)                  | file_path (type text) | asset_id (type text)                 |
@@ -40,7 +41,8 @@ We would also want to begin the upload and ingest process from this cache locati
   after the writing of the results to JSON files in S3, we will add code that writes the (local) file path, file id and 
   asset id of each asset to a SQLite database (the path of which would be passed in when the script is run).
 - In CC, for a given file, right before it downloads the file from the Preservation System, it will use the file id in 
-  order to call the SQLite database table and retrieve the file's local file path.
+  order to call the SQLite database table and retrieve the file's local file path. We write to the SQLite database before
+  we send the message about the file to CC, ensuring that the cache search will almost always find the file in the cache.
 - It will use the file path to download the file to the location where Preservation System downloads go to and then 
   continue with the other processes.
 
