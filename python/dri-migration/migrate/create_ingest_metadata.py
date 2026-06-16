@@ -100,6 +100,7 @@ def migrate(ic_db_path):
     oracledb.init_oracle_client(lib_dir=os.environ['CLIENT_LOCATION'])
     conn = oracledb.connect(dsn=f'{database_host}/SDB4', user="STORE", password=os.environ['STORE_PASSWORD'])
     cur = conn.cursor()
+    cur.execute("SET TRANSACTION READ ONLY")
 
     with open("ingest_query.sql") as query:
         sql = query.read()
@@ -177,14 +178,17 @@ def migrate(ic_db_path):
             file_id = metadata['fileId']
             all_metadata.append(metadata)
             if test_run:
+                base_file_path = file_path
                 upload_file_path = file_path
             elif os.name == "nt":
-                upload_file_path = PureWindowsPath(os.environ['NETWORK_LOCATION'], file_path[1:])
+                base_file_path = file_path[1:]
+                upload_file_path = PureWindowsPath(os.environ['NETWORK_LOCATION'], base_file_path)
             else:
-                upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], file_path[1:])
+                base_file_path = file_path[1:]
+                upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], base_file_path)
 
             s3_client.upload_file(upload_file_path, bucket, f'{asset_uuid}/{file_id}')
-            assets.append((file_id, upload_file_path.name if isinstance(upload_file_path, PurePath) else upload_file_path, asset_uuid))
+            assets.append((file_id, str(base_file_path), asset_uuid))
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
         s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")
         all_sqs_messages.append(json.dumps({'assetId': asset_uuid, 'bucket': bucket}))
@@ -215,7 +219,7 @@ def write_to_ic_db(assets, connection: sqlite3.Connection):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        intelligent_caching_db_path = sys.argv[0]
+        intelligent_caching_db_path = sys.argv[1]
         migrate(intelligent_caching_db_path)
     else:
         raise Exception("Missing arg: Path to SQLite database.")
