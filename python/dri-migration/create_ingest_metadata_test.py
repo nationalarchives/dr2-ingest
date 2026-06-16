@@ -61,7 +61,7 @@ def verify_function_calls(test: "TestMigrate", is_test_run, get_clients: Mock, m
             mock_checksum.assert_not_called()
 
         write_to_ic_args = write_to_ic_db.call_args_list[0][0]
-        path = "/test/" if is_test_run else ""
+        path = "/test/" if is_test_run else "dri/a/1/test/"
         test.assertEqual([("fileid-xyz", f"{path}file1", "uuid-abc"), ("fileid-xyz", f"{path}file2", "uuid-def")],
                          write_to_ic_args[0])
         test.assertEqual(True, isinstance(write_to_ic_args[1], sqlite3.Connection))
