@@ -95,6 +95,7 @@ object DynamoWriteUtils {
         stateTableItem.potentialQueue.map(queueAttrVal => Map(queue -> DynamoValue.fromString(queueAttrVal))).getOrElse(Map()) ++
         stateTableItem.potentialFirstQueued.map(firstQueuedAttrVal => Map(firstQueued -> DynamoValue.fromString(firstQueuedAttrVal))).getOrElse(Map()) ++
         stateTableItem.potentialLastQueued.map(lastQueuedAttrVal => Map(lastQueued -> DynamoValue.fromString(lastQueuedAttrVal))).getOrElse(Map()) ++
-        stateTableItem.potentialResultCC.map(resultCCAttrVal => Map(resultCC -> DynamoValue.fromString(resultCCAttrVal))).getOrElse(Map())
+        stateTableItem.potentialResultCC.map(resultCCAttrVal => Map(resultCC -> DynamoValue.fromString(resultCCAttrVal))).getOrElse(Map()) ++
+        stateTableItem.potentialResultTC.map(resultTCAttrVal => Map(resultTC -> DynamoValue.fromString(resultTCAttrVal))).getOrElse(Map())
     }.toDynamoValue
 }

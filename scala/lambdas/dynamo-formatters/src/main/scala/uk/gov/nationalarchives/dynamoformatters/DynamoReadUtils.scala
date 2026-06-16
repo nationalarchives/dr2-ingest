@@ -41,7 +41,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
     getPotentialStringValue(queue),
     getPotentialStringValue(firstQueued),
     getPotentialStringValue(lastQueued),
-    getPotentialStringValue(resultCC)
+    getPotentialStringValue(resultCC),
+    getPotentialStringValue(resultTC)
   )
 
   private val allValidatedLockTableAttributes: LockTableValidatedAttributes = LockTableValidatedAttributes(
@@ -221,7 +222,8 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
         allValidatedPostIngestStatusTableAttributes.queue,
         allValidatedPostIngestStatusTableAttributes.firstQueued,
         allValidatedPostIngestStatusTableAttributes.lastQueued,
-        allValidatedPostIngestStatusTableAttributes.resultCC
+        allValidatedPostIngestStatusTableAttributes.resultCC,
+        allValidatedPostIngestStatusTableAttributes.resultTC
       )
     }.toEither
       .left

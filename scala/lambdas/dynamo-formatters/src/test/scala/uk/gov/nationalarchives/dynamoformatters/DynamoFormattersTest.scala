@@ -721,6 +721,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val potentialFirstQueued = Some("2038-01-19T15:14:07.000Z")
     val potentialLastQueued = Some("2038-01-19T15:14:07.000Z")
     val potentialResultCC = Some("result_CC")
+    val potentialResultTC = Some("result_TC")
 
     val attributeValueMap =
       postIngestStatusTableItemFormat
@@ -733,7 +734,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
             potentialQueue,
             potentialFirstQueued,
             potentialLastQueued,
-            potentialResultCC
+            potentialResultCC,
+            potentialResultTC
           )
         )
         .toAttributeValue
@@ -759,6 +761,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     val potentialFirstQueued = None
     val potentialLastQueued = None
     val potentialResultCC = None
+    val potentialResultTC = None
 
     val attributeValueMap =
       postIngestStatusTableItemFormat
@@ -771,7 +774,8 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
             potentialQueue,
             potentialFirstQueued,
             potentialLastQueued,
-            potentialResultCC
+            potentialResultCC,
+            potentialResultTC
           )
         )
         .toAttributeValue

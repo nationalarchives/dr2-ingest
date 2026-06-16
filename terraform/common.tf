@@ -686,7 +686,7 @@ module "eventbridge_alarm_notifications_destination" {
 module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_ingest_queues" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
   event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
-    cloudwatch_alarms = jsonencode(flatten([[for queue in local.ingest_queues : queue.event_alarms], [module.postingest.cc_confirmer_queue_oldest_message_alarm_arn]])),
+    cloudwatch_alarms = jsonencode(flatten([[for queue in local.ingest_queues : queue.event_alarms], values(module.postingest.confirmer_queue_oldest_message_alarm_arns)])),
     state_value       = "ALARM"
   })
   name                = "${local.environment}-dr2-eventbridge-ingest-queue-alarm-only"

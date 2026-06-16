@@ -16,11 +16,15 @@ object PostingestUtils {
     def queueOrder: Int
     def queueUrl: String
     def resultAttrName: String = s"result_$queueAlias"
-    def getResult: PostIngestStateTableItem => Option[String]
+    def getResult(item: PostIngestStateTableItem): Option[String]
   }
 
-  case class CCQueue(queueAlias: String, queueOrder: Int, queueUrl: String) extends Queue {
-    val getResult: PostIngestStateTableItem => Option[String] = tableItem => tableItem.potentialResultCC
+  case class CCQueue(queueAlias: String, queueOrder: Int = 1, queueUrl: String) extends Queue {
+    def getResult(item: PostIngestStateTableItem): Option[String] = item.potentialResultCC
+  }
+
+  case class TCQueue(queueAlias: String, queueOrder: Int = 2, queueUrl: String) extends Queue {
+    def getResult(item: PostIngestStateTableItem): Option[String] = item.potentialResultTC
   }
 
   given Decoder[Queue] = (c: HCursor) =>
@@ -30,5 +34,6 @@ object PostingestUtils {
       queueUrl <- c.downField("queueUrl").as[String]
     } yield queueAlias match
       case "CC" => CCQueue(queueAlias, queueOrder, queueUrl)
-
+      case "TC" => TCQueue(queueAlias, queueOrder, queueUrl)
+      case _    => throw new IllegalArgumentException(s"Unsupported queue, '$queueAlias' found in the configuration.")
 }

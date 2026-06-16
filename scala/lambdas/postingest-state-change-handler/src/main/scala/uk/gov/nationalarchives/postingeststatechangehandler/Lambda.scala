@@ -13,12 +13,13 @@ import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 import uk.gov.nationalarchives.postingeststatechangehandler.Lambda.{*, given}
 import uk.gov.nationalarchives.utils.EventCodecs.given
-import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.{IngestedCCDisk, IngestedPreservation}
+import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.{IngestedCCDisk, IngestedPreservation, IngestedTape}
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.{IngestComplete, IngestUpdate}
 import uk.gov.nationalarchives.utils.ExternalUtils.{OutputMessage, OutputParameters, OutputProperties}
 import uk.gov.nationalarchives.utils.PostingestUtils.{OutputQueueMessage, Queue}
 import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, DASQSClient}
+
 import scala.jdk.CollectionConverters.*
 import java.time.Instant
 import java.util.UUID
@@ -56,8 +57,9 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     def sendOutputMessage(item: PostIngestStateTableItem, newQueueAlias: Option[String] = None): IO[Unit] = {
       val (messageType, messageStatus) = newQueueAlias match
         case Some("CC")             => (IngestUpdate, IngestedPreservation)
+        case Some("TC")             => (IngestUpdate, IngestedCCDisk)
         case Some(unsupportedQueue) => throw new Exception(s"A 'messageType' and 'messageStatus' implementation exist for queue $unsupportedQueue")
-        case None                   => (IngestComplete, IngestedCCDisk)
+        case None                   => (IngestComplete, IngestedTape)
 
       val message = OutputMessage(
         OutputProperties(item.batchId, dependencies.uuidGenerator(), item.potentialCorrelationId, dependencies.instantGenerator(), messageType),
@@ -66,12 +68,13 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       dependencies.daSnsClient.publish(config.topicArn)(message :: Nil).void
     }
 
-    def updateTableAndSendToSqs(newItem: PostIngestStateTableItem, queue: Queue) =
+    def updateTableAndSendToSqs(newItem: PostIngestStateTableItem, queue: Queue) = {
       updateItem(newItem, queue.queueAlias) >>
         sendMessageToQueue(
           queue.queueUrl,
           OutputQueueMessage(newItem.assetId, newItem.batchId, queue.resultAttrName, newItem.input)
         )
+    }
 
     def getInsertFibers(queues: List[Queue]) = event.Records
       .filter(_.eventName == EventName.INSERT)
@@ -85,6 +88,18 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     def newResultDiffersFromOld(newResult: Option[String], oldResult: Option[String]) = newResult.getOrElse("") != oldResult.getOrElse("")
 
     def getModifyFibers(queues: List[Queue]) = {
+
+      def findConfirmedQueues(queues: List[Queue], oldItem: PostIngestStateTableItem, newItem: PostIngestStateTableItem, confirmerQueues: List[Queue]): List[Queue] = {
+        queues.foldLeft(confirmerQueues) { (acc, queue) =>
+          val isConfirmed = queue.queueAlias match {
+            case "CC"  => oldItem.potentialQueue.contains("CC") && newItem.potentialQueue.contains("CC") && oldItem.potentialResultCC != newItem.potentialResultCC
+            case "TC"  => oldItem.potentialQueue.contains("TC") && newItem.potentialQueue.contains("TC") && oldItem.potentialResultTC != newItem.potentialResultTC
+            case unknownnQueue => throw new Exception(s"Queue '$unknownnQueue' is not supported for processing in the Lambda. Only CC and TC are supported.")
+          }
+          if isConfirmed then acc :+ queue else acc
+        }
+      }
+
       val numOfQueues = queues.length
       event.Records
         .filter(_.eventName == EventName.MODIFY)
@@ -92,13 +107,18 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           val processModifyRecord =
             (record.dynamodb.oldImage, record.dynamodb.newImage) match
               case (Some(oldItem), Some(newItem)) =>
-                val potentialQueue = queues.find(queue => queue.getResult(newItem) != queue.getResult(oldItem))
-
-                potentialQueue match {
-                  case Some(queue) =>
-                    if queue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem) // new item has met final check; time to delete it from queue
-                    else updateTableAndSendToSqs(newItem, queue) >> sendOutputMessage(newItem, Some(queue.queueAlias))
-                  case _ => IO.unit
+                val confirmedQueues = findConfirmedQueues(queues, oldItem, newItem, List.empty)
+                confirmedQueues.size match {
+                  case 1 =>
+                    val currentQueue = confirmedQueues.head
+                    if currentQueue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem)
+                    else {
+                      val nextQueue = queues.find(_.queueOrder == currentQueue.queueOrder + 1).get
+                      updateTableAndSendToSqs(newItem, nextQueue) >> sendOutputMessage(newItem, Some(nextQueue.queueAlias))
+                    }
+                  case _ =>
+                    logger.error(s"oldItem: $oldItem, newItem: $newItem, Unable to locate exactly one queue for this update")
+                    IO.raiseError(new Exception(s"Expected update for exactly one queue, but found ${confirmedQueues.size} queues with updated results."))
                 }
 
               case _ => IO.raiseError(new Exception("MODIFY Event was triggered but either an OldImage, NewImage or both don't exist"))

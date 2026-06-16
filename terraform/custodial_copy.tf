@@ -10,7 +10,7 @@ module "custodial_copy_user_policy" {
     account_id                     = data.aws_caller_identity.current.account_id
     secrets_manager_secret_arn     = aws_secretsmanager_secret.preservica_read_metadata_read_content.arn
     custodial_copy_queue           = module.dr2_custodial_copy_queue.sqs_arn
-    custodial_copy_confirmer_queue = module.postingest.postingest_confirmer_queue_arn
+    custodial_copy_confirmer_queue = module.postingest.postingest_confirmer_queue_arns["cc_confirmer"]
     postingest_table               = module.postingest.postingest_table_arn
     database_builder_queue         = module.dr2_custodial_copy_db_builder_queue.sqs_arn
     management_account_id          = module.config.account_numbers["mgmt"]

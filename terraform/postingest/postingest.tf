@@ -2,7 +2,7 @@ locals {
   postingest_state_table_name         = "${var.environment}-dr2-postingest-state"
   postingest_gsi_firstqueued_name     = "QueueFirstQueuedIdx"
   postingest_gsi_lastqueued_name      = "QueueLastQueuedIdx"
-  custodial_copy_confirmer_queue_name = "${var.environment}-dr2-custodial-copy-confirmer"
+  # custodial_copy_confirmer_queue_name = "${var.environment}-dr2-custodial-copy-confirmer"
   state_change_lambda_key             = "postingest-state-change-handler"
   state_change_lambda_name            = "${var.environment}-dr2-${local.state_change_lambda_key}"
   state_change_lambda_dlq             = "${var.environment}-dr2-postingest-state-change-dlq"
@@ -11,7 +11,8 @@ locals {
   java_runtime                        = "java21"
   java_lambda_memory_size             = 512
   postingest_queue_config = [ // Before adding a new queue here, update the state change handler to expect it
-    { "queueAlias" : "CC", "queueOrder" : 1, "queueUrl" : module.confirmer_queues["cc_confirmer"].sqs_queue_url }
+    { "queueAlias" : "CC", "queueOrder" : 1, "queueUrl" : module.confirmer_queues["cc_confirmer"].sqs_queue_url },
+    { "queueAlias" : "TC", "queueOrder" : 2, "queueUrl" : module.confirmer_queues["tape_confirmer"].sqs_queue_url }
   ]
   six_hours                  = 60 * 60 * 6
   seven_days                 = 60 * 60 * 24 * 7
@@ -76,9 +77,10 @@ module "confirmer_queues" {
   delay_seconds                                     = 900
 }
 
-module "cc_confirmer_message_older_than_one_week_alarm" {
+module "confirmer_message_older_than_one_week_alarm" {
   source              = "git::https://github.com/nationalarchives/da-terraform-modules//cloudwatch_alarms"
-  name                = "${local.custodial_copy_confirmer_queue_name}-messages-older-than-one-week-alarm"
+  for_each = local.confirmer_queues
+  name                = each.value.queue_name
   comparison_operator = "GreaterThanThreshold"
   metric_name         = "ApproximateAgeOfOldestMessage"
   namespace           = "AWS/SQS"
@@ -86,7 +88,7 @@ module "cc_confirmer_message_older_than_one_week_alarm" {
   treat_missing_data  = "ignore"
   datapoints_to_alarm = 1
   dimensions = {
-    QueueName = local.custodial_copy_confirmer_queue_name
+    QueueName = each.value.queue_name
   }
   period    = local.six_hours
   threshold = local.seven_days
@@ -114,13 +116,13 @@ module "dr2_state_change_lambda" {
 
   policies = {
     "${local.state_change_lambda_name}-policy" = templatefile("${path.module}/templates/policies/state_change_lambda_policy.json.tpl", {
+      queue_arns = jsonencode(flatten([[for _,v in module.confirmer_queues : v.sqs_arn], module.dr2_state_change_lambda_dlq.sqs_arn]))
       custodial_copy_checker_queue_arn = module.confirmer_queues["cc_confirmer"].sqs_arn
       dynamo_db_postingest_arn         = module.postingest_state_table.table_arn
       sns_external_notifications_arn   = var.notifications_topic_arn
       account_id                       = data.aws_caller_identity.current.account_id
       lambda_name                      = local.state_change_lambda_name
       dynamo_db_postingest_stream_arn  = module.postingest_state_table.stream_arn
-      state_change_dlq_arn             = module.dr2_state_change_lambda_dlq.sqs_arn
       vpc_id                           = var.vpc_id
     })
   }
