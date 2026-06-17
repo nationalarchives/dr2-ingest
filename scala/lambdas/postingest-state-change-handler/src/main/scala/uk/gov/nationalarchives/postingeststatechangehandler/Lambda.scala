@@ -92,8 +92,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       def findConfirmedQueues(queues: List[Queue], oldItem: PostIngestStateTableItem, newItem: PostIngestStateTableItem, confirmerQueues: List[Queue]): List[Queue] = {
         queues.foldLeft(confirmerQueues) { (acc, queue) =>
           val isConfirmed = queue.queueAlias match {
-            case "CC"  => oldItem.potentialQueue.contains("CC") && newItem.potentialQueue.contains("CC") && oldItem.potentialResultCC != newItem.potentialResultCC
-            case "TC"  => oldItem.potentialQueue.contains("TC") && newItem.potentialQueue.contains("TC") && oldItem.potentialResultTC != newItem.potentialResultTC
+            case "CC"          => oldItem.potentialQueue.contains("CC") && newItem.potentialQueue.contains("CC") && oldItem.potentialResultCC != newItem.potentialResultCC
+            case "TC"          => oldItem.potentialQueue.contains("TC") && newItem.potentialQueue.contains("TC") && oldItem.potentialResultTC != newItem.potentialResultTC
             case unknownnQueue => throw new Exception(s"Queue '$unknownnQueue' is not supported for processing in the Lambda. Only CC and TC are supported.")
           }
           if isConfirmed then acc :+ queue else acc
