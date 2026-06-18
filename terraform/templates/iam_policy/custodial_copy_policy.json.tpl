@@ -16,7 +16,8 @@
       "Resource": [
         "${custodial_copy_queue}",
         "${database_builder_queue}",
-        "${custodial_copy_confirmer_queue}"
+        "${custodial_copy_confirmer_queue}",
+        "${tape_copy_confirmer_queue}"
       ],
       "Sid": "readSqs"
     },

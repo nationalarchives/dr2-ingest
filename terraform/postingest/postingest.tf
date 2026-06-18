@@ -2,30 +2,29 @@ locals {
   postingest_state_table_name     = "${var.environment}-dr2-postingest-state"
   postingest_gsi_firstqueued_name = "QueueFirstQueuedIdx"
   postingest_gsi_lastqueued_name  = "QueueLastQueuedIdx"
-  # custodial_copy_confirmer_queue_name = "${var.environment}-dr2-custodial-copy-confirmer"
-  state_change_lambda_key  = "postingest-state-change-handler"
-  state_change_lambda_name = "${var.environment}-dr2-${local.state_change_lambda_key}"
-  state_change_lambda_dlq  = "${var.environment}-dr2-postingest-state-change-dlq"
-  resender_lambda_key      = "postingest-message-resender"
-  resender_lambda_name     = "${var.environment}-dr2-${local.resender_lambda_key}"
-  java_runtime             = "java21"
-  java_lambda_memory_size  = 512
+  state_change_lambda_key         = "postingest-state-change-handler"
+  state_change_lambda_name        = "${var.environment}-dr2-${local.state_change_lambda_key}"
+  state_change_lambda_dlq         = "${var.environment}-dr2-postingest-state-change-dlq"
+  resender_lambda_key             = "postingest-message-resender"
+  resender_lambda_name            = "${var.environment}-dr2-${local.resender_lambda_key}"
+  java_runtime                    = "java21"
+  java_lambda_memory_size         = 512
   postingest_queue_config = [ // Before adding a new queue here, update the state change handler to expect it
-    { "queueAlias" : "CC", "queueOrder" : 1, "queueUrl" : module.confirmer_queues["cc_confirmer"].sqs_queue_url },
-    { "queueAlias" : "TC", "queueOrder" : 2, "queueUrl" : module.confirmer_queues["tape_confirmer"].sqs_queue_url }
+    { "queueAlias" : "CC", "queueOrder" : 1, "queue_name" : "${var.environment}-dr2-postingest-custodial-copy-confirmer" },
+    { "queueAlias" : "TC", "queueOrder" : 2, "queue_name" : "${var.environment}-dr2-postingest-tape-copy-confirmer" }
   ]
   six_hours                  = 60 * 60 * 6
   seven_days                 = 60 * 60 * 24 * 7
   messages_visible_threshold = 1000000
   code_deploy_bucket         = var.code_deploy_bucket
-  confirmer_queues = {
-    cc_confirmer = {
-      queue_name = "${var.environment}-dr2-custodial-copy-confirmer"
+  # Redefining the postingest_queue_env_var here to avoid issues with scala type system
+  postingest_queue_env_var = [for queue in local.postingest_queue_config :
+    {
+      "queueAlias" : queue.queueAlias,
+      "queueOrder" : queue.queueOrder,
+      "queueUrl" : module.confirmer_queues[queue.queueAlias].sqs_queue.url
     }
-    tape_confirmer = {
-      queue_name = "${var.environment}-dr2-tape-copy-confirmer"
-    }
-  }
+  ]
 }
 
 data "aws_caller_identity" "current" {}
@@ -64,7 +63,7 @@ module "postingest_state_table" {
 
 module "confirmer_queues" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  for_each   = local.confirmer_queues
+  for_each   = { for queue in local.postingest_queue_config : queue.queueAlias => queue }
   queue_name = each.value.queue_name
   sqs_policy = templatefile("./templates/sqs/sqs_access_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
@@ -79,8 +78,8 @@ module "confirmer_queues" {
 
 module "confirmer_message_older_than_one_week_alarm" {
   source              = "git::https://github.com/nationalarchives/da-terraform-modules//cloudwatch_alarms"
-  for_each            = local.confirmer_queues
-  name                = each.value.queue_name
+  for_each            = module.confirmer_queues
+  name                = "${each.value.sqs_queue.name}-messages-older-than-one-week-alarm"
   comparison_operator = "GreaterThanThreshold"
   metric_name         = "ApproximateAgeOfOldestMessage"
   namespace           = "AWS/SQS"
@@ -88,7 +87,7 @@ module "confirmer_message_older_than_one_week_alarm" {
   treat_missing_data  = "ignore"
   datapoints_to_alarm = 1
   dimensions = {
-    QueueName = each.value.queue_name
+    QueueName = each.value.sqs_queue.name
   }
   period    = local.six_hours
   threshold = local.seven_days
@@ -116,14 +115,18 @@ module "dr2_state_change_lambda" {
 
   policies = {
     "${local.state_change_lambda_name}-policy" = templatefile("${path.module}/templates/policies/state_change_lambda_policy.json.tpl", {
-      queue_arns                       = jsonencode(flatten([[for _, v in module.confirmer_queues : v.sqs_arn], module.dr2_state_change_lambda_dlq.sqs_arn]))
-      custodial_copy_checker_queue_arn = module.confirmer_queues["cc_confirmer"].sqs_arn
-      dynamo_db_postingest_arn         = module.postingest_state_table.table_arn
-      sns_external_notifications_arn   = var.notifications_topic_arn
-      account_id                       = data.aws_caller_identity.current.account_id
-      lambda_name                      = local.state_change_lambda_name
-      dynamo_db_postingest_stream_arn  = module.postingest_state_table.stream_arn
-      vpc_id                           = var.vpc_id
+      queue_arns = jsonencode(
+        concat(
+          [for v in module.confirmer_queues : v.sqs_arn],
+          [module.dr2_state_change_lambda_dlq.sqs_arn]
+        )
+      )
+      dynamo_db_postingest_arn        = module.postingest_state_table.table_arn
+      sns_external_notifications_arn  = var.notifications_topic_arn
+      account_id                      = data.aws_caller_identity.current.account_id
+      lambda_name                     = local.state_change_lambda_name
+      dynamo_db_postingest_stream_arn = module.postingest_state_table.stream_arn
+      vpc_id                          = var.vpc_id
     })
   }
   s3_bucket   = local.code_deploy_bucket
@@ -142,7 +145,7 @@ module "dr2_state_change_lambda" {
     POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
     POSTINGEST_DDB_TABLE_LAST_QUEUED_GSI_NAME = local.postingest_gsi_lastqueued_name
     OUTPUT_TOPIC_ARN                          = var.notifications_topic_arn
-    POSTINGEST_QUEUES                         = jsonencode(local.postingest_queue_config)
+    POSTINGEST_QUEUES                         = jsonencode(local.postingest_queue_env_var)
   }
   tags = {
     Name = local.state_change_lambda_name
@@ -157,12 +160,12 @@ module "dr2_message_resender_lambda" {
 
   policies = {
     "${local.resender_lambda_name}-policy" = templatefile("${path.module}/templates/policies/message_resender_lambda_policy.json.tpl", {
-      custodial_copy_checker_queue_arn = module.confirmer_queues["cc_confirmer"].sqs_arn
-      postingest_state_arn             = module.postingest_state_table.table_arn
-      account_id                       = data.aws_caller_identity.current.account_id
-      lambda_name                      = local.resender_lambda_name
-      gsi_name                         = local.postingest_gsi_lastqueued_name
-      vpc_id                           = var.vpc_id
+      queue_arns           = jsonencode(values(module.confirmer_queues)[*].sqs_arn)
+      postingest_state_arn = module.postingest_state_table.table_arn
+      account_id           = data.aws_caller_identity.current.account_id
+      lambda_name          = local.resender_lambda_name
+      gsi_name             = local.postingest_gsi_lastqueued_name
+      vpc_id               = var.vpc_id
     })
   }
   s3_bucket = local.code_deploy_bucket
@@ -175,7 +178,7 @@ module "dr2_message_resender_lambda" {
   plaintext_env_vars = {
     POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
     POSTINGEST_DDB_TABLE_LAST_QUEUED_GSI_NAME = local.postingest_gsi_lastqueued_name
-    POSTINGEST_QUEUES                         = jsonencode(local.postingest_queue_config)
+    POSTINGEST_QUEUES                         = jsonencode(local.postingest_queue_env_var)
   }
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
