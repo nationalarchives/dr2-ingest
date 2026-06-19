@@ -88,18 +88,6 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     def newResultDiffersFromOld(newResult: Option[String], oldResult: Option[String]) = newResult.getOrElse("") != oldResult.getOrElse("")
 
     def getModifyFibers(queues: List[Queue]) = {
-
-      def findConfirmedQueues(queues: List[Queue], oldItem: PostIngestStateTableItem, newItem: PostIngestStateTableItem, confirmerQueues: List[Queue]): List[Queue] = {
-        queues.foldLeft(confirmerQueues) { (acc, queue) =>
-          val isConfirmed = queue.queueAlias match {
-            case "CC"          => oldItem.potentialQueue.contains("CC") && newItem.potentialQueue.contains("CC") && oldItem.potentialResultCC != newItem.potentialResultCC
-            case "TC"          => oldItem.potentialQueue.contains("TC") && newItem.potentialQueue.contains("TC") && oldItem.potentialResultTC != newItem.potentialResultTC
-            case unknownnQueue => throw new Exception(s"Queue '$unknownnQueue' is not supported for processing in the Lambda. Only CC and TC are supported.")
-          }
-          if isConfirmed then acc :+ queue else acc
-        }
-      }
-
       val numOfQueues = queues.length
       event.Records
         .filter(_.eventName == EventName.MODIFY)
@@ -107,18 +95,14 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           val processModifyRecord =
             (record.dynamodb.oldImage, record.dynamodb.newImage) match
               case (Some(oldItem), Some(newItem)) =>
-                val confirmedQueues = findConfirmedQueues(queues, oldItem, newItem, List.empty)
-                confirmedQueues.size match {
-                  case 1 =>
-                    val currentQueue = confirmedQueues.head
-                    if currentQueue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem)
-                    else {
-                      val nextQueue = queues.find(_.queueOrder == currentQueue.queueOrder + 1).get
+                val potentialQueue = queues.find(queue => queue.isValid(oldItem, newItem))
+                potentialQueue match {
+                  case Some(queue) =>
+                    if queue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem) // new item has met final check; time to delete it from queue
+                    else
+                      val nextQueue = queues.find(_.queueOrder == queue.queueOrder + 1).get
                       updateTableAndSendToSqs(newItem, nextQueue) >> sendOutputMessage(newItem, Some(nextQueue.queueAlias))
-                    }
-                  case _ =>
-                    logger.error(s"oldItem: $oldItem, newItem: $newItem, Unable to locate exactly one queue for this update")
-                    IO.raiseError(new Exception(s"Expected update for exactly one queue, but found ${confirmedQueues.size} queues with updated results."))
+                  case _ => logger.info(s"No valid queue found for asset id ${oldItem.assetId}")
                 }
 
               case _ => IO.raiseError(new Exception("MODIFY Event was triggered but either an OldImage, NewImage or both don't exist"))

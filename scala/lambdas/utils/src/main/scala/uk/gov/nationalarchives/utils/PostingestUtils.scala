@@ -17,6 +17,8 @@ object PostingestUtils {
     def queueUrl: String
     def resultAttrName: String = s"result_$queueAlias"
     def getResult(item: PostIngestStateTableItem): Option[String]
+    def isValid(oldItem: PostIngestStateTableItem, newItem: PostIngestStateTableItem): Boolean =
+      oldItem.potentialQueue.contains(queueAlias) && newItem.potentialQueue.contains(queueAlias) && getResult(oldItem) != getResult(newItem)
   }
 
   case class CCQueue(queueAlias: String, queueOrder: Int = 1, queueUrl: String) extends Queue {

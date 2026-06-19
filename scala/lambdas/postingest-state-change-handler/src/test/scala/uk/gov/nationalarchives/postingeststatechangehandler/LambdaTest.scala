@@ -209,18 +209,6 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     ex.getMessage should equal("MODIFY Event was triggered but either an OldImage, NewImage or both don't exist")
   }
 
-  "handler" should s"throw an error if the event is a 'MODIFY' and there is not exactly one queue with valid result attribute update" in {
-    val assetId = UUID.randomUUID
-    val oldDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("TC"), dateTime, dateTime, None, None)
-    val newDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("TC"), dateTime, dateTime, Some(s"result_$queue1"), None)
-
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(oldDynamoItem).some, oldDynamoItem.some, newDynamoItem.some))))
-    val ex = intercept[Exception] {
-      runLambda(Nil, event).unsafeRunSync()
-    }
-    ex.getMessage should equal("Expected update for exactly one queue, but found 0 queues with updated results.")
-  }
-
   "handler" should s"throw an error if the queue in configuration is unknown" in {
     val assetId = UUID.randomUUID
     val oldDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, None, None)
