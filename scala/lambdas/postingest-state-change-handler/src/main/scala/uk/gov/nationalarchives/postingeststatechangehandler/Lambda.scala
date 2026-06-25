@@ -68,21 +68,23 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       dependencies.daSnsClient.publish(config.topicArn)(message :: Nil).void
     }
 
-    def updateTableAndSendToSqs(newItem: PostIngestStateTableItem, queue: Queue) = {
+    def updateTableAndSendToSqs(newItem: PostIngestStateTableItem, queue: Queue) =
       updateItem(newItem, queue.queueAlias) >>
         sendMessageToQueue(
           queue.queueUrl,
           OutputQueueMessage(newItem.assetId, newItem.batchId, queue.resultAttrName, newItem.input)
         )
-    }
 
     def getInsertFibers(queues: List[Queue]) = event.Records
       .filter(_.eventName == EventName.INSERT)
       .parTraverse { record =>
-        val queue1 = queues.find(_.queueOrder == 1).get
-        val newImage = record.dynamodb.newImage.get
-        val processInsertRecord = updateTableAndSendToSqs(newImage, queue1) >> sendOutputMessage(newImage, Some(queue1.queueAlias))
-        processInsertRecord.start
+        val potentialFirstQueue = queues.find(_.queueOrder == 1)
+        if potentialFirstQueue.isDefined then
+          val queue1 = potentialFirstQueue.get
+          val newImage = record.dynamodb.newImage.get
+          val processInsertRecord = updateTableAndSendToSqs(newImage, queue1) >> sendOutputMessage(newImage, Some(queue1.queueAlias))
+          processInsertRecord.start
+        else IO.raiseError(new Exception("Config does not have a queue with queueOrder 1"))
       }
 
     def newResultDiffersFromOld(newResult: Option[String], oldResult: Option[String]) = newResult.getOrElse("") != oldResult.getOrElse("")
@@ -100,8 +102,11 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
                   case Some(queue) =>
                     if queue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem) // new item has met final check; time to delete it from queue
                     else
-                      val nextQueue = queues.find(_.queueOrder == queue.queueOrder + 1).get
-                      updateTableAndSendToSqs(newItem, nextQueue) >> sendOutputMessage(newItem, Some(nextQueue.queueAlias))
+                      val potentialNextQueue = queues.find(_.queueOrder == queue.queueOrder + 1)
+                      if potentialNextQueue.isDefined then
+                        val nextQueue = potentialNextQueue.get
+                        updateTableAndSendToSqs(newItem, nextQueue) >> sendOutputMessage(newItem, Some(nextQueue.queueAlias))
+                      else IO.raiseError(new Exception(s"Config does not have a queue with queueOrder ${queue.queueOrder + 1}"))
                   case _ => logger.info(s"No valid queue found for asset id ${oldItem.assetId}")
                 }
 

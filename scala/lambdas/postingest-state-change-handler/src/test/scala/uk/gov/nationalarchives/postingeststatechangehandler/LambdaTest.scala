@@ -228,6 +228,43 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     ex.getMessage should equal("Unsupported queue, 'OC' found in the configuration.")
   }
 
+  "handler" should s"throw an error if the queue order is not sequential" in {
+    val assetId = UUID.randomUUID
+    val oldDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, None, None)
+    val newDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"result_$queue1"), None)
+
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(oldDynamoItem).some, oldDynamoItem.some, newDynamoItem.some))))
+
+    val queues =
+      s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
+        s"""{"queueAlias": "TC", "queueOrder": 3, "queueUrl": "$queue2Url"}]"""
+
+    val config = Config("ddbTable", "ddbGsi", "topicArn", queues)
+
+    val ex = intercept[Exception] {
+      runLambda(List(newDynamoItem), event, config).unsafeRunSync()
+    }
+    ex.getMessage should equal("Config does not have a queue with queueOrder 2")
+  }
+
+  "handler" should s"throw an error if the queue order does not begin with 1" in {
+    val assetId = UUID.randomUUID
+    val newDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"result_$queue1"), None)
+
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(getPrimaryKey(newDynamoItem).some, None, newDynamoItem.some))))
+
+    val queues =
+      s"""[{"queueAlias": "CC", "queueOrder": 2, "queueUrl": "$queue1Url"},""" +
+        s"""{"queueAlias": "TC", "queueOrder": 3, "queueUrl": "$queue2Url"}]"""
+
+    val config = Config("ddbTable", "ddbGsi", "topicArn", queues)
+
+    val ex = intercept[Exception] {
+      runLambda(List(newDynamoItem), event, config).unsafeRunSync()
+    }
+    ex.getMessage should equal("Config does not have a queue with queueOrder 1")
+  }
+
   "Decoder" should "skip `REMOVE` events" in {
     val eventsJson = {
       """[

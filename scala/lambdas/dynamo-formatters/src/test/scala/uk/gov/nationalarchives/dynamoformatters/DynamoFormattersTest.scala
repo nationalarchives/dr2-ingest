@@ -750,6 +750,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     attributeValueMap("firstQueued").s() should equal(potentialFirstQueued.get)
     attributeValueMap("lastQueued").s() should equal(potentialLastQueued.get)
     attributeValueMap("result_CC").s() should equal(potentialResultCC.get)
+    attributeValueMap("result_TC").s() should equal(potentialResultTC.get)
   }
 
   "postIngestStatusTableItemFormat write" should "not write optional fields if their values are 'None'" in {
@@ -790,6 +791,7 @@ class DynamoFormattersTest extends AnyFlatSpec with TableDrivenPropertyChecks wi
     attributeValueMap.get("firstQueued") should equal(None)
     attributeValueMap.get("lastQueued") should equal(None)
     attributeValueMap.get("result_CC") should equal(None)
+    attributeValueMap.get("result_TC") should equal(None)
   }
 
   "lockTablePkFormat read" should "read the correct fields" in {
