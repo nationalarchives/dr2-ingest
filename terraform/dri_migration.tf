@@ -9,6 +9,9 @@ module "dr2_dri_migration_key" {
   key_name = "${local.environment}-kms-dr2-dri-migration"
   default_policy_variables = {
     ci_roles = [local.terraform_role_arn],
+    user_roles_decoupled = [
+      data.aws_iam_role.org_wiz_access_role.arn,
+    ]
     user_roles = concat([
       module.dr2_dri_migration_role.role_arn,
       module.dri_preingest.importer_lambda.role,

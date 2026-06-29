@@ -4,8 +4,25 @@ from unittest.mock import patch, MagicMock
 
 import ingest_metric_collector
 
+def generate_metrics(state_machine_arn="arn:some_arn", state_machine_name= "test-dr2-something", value=0,
+                     metric_name="ExecutionsRunning", source_system="", unit="Count"):
+    metrics = {
+        "MetricName": metric_name,
+        "Dimensions": [
+            {"Name": "StateMachineArn", "Value": state_machine_arn},
+            {"Name": "StateMachineName", "Value": state_machine_name},
+        ],
+        "Value": value,
+        "Unit": unit
+    }
+    if source_system:
+        metrics["Dimensions"].append({"Name": "SourceSystem", "Value": source_system})
+
+    return metrics
+
 
 class TestLambdaFunction(unittest.TestCase):
+    expected_source_systems = ("TDR", "COURTDOC", "ADHOC", "DRI", "PA", "DEFAULT")
 
     @patch("ingest_metric_collector.boto3.client")
     def test_get_stepfunction_metrics_should_return_empty_metrics_when_there_are_no_state_machines(self, mock_boto_client):
@@ -28,7 +45,9 @@ class TestLambdaFunction(unittest.TestCase):
         metrics = ingest_metric_collector.get_stepfunction_metrics("TDR-")
         # Should return one metric with 0 executions
         self.assertEqual(1, len(metrics))
-        self.assertEqual(0, metrics[0]["Value"])
+
+        expected_metric = generate_metrics("arn:some_arn", "unknown-ss-something", 0)
+        self.assertEqual(expected_metric, metrics[0])
 
 
     @patch("ingest_metric_collector.boto3.client")
@@ -43,8 +62,13 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2-")
 
-        self.assertEqual(6, len(metrics))
-        self.assertEqual(0, metrics[0]["Value"])
+        self.assertEqual(7, len(metrics))
+        expected_metric = generate_metrics()
+        self.assertEqual(expected_metric, metrics[0])
+
+        for n, ss in enumerate(self.expected_source_systems):
+            expected_metric = generate_metrics(source_system=ss)
+            self.assertEqual(expected_metric, metrics[n + 1])
 
 
     @patch("ingest_metric_collector.boto3.client")
@@ -65,26 +89,11 @@ class TestLambdaFunction(unittest.TestCase):
         metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2")
 
         # 1 metric for total executions + metrics per source system
-        self.assertEqual(1 + len(ingest_metric_collector.SOURCE_SYSTEMS), len(metrics))  # total + sources + DEFAULT
+        self.assertEqual(1 + len(self.expected_source_systems), len(metrics))
 
-        # Check that TDR, COURTDOC and DEFAULT, all got Value as 1
-        tdr_metric = next(
-            m for m in metrics
-            if {"Name": "SourceSystem", "Value": "TDR"} in m["Dimensions"]
-        )
-        self.assertEqual(1, tdr_metric["Value"])
-
-        courtdoc_metric = next(
-            m for m in metrics
-            if {"Name": "SourceSystem", "Value": "COURTDOC"} in m["Dimensions"]
-        )
-        self.assertEqual(1, courtdoc_metric["Value"])
-
-
-        default_metric = next(m for m in metrics if any(
-            d.get("Value") == "DEFAULT" for d in m["Dimensions"]
-        ))
-        self.assertEqual(1, default_metric["Value"])
+        for n, (ss, executions) in enumerate(zip(self.expected_source_systems, (1, 1, 0, 0, 0, 1))):
+            expected_metric = generate_metrics(value=executions, source_system=ss)
+            self.assertEqual(expected_metric, metrics[n + 1])
 
     @patch("ingest_metric_collector.boto3.client")
     def test_get_flow_control_metrics_should_return_zero_when_no_items_in_queue(self, mock_boto_client):
@@ -94,9 +103,17 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2")
 
-        self.assertEqual(10, len(metrics))
-        for m in metrics:
-            self.assertEqual(0, m["Value"])
+        self.assertEqual(12, len(metrics))
+
+        for n, ss in enumerate(self.expected_source_systems):
+            ingest_queued_metric = generate_metrics(metric_name="IngestsQueued", source_system=ss)
+            queue_age_metric = generate_metrics(metric_name="ApproximateAgeOfOldestQueuedIngest", source_system=ss,
+                                                unit="Seconds")
+            ingest_queued_metric["Dimensions"] = ingest_queued_metric["Dimensions"][2:]
+            queue_age_metric["Dimensions"] = queue_age_metric["Dimensions"][2:]
+
+            self.assertEqual(ingest_queued_metric, metrics.pop(0))
+            self.assertEqual(queue_age_metric, metrics.pop(0))
 
     def make_source_system_specific_mock(self, mock_mapping):
         def query_side_effect(**kwargs):
@@ -125,41 +142,19 @@ class TestLambdaFunction(unittest.TestCase):
         mock_boto_client.return_value = mock_dynamo
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2")
-        self.assertEqual(10, len(metrics))
+        self.assertEqual(12, len(metrics))
 
-        # IngestsQueued should be 1
-        queued_metric = [m for m in metrics if m["MetricName"] == "IngestsQueued"]
-        for m in queued_metric:
-            ss = next(d["Value"] for d in m["Dimensions"] if d["Name"] == "SourceSystem")
-            if ss == "TDR":
-                self.assertEqual(1, m["Value"])
-            elif ss == "COURTDOC":
-                self.assertEqual(0, m["Value"])
-            elif ss == "ADHOC":
-                self.assertEqual(0, m["Value"])
-            elif ss == "DEFAULT":
-                self.assertEqual(0, m["Value"])
-            elif ss == "PA":
-                self.assertEqual(0, m["Value"])
-            else:
-                self.fail(f"This should never happen: Unexpected source system {ss}")
+        for ss, (count, seconds) in zip(self.expected_source_systems, ((1, 60), (0, 0), (0, 0), (0, 0), (0, 0))):
+            ingest_queued_metric = generate_metrics(value=count, metric_name="IngestsQueued", source_system=ss)
+            queue_age_metric = generate_metrics(value=seconds, metric_name="ApproximateAgeOfOldestQueuedIngest",
+                                                source_system=ss, unit="Seconds")
+            ingest_queued_metric["Dimensions"] = ingest_queued_metric["Dimensions"][2:]
+            queue_age_metric["Dimensions"] = queue_age_metric["Dimensions"][2:]
 
-
-        age_metric = [m for m in metrics if m["MetricName"] == "ApproximateAgeOfOldestQueuedIngest"]
-        for m in age_metric:
-            ss = next(d["Value"] for d in m["Dimensions"] if d["Name"] == "SourceSystem")
-            if ss == "TDR":
-                self.assertAlmostEqual(60, m["Value"], delta=2)
-            elif ss == "COURTDOC":
-                self.assertEqual(0, m["Value"])
-            elif ss == "ADHOC":
-                self.assertEqual(0, m["Value"])
-            elif ss == "DEFAULT":
-                self.assertEqual(0, m["Value"])
-            elif ss == "PA":
-                self.assertEqual(0, m["Value"])
-            else:
-                self.fail(f"This should never happen: Unexpected source system {ss}")
+            self.assertEqual(ingest_queued_metric, metrics.pop(0))
+            age_metric = metrics.pop(0)
+            age_metric["Value"] = round(age_metric["Value"], 2)
+            self.assertEqual(queue_age_metric, age_metric)
 
     @patch("ingest_metric_collector.boto3.client")
     @patch("ingest_metric_collector.get_stepfunction_metrics", side_effect=Exception("sfn error"))

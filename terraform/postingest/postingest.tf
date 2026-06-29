@@ -129,7 +129,7 @@ module "dr2_state_change_lambda" {
   }
   plaintext_env_vars = {
     POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
-    POSTINGEST_DDB_TABLE_BATCHPARENT_GSI_NAME = local.postingest_gsi_lastqueued_name
+    POSTINGEST_DDB_TABLE_LAST_QUEUED_GSI_NAME = local.postingest_gsi_lastqueued_name
     OUTPUT_TOPIC_ARN                          = var.notifications_topic_arn
     POSTINGEST_QUEUES                         = jsonencode(local.postingest_queue_config)
   }
@@ -163,7 +163,7 @@ module "dr2_message_resender_lambda" {
   runtime     = local.java_runtime
   plaintext_env_vars = {
     POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
-    POSTINGEST_DDB_TABLE_BATCHPARENT_GSI_NAME = local.postingest_gsi_lastqueued_name
+    POSTINGEST_DDB_TABLE_LAST_QUEUED_GSI_NAME = local.postingest_gsi_lastqueued_name
     POSTINGEST_QUEUES                         = jsonencode(local.postingest_queue_config)
   }
   vpc_config = {

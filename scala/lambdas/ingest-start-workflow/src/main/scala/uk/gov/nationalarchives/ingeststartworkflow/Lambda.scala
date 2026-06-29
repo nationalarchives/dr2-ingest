@@ -16,17 +16,16 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       Config,
       Dependencies
   ) => IO[StateOutput] = (input, _, dependencies) => {
-    val batchRef = input.batchId.split('-').take(3).mkString("-")
-    val logWithBatch = log(Map("batchRef" -> batchRef))(_)
+    val logWithBatch = log(Map("batchId" -> input.batchId))(_)
     for {
-      _ <- logWithBatch(s"Starting ingest workflow ${input.workflowContextName} for $batchRef")
+      _ <- logWithBatch(s"Starting ingest workflow ${input.workflowContextName} for ${input.batchId}")
       id <- dependencies.workflowClient.startWorkflow(
         StartWorkflowRequest(
           Some(input.workflowContextName),
           parameters = List(Parameter("OpexContainerDirectory", s"opex/${input.batchId}"))
         )
       )
-      _ <- logWithBatch(s"Workflow ${input.workflowContextName} for $batchRef started")
+      _ <- logWithBatch(s"Workflow ${input.workflowContextName} for ${input.batchId} started")
     } yield StateOutput(id)
   }
 

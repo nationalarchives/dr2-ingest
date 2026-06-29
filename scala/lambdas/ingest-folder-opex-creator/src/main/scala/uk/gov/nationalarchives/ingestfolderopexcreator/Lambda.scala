@@ -111,7 +111,7 @@ class Lambda extends LambdaRunner[Input, Unit, Config, Dependencies] {
         new Exception(s"No folder found for ${input.id} and ${input.batchId}")
       )
       idCode = folder.identifiers.find(_.identifierName == "Code").map(_.value).orNull
-      log = logger.info(Map("batchRef" -> input.batchId, "folderId" -> folder.id.toString, "idCode" -> idCode))(_)
+      log = logger.info(Map("batchId" -> input.batchId, "folderId" -> folder.id.toString, "idCode" -> idCode))(_)
 
       _ <- IO.whenA(!isFolder(folder.`type`))(IO.raiseError(new Exception(s"Object ${folder.id} is of type ${folder.`type`} and not 'ContentFolder' or 'ArchiveFolder'")))
       _ <- log(s"Fetched ${folderItems.length} folder items from Dynamo")
