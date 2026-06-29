@@ -28,28 +28,46 @@ new NFS share on filers that can be accessed from PRD and UAT. We can set it to 
 up or run would be low. The format of the table will be like so:
 
 
-| file_id (type text)                  | file_path (type text) | asset_id (type text)                 |
-|--------------------------------------|-----------------------|--------------------------------------|
-| 738c55cf-cfa1-4f57-98c9-c585577b9916 | path/to/local/file1   | 24fce28a-4605-4071-922b-f70ab12bcbe4 |
-| f07e6bb6-74b1-4607-af70-93bb6045d716 | path/to/local/file2   | 24fce28a-4605-4071-922b-f70ab12bcbe4 |
+| file_id (type text)                  | file_path (type text) | asset_id (type text)                 | downloaded | downloaded_at           |
+|--------------------------------------|-----------------------|--------------------------------------|------------|-------------------------|
+| 738c55cf-cfa1-4f57-98c9-c585577b9916 | path/to/local/file1   | 24fce28a-4605-4071-922b-f70ab12bcbe4 | true       | 2026-06-29T11:26:00.123 |
+| f07e6bb6-74b1-4607-af70-93bb6045d716 | path/to/local/file2   | 24fce28a-4605-4071-922b-f70ab12bcbe4 |            |                         |
 
 We would also want to begin the upload and ingest process from this cache location.
 
 ### Implementation
 
-- In the DRI migration script (and potentially other scripts in the future, for e.g. [Adhoc Ingest](https://github.com/nationalarchives/dr2-ingest/tree/main/python/ad-hoc-ingest)), 
+- In the DRI migration script (and potentially other scripts in the future, for e.g. [Ad Hoc Ingest](https://github.com/nationalarchives/dr2-ingest/tree/main/python/ad-hoc-ingest)), 
   after the writing of the results to JSON files in S3, we will add code that writes the (local) file path, file id and 
   asset id of each asset to a SQLite database (the path of which would be passed in when the script is run).
-- In CC, for a given file, right before it downloads the file from the Preservation System, it will use the file id in 
-  order to call the SQLite database table and retrieve the file's local file path. We write to the SQLite database before
-  we send the message about the file to CC, ensuring that the cache search will almost always find the file in the cache.
-- It will use the file path to download the file to the location where Preservation System downloads go to and then 
-  continue with the other processes.
-
+- In CC, a path to the database would be provided via the config; it will be optional to allow for cases  like non-migration
+  ingests, where the files are not expected to be in the cache
+- For a given file, right before it downloads the file from the Preservation System, it will use the bitstream name
+  (minus the file extension) as the id in order to call the SQLite database table and retrieve the file's local file path.
+  We write to the SQLite database before we send the message about the file to CC, ensuring that the cache search will
+  almost always find the file in the cache; "almost always" because it's entirely possible that the file got moved/deleted since.
+- If a file path is found
+  - It will use the checksum(s) that were generated on the file in the Preservation System and for each one, it will
+    generate a checksum/checksums on the local file using the same algorithm
+  - It will compare these two groups of checksums with each other (like-for-like)
+  - If all the checksums match
+    - It will use the file path to download the file to the location where Preservation System downloads go to and then
+      continue with the rest of the CC processes
+  - If even one of the checksums don't match
+    - It will continue as normal, i.e. download from the Preservation system instead of the cache
+- If a file path is not found
+  - It will continue as normal, i.e. download from the Preservation system instead of the cache
+- After processing all files, the ones that were downloaded from the local cache will have their rows updated in the database;
+  the `downloaded` column will be marked as `true` and the `downloaded_at` column will have the date added to it
 
 #### Considerations
+
+Failures
 
 The migration script could fail while the DB table is being written to and meaning the script would have to be rerun.
 `file_id` is a unique field so if on a rerun, it tries to add a row with a `file_id` that is already present, then an
 error will be raised; we can mitigate this by adding an "ON CONFLICT"-like restriction.
 
+Clearing Cache
+
+If we need to clear the cache, we'll just empty the table
