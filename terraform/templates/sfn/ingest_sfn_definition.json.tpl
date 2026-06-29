@@ -388,7 +388,7 @@
           "retryCount.$": "$.newRetryCount"
         }
       },
-      "End": true
+      "Next": "Delete assets file & folders file"
     },
     "Throw error, as items haven't been removed from lock table": {
       "Type": "Fail",
