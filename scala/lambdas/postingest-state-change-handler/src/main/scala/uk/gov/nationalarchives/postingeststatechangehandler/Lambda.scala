@@ -6,10 +6,12 @@ import io.circe.*
 import io.circe.Decoder.Result
 import io.circe.generic.semiauto.deriveDecoder
 import io.circe.jawn.decode
+import io.circe.parser.parse
 import org.scanamo.{DynamoArray, DynamoObject, DynamoReadError, DynamoValue}
 import pureconfig.ConfigReader
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbRequest
+import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 import uk.gov.nationalarchives.postingeststatechangehandler.Lambda.{*, given}
 import uk.gov.nationalarchives.utils.EventCodecs.given
@@ -20,9 +22,9 @@ import uk.gov.nationalarchives.utils.PostingestUtils.{OutputQueueMessage, Queue}
 import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, DASQSClient}
 
-import scala.jdk.CollectionConverters.*
 import java.time.Instant
 import java.util.UUID
+import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
@@ -68,11 +70,11 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       dependencies.daSnsClient.publish(config.topicArn)(message :: Nil).void
     }
 
-    def updateTableAndSendToSqs(newItem: PostIngestStateTableItem, queue: Queue) =
+    def updateTableAndSendToSqs(newItem: PostIngestStateTableItem, queue: Queue, payload: Json) =
       updateItem(newItem, queue.queueAlias) >>
         sendMessageToQueue(
           queue.queueUrl,
-          OutputQueueMessage(newItem.assetId, newItem.batchId, queue.resultAttrName, newItem.input)
+          OutputQueueMessage(newItem.assetId, newItem.batchId, queue.resultAttrName, payload)
         )
 
     def getInsertFibers(queues: List[Queue]) = event.Records
@@ -82,7 +84,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         if potentialFirstQueue.isDefined then
           val queue1 = potentialFirstQueue.get
           val newImage = record.dynamodb.newImage.get
-          val processInsertRecord = updateTableAndSendToSqs(newImage, queue1) >> sendOutputMessage(newImage, Some(queue1.queueAlias))
+          val payloadJson = parse(newImage.input).getOrElse(Json.fromString(newImage.input))
+          val processInsertRecord = updateTableAndSendToSqs(newImage, queue1, payloadJson) >> sendOutputMessage(newImage, Some(queue1.queueAlias))
           processInsertRecord.start
         else IO.raiseError(new Exception("Config does not have a queue with queueOrder 1"))
       }
@@ -105,7 +108,12 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
                       val potentialNextQueue = queues.find(_.queueOrder == queue.queueOrder + 1)
                       if potentialNextQueue.isDefined then
                         val nextQueue = potentialNextQueue.get
-                        updateTableAndSendToSqs(newItem, nextQueue) >> sendOutputMessage(newItem, Some(nextQueue.queueAlias))
+                        val nextPayload = queue.resultAttrName match
+                          case DynamoFormatters.resultCC => newItem.potentialResultCC.getOrElse("")
+                          case DynamoFormatters.resultTC => newItem.potentialResultTC.getOrElse("")
+                          case _                         => throw new Exception(s"Unsupported queue result attribute name ${queue.resultAttrName} found in the configuration.")
+                        val nextPayloadJson = parse(nextPayload).getOrElse(Json.fromString(nextPayload))
+                        updateTableAndSendToSqs(newItem, nextQueue, nextPayloadJson) >> sendOutputMessage(newItem, Some(nextQueue.queueAlias))
                       else IO.raiseError(new Exception(s"Config does not have a queue with queueOrder ${queue.queueOrder + 1}"))
                   case _ => logger.info(s"No valid queue found for asset id ${oldItem.assetId}")
                 }

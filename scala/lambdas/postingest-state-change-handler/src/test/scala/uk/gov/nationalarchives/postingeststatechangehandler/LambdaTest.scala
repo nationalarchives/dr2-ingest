@@ -108,7 +108,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   "handler" should "queue the item and send an SQS message to the TC queue if the event is 'MODIFY' and CC result has a value" in {
     val assetId = UUID.randomUUID
     val oldDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, None, None)
-    val newDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"result_$queue1"), None)
+    val newDynamoItem =
+      PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"""{"filePaths":["/tmp/file1","/tmp/file2"]}"""), None)
     val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem.some, newDynamoItem.some))))
     val refs = runLambda(List(newDynamoItem), event).unsafeRunSync()
 
@@ -129,7 +130,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val (queueUrl, messagesPerQueue) = refs.sentSqsMessages.head
 
     queueUrl should equal(queue2Url)
-    messagesPerQueue.head.getBody should equal(s"""{"assetId":"$assetId","batchId":"batchId","resultAttrName":"result_TC","payload":"input"}""")
+    messagesPerQueue.head.getBody should equal(s"""{"assetId":"$assetId","batchId":"batchId","resultAttrName":"result_TC","payload":{"filePaths":["/tmp/file1","/tmp/file2"]}}""")
 
     refs.sentSnsMessages.size should equal(1)
     val sentSnsMessage = refs.sentSnsMessages.head
@@ -146,8 +147,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
 
   "handler" should s"delete the item if the event is a 'MODIFY' one, OldImage has TC queue and NewImage has a result for the TC step" in {
     val assetId = UUID.randomUUID
-    val oldImage = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("TC"), dateTime, dateTime, Some(s"result_$queue1"), None)
-    val newImage = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("TC"), dateTime, dateTime, Some(s"result_$queue1"), Some(s"result_$queue1"))
+    val oldImage = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("TC"), dateTime, dateTime, Some(s"""{"filePaths":["/tmp/file1","/tmp/file2"]}"""), None)
+    val newImage = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("TC"), dateTime, dateTime, Some(s"""{"filePaths":["/tmp/file1","/tmp/file2"]}"""), Some(s"result_$queue1"))
     val additionalItemInTable =
       PostIngestStateTableItem(UUID.fromString("e5c55836-3917-405d-8bde-a1d970136c1d"), "batchId2", "input2", Some("correlationId2"), None, None, None, None, None)
     val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage.some, newImage.some))))
@@ -281,9 +282,6 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         |        "batchId": {
         |           "S": "DRI_c4f10c52-07b4-4e48-857f-4ed54fded557_0"
         |         },
-        |       "cc_result": {
-        |         "S": "true"
-        |       },
         |       "firstQueued": {
         |         "S": "2025-08-07T13:08:00.830157634Z"
         |       },
@@ -311,9 +309,6 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         |        "batchId": {
         |           "S": "DRI_c4f10c52-07b4-4e48-857f-4ed54fded557_0"
         |         },
-        |       "cc_result": {
-        |         "S": "true"
-        |       },
         |       "firstQueued": {
         |         "S": "2025-08-07T13:08:00.830157634Z"
         |       },
@@ -332,8 +327,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         |        "batchId": {
         |           "S": "DRI_c4f10c52-07b4-4e48-857f-4ed54fded557_0"
         |         },
-        |       "cc_result": {
-        |         "S": "true"
+        |       "result_CC": {
+        |         "filePaths": ["/tmp/file1","/tmp/file2"]
         |       },
         |       "firstQueued": {
         |         "S": "2025-08-07T13:08:00.830157634Z"

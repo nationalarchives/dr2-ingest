@@ -1,6 +1,6 @@
 package uk.gov.nationalarchives.utils
 
-import io.circe.{Decoder, Encoder, HCursor}
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import io.circe.generic.semiauto.deriveEncoder
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.PostIngestStateTableItem
 
@@ -9,7 +9,7 @@ import java.util.UUID
 object PostingestUtils {
   given Encoder[OutputQueueMessage] = deriveEncoder[OutputQueueMessage]
 
-  case class OutputQueueMessage(assetId: UUID, batchId: String, resultAttrName: String, payload: String)
+  case class OutputQueueMessage(assetId: UUID, batchId: String, resultAttrName: String, payload: Json)
 
   sealed trait Queue extends Product {
     def queueAlias: String

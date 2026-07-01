@@ -115,7 +115,7 @@ or
                  "S": "2038-01-19T15:14:07.000Z"
               },
               "result_CC": {
-                 "S": "<result>"
+                 "S": {"filePaths":["/path/to/file1","/path/to/file2"]}
               }
            },
            "SequenceNumber": "6200000000010677449965",
@@ -189,7 +189,7 @@ The Lambda:
       1. assetId
       2. batchId
       3. resultAttrName - the name that the next queue should use when updating the table
-      4. payload - the "input" attribute on the item
+      4. payload - the value from the resultAttrName of the queue that has just been updated, this is the data that will be sent to the next queue
    7. send an SNS message with the:
       1. Properties:
          1. executionId - batchId
