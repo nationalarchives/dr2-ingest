@@ -1,5 +1,5 @@
-boto3==1.43.18
+boto3==1.43.38
 moto==5.2.2
 pandas==3.0.3
 requests==2.34.2
-beautifulsoup4==4.14.3
+beautifulsoup4==4.15.0
