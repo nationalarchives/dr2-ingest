@@ -341,6 +341,7 @@ lazy val preingestCourtDocPackageBuilder = (project in file("preingest-courtdoc-
   .settings(
     libraryDependencies ++= Seq(
       awsCrt,
+      commonsCodec,
       dynamoClient,
       fs2Reactive,
       fs2IO,
