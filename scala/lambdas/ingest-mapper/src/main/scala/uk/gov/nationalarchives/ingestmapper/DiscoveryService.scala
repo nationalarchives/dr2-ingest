@@ -74,7 +74,7 @@ object DiscoveryService {
         Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(None), None))
 
       def getAssetFromDiscoveryApi(citableReference: String): F[DiscoveryCollectionAsset] = {
-        val uri = uri"$discoveryBaseUrl/API/records/v1/collection/$citableReference"
+        val uri = uri"$discoveryBaseUrl/API/records/v1/collection/$citableReference?source=TNA"
         val request = basicRequest.get(uri).response(asJson[DiscoveryCollectionAssetResponse])
         for {
           response <- backend.send(request)
