@@ -79,9 +79,9 @@ class DiscoveryServiceTest extends AnyFlatSpec {
 
   "getAssetFromDiscoveryApi" should "return the correct values for series and department" in {
     val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T?source=TNA"))
       .thenRespond(bodyMap("T"))
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST?source=TNA"))
       .thenRespond(bodyMap("T TEST"))
 
     val departmentCollectionAsset = DiscoveryService(baseUrl, backend, uuidIterator)
@@ -126,9 +126,9 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val emptyResponse: Response[Exact] = ResponseStub(Exact("""{"assets": []}"""), StatusCode.Ok)
 
     val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T?source=TNA"))
       .thenRespond(emptyResponse)
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST?source=TNA"))
       .thenRespond(bodyMap("T TEST"))
 
     val departmentItem = DiscoveryService(baseUrl, backend, uuidIterator)
@@ -151,9 +151,9 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     val emptyResponse: Response[Exact] = ResponseStub(Exact("""{"assets": []}"""), StatusCode.Ok)
 
     val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T"))
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T?source=TNA"))
       .thenRespond(bodyMap("T"))
-      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST"))
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T TEST?source=TNA"))
       .thenRespond(emptyResponse)
 
     val departmentItem = DiscoveryService(baseUrl, backend, uuidIterator)
