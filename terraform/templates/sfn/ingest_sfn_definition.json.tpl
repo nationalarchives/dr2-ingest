@@ -341,7 +341,7 @@
         "Delete": {
           "Objects": [
             {
-              "Key.$": "{% $substringAfter($substringAfter($states.context.Execution.Input.metadataPackage, 's3://'), '/') %}",
+              "Key.$": "{% $substringAfter($substringAfter($states.context.Execution.Input.metadataPackage, 's3://'), '/') %}"
             }
           ]
         }
@@ -395,6 +395,6 @@
       "Type": "Fail",
       "Cause": "Items with groupId still exist in lock table",
       "Error": "Items with groupId still exist in lock table"
-    },
+    }
   }
 }
