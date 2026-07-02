@@ -335,12 +335,13 @@
     },
     "Delete metadata.json": {
       "Type": "Task",
-      "Parameters": {
-        "Bucket": "${ingest_raw_cache_bucket_name}",
+      "QueryLanguage": "JSONata",
+      "Arguments": {
+        "Bucket": "{% $substringBefore($substringAfter($states.context.Execution.Input.metadataPackage, 's3://'), '/') %}",
         "Delete": {
           "Objects": [
             {
-              "Key.$": "States.Format('{}/metadata.json', $$.Execution.Input.batchId)"
+              "Key.$": "{% $substringAfter($substringAfter($states.context.Execution.Input.metadataPackage, 's3://'), '/') %}",
             }
           ]
         }
@@ -388,12 +389,12 @@
           "retryCount.$": "$.newRetryCount"
         }
       },
-      "End": true
+      "Next": "Delete assets file & folders file"
     },
     "Throw error, as items haven't been removed from lock table": {
       "Type": "Fail",
       "Cause": "Items with groupId still exist in lock table",
       "Error": "Items with groupId still exist in lock table"
-    }
+    },
   }
 }
