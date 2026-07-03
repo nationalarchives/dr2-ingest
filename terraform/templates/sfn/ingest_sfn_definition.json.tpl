@@ -335,12 +335,13 @@
     },
     "Delete metadata.json": {
       "Type": "Task",
-      "Parameters": {
-        "Bucket": "${ingest_raw_cache_bucket_name}",
+      "QueryLanguage": "JSONata",
+      "Arguments": {
+        "Bucket": "{% $substringBefore($substringAfter($states.context.Execution.Input.metadataPackage, 's3://'), '/') %}",
         "Delete": {
           "Objects": [
             {
-              "Key.$": "States.Format('{}/metadata.json', $$.Execution.Input.batchId)"
+              "Key.$": "{% $substringAfter($substringAfter($states.context.Execution.Input.metadataPackage, 's3://'), '/') %}"
             }
           ]
         }
