@@ -110,16 +110,19 @@ locals {
       max_concurrency            = 3
       tdr_reserved_channels      = 1
       courtdoc_reserved_channels = 1
+      default_reserved_channels  = 1
     }
     prod = {
       max_concurrency            = 4
-      tdr_reserved_channels      = 2
+      tdr_reserved_channels      = 1
       courtdoc_reserved_channels = 2
+      default_reserved_channels  = 1
     }
     staging = {
       max_concurrency            = 3
-      tdr_reserved_channels      = 0
-      courtdoc_reserved_channels = 0
+      tdr_reserved_channels      = 1
+      courtdoc_reserved_channels = 1
+      default_reserved_channels  = 1
     }
   }
   selected_flow_control_config = local.flow_control_configs[local.environment]
