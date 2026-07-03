@@ -28,7 +28,7 @@ jobs:
         run: |
           terraform init
           terraform workspace select prod
-          export TF_VAR_lambda_code_version=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | sed 's/^v//' | head -1)
+          export TF_VAR_lambda_code_version=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
           terraform plan -detailed-exitcode || echo $? > exit-code
         env:
           GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
