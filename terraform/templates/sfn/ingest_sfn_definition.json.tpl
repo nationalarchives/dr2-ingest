@@ -341,7 +341,7 @@
         "Delete": {
           "Objects": [
             {
-              "Key.$": "{% $substringAfter($substringAfter($states.context.Execution.Input.metadataPackage, 's3://'), '/') %}"
+              "Key": "{% $substringAfter($substringAfter($states.context.Execution.Input.metadataPackage, 's3://'), '/') %}"
             }
           ]
         }
