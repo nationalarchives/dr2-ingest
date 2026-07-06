@@ -1,15 +1,20 @@
 locals {
-  postingest_state_table_name         = "${var.environment}-dr2-postingest-state"
-  postingest_gsi_firstqueued_name     = "QueueFirstQueuedIdx"
-  postingest_gsi_lastqueued_name      = "QueueLastQueuedIdx"
-  custodial_copy_confirmer_queue_name = "${var.environment}-dr2-custodial-copy-confirmer"
-  state_change_lambda_key             = "postingest-state-change-handler"
-  state_change_lambda_name            = "${var.environment}-dr2-${local.state_change_lambda_key}"
-  state_change_lambda_dlq             = "${var.environment}-dr2-postingest-state-change-dlq"
-  resender_lambda_key                 = "postingest-message-resender"
-  resender_lambda_name                = "${var.environment}-dr2-${local.resender_lambda_key}"
-  java_runtime                        = "java21"
-  java_lambda_memory_size             = 512
+  postingest_state_table_name                = "${var.environment}-dr2-postingest-state"
+  postingest_gsi_firstqueued_name            = "QueueFirstQueuedIdx"
+  postingest_gsi_lastqueued_name             = "QueueLastQueuedIdx"
+  custodial_copy_confirmer_queue_name        = "${var.environment}-dr2-custodial-copy-confirmer"
+  state_change_ddb_queue_name                = "${var.environment}-dr2-state-change-handler"
+  state_change_lambda_key                    = "postingest-state-change-handler"
+  state_change_lambda_name                   = "${var.environment}-dr2-${local.state_change_lambda_key}"
+  state_change_lambda_dlq                    = "${var.environment}-dr2-postingest-state-change-dlq"
+  resender_lambda_key                        = "postingest-message-resender"
+  resender_lambda_name                       = "${var.environment}-dr2-${local.resender_lambda_key}"
+  java_runtime                               = "java21"
+  java_lambda_memory_size                    = 512
+  python_timeout_seconds                     = 30
+  python_runtime                             = "python3.14"
+  python_lambda_memory_size                  = 128
+  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-send_to_state_change_ddb_queue"
   postingest_queue_config = [ // Before adding a new queue here, update the state change handler to expect it
     { "queueAlias" : "CC", "queueOrder" : 1, "queueUrl" : module.dr2_custodial_copy_confirmer_queue.sqs_queue_url }
   ]
@@ -83,19 +88,39 @@ module "cc_confirmer_message_older_than_one_week_alarm" {
   threshold = local.seven_days
 }
 
-module "dr2_state_change_lambda_dlq" {
+module "dr2_state_change_ddb_queue" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  queue_name = local.state_change_lambda_dlq
-  sqs_policy = templatefile("./templates/sqs/lambda_sqs_dlq_policy.json.tpl", {
+  queue_name = local.state_change_ddb_queue_name
+  sqs_policy = templatefile("./templates/sqs/sqs_access_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.state_change_lambda_dlq
+    queue_name = local.state_change_ddb_queue_name
   })
-  create_dlq                                        = false
-  queue_cloudwatch_alarm_visible_messages_threshold = 1
-  visibility_timeout                                = 300
+  create_dlq                                        = true
+  queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
+  visibility_timeout                                = 180
   encryption_type                                   = "sse"
 }
 
+module "dr2_state_change_ddb_queue_lambda" {
+  source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
+  description     = "A lambda function to pass on a DynamoDB Stream event to an SQS queue"
+  function_name   = local.state_change_lambda_name
+  handler         = "send_to_state_change_ddb_queue.lambda_handler"
+  timeout_seconds = local.python_timeout_seconds
+  runtime         = local.python_runtime
+  memory_size     = local.python_lambda_memory_size
+  dynamo_stream_config = {
+    stream_arn             = module.postingest_state_table.stream_arn
+    dead_letter_target_arn = module.dr2_state_change_ddb_queue.dlq_sqs_arn
+  }
+
+  policies = {
+    "${local.send_to_state_change_ddb_queue_lambda_name}-policy" = templatefile("./templates/iam_policy/send_to_state_change_ddb_queue.json.tpl", {
+      state_change_handler_queue_arn = module.dr2_state_change_ddb_queue.sqs_arn
+    })
+  }
+  tags = {}
+}
 
 module "dr2_state_change_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
@@ -111,7 +136,7 @@ module "dr2_state_change_lambda" {
       account_id                       = data.aws_caller_identity.current.account_id
       lambda_name                      = local.state_change_lambda_name
       dynamo_db_postingest_stream_arn  = module.postingest_state_table.stream_arn
-      state_change_dlq_arn             = module.dr2_state_change_lambda_dlq.sqs_arn
+      state_change_dlq_arn             = module.dr2_state_change_ddb_queue.dlq_sqs_arn
       vpc_id                           = var.vpc_id
     })
   }
@@ -119,10 +144,14 @@ module "dr2_state_change_lambda" {
   s3_key      = "${var.lambda_code_version}/${local.state_change_lambda_key}"
   memory_size = local.java_lambda_memory_size
   runtime     = local.java_runtime
-  dynamo_stream_config = {
-    stream_arn             = module.postingest_state_table.stream_arn
-    dead_letter_target_arn = module.dr2_state_change_lambda_dlq.sqs_arn
-  }
+
+  sqs_queue_mapping_batch_size   = 10
+  sqs_report_batch_item_failures = true
+  lambda_sqs_queue_mappings = [{
+    sqs_queue_arn         = module.dr2_state_change_ddb_queue.sqs_arn
+    ignore_enabled_status = true
+  }]
+
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
     security_group_ids = var.private_security_group_ids
