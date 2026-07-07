@@ -675,6 +675,7 @@ resource "aws_ssm_parameter" "flow_control_config" {
     max_concurrency            = local.selected_flow_control_config.max_concurrency,
     tdr_reserved_channels      = local.selected_flow_control_config.tdr_reserved_channels,
     courtdoc_reserved_channels = local.selected_flow_control_config.courtdoc_reserved_channels
+    default_reserved_channels  = local.selected_flow_control_config.default_reserved_channels
   })
 }
 
