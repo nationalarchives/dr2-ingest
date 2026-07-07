@@ -132,7 +132,7 @@ class TestLambdaFunction(unittest.TestCase):
             self.assertEqual('source-bucket', call_args[1])
             self.assertEqual('asset-id.metadata', call_args[2])
             uploaded_content = json.loads(call_args[0].getvalue().decode('utf-8'))
-            self.assertEqual([json_metadata], uploaded_content)
+            self.assertEqual(json_metadata, uploaded_content)
 
     @patch('lambda_function.s3_client.list_objects')
     @patch('lambda_function.s3_client.head_object')
