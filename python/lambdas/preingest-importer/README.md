@@ -35,17 +35,25 @@ The lambda doesn't return anything, but it sends a message to `OUTPUT_QUEUE_URL`
     3. Confirm that UUID is in the correct format
     4. Confirm that Series exists
     5. Confirm that Series is in the correct format
-5. Copy files from the `bucket` to the `OUTPUT_BUCKET_NAME`
-6. If `DELETE_FROM_SOURCE` is set to `true`, delete all files and metadata json from the source bucket.
-7. Send the `assetId`, location of the metadata file and `messageId` (if there is one) to `OUTPUT_QUEUE_URL`
+5. If the `RECORDS_METADATA_BUCKET` environment variable is set, then
+    1. Loop through the objects in the JSON metadata.
+    2. For each object, create an object key which is `live/{series}/{file_reference}` with any `/` in the file
+       reference replaced by `-`.
+    3. Load this JSON file from the bucket referenced by `RECORDS_METADATA_BUCKET`.
+    4. Add this to a `migratedMetadata` field in the original JSON.
+    5. Upload this new JSON back to the source bucket.
+6. Copy files from the `bucket` to the `OUTPUT_BUCKET_NAME`
+7. If `DELETE_FROM_SOURCE` is set to `true`, delete all files and metadata json from the source bucket.
+8. Send the `assetId`, location of the metadata file and `messageId` (if there is one) to `OUTPUT_QUEUE_URL`
 
 [Link to the infrastructure code](https://github.com/nationalarchives/dp-terraform-environments)
 
 ## Environment Variables
 
-| Name               | Description                                                                                                                   |
-|--------------------|-------------------------------------------------------------------------------------------------------------------------------|
-| OUTPUT_BUCKET_NAME | The DR2 bucket to copy the files to                                                                                           |
-| OUTPUT_QUEUE_URL   | The SQS queue to send the non-metadata file locations to                                                                      |
-| DELETE_FROM_SOURCE | An optional variable. If set to 'true', the lambda will delete all files and metadata from the source bucket                  |
-| SKIP_VALIDATION    | An optional variable. If set to 'true', the lambda will not validate the metadata. This is used when the metadata is not JSON |
+| Name                    | Description                                                                                                                   |
+|-------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| OUTPUT_BUCKET_NAME      | The DR2 bucket to copy the files to                                                                                           |
+| OUTPUT_QUEUE_URL        | The SQS queue to send the non-metadata file locations to                                                                      |
+| DELETE_FROM_SOURCE      | An optional variable. If set to 'true', the lambda will delete all files and metadata from the source bucket                  |
+| SKIP_VALIDATION         | An optional variable. If set to 'true', the lambda will not validate the metadata. This is used when the metadata is not JSON |
+| RECORDS_METADATA_BUCKET | An optional variable. If set, load the migrated DRI metadata from this bucket and add it to the metadata JSON file            |
