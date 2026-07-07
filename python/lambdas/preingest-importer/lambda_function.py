@@ -55,7 +55,7 @@ def copy_records_metadata(source_bucket, records_metadata_bucket, json_metadata,
         response = s3_client.get_object(Bucket=records_metadata_bucket, Key=key)
         migrated_metadata = json.loads(response['Body'].read().decode('utf-8'))
         metadata["migratedMetadata"] = migrated_metadata
-    json_bytes = io.BytesIO(json.dumps([json_metadata]).encode("utf-8"))
+    json_bytes = io.BytesIO(json.dumps(json_metadata).encode("utf-8"))
     s3_client.upload_fileobj(json_bytes, source_bucket, metadata_file_key)
 
 

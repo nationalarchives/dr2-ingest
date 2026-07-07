@@ -13,8 +13,9 @@ import argument_parser_builder
 import aws_interactions
 import dataset_validator
 import discovery_client
-import metadata_creator
 import message_printer as mp
+import metadata_creator
+import version_check
 
 
 def validate_arguments(args):
@@ -143,6 +144,10 @@ def is_folder_writable(output_folder):
 
 
 def main():
+    if not version_check.is_latest_version():
+        version_check_response = input("Adhoc ingest is not at the latest version. Do you want to continue? y/n")
+        if version_check_response.lower() not in ["y", "yes"]:
+            sys.exit(0)
     args = argument_parser_builder.build().parse_args()
     validate_arguments(args)
 
@@ -171,3 +176,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
