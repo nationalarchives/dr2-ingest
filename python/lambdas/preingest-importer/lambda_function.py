@@ -1,3 +1,4 @@
+import io
 import itertools
 import json
 import os
@@ -18,6 +19,7 @@ def lambda_handler(event, context):
     destination_queue = os.environ["OUTPUT_QUEUE_URL"]
     delete_from_source = os.getenv("DELETE_FROM_SOURCE", "false") == "true"
     skip_validation = os.getenv("SKIP_VALIDATION", "false") == "true"
+    records_metadata_bucket = os.getenv("RECORDS_METADATA_BUCKET")
     for record in event["Records"]:
         body: dict[str, str] = json.loads(record["body"])
         asset_id = body["assetId"] if "assetId" in body else body["fileId"]
@@ -26,7 +28,10 @@ def lambda_handler(event, context):
         try:
             file_objects = assert_objects_exist_in_bucket(source_bucket, asset_id)
             if not skip_validation:
-                validate_metadata(source_bucket, metadata_file_id)
+                json_metadata = validate_metadata(source_bucket, metadata_file_id)
+                if records_metadata_bucket:
+                    copy_records_metadata(source_bucket, records_metadata_bucket, json_metadata, metadata_file_id)
+
             transfer_files = [f['Key'] for f in file_objects]
             copy_objects(destination_bucket, transfer_files, source_bucket)
             potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
@@ -40,6 +45,19 @@ def lambda_handler(event, context):
         except Exception as e:
             print(json.dumps({"error": str(e), "assetId": asset_id}))
             raise Exception(e)
+
+
+def copy_records_metadata(source_bucket, records_metadata_bucket, json_metadata, metadata_file_key):
+    for metadata in json_metadata:
+        series = metadata["Series"]
+        file_reference = metadata["FileReference"].replace("/", "-")
+        key = f"live/{series}-{file_reference}.json"
+        response = s3_client.get_object(Bucket=records_metadata_bucket, Key=key)
+        migrated_metadata = json.loads(response['Body'].read().decode('utf-8'))
+        metadata["migratedMetadata"] = migrated_metadata
+    json_bytes = io.BytesIO(json.dumps([json_metadata]).encode("utf-8"))
+    s3_client.upload_fileobj(json_bytes, source_bucket, metadata_file_key)
+
 
 
 def list_all_objects(source_bucket, file_id):
@@ -74,6 +92,7 @@ def validate_metadata(bucket, s3_key):
     for metadata in json_metadata:
         validate_mandatory_fields_exist(f"common/preingest-{source_system}/metadata-schema.json", metadata)
         validate_formats(metadata, bucket, s3_key)
+    return json_metadata
 
 
 def validate_mandatory_fields_exist(schema_location, json_metadata):

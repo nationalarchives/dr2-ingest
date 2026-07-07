@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import unittest
@@ -73,6 +74,65 @@ class TestLambdaFunction(unittest.TestCase):
                   mock_get_object, mock_send_message, mock_copy, mock_head_object, mock_list_objects):
         copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object, mock_delete_object,
                     mock_send_message, mock_copy, mock_head_object, mock_list_objects, skip_validation=True)
+
+    @patch('lambda_function.s3_client.list_objects')
+    @patch('lambda_function.s3_client.head_object')
+    @patch('lambda_function.copy_objects')
+    @patch('lambda_function.sqs_client.send_message')
+    @patch('lambda_function.s3_client.get_object')
+    @patch('lambda_function.copy_records_metadata')
+    @patch('lambda_function.validate_mandatory_fields_exist')
+    @patch('lambda_function.validate_formats')
+    @patch.dict(os.environ, {'OUTPUT_BUCKET_NAME': 'destination-bucket'})
+    @patch.dict(os.environ, {'SOURCE_SYSTEM': 'dri'})
+    @patch.dict(os.environ, {'RECORDS_METADATA_BUCKET': 'records-metadata-bucket'})
+    def test_copy_calls_copy_records_metadata_when_records_metadata_bucket_set(
+            self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_copy_records_metadata,
+            mock_get_object, mock_send_message, mock_copy, mock_head_object, mock_list_objects):
+        asset_id, file_id = str(uuid.uuid4()), str(uuid.uuid4())
+        key = f'{asset_id}/{file_id}'
+        contents = [{'Size': 1024, 'Key': key}, {'Size': 1, 'Key': f'{asset_id}.metadata'}]
+        mock_list_objects.return_value = {'Contents': contents, 'IsTruncated': False}
+        mock_head_object.return_value = {'ContentLength': 1024}
+        mock_validate_mandatory_fields_exist.return_value = True
+        mock_validate_formats.return_value = True
+        metadata_object = {
+            "ConsignmentReference": "TDR-2024-PQXN",
+            "FileReference": "ZDSCFC",
+            "Series": "SMTH 123",
+            "TransferInitiatedDatetime": "2024-09-19 07:21:57",
+            "UUID": "0000c951-b332-4d45-93e7-8c24eec4b1f1"
+        }
+        mock_get_object.return_value = {
+            'Body': io.BytesIO(b'[' + json.dumps(metadata_object).encode() + b']')
+        }
+        event = {'Records': [{'body': json.dumps({"bucket": "source-bucket", "assetId": asset_id})}]}
+        context = {}
+
+        lambda_function.lambda_handler(event, context)
+
+        mock_copy_records_metadata.assert_called_once_with(
+            'source-bucket', 'records-metadata-bucket', [metadata_object], f'{asset_id}.metadata')
+
+    def test_copy_records_metadata_uploads_merged_metadata(self):
+        with patch('lambda_function.s3_client.get_object') as mock_get_object, \
+                patch('lambda_function.s3_client.upload_fileobj') as mock_upload_fileobj:
+            migrated_metadata = {"foo": "bar"}
+            mock_get_object.return_value = {'Body': io.BytesIO(json.dumps(migrated_metadata).encode('utf-8'))}
+            json_metadata = [{"Series": "MOCK1 123", "FileReference": "AB/12"}]
+
+            lambda_function.copy_records_metadata('source-bucket', 'records-metadata-bucket', json_metadata,
+                                                   'asset-id.metadata')
+
+            mock_get_object.assert_called_once_with(Bucket='records-metadata-bucket', Key='live/MOCK1 123-AB-12.json')
+            self.assertEqual(migrated_metadata, json_metadata[0]['migratedMetadata'])
+
+            mock_upload_fileobj.assert_called_once()
+            call_args = mock_upload_fileobj.call_args.args
+            self.assertEqual('source-bucket', call_args[1])
+            self.assertEqual('asset-id.metadata', call_args[2])
+            uploaded_content = json.loads(call_args[0].getvalue().decode('utf-8'))
+            self.assertEqual([json_metadata], uploaded_content)
 
     @patch('lambda_function.s3_client.list_objects')
     @patch('lambda_function.s3_client.head_object')

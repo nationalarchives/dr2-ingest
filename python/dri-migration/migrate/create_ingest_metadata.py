@@ -136,7 +136,7 @@ def migrate(ic_db_path):
                 "TransferInitiatedDatetime": str(row[column_indexes["TRANSFERINITIATEDDATETIME"]]),
                 "Filename": row[column_indexes["FILENAME"]],
                 "FileReference": row[column_indexes["FILEREFERENCE"]],
-                "metadata": str(row[column_indexes["METADATA"]]),
+                "preservicaMetadata": str(row[column_indexes["METADATA"]]),
                 "ClientSideOriginalFilepath": file_path,
                 "digitalAssetSource": security_tag,
                 "sortOrder": sort_order,
