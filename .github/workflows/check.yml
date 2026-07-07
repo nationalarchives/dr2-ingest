@@ -14,5 +14,6 @@ jobs:
           ref: 'prod'
           submodules: recursive
           token: ${{ secrets.WORKFLOW_TOKEN }}
+          fetch-tags: true
           persist-credentials: false
       - run: echo $(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
