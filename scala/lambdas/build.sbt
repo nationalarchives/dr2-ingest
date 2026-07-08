@@ -283,7 +283,7 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
       upickle,
       reactorTest % Test
     ),
-    dependencyOverrides ++= Seq(jawnParser, jacksonCore)
+    dependencyOverrides ++= Seq(jawnParser, jacksonCore, jacksonDatabind)
   )
 
 lazy val postIngestStateChangeHandler = (project in file("postingest-state-change-handler"))
@@ -302,7 +302,8 @@ lazy val postIngestStateChangeHandler = (project in file("postingest-state-chang
       reactorTest % Test,
       scalaCheck % Test,
       scalaCheckPlus % Test
-    )
+    ),
+    dependencyOverrides += jacksonDatabind
   )
 
 lazy val packageBuilderSettings = Seq(
@@ -316,7 +317,7 @@ lazy val packageBuilderSettings = Seq(
     scalaCheck % Test,
     scalaCheckPlus % Test
   ),
-  dependencyOverrides += jawnParser
+  dependencyOverrides ++= Seq(jawnParser, jacksonDatabind)
 )
 
 lazy val preingestRestorePackageBuilder = (project in file("preingest-restore-package-builder"))
@@ -341,6 +342,7 @@ lazy val preingestCourtDocPackageBuilder = (project in file("preingest-courtdoc-
   .settings(
     libraryDependencies ++= Seq(
       awsCrt,
+      commonsCodec,
       dynamoClient,
       fs2Reactive,
       fs2IO,

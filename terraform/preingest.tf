@@ -41,6 +41,13 @@ module "dri_preingest" {
   lambda_code_version                          = var.lambda_code_version
   notifications_topic_arn                      = module.dr2_notifications_sns.sns_arn
   code_deploy_bucket                           = "mgmt-dp-code-deploy"
+  additional_importer_lambda_policies = local.environment == "prod" ? {
+    "${local.environment}-copy-from-records-metadata" = templatefile("${path.module}/templates/iam_policy/preingest_dri_records_metadata.json.tpl", {
+      records_metadata_bucket = local.records_metadata_bucket_name
+      source_bucket           = local.dri_migration_bucket_name
+    })
+  } : {}
+  additional_importer_lambda_env_vars = local.environment == "prod" ? { RECORDS_METADATA_BUCKET = local.records_metadata_bucket_name } : {}
 }
 
 module "ad_hoc_preingest" {
