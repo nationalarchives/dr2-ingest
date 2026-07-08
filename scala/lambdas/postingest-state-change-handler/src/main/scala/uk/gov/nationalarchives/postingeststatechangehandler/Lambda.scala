@@ -15,7 +15,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 import uk.gov.nationalarchives.postingeststatechangehandler.Lambda.{*, given}
 import uk.gov.nationalarchives.utils.EventCodecs.given
-import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.{IngestedCCDisk, IngestedPreservation, IngestedTape}
+import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.IngestedTape
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.{IngestComplete, IngestUpdate}
 import uk.gov.nationalarchives.utils.ExternalUtils.{OutputMessage, OutputParameters, OutputProperties}
 import uk.gov.nationalarchives.utils.PostingestUtils.{OutputQueueMessage, Queue}
@@ -56,12 +56,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     def sendMessageToQueue(queueUrl: String, message: OutputQueueMessage): IO[Unit] =
       dependencies.daSqsClient.sendMessage(queueUrl)(message).void
 
-    def sendOutputMessage(item: PostIngestStateTableItem, newQueueAlias: Option[String] = None): IO[Unit] = {
-      val (messageType, messageStatus) = newQueueAlias match
-        case Some("CC")             => (IngestUpdate, IngestedPreservation)
-        case Some("TC")             => (IngestUpdate, IngestedCCDisk)
-        case Some(unsupportedQueue) => throw new Exception(s"A 'messageType' and 'messageStatus' implementation exist for queue $unsupportedQueue")
-        case None                   => (IngestComplete, IngestedTape)
+    def sendOutputMessage(item: PostIngestStateTableItem, newQueue: Option[Queue] = None): IO[Unit] = {
+      val (messageType, messageStatus) = newQueue.map(queue => (IngestUpdate, queue.messageStatus)).getOrElse((IngestComplete, IngestedTape))
 
       val message = OutputMessage(
         OutputProperties(item.batchId, dependencies.uuidGenerator(), item.potentialCorrelationId, dependencies.instantGenerator(), messageType),
@@ -80,14 +76,11 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     def getInsertFibers(queues: List[Queue]) = event.Records
       .filter(_.eventName == EventName.INSERT)
       .parTraverse { record =>
-        val potentialFirstQueue = queues.find(_.queueOrder == 1)
-        if potentialFirstQueue.isDefined then
-          val queue1 = potentialFirstQueue.get
-          val newImage = record.dynamodb.newImage.get
-          val payloadJson = parse(newImage.input).getOrElse(Json.fromString(newImage.input))
-          val processInsertRecord = updateTableAndSendToSqs(newImage, queue1, payloadJson) >> sendOutputMessage(newImage, Some(queue1.queueAlias))
-          processInsertRecord.start
-        else IO.raiseError(new Exception("Config does not have a queue with queueOrder 1"))
+        val queue1 = queues.find(_.queueOrder == 1).get
+        val newImage = record.dynamodb.newImage.get
+        val payloadJson = parse(newImage.input).getOrElse(Json.fromString(newImage.input))
+        val processInsertRecord = updateTableAndSendToSqs(newImage, queue1, payloadJson) >> sendOutputMessage(newImage, Some(queue1))
+        processInsertRecord.start
       }
 
     def newResultDiffersFromOld(newResult: Option[String], oldResult: Option[String]) = newResult.getOrElse("") != oldResult.getOrElse("")
@@ -100,7 +93,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
           val processModifyRecord =
             (record.dynamodb.oldImage, record.dynamodb.newImage) match
               case (Some(oldItem), Some(newItem)) =>
-                val potentialQueue = queues.find(queue => queue.isValid(oldItem, newItem))
+                val potentialQueue = queues.find(queue => queue.isResultChangeOnTheSameQueue(oldItem, newItem))
                 potentialQueue match {
                   case Some(queue) =>
                     if queue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem) // new item has met final check; time to delete it from queue
@@ -113,7 +106,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
                           case DynamoFormatters.resultTC => newItem.potentialResultTC.getOrElse("")
                           case _                         => throw new Exception(s"Unsupported queue result attribute name ${queue.resultAttrName} found in the configuration.")
                         val nextPayloadJson = parse(nextPayload).getOrElse(Json.fromString(nextPayload))
-                        updateTableAndSendToSqs(newItem, nextQueue, nextPayloadJson) >> sendOutputMessage(newItem, Some(nextQueue.queueAlias))
+                        updateTableAndSendToSqs(newItem, nextQueue, nextPayloadJson) >> sendOutputMessage(newItem, Some(nextQueue))
                       else IO.raiseError(new Exception(s"Config does not have a queue with queueOrder ${queue.queueOrder + 1}"))
                   case _ => logger.info(s"No valid queue found for asset id ${oldItem.assetId}")
                 }
@@ -125,7 +118,15 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
     }
 
     for {
-      queues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
+      queues <- IO
+        .fromEither(
+          decode[List[Queue]](config.queues).left.map(err => new RuntimeException("Unable to decode queues from the configuration"))
+        )
+        .map(_.sortBy(_.queueOrder))
+      _ <- IO.raiseWhen(queues.isEmpty)(new Exception("No queues found in the configuration"))
+      _ <- IO.raiseWhen(!queues.exists(_.queueOrder == 1))(new Exception("Config does not have a queue with queueOrder 1"))
+      _ <- IO.raiseWhen(queues.map(_.queueOrder).distinct.length != queues.length)(new Exception("Config has more than 1 queue with the same queueOrder"))
+      _ <- IO.raiseWhen(queues.map(_.queueOrder) != (1 to queues.length).toList)(new Exception("Config does not have queues in sequential order"))
       queuePropsAndValues = queues.flatMap(queue => queue.productElementNames.zip(queue.productIterator))
       queuesWithSameValue = queuePropsAndValues.groupBy(identity).filter { case (_, propsAndVals) => propsAndVals.length > 1 }
       _ <- IO.raiseWhen(queuesWithSameValue.nonEmpty) {

@@ -4,7 +4,7 @@ import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
 import cats.implicits.*
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
-import org.scalatest.EitherValues
+import org.scalatest.{Assertion, EitherValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -147,8 +147,19 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
 
   "handler" should s"delete the item if the event is a 'MODIFY' one, OldImage has TC queue and NewImage has a result for the TC step" in {
     val assetId = UUID.randomUUID
-    val oldImage = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("TC"), dateTime, dateTime, Some(s"""{"filePaths":["/tmp/file1","/tmp/file2"]}"""), None)
-    val newImage = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("TC"), dateTime, dateTime, Some(s"""{"filePaths":["/tmp/file1","/tmp/file2"]}"""), Some(s"result_$queue1"))
+    val oldImage =
+      PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("TC"), dateTime, dateTime, Some(s"""{"filePaths":["/tmp/file1","/tmp/file2"]}"""), None)
+    val newImage = PostIngestStateTableItem(
+      assetId,
+      "batchId",
+      "input",
+      Some("correlationId"),
+      Some("TC"),
+      dateTime,
+      dateTime,
+      Some(s"""{"filePaths":["/tmp/file1","/tmp/file2"]}"""),
+      Some(s"result_$queue1")
+    )
     val additionalItemInTable =
       PostIngestStateTableItem(UUID.fromString("e5c55836-3917-405d-8bde-a1d970136c1d"), "batchId2", "input2", Some("correlationId2"), None, None, None, None, None)
     val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage.some, newImage.some))))
@@ -184,9 +195,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem.some, newDynamoItem.some))))
 
     val duplicatedQueues =
-      s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
-        s"""{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
-        s"""{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"}]"""
+      s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "queueUrl1"},""" +
+        s"""{"queueAlias": "TC", "queueOrder": 2, "queueUrl": "queueUrl1"}]"""
 
     val config = Config("ddbTable", "ddbGsi", "topicArn", duplicatedQueues)
 
@@ -195,7 +205,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     }
     ex.getMessage should equal(
       "The values in each queue should be unique but there is more than 1 queue with:\n" +
-        "Property: queueOrder, Value: 1\nProperty: queueUrl, Value: https://queueUrl1.com\nProperty: queueAlias, Value: CC"
+        "Property: queueUrl, Value: queueUrl1"
     )
   }
 
@@ -211,22 +221,10 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   }
 
   "handler" should s"throw an error if the queue in configuration is unknown" in {
-    val assetId = UUID.randomUUID
-    val oldDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, None, None)
-    val newDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"result_$queue1"), None)
-
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(oldDynamoItem).some, oldDynamoItem.some, newDynamoItem.some))))
-
     val queues =
       s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
         s"""{"queueAlias": "OC", "queueOrder": 2, "queueUrl": "$queue2Url"}]"""
-
-    val config = Config("ddbTable", "ddbGsi", "topicArn", queues)
-
-    val ex = intercept[Exception] {
-      runLambda(List(newDynamoItem), event, config).unsafeRunSync()
-    }
-    ex.getMessage should equal("Unsupported queue, 'OC' found in the configuration.")
+    assertValidConfig(queues, "Unsupported queue, 'OC' found in the configuration.")
   }
 
   "handler" should s"throw an error if the queue order is not sequential" in {
@@ -245,25 +243,45 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val ex = intercept[Exception] {
       runLambda(List(newDynamoItem), event, config).unsafeRunSync()
     }
-    ex.getMessage should equal("Config does not have a queue with queueOrder 2")
+    ex.getMessage should equal("Config does not have queues in sequential order")
   }
 
   "handler" should s"throw an error if the queue order does not begin with 1" in {
+    val queues =
+      s"""[{"queueAlias": "CC", "queueOrder": 2, "queueUrl": "$queue1Url"},""" +
+        s"""{"queueAlias": "TC", "queueOrder": 3, "queueUrl": "$queue2Url"}]"""
+    assertValidConfig(queues, "Config does not have a queue with queueOrder 1")
+  }
+
+  "handler" should "throw an error when the configuration cannot be parsed" in {
+    val queues = s"""[{"queueAlias": "CC", "queueOrder": 2, "queueUrl": "queue1Url"},""" +
+      s"""{"queueAlias": "TC", "queueOrder": 3, "queueUrl": "queue2Url"]""" // missing closing brace for the second queue
+    assertValidConfig(queues, "Unable to decode queues from the configuration")
+  }
+
+  "handler" should "throw an error when the configuration is empty" in {
+    val queues = s"""[]"""
+    assertValidConfig(queues, "No queues found in the configuration")
+  }
+
+  "handler" should "throw an error when the configuration has more than one queue with same order" in {
+    val queues =
+      s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
+        s"""{"queueAlias": "TC", "queueOrder": 1, "queueUrl": "$queue2Url"}]"""
+    assertValidConfig(queues, "Config has more than 1 queue with the same queueOrder")
+  }
+
+  def assertValidConfig(queues: String, expectedErrorMessage: String): Assertion = {
     val assetId = UUID.randomUUID
     val newDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"result_$queue1"), None)
 
     val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(getPrimaryKey(newDynamoItem).some, None, newDynamoItem.some))))
-
-    val queues =
-      s"""[{"queueAlias": "CC", "queueOrder": 2, "queueUrl": "$queue1Url"},""" +
-        s"""{"queueAlias": "TC", "queueOrder": 3, "queueUrl": "$queue2Url"}]"""
-
     val config = Config("ddbTable", "ddbGsi", "topicArn", queues)
 
     val ex = intercept[Exception] {
       runLambda(List(newDynamoItem), event, config).unsafeRunSync()
     }
-    ex.getMessage should equal("Config does not have a queue with queueOrder 1")
+    ex.getMessage should equal(expectedErrorMessage)
   }
 
   "Decoder" should "skip `REMOVE` events" in {
