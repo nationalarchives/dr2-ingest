@@ -141,6 +141,7 @@ class TestMigrate(unittest.TestCase):
             self.assertEqual(unit_ref.replace("-", ""), metadata["IAID"])
             self.assertEqual("series1", metadata["Series"])
             self.assertEqual(checksum, metadata["checksum_sha256"])
+            self.assertEqual("meta", metadata["preservicaMetadata"])
             self.assertEqual(expected_digital_asset_source, metadata["digitalAssetSource"])
             self.assertEqual(1, metadata["sortOrder"])
             self.assertEqual("testenv-dr2-ingest-dri-migration-cache", bucket)
