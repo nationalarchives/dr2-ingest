@@ -14,7 +14,7 @@
     },
     {
       "systemName": "DEFAULT",
-      "reservedChannels": 0,
+      "reservedChannels": ${default_reserved_channels},
       "probability": 20
     }
   ]
