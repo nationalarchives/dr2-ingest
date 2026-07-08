@@ -1,11 +1,12 @@
 package uk.gov.nationalarchives.utils
 
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
-import com.amazonaws.services.lambda.runtime.events.{SQSEvent, ScheduledEvent}
+import com.amazonaws.services.lambda.runtime.events.{SQSBatchResponse, SQSEvent, ScheduledEvent}
 import io.circe.generic.semiauto.deriveEncoder
 import io.circe.{Decoder, Encoder, HCursor, Json}
 import org.joda.time.DateTime
 import uk.gov.nationalarchives.utils.ExternalUtils.*
+
 import scala.jdk.CollectionConverters.*
 
 object EventCodecs {
@@ -18,6 +19,14 @@ object EventCodecs {
   given Encoder[OutputParameters] = deriveEncoder[OutputParameters]
 
   given Encoder[OutputMessage] = deriveEncoder[OutputMessage]
+
+  given Encoder[SQSBatchResponse] = (sqsBatchResponse: SQSBatchResponse) => Json.obj(
+    "batchItemFailures" -> Json.arr(
+      sqsBatchResponse.getBatchItemFailures.asScala.toSeq.map {
+        batchItemFailures => Json.obj("itemIdentifier" -> Json.fromString(batchItemFailures.getItemIdentifier))
+      }*
+    )
+  )
 
   given Decoder[ScheduledEvent] = (c: HCursor) =>
     for {

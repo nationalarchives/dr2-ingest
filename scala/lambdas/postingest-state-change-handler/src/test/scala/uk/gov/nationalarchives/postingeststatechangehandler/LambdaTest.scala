@@ -3,6 +3,7 @@ package uk.gov.nationalarchives.postingeststatechangehandler
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
 import cats.implicits.*
+import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFailure
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -18,6 +19,7 @@ import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.{IngestComplete, 
 import uk.gov.nationalarchives.utils.ExternalUtils.OutputMessage
 import io.circe.parser.decode
 
+import scala.jdk.CollectionConverters.*
 import java.time.Instant
 import java.util.UUID
 
@@ -48,7 +50,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       updateTableReqsRef <- Ref[IO].of[List[DADynamoDbRequest]](Nil)
       sqsMessagesRef <- Ref[IO].of[Map[String, List[SQSMessage]]](Map(queue1Url -> Nil))
       snsMessagesRef <- Ref[IO].of[List[OutputMessage]](Nil)
-      _ <- new Lambda().handler(
+      sqsBatchResponse <- new Lambda().handler(
         event,
         config,
         Dependencies(createDynamoClient(itemsInTableRef, updateTableReqsRef), createSnsClient(snsMessagesRef), createSqsClient(sqsMessagesRef), () => instant, () => messageId)
@@ -57,13 +59,14 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       updateTableReqs <- updateTableReqsRef.get
       sqsMessages <- sqsMessagesRef.get
       snsMessages <- snsMessagesRef.get
-    } yield UpdatedRefs(itemsRemainingInTable, updateTableReqs, sqsMessages, snsMessages)
+    } yield UpdatedRefs(itemsRemainingInTable, updateTableReqs, sqsMessages, snsMessages, sqsBatchResponse.getBatchItemFailures.asScala.toList)
   }
 
   "handler" should "queue the item and send an SQS message to the correct queue if the event is an 'INSERT' one and NewImage exists" in {
     val oldDynamoItem = None
     val newDynamoItem = fullyPostIngestedAsset
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some))))
+    val sequenceNumber = "123"
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some, sequenceNumber))))
     val refs = runLambda(Nil, event).unsafeRunSync()
 
     refs.itemsRemainingInTable.size should equal(0)
@@ -100,9 +103,10 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   "handler" should s"delete the item if the event is a 'MODIFY' one, OldImage hasn't gone through any postIngest steps and NewImage has a result for the CC step" in {
     val oldImage = Some(nonPostIngestedAsset)
     val newImage = fullyPostIngestedAsset
+    val sequenceNumber = "123"
     val additionalItemInTable =
       PostIngestStateTableItem(UUID.fromString("e5c55836-3917-405d-8bde-a1d970136c1d"), "batchId2", "input2", Some("correlationId2"), None, None, None, None)
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage, newImage.some))))
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage, newImage.some, sequenceNumber))))
     val refs = runLambda(List(newImage, additionalItemInTable), event).unsafeRunSync()
 
     refs.itemsRemainingInTable.size should equal(1)
@@ -132,7 +136,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   "handler" should s"throw an error if the queues share any of the same values for their properties" in {
     val oldDynamoItem = Some(fullyPostIngestedAsset)
     val newDynamoItem = fullyPostIngestedAsset
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some))))
+    val sequenceNumber = "123"
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some, sequenceNumber))))
 
     val duplicatedQueues =
       s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
@@ -153,21 +158,23 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   "handler" should s"throw an error if a queue alias could not be found in the 'queueAliasAndResultAttr' map" in {
     val oldDynamoItem = Some(fullyPostIngestedAsset)
     val newDynamoItem = fullyPostIngestedAsset
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some))))
+    val sequenceNumber = "123"
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some, sequenceNumber))))
     val ex = intercept[MatchError] {
       runLambda(Nil, event, getConfig("UnexpectedQueueAlias")).unsafeRunSync()
     }
     ex.getMessage should equal("UnexpectedQueueAlias (of class java.lang.String)")
   }
 
-  "handler" should s"throw an error if the event is a 'MODIFY' one, NewImage is present but no OldImage" in {
+  "handler" should "return a batchItem failure if the event is a 'MODIFY' one, NewImage is present but no OldImage" in {
     val oldDynamoItem = None
     val newDynamoItem = fullyPostIngestedAsset
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some))))
-    val ex = intercept[Exception] {
-      runLambda(Nil, event).unsafeRunSync()
-    }
-    ex.getMessage should equal("MODIFY Event was triggered but either an OldImage, NewImage or both don't exist")
+    val sequenceNumber = "123"
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some, sequenceNumber))))
+    val refsResponse = runLambda(Nil, event).unsafeRunSync()
+
+    refsResponse.batchItemFailures.length should equal(1)
+    refsResponse.batchItemFailures.head.getItemIdentifier should equal("123")
   }
 
   "Decoder" should "skip `REMOVE` events" in {
@@ -201,7 +208,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         |       "queue": {
         |         "S": "CC"
         |       }
-        |      }
+        |      },
+        |      "SequenceNumber": "13021600000000001596893679"
         |    }
         |  },
         |  {
@@ -252,7 +260,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         |       "queue": {
         |         "S": "CC"
         |       }
-        |      }
+        |      },
+        |      "SequenceNumber": "13021600000000001596893680"
         |    }
         |  },
         |  {
@@ -283,7 +292,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         |       "queue": {
         |         "S": "CC"
         |       }
-        |      }
+        |      },
+        |      "SequenceNumber": "13021600000000001596893681"
         |    }
         |  }
         |]""".stripMargin
@@ -301,5 +311,6 @@ case class UpdatedRefs(
     itemsRemainingInTable: List[PostIngestStateTableItem],
     updateTableReqs: List[DADynamoDbRequest],
     sentSqsMessages: Map[String, List[SQSMessage]],
-    sentSnsMessages: List[OutputMessage]
+    sentSnsMessages: List[OutputMessage],
+    batchItemFailures: List[BatchItemFailure]
 )
