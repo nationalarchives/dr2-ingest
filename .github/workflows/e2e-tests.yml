@@ -57,8 +57,8 @@ jobs:
       - run: gh workflow run deploy.yml -f environment=staging -f to-deploy=$TO_DEPLOY
         if: ${{ github.event.inputs.environment == 'intg' }}
         env:
-          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          GH_TOKEN: ${{ secrets.FINE_GRAINED_TOKEN }}
       - run: gh workflow run deploy.yml -f environment=prod -f to-deploy=$TO_DEPLOY
         if: ${{ github.event.inputs.environment == 'staging' }}
         env:
-          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          GH_TOKEN: ${{ secrets.FINE_GRAINED_TOKEN }}

@@ -15,7 +15,7 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-          token: ${{ secrets.WORKFLOW_TOKEN }}
+          token: ${{ secrets.FINE_GRAINED_TOKEN }}
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
       - uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
         with:
@@ -29,4 +29,4 @@ jobs:
           terraform plan -refresh=false -lock=false
         working-directory: terraform
         env:
-          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          GH_TOKEN: ${{ secrets.FINE_GRAINED_TOKEN }}

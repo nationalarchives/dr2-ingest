@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           submodules: recursive
-          token: ${{ secrets.WORKFLOW_TOKEN }}
+          token: ${{ secrets.FINE_GRAINED_TOKEN }}
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_wrapper: false
@@ -84,7 +84,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           submodules: recursive
-          token: ${{ secrets.WORKFLOW_TOKEN }}
+          token: ${{ secrets.FINE_GRAINED_TOKEN }}
           fetch-tags: true
           persist-credentials: true
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
@@ -116,7 +116,7 @@ jobs:
       - run: gh workflow run e2e-tests.yml -f environment=$ENVIRONMENT -f to-deploy=$TO_DEPLOY
         if: ${{ github.event.inputs.environment != 'prod' }}
         env:
-          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          GH_TOKEN: ${{ secrets.FINE_GRAINED_TOKEN }}
       - run: python .github/scripts/send_message.py
         if: failure()
         env:
