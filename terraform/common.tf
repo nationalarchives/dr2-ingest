@@ -719,7 +719,7 @@ data "aws_ssm_parameter" "slack_token" {
 }
 
 resource "aws_ssm_parameter" "flow_control_config" {
-  name  = "/${local.environment}/flow-control-config"
+  name  = local.ingest_flow_control_config_ssm_parameter_name
   type  = "String"
   value = jsonencode(local.selected_flow_control_config)
 }
