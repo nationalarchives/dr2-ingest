@@ -721,6 +721,18 @@ resource "aws_ssm_parameter" "flow_control_config" {
   name  = "/${local.environment}/flow-control-config"
   type  = "String"
   value = jsonencode(local.selected_flow_control_config)
+
+  lifecycle {
+    precondition {
+      condition     = sum([for i in local.selected_flow_control_config.sourceSystems : i.probability]) == 100
+      error_message = "The sum of probabilities for source systems must equal 100."
+    }
+
+    precondition {
+      condition     = sum([for i in local.selected_flow_control_config.sourceSystems : i.reservedChannels]) <= local.selected_flow_control_config.maxConcurrency
+      error_message = "The sum of reserved channels for source systems must not exceed the maximum concurrency."
+    }
+  }
 }
 
 module "eventbridge_alarm_notifications_destination" {
