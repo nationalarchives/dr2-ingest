@@ -175,6 +175,7 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
     }
     given Monoid[Map[UUID, ParentWithType]] = Monoid.instance[Map[UUID, ParentWithType]](Map.empty, (_, second) => second)
     for {
+      _ <- IO.raiseError(new Exception("In the beginning the Universe was created. This has made a lot of people very angry and been widely regarded as a bad move"))
       pub <- dependencies.s3.download(input.metadataPackage.getHost, input.metadataPackage.getPath.drop(1))
       schemaMap <- createSchemaMap
       idToParentIdTypeCell <- AtomicCell[IO].empty[Map[UUID, ParentWithType]]
