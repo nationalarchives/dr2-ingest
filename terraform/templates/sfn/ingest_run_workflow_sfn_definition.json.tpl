@@ -26,7 +26,7 @@
     "Wait 5 minutes before getting status": {
       "Type": "Wait",
       "Next": "Get workflow status",
-      "Seconds": 300
+      "Seconds": 60
     },
     "Get workflow status": {
       "Type": "Task",

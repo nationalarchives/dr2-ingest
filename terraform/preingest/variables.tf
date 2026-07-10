@@ -51,8 +51,8 @@ variable "importer_lambda" {
     memory_size        = number
   })
   default = {
-    timeout            = 180
-    visibility_timeout = 300
+    timeout            = 30
+    visibility_timeout = 30
     handler            = "lambda_function.lambda_handler"
     runtime            = "python3.12"
     memory_size        = 128
@@ -70,12 +70,12 @@ variable "package_builder_lambda" {
 }
 
 variable "aggregator_primary_grouping_window_seconds" {
-  default = 300
+  default = 30
 }
 
 
 variable "aggregator_secondary_grouping_window_seconds" {
-  default     = 180
+  default     = 1
   description = "Additional time we wait before starting preingest to allow multiple invocations to form a single group, this is added to the aggregator_lambda_timeout_seconds when we start a group."
 }
 

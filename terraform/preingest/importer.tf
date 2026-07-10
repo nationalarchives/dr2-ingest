@@ -4,7 +4,7 @@ locals {
   importer_queue_arn        = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.importer_name}"
   sse_encryption            = "sse"
   visibility_timeout        = 180
-  redrive_maximum_receives  = 5
+  redrive_maximum_receives  = 2
   source_bucket_permissions = jsonencode(var.delete_from_source ? ["s3:GetObject", "s3:GetObjectTagging", "s3:ListBucket", "s3:DeleteObject"] : ["s3:GetObject", "s3:GetObjectTagging", "s3:ListBucket"])
 }
 module "dr2_importer_lambda" {

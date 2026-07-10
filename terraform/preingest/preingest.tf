@@ -90,7 +90,7 @@ module "dr2_preingest_step_function" {
     ingest_step_function_arn    = local.ingest_sfn_arn
     account_id                  = data.aws_caller_identity.current.account_id
     package_builder_lambda_name = local.package_builder_lambda_name
-    retry_statement             = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 6, BackoffRate = 2, JitterStrategy = "FULL" }])
+    retry_statement             = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 2, BackoffRate = 2, JitterStrategy = "FULL" }])
     alias_name                  = local.alias_name
   })
   step_function_name = local.preingest_name
