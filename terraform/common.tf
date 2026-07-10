@@ -12,7 +12,6 @@ locals {
   files_dynamo_table_name                              = "${local.environment}-dr2-ingest-files"
   ingest_lock_dynamo_table_name                        = "${local.environment}-dr2-ingest-lock"
   ingest_queue_dynamo_table_name                       = "${local.environment}-dr2-ingest-queue"
-  ingest_flow_control_config_ssm_parameter_name        = "/${local.environment}/flow-control-config"
   enable_point_in_time_recovery                        = true
   files_table_batch_parent_global_secondary_index_name = "BatchParentPathIdx"
   ingest_lock_table_group_id_gsi_name                  = "IngestLockGroupIdx"
@@ -719,7 +718,7 @@ data "aws_ssm_parameter" "slack_token" {
 }
 
 resource "aws_ssm_parameter" "flow_control_config" {
-  name  = local.ingest_flow_control_config_ssm_parameter_name
+  name  = "/${local.environment}/flow-control-config"
   type  = "String"
   value = jsonencode(local.selected_flow_control_config)
 }
