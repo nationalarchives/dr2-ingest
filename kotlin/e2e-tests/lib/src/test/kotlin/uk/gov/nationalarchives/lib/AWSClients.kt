@@ -3,17 +3,32 @@ package uk.gov.nationalarchives.lib
 import aws.sdk.kotlin.services.cloudwatchlogs.CloudWatchLogsClient
 import aws.sdk.kotlin.services.cloudwatchlogs.model.*
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
+import aws.sdk.kotlin.services.dynamodb.model.AttributeValue
+import aws.sdk.kotlin.services.dynamodb.model.BatchGetItemRequest
+import aws.sdk.kotlin.services.dynamodb.model.BatchGetItemResponse
 import aws.sdk.kotlin.services.dynamodb.model.PutItemRequest
 import aws.sdk.kotlin.services.dynamodb.model.PutItemResponse
 import aws.sdk.kotlin.services.s3.S3Client
+import aws.sdk.kotlin.services.s3.model.DeleteMarkerEntry
+import aws.sdk.kotlin.services.s3.model.GetObjectRequest
+import aws.sdk.kotlin.services.s3.model.GetObjectResponse
+import aws.sdk.kotlin.services.s3.model.GetObjectTaggingRequest
+import aws.sdk.kotlin.services.s3.model.GetObjectTaggingResponse
+import aws.sdk.kotlin.services.s3.model.ListObjectVersionsRequest
+import aws.sdk.kotlin.services.s3.model.ListObjectVersionsResponse
 import aws.sdk.kotlin.services.s3.model.PutObjectRequest
 import aws.sdk.kotlin.services.s3.model.PutObjectResponse
+import aws.sdk.kotlin.services.s3.model.Tag
 import aws.sdk.kotlin.services.sfn.SfnClient
+import aws.sdk.kotlin.services.sfn.model.DescribeExecutionRequest
+import aws.sdk.kotlin.services.sfn.model.DescribeExecutionResponse
+import aws.sdk.kotlin.services.sfn.model.ExecutionStatus
 import aws.sdk.kotlin.services.sfn.model.StartExecutionRequest
 import aws.sdk.kotlin.services.sfn.model.StartExecutionResponse
 import aws.sdk.kotlin.services.sqs.SqsClient
 import aws.sdk.kotlin.services.sqs.model.SendMessageRequest
 import aws.sdk.kotlin.services.sqs.model.SendMessageResponse
+import aws.smithy.kotlin.runtime.content.ByteStream
 import aws.smithy.kotlin.runtime.content.decodeToString
 import aws.smithy.kotlin.runtime.content.toByteArray
 import aws.smithy.kotlin.runtime.time.Instant
@@ -26,6 +41,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import uk.gov.nationalarchives.lib.JsonUtils.jsonCodec
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.net.URI
 import java.util.*
 import java.util.zip.GZIPInputStream
 
@@ -97,6 +113,13 @@ object AWSClients {
             dynamoList.add(input.item?.mapValues { it.value.asS() }.orEmpty())
             return PutItemResponse {}
         }
+
+        override suspend fun batchGetItem(input: BatchGetItemRequest): BatchGetItemResponse {
+            val responseItems: List<Map<String, AttributeValue>> = dynamoList.map { item -> item.map { it.key to AttributeValue.S(it.value) }.toMap() }
+            return BatchGetItemResponse {
+                responses = mapOf("lock-table" to responseItems)
+            }
+        }
     }
 
     class TestSfnClient(private val sfnList: MutableList<JsonUtils.SFNArguments>, delegate: SfnClient = SfnClient.builder().build()): SfnClient by delegate {
@@ -109,12 +132,46 @@ object AWSClients {
         }
     }
 
+    class TestIngestSfnClient(val sfnInput: JsonUtils.SfnInput, val executionStatus: ExecutionStatus, delegate: SfnClient = SfnClient.builder().build()): SfnClient by delegate {
+        override suspend fun describeExecution(input: DescribeExecutionRequest): DescribeExecutionResponse {
+            return DescribeExecutionResponse {
+                executionArn = "test"
+                this.input = jsonCodec.encodeToString<JsonUtils.SfnInput>(sfnInput)
+                startDate = Instant.now()
+                stateMachineArn = "test"
+                status = executionStatus
+            }
+        }
+    }
+
+    class TestMetadataS3Client(val s3Files: Map<URI, String>, val s3Tags: Map<URI, Tag>, val deleteMarkerResponse: List<String>, delegate: S3Client = S3Client.builder().build()): S3Client by delegate {
+        override suspend fun listObjectVersions(input: ListObjectVersionsRequest): ListObjectVersionsResponse {
+            return ListObjectVersionsResponse {
+                deleteMarkers = deleteMarkerResponse.map { DeleteMarkerEntry { key = it } }
+            }
+        }
+
+        override suspend fun <T> getObject(input: GetObjectRequest, block: suspend (GetObjectResponse) -> T): T {
+            return block(GetObjectResponse {
+                body = ByteStream.fromString(s3Files[URI.create("s3://${input.bucket}/${input.key}")]!!)
+            })
+        }
+
+        override suspend fun getObjectTagging(input: GetObjectTaggingRequest): GetObjectTaggingResponse {
+            val tags = if (s3Tags.isEmpty()) listOf() else listOf(s3Tags[URI.create("s3://${input.bucket}/${input.key}")]!!)
+            return GetObjectTaggingResponse {
+                tagSet = tags
+            }
+
+        }
+    }
+
     class TestTDRS3Client(private val fileContents: MutableList<UUID>, private val metadata: MutableList<JsonUtils.TDRMetadata>, delegate: S3Client = S3Client.builder().build()): S3Client by delegate {
         override suspend fun putObject(input: PutObjectRequest): PutObjectResponse {
             if (input.key?.endsWith("metadata") == true) {
                 input.body?.decodeToString()?.let { metadata.addAll(jsonCodec.decodeFromString<List<JsonUtils.TDRMetadata>>(it)) }
             } else {
-                input.body?.decodeToString()?.let { fileContents.add(UUID.fromString(it)) }
+                input.body?.decodeToString()?.let { fileContents.add(UUID.fromString(it.substring(0, 36))) }
             }
             return PutObjectResponse {}
         }
