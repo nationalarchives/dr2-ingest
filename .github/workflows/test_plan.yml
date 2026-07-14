@@ -27,6 +27,7 @@ jobs:
           terraform workspace select intg
           export TF_VAR_lambda_code_version=$(gh api /repos/nationalarchives/dr2-ingest/tags | jq -r '.[0].name')
           terraform plan -refresh=false -lock=false
+          gh workflow run deploy.yml -f environment=intg -f to-deploy=v0.0.500
         working-directory: terraform
         env:
           GH_TOKEN: ${{ secrets.FINE_GRAINED_TOKEN }}
