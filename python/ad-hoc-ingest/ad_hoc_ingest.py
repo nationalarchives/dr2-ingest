@@ -58,7 +58,7 @@ def upload_files(output_file, account_number, args):
 
             mp.print_progress(f"Uploaded {counter} of {total}")
 
-def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
+def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid, description_override):
     data_set: pandas.DataFrame
     output_folder = args.output
     if not is_folder_writable(output_folder):
@@ -67,7 +67,7 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
 
     prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_metadata_file = os.path.join(output_folder, f"{prefix}_proposed_ingest.csv")
-    is_metadata_valid, row_count = write_intermediate_csv(args, data_set, is_upstream_valid, output_metadata_file)
+    is_metadata_valid, row_count = write_intermediate_csv(args, data_set, is_upstream_valid, description_override, output_metadata_file)
 
     if args.dry_run:
         if is_metadata_valid:
@@ -90,7 +90,7 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
             sys.exit(1)
 
 
-def write_intermediate_csv(args, data_set, is_upstream_valid, output_metadata_file):
+def write_intermediate_csv(args, data_set, is_upstream_valid, description_override, output_metadata_file):
     row_count = 0
     with open(output_metadata_file, mode="a", newline="", encoding="utf-8") as intermediate_metadata_csv:
         is_metadata_valid = is_upstream_valid
@@ -101,7 +101,7 @@ def write_intermediate_csv(args, data_set, is_upstream_valid, output_metadata_fi
         for counter, row in data_set.iterrows():
             row_count += 1
             try:
-                metadata_dict = metadata_creator.create_intermediate_metadata_dict(row, args)
+                metadata_dict = metadata_creator.create_intermediate_metadata_dict(description_override, row, args)
                 writer.writerow(metadata_dict)
                 if row_count % 100 == 0:
                     intermediate_metadata_csv.flush()
@@ -159,12 +159,14 @@ def main():
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 
-    is_discovery_available = discovery_client.is_discovery_api_reachable()
-    if not is_discovery_available:
-        mp.print_message("Discovery API is not available for getting metadata information, terminating process")
-        sys.exit(1)
+    description_override = set("description").issubset(data_set.columns)
+    if description_override:
+        is_discovery_available = discovery_client.is_discovery_api_reachable()
+        if not is_discovery_available:
+            mp.print_message("Discovery API is not available for getting metadata information, terminating process")
+            sys.exit(1)
 
-    upload_files_to_ingest_bucket(data_set, args, is_valid)
+    upload_files_to_ingest_bucket(data_set, args, is_valid, description_override)
 
     if not args.dry_run:
         mp.print_message("Upload finished successfully")

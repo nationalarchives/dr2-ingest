@@ -30,7 +30,7 @@ class Test(TestCase):
         JS 8 / 3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = metadata_creator.create_intermediate_metadata_dict(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = metadata_creator.create_intermediate_metadata_dict(False, row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual(len(field_names), len(metadata))
             self.assertTrue(all(f in metadata for f in field_names))
 
@@ -44,7 +44,7 @@ class Test(TestCase):
         JS 8 / 3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = metadata_creator.create_intermediate_metadata_dict(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = metadata_creator.create_intermediate_metadata_dict(False, row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("JS 8", metadata["Series"])
             self.assertEqual("evid0001.pdf", metadata["Filename"])
             self.assertEqual("3", metadata["FileReference"])
@@ -67,7 +67,7 @@ class Test(TestCase):
         JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = metadata_creator.create_intermediate_metadata_dict(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = metadata_creator.create_intermediate_metadata_dict(False, row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("JS 8", metadata["Series"])
             self.assertEqual("evid0001.pdf", metadata["Filename"])
             self.assertEqual("3", metadata["FileReference"])
@@ -94,7 +94,7 @@ class Test(TestCase):
         JS 8/8,c:/abcd/evid0001.pdf,windows_absolute_path_forward_slash"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = metadata_creator.create_intermediate_metadata_dict(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = metadata_creator.create_intermediate_metadata_dict(False, row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("evid0001.pdf", metadata["Filename"])
 
     @patch("discovery_client.get_title_and_description")
@@ -107,7 +107,7 @@ class Test(TestCase):
             JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = metadata_creator.create_intermediate_metadata_dict(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = metadata_creator.create_intermediate_metadata_dict(False, row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("Some title", metadata["description"])
 
 
@@ -121,7 +121,7 @@ class Test(TestCase):
             JS 8/3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         for index, row in data_set.iterrows():
-            metadata = metadata_creator.create_intermediate_metadata_dict(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = metadata_creator.create_intermediate_metadata_dict(False, row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("TNA Ref", metadata["formerRefTNA"])
             self.assertEqual("", metadata["formerRefDept"])
 
@@ -140,7 +140,7 @@ class Test(TestCase):
         JS 8/3,duplicate_value_allowed_here,{tmp1},,another"""
         data_set = pd.read_csv(StringIO(csv_data), dtype={"checksum": str}, keep_default_na=False)
         for index, row in data_set.iterrows():
-            metadata = metadata_creator.create_intermediate_metadata_dict(row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata = metadata_creator.create_intermediate_metadata_dict(False, row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
             self.assertEqual("3a16291a00172e7af139cef48d1fe2f7", metadata["checksum_md5"])
 
     @patch("discovery_client.get_title_and_description")
@@ -155,7 +155,27 @@ class Test(TestCase):
         first_row = data_set.iloc[0]
 
         with self.assertRaises(Exception) as e:
-            metadata_creator.create_intermediate_metadata_dict(first_row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
+            metadata_creator.create_intermediate_metadata_dict(False, first_row, SimpleNamespace(environment="test", input="/home/users/input-file.csv"))
 
         self.assertEqual("Title and Description both are empty for 'someTestCatRef', unable to proceed with this record", str(e.exception))
 
+    @patch("discovery_client.get_title_and_description")
+    def test_create_metadata_should_use_description_from_the_input_csv_when_it_is_available(self, mock_title_and_description):
+        csv_data = """catRef,description,fileName,checksum
+            "",An amazing description,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
+        data_set = pd.read_csv(StringIO(csv_data))
+        for index, row in data_set.iterrows():
+            metadata = metadata_creator.create_intermediate_metadata_dict(True, row,
+                                                                          SimpleNamespace(environment="test",
+                                                                                          input="/home/users/input-file.csv"))
+            mock_title_and_description.assert_not_called()
+            self.assertEqual("", metadata["Series"])
+            self.assertEqual("evid0001.pdf", metadata["Filename"])
+            self.assertEqual("", metadata["FileReference"])
+            self.assertEqual("9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc",
+                             metadata["checksum_sha256"])
+            self.assertEqual("An amazing description", metadata["description"])
+            self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
+            self.assertEqual("", metadata["formerRefTNA"])
+            self.assertEqual("", metadata["formerRefDept"])
+            self.assertEqual("", metadata["IAID"])

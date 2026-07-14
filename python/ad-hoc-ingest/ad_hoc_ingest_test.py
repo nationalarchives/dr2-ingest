@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
@@ -55,7 +56,9 @@ class Test(TestCase):
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
-    def test_should_send_the_files_to_the_s3_bucket_and_send_a_message_to_the_queue(self, mock_upload_file, mock_upload_metadata, mock_send_message):
+    @patch("aws_interactions.get_region")
+    def test_should_send_the_files_to_the_s3_bucket_and_send_a_message_to_the_queue(self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+        mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
@@ -86,12 +89,14 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  tmp1)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
-    def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_to_the_csv_file_and_send_a_message_to_the_queue(self, mock_upload_file, mock_upload_metadata, mock_send_message):
+    @patch("aws_interactions.get_region")
+    def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_to_the_csv_file_and_send_a_message_to_the_queue(self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+        mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
@@ -120,15 +125,18 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
             "IAID": "some_iaid"
         }
 
-        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  tmp1)
+        resolved_path = str(Path(tmp1).resolve())
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  resolved_path)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
+    @patch("aws_interactions.get_region")
     def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_with_mixed_forward_and_back_slashes(
-            self, mock_upload_file, mock_upload_metadata, mock_send_message):
+            self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+        mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "folder1/folder2/folder3/ad_hoc_ingest_test_file1.txt")
         os.makedirs(os.path.dirname(tmp1), exist_ok=True)
         with open(tmp1, "w") as f:
@@ -158,16 +166,19 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
             "IAID": "some_iaid"
         }
 
-        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", tmp1)
+        resolved_path = str(Path(tmp1).resolve())
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", resolved_path)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
         mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache",
-                                                  "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+                                                  "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
+    @patch("aws_interactions.get_region")
     def test_should_create_metadata_with_description_having_comma_in_a_quoted_field(
-            self, mock_upload_file, mock_upload_metadata, mock_send_message):
+            self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+        mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
@@ -195,10 +206,11 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
             "IAID": "some_iaid"
         }
 
-        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", tmp1)
+        resolved_path = str(Path(tmp1).resolve())
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", resolved_path)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
         mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache",
-                                                  "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+                                                  "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
 
     @patch("aws_interactions.get_account_number")
