@@ -11,7 +11,7 @@ locals {
   java_lambda_memory_size         = 512
   postingest_queue_config = [ // Before adding a new queue here, update the state change handler to expect it
     { "queueAlias" : "CC", "queueOrder" : 1, "queue_name" : "${var.environment}-dr2-postingest-custodial-copy-confirmer" },
-    { "queueAlias" : "TC", "queueOrder" : 2, "queue_name" : "${var.environment}-dr2-postingest-tape-copy-confirmer" }
+    { "queueAlias" : "TC", "queueOrder" : 2, "queue_name" : "${var.environment}-dr2-postingest-custodial-copy-tape-confirmer" }
   ]
   six_hours                  = 60 * 60 * 6
   seven_days                 = 60 * 60 * 24 * 7
