@@ -14,7 +14,7 @@ locals {
   python_timeout_seconds                     = 30
   python_runtime                             = "python3.14"
   python_lambda_memory_size                  = 128
-  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-postingest-send_to_state_change_ddb_queue"
+  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-postingest-send-to-state-change-ddb-queue"
   postingest_queue_config = [ // Before adding a new queue here, update the state change handler to expect it
     { "queueAlias" : "CC", "queueOrder" : 1, "queueUrl" : module.dr2_custodial_copy_confirmer_queue.sqs_queue_url }
   ]
