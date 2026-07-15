@@ -120,12 +120,13 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         firstPackageMetadata <- IO.fromOption(packageMetadataList.headOption)(new Exception("The metadata list is empty"))
       } yield {
         val metadataFileSize = metadataArr.length
+        val potentialAssetId = firstPackageMetadata.assetId.orElse(firstPackageMetadata.UUID)
         FileMetadataObject(
           metadataId,
-          Option(firstPackageMetadata.UUID),
-          s"${firstPackageMetadata.UUID}-metadata",
+          potentialAssetId,
+          s"${potentialAssetId.get}-metadata",
           packageMetadataList.flatMap(_.sortOrder).maxOption.getOrElse(packageMetadataList.length + 1),
-          s"${firstPackageMetadata.UUID}-metadata.json",
+          s"${potentialAssetId.get}-metadata.json",
           metadataFileSize,
           Preservation,
           1,
@@ -204,7 +205,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         metadataId: UUID,
         potentialMessageId: Option[String]
     ): IO[AssetMetadataObject] = IO.pure {
-      val assetId = packageMetadata.UUID
+      val assetId = packageMetadata.assetId.getOrElse(packageMetadata.UUID.get)
       val sourceSpecificIdentifiers = config.sourceSystem match {
         case SourceSystem.TDR => List(IdField("BornDigitalRef", packageMetadata.fileReference), IdField(upstreamSystemRefIdKey, packageMetadata.fileReference))
         case SourceSystem.DRI =>
@@ -279,7 +280,8 @@ object Lambda:
   given Decoder[PackageMetadata] = (c: HCursor) =>
     for
       series <- c.downField("Series").as[String]
-      uuid <- c.downField("UUID").as[UUID]
+      uuid <- c.downField("UUID").as[Option[UUID]]
+      assetId <- c.downField("AssetId").as[Option[UUID]]
       fileId <- c.downField("fileId").as[UUID]
       description <- c.downField("description").as[Option[String]]
       transferringBody <- c.downField("TransferringBody").as[Option[String]]
@@ -298,6 +300,7 @@ object Lambda:
     yield PackageMetadata(
       series,
       uuid,
+      assetId,
       fileId,
       description,
       transferringBody,
@@ -317,7 +320,8 @@ object Lambda:
 
   case class PackageMetadata(
       series: String,
-      UUID: UUID,
+      UUID: Option[UUID],
+      assetId: Option[UUID],
       fileId: UUID,
       description: Option[String],
       transferringBody: Option[String],
