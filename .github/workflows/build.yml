@@ -66,3 +66,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.FINE_GRAINED_TOKEN }}
           NEXT_VERSION: ${{ needs.pre-deploy.outputs.next-version }}
+          
