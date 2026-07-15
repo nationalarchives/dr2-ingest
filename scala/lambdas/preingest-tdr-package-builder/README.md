@@ -19,9 +19,10 @@ Because of aggregation, assets are grouped and therefore each have group ID in t
    1. get the url from the `location` field and use it to download the metadata file (from S3)
       *  an example of some of the fields a `<uuid>.metadata` file might contain
            ```json
-           {
+           [{
               "Series":"TEST 123",
               "UUID":"0000b033-a309-4c42-8397-ba7854e345e2",
+              "AssetId": "571bbd56-e823-4e8e-859a-d08002d33c75",
               "description":null,
               "TransferringBody":"TestBody",
               "TransferInitiatedDatetime":"2024-10-07 09:54:48",
@@ -30,7 +31,7 @@ Because of aggregation, assets are grouped and therefore each have group ID in t
               "SHA256ServerSideChecksum":"33e806a1d38ec24fec78fd41f5ea3f54a300f9e1652e6d0b0b1eeca8e25d27ed",
               "FileReference":"Z1BA8C",
               "ClientSideOriginalFilepath":"/path/to/file"
-           }
+           }]
            ```
    2. convert the byte array returned into a string
    3. decode this string into a list of `PackageMetadata` objects
@@ -38,7 +39,7 @@ Because of aggregation, assets are grouped and therefore each have group ID in t
       1. generate:
          1. a `FileMetadataObject` with information on the file
             * file size and S3 key is obtained from the file in S3
-         2. an `AssetMetadataObject` (its parent)
+         2. an `AssetMetadataObject` (its parent). The ID for this object is found by checking for `AssetId` in the JSON. If this is not there then `UUID` is used.
          3. a `ContentFolderObject` (the Asset's parent), if the ContentFolder isn't already in the ContentFolder cache
             and then update the cache with the newly created object
       2. generate a `FileMetadataObject` with information on the `<uuid>.metadata` metadata file (in S3)
