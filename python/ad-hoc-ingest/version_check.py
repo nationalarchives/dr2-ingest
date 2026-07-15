@@ -31,6 +31,7 @@ def fetch_remote_files() -> list[dict]:
 
 def is_latest_version() -> bool:
     remote_files = fetch_remote_files()
+    assert remote_files
     adhoc_file_path = [os.path.join(dp, f) for dp, dn, filenames in os.walk(".") for f in filenames if f == "ad_hoc_ingest.py"][0]
     local_dir = Path(adhoc_file_path).parent
     local_files = [d for d in os.listdir(local_dir) if "_test" not in d]

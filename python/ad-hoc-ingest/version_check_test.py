@@ -36,16 +36,20 @@ class Test(TestCase):
     def test_fetch_json_should_return_parsed_json(self, mock_urlopen):
         payload = [{"name": "file.py", "type": "file"}]
         mock_urlopen.return_value = self.mock_urlopen(json.dumps(payload))
-        result = version_check.fetch_json("https://example.com/api")
+        url = "https://example.com/api"
+        result = version_check.fetch_json(url)
         self.assertEqual(payload, result)
         mock_urlopen.assert_called_once()
+        mock_urlopen.assert_called_with(url, timeout=30)
 
     @patch("urllib.request.urlopen")
     def test_fetch_bytes_should_return_raw_bytes(self, mock_urlopen):
         expected = b"raw file content"
         mock_urlopen.return_value = self.mock_urlopen(expected)
-        result = version_check.fetch_bytes("https://example.com/file.py")
+        url = "https://example.com/file.py"
+        result = version_check.fetch_bytes(url)
         self.assertEqual(expected, result)
+        mock_urlopen.assert_called_with(url, timeout=30)
 
 
     def test_md5_of_bytes_should_return_correct_hex_digest(self):
@@ -81,9 +85,10 @@ class Test(TestCase):
             {"name": "subdir", "type": "dir"},
         ]
         result = version_check.fetch_remote_files()
+        expected_url = "https://api.github.com/repos/nationalarchives/dr2-ingest/contents/python/ad-hoc-ingest"
+        mock_fetch_json.assert_called_with(expected_url)
         self.assertEqual([], result)
 
-    # --- is_latest_version ---
 
     @patch("version_check.fetch_bytes")
     @patch("version_check.fetch_remote_files")
@@ -123,6 +128,8 @@ class Test(TestCase):
             mock_listdir.return_value = ["ad_hoc_ingest.py", "version_check.py"]
             result = version_check.is_latest_version()
 
+        mock_remote_files.assert_called_once()
+        mock_fetch_bytes.assert_called_once()
         self.assertFalse(result)
 
     @patch("version_check.fetch_bytes")
@@ -138,13 +145,13 @@ class Test(TestCase):
             mock_walk.return_value = [(self.test_dir, [], ["ad_hoc_ingest.py"])]
             mock_listdir.return_value = ["ad_hoc_ingest.py"]
             result = version_check.is_latest_version()
-
+        mock_remote_files.assert_called_once()
         self.assertFalse(result)
         mock_fetch_bytes.assert_not_called()
 
     @patch("version_check.fetch_bytes")
     @patch("version_check.fetch_remote_files")
-    def test_is_latest_version_should_return_true_when_there_are_no_remote_files(self, mock_remote_files, mock_fetch_bytes):
+    def test_is_latest_version_should_raise_error_when_there_are_no_remote_files(self, mock_remote_files, mock_fetch_bytes):
         self._write_file("ad_hoc_ingest.py", b"content")
 
         mock_remote_files.return_value = []
@@ -152,7 +159,6 @@ class Test(TestCase):
         with patch("os.walk") as mock_walk, patch("os.listdir") as mock_listdir:
             mock_walk.return_value = [(self.test_dir, [], ["ad_hoc_ingest.py"])]
             mock_listdir.return_value = ["ad_hoc_ingest.py"]
-            result = version_check.is_latest_version()
-
-        self.assertTrue(result)
+            self.assertRaises(AssertionError, version_check.is_latest_version)
+        mock_remote_files.assert_called_once()
         mock_fetch_bytes.assert_not_called()

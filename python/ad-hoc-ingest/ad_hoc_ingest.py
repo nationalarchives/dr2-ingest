@@ -146,7 +146,8 @@ def is_folder_writable(output_folder):
 def main():
     if not version_check.is_latest_version():
         version_check_response = input("Adhoc ingest is not at the latest version. Do you want to continue? y/n")
-        if version_check_response.lower() not in ["y", "yes"]:
+        if version_check_response.lower().strip() not in ["y", "yes"]:
+            mp.print_message("Exiting")
             sys.exit(0)
     args = argument_parser_builder.build().parse_args()
     validate_arguments(args)

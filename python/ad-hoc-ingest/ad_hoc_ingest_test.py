@@ -241,7 +241,25 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
 
     @patch("argument_parser_builder.build")
     @patch("version_check.is_latest_version", return_value=False)
+    @patch("builtins.input", return_value="Y")
+    def test_should_continue_when_not_at_latest_version_and_user_confirms_with_y_uppercase(self, _, __, mock_build):
+        mock_build.side_effect = Exception("Version check passed")
+        with self.assertRaises(Exception) as e:
+            ad_hoc_ingest.main()
+        self.assertEqual("Version check passed", str(e.exception))
+
+    @patch("argument_parser_builder.build")
+    @patch("version_check.is_latest_version", return_value=False)
     @patch("builtins.input", return_value="yes")
+    def test_should_continue_when_not_at_latest_version_and_user_confirms_with_yes(self, _, __, mock_build):
+        mock_build.side_effect = Exception("Version check passed")
+        with self.assertRaises(Exception) as e:
+            ad_hoc_ingest.main()
+        self.assertEqual("Version check passed", str(e.exception))
+
+    @patch("argument_parser_builder.build")
+    @patch("version_check.is_latest_version", return_value=False)
+    @patch("builtins.input", return_value="YES")
     def test_should_continue_when_not_at_latest_version_and_user_confirms_with_yes(self, _, __, mock_build):
         mock_build.side_effect = Exception("Version check passed")
         with self.assertRaises(Exception) as e:
