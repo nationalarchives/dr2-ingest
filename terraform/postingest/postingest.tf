@@ -136,7 +136,6 @@ module "dr2_state_change_lambda" {
       account_id                       = data.aws_caller_identity.current.account_id
       lambda_name                      = local.state_change_lambda_name
       dynamo_db_postingest_stream_arn  = module.postingest_state_table.stream_arn
-      state_change_dlq_arn             = module.dr2_state_change_ddb_queue.dlq_sqs_arn
       vpc_id                           = var.vpc_id
     })
   }
