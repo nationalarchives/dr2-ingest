@@ -3,7 +3,7 @@ locals {
   postingest_gsi_firstqueued_name            = "QueueFirstQueuedIdx"
   postingest_gsi_lastqueued_name             = "QueueLastQueuedIdx"
   custodial_copy_confirmer_queue_name        = "${var.environment}-dr2-custodial-copy-confirmer"
-  state_change_ddb_queue_name                = "${var.environment}-dr2-state-change-handler"
+  state_change_ddb_queue_name                = "${var.environment}-dr2-postingest-state-change-handler"
   state_change_lambda_key                    = "postingest-state-change-handler"
   state_change_lambda_name                   = "${var.environment}-dr2-${local.state_change_lambda_key}"
   state_change_lambda_dlq                    = "${var.environment}-dr2-postingest-state-change-dlq"
@@ -14,7 +14,7 @@ locals {
   python_timeout_seconds                     = 30
   python_runtime                             = "python3.14"
   python_lambda_memory_size                  = 128
-  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-send_to_state_change_ddb_queue"
+  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-postingest-send_to_state_change_ddb_queue"
   postingest_queue_config = [ // Before adding a new queue here, update the state change handler to expect it
     { "queueAlias" : "CC", "queueOrder" : 1, "queueUrl" : module.dr2_custodial_copy_confirmer_queue.sqs_queue_url }
   ]
