@@ -17,17 +17,19 @@ as shown in the diagram.
 
 
 ### Script steps
-1. Read the input CSV file, where each row in the CSV has Catlog Reference, Filename and a Checksum corresponding to each file to be ingested. 
-2. Read the files to be ingested from ad-hoc source and carry out validations on the input file.
+1. Check that the script is at the latest version by getting and md5 checksum of the remote and local files and comparing them. 
+2. If the script has been updated, the user is asked if they want to proceed. 
+3. Read the input CSV file, where each row in the CSV has Catlog Reference, Filename and a Checksum corresponding to each file to be ingested. 
+4. Read the files to be ingested from ad-hoc source and carry out validations on the input file.
    - The validations depend on Series to be ingested. 
 For each row in the input CSV file,
-3. Use Discovery API to get hold of the Title, Description and Former References.
-4. Generate metadata and add it as a row to intermediate metadata CSV file.
+5. Use Discovery API to get hold of the Title, Description and Former References.
+6. Generate metadata and add it as a row to intermediate metadata CSV file.
    - The advantage of having metadata in CSV is, the user can examine the potential final metadata before ingesting. 
 For each row in the Metadata CSV file,
-5. Generate a Metadata JSON file and get absolute path of the file to be ingested. 
-6. Upload the Metadata JSON and the file to `dr2-ingest-adhoc-cache` bucket. 
-7. Send a message to `dr2-preingest-adhoc-importer` to trigger the downstream preingest process.
+7. Generate a Metadata JSON file and get absolute path of the file to be ingested. 
+8. Upload the Metadata JSON and the file to `dr2-ingest-adhoc-cache` bucket. 
+9. Send a message to `dr2-preingest-adhoc-importer` to trigger the downstream preingest process.
 
 
 ## How to run the script:

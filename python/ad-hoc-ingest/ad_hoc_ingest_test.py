@@ -13,7 +13,7 @@ import ad_hoc_ingest
 
 class Test(TestCase):
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp()
+        self.test_dir = os.path.realpath(tempfile.mkdtemp())
 
     def tearDown(self):
         shutil.rmtree(self.test_dir)
@@ -214,6 +214,67 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
         account_number_after_refresh = ad_hoc_ingest.get_account_number()
         mock_refresh_session.assert_called_once()
         self.assertEqual("987654321", account_number_after_refresh)
+
+    @patch("version_check.is_latest_version", return_value=False)
+    @patch("builtins.input", return_value="n")
+    def test_should_exit_when_not_at_latest_version_and_user_declines_to_continue(self, mock_input, _):
+        with self.assertRaises(SystemExit) as exc:
+            ad_hoc_ingest.main()
+        self.assertEqual(0, exc.exception.code)
+        mock_input.assert_called_once_with("Adhoc ingest is not at the latest version. Do you want to continue? y/n")
+
+    @patch("version_check.is_latest_version", return_value=False)
+    @patch("builtins.input", return_value="no")
+    def test_should_exit_when_not_at_latest_version_and_user_types_no(self, _, __):
+        with self.assertRaises(SystemExit) as exc:
+            ad_hoc_ingest.main()
+        self.assertEqual(0, exc.exception.code)
+
+    @patch("argument_parser_builder.build")
+    @patch("version_check.is_latest_version", return_value=False)
+    @patch("builtins.input", return_value="y")
+    def test_should_continue_when_not_at_latest_version_and_user_confirms_with_y(self, _, __, mock_build):
+        mock_build.side_effect = Exception("Version check passed")
+        with self.assertRaises(Exception) as e:
+            ad_hoc_ingest.main()
+        self.assertEqual("Version check passed", str(e.exception))
+
+    @patch("argument_parser_builder.build")
+    @patch("version_check.is_latest_version", return_value=False)
+    @patch("builtins.input", return_value="Y")
+    def test_should_continue_when_not_at_latest_version_and_user_confirms_with_y_uppercase(self, _, __, mock_build):
+        mock_build.side_effect = Exception("Version check passed")
+        with self.assertRaises(Exception) as e:
+            ad_hoc_ingest.main()
+        self.assertEqual("Version check passed", str(e.exception))
+
+    @patch("argument_parser_builder.build")
+    @patch("version_check.is_latest_version", return_value=False)
+    @patch("builtins.input", return_value="yes")
+    def test_should_continue_when_not_at_latest_version_and_user_confirms_with_yes(self, _, __, mock_build):
+        mock_build.side_effect = Exception("Version check passed")
+        with self.assertRaises(Exception) as e:
+            ad_hoc_ingest.main()
+        self.assertEqual("Version check passed", str(e.exception))
+
+    @patch("argument_parser_builder.build")
+    @patch("version_check.is_latest_version", return_value=False)
+    @patch("builtins.input", return_value="YES")
+    def test_should_continue_when_not_at_latest_version_and_user_confirms_with_yes(self, _, __, mock_build):
+        mock_build.side_effect = Exception("Version check passed")
+        with self.assertRaises(Exception) as e:
+            ad_hoc_ingest.main()
+        self.assertEqual("Version check passed", str(e.exception))
+
+    @patch("argument_parser_builder.build")
+    @patch("version_check.is_latest_version", return_value=True)
+    def test_should_skip_version_prompt_when_already_at_latest_version(self, _, mock_build):
+        mock_build.side_effect = Exception("Version check passed")
+        with patch("builtins.input") as mock_input:
+            with self.assertRaises(Exception) as e:
+                ad_hoc_ingest.main()
+        self.assertEqual("Version check passed", str(e.exception))
+        mock_input.assert_not_called()
 
     @patch("aws_interactions.get_account_number")
     @patch("aws_interactions.refresh_session")
