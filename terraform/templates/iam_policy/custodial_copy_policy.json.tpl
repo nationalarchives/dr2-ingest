@@ -92,6 +92,7 @@
         "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-re-indexer",
         "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-confirmer",
         "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-tape-confirmer",
+        "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-mock-tape-api",
         "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-reconciler"
       ]
     }
