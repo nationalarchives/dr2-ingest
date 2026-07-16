@@ -50,4 +50,7 @@ to the internet by a user who has permissions to access the relevant AWS service
 `-o   --output` 
     Optional file path where the intermediate results are stored. When available, the output of dry run is stored in that file. If not given, the script generates a file in the "tmp" folder of the machine
 
+`-s   --asset_source` 
+    Optional digital asset source, one of:('Born Digital', 'Surrogate' or 'Digitised') default is 'Born Digital'
+
 

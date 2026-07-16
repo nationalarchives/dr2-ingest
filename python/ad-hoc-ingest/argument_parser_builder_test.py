@@ -31,12 +31,13 @@ class Test(TestCase):
         self.assertEqual("some_file.csv", args.input)
         self.assertEqual(False, args.dry_run)
         self.assertEqual("intg", args.environment)
+        self.assertEqual("Born Digital", args.asset_source)
 
     def test_should_treat_dry_run_param_as_true_when_no_option_is_provided(self):
         args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d"])
         self.assertEqual(True, args.dry_run)
 
-        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "--dry_run"])
+        args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "--dry-run"])
         self.assertEqual(True, args.dry_run)
 
     def test_should_set_the_output_folder_as_temp_location_if_not_passed_as_a_parameter(self):
@@ -50,3 +51,18 @@ class Test(TestCase):
         self.assertTrue(args.dry_run)
         self.assertEqual("not_prod", args.environment)
         self.assertEqual("/home/Users", args.output)
+
+    @patch("sys.stderr", new_callable=StringIO)
+    def test_should_throw_error_when_asset_source_is_not_one_of_the_allowed_values(self, captured_sys_exit):
+        with self.assertRaises(SystemExit):
+            self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "-s", "some_other_source"])
+
+        self.assertIn("error: argument -s/--asset-source: invalid choice: 'some_other_source' (choose from Born Digital, Surrogate, Digitised)", captured_sys_exit.getvalue().strip().splitlines()[-1])
+
+    @patch("sys.stderr", new_callable=StringIO)
+    def test_should_throw_error_when_asset_source_is_used_but_no_value_given(self, captured_sys_exit):
+        with self.assertRaises(SystemExit):
+            self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "-s"])
+
+        self.assertIn("argument -s/--asset-source: expected one argument", captured_sys_exit.getvalue().strip().splitlines()[-1])
+

@@ -6,11 +6,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
-
+from io import StringIO
 from botocore.exceptions import ClientError
 
 import ad_hoc_ingest
-
+import pandas as pd
 
 class Test(TestCase):
     def setUp(self):
@@ -63,8 +63,8 @@ class Test(TestCase):
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_ref,,some_checksum,some_iaid""".strip()
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID,digitalAssetSource
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_ref,,some_checksum,some_iaid,Surrogate""".strip()
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -82,9 +82,10 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
             "FileReference": "3",
             "ClientSideOriginalFilepath": tmp1,
             "formerRefDept": "dept_ref",
+            "IAID": "some_iaid",
+            "digitalAssetSource": "Surrogate",
             "formerRefTNA": "tna_ref",
-            "checksum_sha256": "some_checksum",
-            "IAID": "some_iaid"
+            "checksum_sha256": "some_checksum"
         }
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  tmp1)
@@ -101,8 +102,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum,some_iaid"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID,digitalAssetSource
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum,some_iaid,Surrogate"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -119,10 +120,11 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
             "ClientSideOriginalFilepath": "ad_hoc_ingest_test_file1.txt",
+            "IAID": "some_iaid",
+            "digitalAssetSource": "Surrogate",
             "formerRefDept": "dept_ref",
             "formerRefTNA": "tna_ref",
-            "checksum_sha256": "some_checksum",
-            "IAID": "some_iaid"
+            "checksum_sha256": "some_checksum"
         }
 
         resolved_path = str(Path(tmp1).resolve())
@@ -142,8 +144,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum,some_iaid"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID,digitalAssetSource
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum,some_iaid,Surrogate"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -160,10 +162,11 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
             "ClientSideOriginalFilepath": "folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt",
+            "IAID": "some_iaid",
+            "digitalAssetSource": "Surrogate",
             "formerRefDept": "dept_ref",
             "formerRefTNA": "tna_ref",
-            "checksum_sha256": "some_checksum",
-            "IAID": "some_iaid"
+            "checksum_sha256": "some_checksum"
         }
 
         resolved_path = str(Path(tmp1).resolve())
@@ -183,8 +186,8 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
-JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,AB 1/2/3,,some_checksum,some_iaid"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID,digitalAssetSource
+JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,AB 1/2/3,,some_checksum,some_iaid,Born Digital"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -201,9 +204,10 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
             "ClientSideOriginalFilepath": "ad_hoc_ingest_test_file1.txt",
+            "IAID": "some_iaid",
+            "digitalAssetSource": "Born Digital",
             "formerRefTNA": "AB 1/2/3",
-            "checksum_sha256": "some_checksum",
-            "IAID": "some_iaid"
+            "checksum_sha256": "some_checksum"
         }
 
         resolved_path = str(Path(tmp1).resolve())
@@ -241,3 +245,26 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
 
         self.assertEqual(3, mock_refresh_session.call_count)
 
+    @patch("discovery_client.is_discovery_api_reachable")
+    @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
+    def test_should_not_call_discovery_when_description_is_supplied_within_the_input(self, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
+        csv_data = f"""catRef,description,Filename,checksum
+        JS 8/3,"Description of Kew, Richmond, London",JS-8-3.pdf,some_checksum"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        ad_hoc_ingest.process_upload(data_set, SimpleNamespace(environment="test", input="/home/users/input-file.csv", asset_source="Surrogate", dry_run=True, output="/home/some/folder"), True)
+        mock_is_discovery_reachable.assert_not_called()
+
+        mock_upload_to_ingest_bucket.assert_called_once_with(data_set, SimpleNamespace(environment="test", input="/home/users/input-file.csv", asset_source="Surrogate", dry_run=True, output="/home/some/folder"), True, True)
+
+    @patch("discovery_client.is_discovery_api_reachable")
+    @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
+    def test_should_call_discovery_when_description_is_not_supplied_within_the_input(self, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
+        csv_data = f"""catRef,Filename,checksum
+        JS 8/3,JS-8-3.pdf,some_checksum"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        ad_hoc_ingest.process_upload(data_set, SimpleNamespace(environment="test", input="/home/users/input-file.csv", asset_source="Surrogate", dry_run=True, output="/home/some/folder"), True)
+        mock_is_discovery_reachable.assert_called_once()
+
+        mock_upload_to_ingest_bucket.assert_called_once_with(data_set, SimpleNamespace(environment="test", input="/home/users/input-file.csv", asset_source="Surrogate", dry_run=True, output="/home/some/folder"), True, False)

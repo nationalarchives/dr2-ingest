@@ -145,7 +145,6 @@ def is_folder_writable(output_folder):
 def main():
     args = argument_parser_builder.build().parse_args()
     validate_arguments(args)
-
     input_file_path = Path(args.input)
     if input_file_path.suffix.lower() == ".csv":
         data_set = pd.read_csv(input_file_path, dtype=str, keep_default_na=False)
@@ -159,14 +158,17 @@ def main():
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 
-    description_override = set("description").issubset(data_set.columns)
-    if description_override:
+    process_upload(data_set, args, is_valid)
+
+def process_upload(data_set, args, is_dataset_valid):
+    description_override = "description" in data_set.columns
+    if not description_override:
         is_discovery_available = discovery_client.is_discovery_api_reachable()
         if not is_discovery_available:
             mp.print_message("Discovery API is not available for getting metadata information, terminating process")
             sys.exit(1)
 
-    upload_files_to_ingest_bucket(data_set, args, is_valid, description_override)
+    upload_files_to_ingest_bucket(data_set, args, is_dataset_valid, description_override)
 
     if not args.dry_run:
         mp.print_message("Upload finished successfully")

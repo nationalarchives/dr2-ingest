@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+import textwrap
 from io import StringIO
 from types import SimpleNamespace
 from unittest import TestCase
@@ -149,7 +150,7 @@ class Test(TestCase):
         mock_former_ref.return_value = RecordDetails("A", "B")
         mock_description.return_value = CollectionInfo("some_id", "", "")
 
-        csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
+        csv_data = f"""catRef,someOtherColumn,fileName,checksum,anotherColumn
             someTestCatRef,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
         first_row = data_set.iloc[0]
@@ -161,6 +162,43 @@ class Test(TestCase):
 
     @patch("discovery_client.get_title_and_description")
     def test_create_metadata_should_use_description_from_the_input_csv_when_it_is_available(self, mock_title_and_description):
+        csv_data = textwrap.dedent("""\
+        catRef,description,fileName,checksum
+        "E 31/2/1, f 14r","An amazing description","file:/Y:/Great%20Domesday/E31-2-1/E31-2-1_0147.tif","2a368731b73500c509dddb231bd178e98e7f0f95ad6d8045068dcd9e85646104"
+        """)
+        data_set = pd.read_csv(StringIO(csv_data))
+        for index, row in data_set.iterrows():
+            metadata = metadata_creator.create_intermediate_metadata_dict(True, row,
+                                                                          SimpleNamespace(environment="test",
+                                                                                          input="/home/users/input-file.csv"))
+            mock_title_and_description.assert_not_called()
+            self.assertEqual("E 31", metadata["Series"])
+            self.assertEqual("E31-2-1_0147.tif", metadata["Filename"])
+            self.assertEqual("2/1, f 14r", metadata["FileReference"])
+            self.assertEqual("2a368731b73500c509dddb231bd178e98e7f0f95ad6d8045068dcd9e85646104",
+                             metadata["checksum_sha256"])
+            self.assertEqual("An amazing description", metadata["description"])
+            self.assertEqual("file:/Y:/Great%20Domesday/E31-2-1/E31-2-1_0147.tif", metadata["ClientSideOriginalFilepath"])
+            self.assertEqual("", metadata["formerRefTNA"])
+            self.assertEqual("", metadata["formerRefDept"])
+            self.assertEqual("", metadata["IAID"])
+            self.assertEqual("Born Digital", metadata["digitalAssetSource"])
+
+    @patch("discovery_client.get_title_and_description")
+    def test_create_metadata_should_use_digital_asset_source_as_passed_in_arguments(self, mock_title_and_description):
+        csv_data = """catRef,description,fileName,checksum
+            "",An amazing description,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
+        data_set = pd.read_csv(StringIO(csv_data))
+        for index, row in data_set.iterrows():
+            metadata = metadata_creator.create_intermediate_metadata_dict(True, row,
+                                                                          SimpleNamespace(environment="test",
+                                                                                          input="/home/users/input-file.csv",
+                                                                                          asset_source="Surrogate"))
+            mock_title_and_description.assert_not_called()
+            self.assertEqual("Surrogate", metadata["digitalAssetSource"])
+
+    @patch("discovery_client.get_title_and_description")
+    def test_create_metadata_should_default_to_born_digital_when_no_argument_used_for_asset_source(self, mock_title_and_description):
         csv_data = """catRef,description,fileName,checksum
             "",An amazing description,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
         data_set = pd.read_csv(StringIO(csv_data))
@@ -169,13 +207,4 @@ class Test(TestCase):
                                                                           SimpleNamespace(environment="test",
                                                                                           input="/home/users/input-file.csv"))
             mock_title_and_description.assert_not_called()
-            self.assertEqual("", metadata["Series"])
-            self.assertEqual("evid0001.pdf", metadata["Filename"])
-            self.assertEqual("", metadata["FileReference"])
-            self.assertEqual("9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc",
-                             metadata["checksum_sha256"])
-            self.assertEqual("An amazing description", metadata["description"])
-            self.assertEqual("d:\\js\\3\\1\\evid0001.pdf", metadata["ClientSideOriginalFilepath"])
-            self.assertEqual("", metadata["formerRefTNA"])
-            self.assertEqual("", metadata["formerRefDept"])
-            self.assertEqual("", metadata["IAID"])
+            self.assertEqual("Born Digital", metadata["digitalAssetSource"])

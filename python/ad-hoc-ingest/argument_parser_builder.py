@@ -20,7 +20,7 @@ def build():
         default="intg"
     )
     parser.add_argument(
-        "-d", "--dry_run",
+        "-d", "--dry-run",
         nargs="?",
         const=True,
         type=str2bool,
@@ -31,5 +31,11 @@ def build():
         "-o", "--output",
         help="Name of the folder to store a CSV file representing generated metadata for this ingest",
         default=tempfile.gettempdir()
+    )
+    parser.add_argument(
+        "-s", "--asset-source",
+        choices=["Born Digital", "Surrogate", "Digitised"],
+        help="Digital asset source. One of ('Born Digital', 'Surrogate' or 'Digitised'), default is 'Born Digital'",
+        default="Born Digital"
     )
     return parser

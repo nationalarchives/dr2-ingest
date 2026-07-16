@@ -21,7 +21,6 @@ def create_intermediate_metadata_dict(description_override, row, args):
 
         description_to_use = collection_info.title if collection_info.title is not None else collection_info.description
     else:
-        catalog_ref = ""
         former_ref_dept = None
         former_ref_tna = None
         description_to_use = row["description"].strip()
@@ -34,6 +33,12 @@ def create_intermediate_metadata_dict(description_override, row, args):
                 "formerRefDept": "" if former_ref_dept is None else former_ref_dept,
                 "formerRefTNA": "" if former_ref_tna is None else former_ref_tna}
 
+    asset_source = getattr(args, "asset_source", None)
+    if asset_source:
+        metadata["digitalAssetSource"] = args.asset_source
+    else:
+        metadata["digitalAssetSource"] = "Born Digital"
+
     sha256_checksum = row["checksum"].strip()
     if not sha256_checksum:
         metadata["checksum_md5"] = create_md5_hash(get_absolute_file_path(args.input, file_path))
@@ -41,6 +46,7 @@ def create_intermediate_metadata_dict(description_override, row, args):
     else:
         metadata["checksum_md5"] = ""
         metadata["checksum_sha256"] = sha256_checksum
+
     return metadata
 
 def create_metadata_for_upload(row):
@@ -52,8 +58,10 @@ def create_metadata_for_upload(row):
         "Filename": row["Filename"],
         "FileReference": row["FileReference"],
         "ClientSideOriginalFilepath": row["ClientSideOriginalFilepath"],
-        "IAID": row["IAID"]
+        "IAID": row["IAID"],
     }
+    if row["digitalAssetSource"] != "":
+        metadata["digitalAssetSource"] = row["digitalAssetSource"]
     if row["formerRefDept"] != "":
         metadata["formerRefDept"] = row["formerRefDept"]
     if row["formerRefTNA"] != "":
@@ -66,7 +74,7 @@ def create_metadata_for_upload(row):
 
 def get_field_names():
     return ["Series", "UUID", "fileId", "description", "Filename", "FileReference",
-                  "ClientSideOriginalFilepath", "formerRefDept", "formerRefTNA", "checksum_md5", "checksum_sha256", "IAID"]
+                  "ClientSideOriginalFilepath", "formerRefDept", "formerRefTNA", "checksum_md5", "checksum_sha256", "IAID", "digitalAssetSource"]
 
 def get_absolute_file_path(input_path, relative_or_absolute_file_path):
     input_file_path = Path(input_path).resolve()
