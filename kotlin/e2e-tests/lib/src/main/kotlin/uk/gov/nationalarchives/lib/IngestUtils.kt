@@ -179,7 +179,9 @@ class IngestUtils(
                                     }
                                     !taggingResponse.tagSet.map { tag -> tag.key }.contains("TO_BE_DELETED")
                                 }
-                            delay(30.seconds)
+                            if (!notDeletedFiles.isNullOrEmpty()) {
+                                delay(30.seconds)
+                            }
                         } while (!notDeletedFiles.isNullOrEmpty())
                     }
                 }

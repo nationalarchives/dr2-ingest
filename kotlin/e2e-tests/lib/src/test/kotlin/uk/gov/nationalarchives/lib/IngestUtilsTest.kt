@@ -406,8 +406,8 @@ class IngestUtilsTest {
             groupIds,
             ExecutionStatus.Succeeded
         )
-        val exception = assertFailsWith<Exception> { utils.checkStepFunctionCompletes() }
-        assertEquals(exception.message, "Files have not been deleted for group id ABCDE")
+        val exception = assertFailsWith<Exception> { utils.checkStepFunctionCompletes(1) }
+        assertEquals(exception.message, "Timed out waiting for step function completion for group id ABCDE")
     }
 
     private fun createJudgmentFilesIngestUtils(fileContents: MutableList<ByteArray>, metadata: MutableList<JsonUtils.TREMetadata>): IngestUtils {
