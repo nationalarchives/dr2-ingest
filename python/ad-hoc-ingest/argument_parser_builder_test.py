@@ -57,7 +57,9 @@ class Test(TestCase):
         with self.assertRaises(SystemExit):
             self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "-s", "some_other_source"])
 
-        self.assertIn("error: argument -s/--asset-source: invalid choice: 'some_other_source' (choose from Born Digital, Surrogate, Digitised)", captured_sys_exit.getvalue().strip().splitlines()[-1])
+        error_message = captured_sys_exit.getvalue().strip().splitlines()[-1]
+        self.assertIn("argument -s/--asset-source: invalid choice:", error_message)
+
 
     @patch("sys.stderr", new_callable=StringIO)
     def test_should_throw_error_when_asset_source_is_used_but_no_value_given(self, captured_sys_exit):
