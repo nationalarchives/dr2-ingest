@@ -12,7 +12,6 @@ locals {
   files_dynamo_table_name                              = "${local.environment}-dr2-ingest-files"
   ingest_lock_dynamo_table_name                        = "${local.environment}-dr2-ingest-lock"
   ingest_queue_dynamo_table_name                       = "${local.environment}-dr2-ingest-queue"
-  ingest_flow_control_config_ssm_parameter_name        = "/${local.environment}/flow-control-config"
   enable_point_in_time_recovery                        = true
   files_table_batch_parent_global_secondary_index_name = "BatchParentPathIdx"
   ingest_lock_table_group_id_gsi_name                  = "IngestLockGroupIdx"
@@ -107,22 +106,72 @@ locals {
   ]))
   flow_control_configs = {
     intg = {
-      max_concurrency            = 3
-      tdr_reserved_channels      = 1
-      courtdoc_reserved_channels = 1
-      default_reserved_channels  = 1
+      maxConcurrency = 3,
+      enabled        = true,
+      sourceSystems = [
+        {
+          systemName       = "TDR"
+          reservedChannels = 0
+          probability      = 50
+        },
+        {
+          systemName       = "COURTDOC"
+          reservedChannels = 0
+          probability      = 30
+        },
+        {
+          systemName       = "DEFAULT"
+          reservedChannels = 1
+          probability      = 20
+        }
+      ]
     }
     prod = {
-      max_concurrency            = 4
-      tdr_reserved_channels      = 1
-      courtdoc_reserved_channels = 2
-      default_reserved_channels  = 1
+      maxConcurrency = 4,
+      enabled        = true,
+      sourceSystems = [
+        {
+          systemName       = "TDR"
+          reservedChannels = 0
+          probability      = 50
+        },
+        {
+          systemName       = "COURTDOC"
+          reservedChannels = 1
+          probability      = 1
+        },
+        {
+          systemName       = "DRI"
+          reservedChannels = 0
+          probability      = 48
+        },
+        {
+          systemName       = "DEFAULT"
+          reservedChannels = 0
+          probability      = 1
+        }
+      ]
     }
     staging = {
-      max_concurrency            = 3
-      tdr_reserved_channels      = 1
-      courtdoc_reserved_channels = 1
-      default_reserved_channels  = 1
+      maxConcurrency = 3,
+      enabled        = true,
+      sourceSystems = [
+        {
+          systemName       = "TDR"
+          reservedChannels = 1
+          probability      = 50
+        },
+        {
+          systemName       = "COURTDOC"
+          reservedChannels = 0
+          probability      = 30
+        },
+        {
+          systemName       = "DEFAULT"
+          reservedChannels = 0
+          probability      = 20
+        }
+      ]
     }
   }
   selected_flow_control_config = local.flow_control_configs[local.environment]
@@ -669,14 +718,21 @@ data "aws_ssm_parameter" "slack_token" {
 }
 
 resource "aws_ssm_parameter" "flow_control_config" {
-  name = "/${local.environment}/flow-control-config"
-  type = "String"
-  value = templatefile("${path.module}/templates/ssm/ingest_flow_control_config.json.tpl", {
-    max_concurrency            = local.selected_flow_control_config.max_concurrency,
-    tdr_reserved_channels      = local.selected_flow_control_config.tdr_reserved_channels,
-    courtdoc_reserved_channels = local.selected_flow_control_config.courtdoc_reserved_channels
-    default_reserved_channels  = local.selected_flow_control_config.default_reserved_channels
-  })
+  name  = "/${local.environment}/flow-control-config"
+  type  = "String"
+  value = jsonencode(local.selected_flow_control_config)
+
+  lifecycle {
+    precondition {
+      condition     = sum([for i in local.selected_flow_control_config.sourceSystems : i.probability]) == 100
+      error_message = "The sum of probabilities for source systems must equal 100."
+    }
+
+    precondition {
+      condition     = sum([for i in local.selected_flow_control_config.sourceSystems : i.reservedChannels]) <= local.selected_flow_control_config.maxConcurrency
+      error_message = "The sum of reserved channels for source systems must not exceed the maximum concurrency."
+    }
+  }
 }
 
 module "eventbridge_alarm_notifications_destination" {
