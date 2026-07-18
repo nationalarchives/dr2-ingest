@@ -72,8 +72,7 @@ def create_metadata_for_upload(row):
         metadata["checksum_sha256"] = row["checksum_sha256"]
     return metadata
 
-def get_field_names():
-    return ["Series", "UUID", "fileId", "description", "Filename", "FileReference",
+field_names = ["Series", "UUID", "fileId", "description", "Filename", "FileReference",
                   "ClientSideOriginalFilepath", "formerRefDept", "formerRefTNA", "checksum_md5", "checksum_sha256", "IAID", "digitalAssetSource"]
 
 def get_absolute_file_path(input_path, relative_or_absolute_file_path):

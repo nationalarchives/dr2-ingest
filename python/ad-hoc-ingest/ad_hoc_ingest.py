@@ -96,7 +96,7 @@ def write_intermediate_csv(args, data_set, is_upstream_valid, description_overri
     row_count = 0
     with open(output_metadata_file, mode="a", newline="", encoding="utf-8") as intermediate_metadata_csv:
         is_metadata_valid = is_upstream_valid
-        fieldnames = metadata_creator.get_field_names()
+        fieldnames = metadata_creator.field_names
         writer = csv.DictWriter(intermediate_metadata_csv, fieldnames, quoting=csv.QUOTE_ALL)
         writer.writeheader()
         total = len(data_set)

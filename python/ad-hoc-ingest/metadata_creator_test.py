@@ -25,7 +25,7 @@ class Test(TestCase):
         mock_former_references.return_value = RecordDetails("Dept Ref", "TNA Ref")
         mock_description.return_value = CollectionInfo("some_id", None, "Some description from discovery")
 
-        field_names = metadata_creator.get_field_names()
+        field_names = metadata_creator.field_names
 
         csv_data = """catRef,someOtherColumn,fileName,checksum,anotherColumn
         JS 8 / 3,some_thing,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"""
