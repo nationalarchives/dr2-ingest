@@ -23,7 +23,7 @@ as shown in the diagram.
 4. Read the files to be ingested from ad-hoc source and carry out validations on the input file.
    - The validations depend on Series to be ingested. 
 For each row in the input CSV file,
-5. Use Discovery API to get hold of the Title, Description and Former References.
+5. If the 'description' is supplied in the input file, it is used. Otherwise, use Discovery API to get hold of the Title, Description and Former References.
 6. Generate metadata and add it as a row to intermediate metadata CSV file.
    - The advantage of having metadata in CSV is, the user can examine the potential final metadata before ingesting. 
 For each row in the Metadata CSV file,

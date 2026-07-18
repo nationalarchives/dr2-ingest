@@ -7,28 +7,28 @@ import discovery_client
 from discovery_client import CollectionInfo
 
 def create_intermediate_metadata_dict(description_override, row, args):
-    catalog_ref = row["catRef"].strip()
+    catalogue_ref = row["catRef"].strip()
     file_path = row["fileName"].strip()
     if not description_override:
-        collection_info = discovery_client.get_title_and_description(catalog_ref)
+        collection_info = discovery_client.get_title_and_description(catalogue_ref)
         discovery_iaid = collection_info.iaid
         former_references = discovery_client.get_former_references(collection_info.iaid)
         former_ref_dept = former_references.formerRefDept
         former_ref_tna = former_references.formerRefTNA
 
         if not collection_info.title and not collection_info.description:
-            raise Exception(f"Title and Description both are empty for '{catalog_ref}', unable to proceed with this record")
+            raise Exception(f"Title and Description both are empty for '{catalogue_ref}', unable to proceed with this record")
 
         description_to_use = collection_info.title if collection_info.title is not None else collection_info.description
     else:
-        former_ref_dept = None
-        former_ref_tna = None
+        former_ref_dept = ""
+        former_ref_tna = ""
         description_to_use = row["description"].strip()
         discovery_iaid = ""
-    series = catalog_ref.split("/")[0].strip()
+    series = catalogue_ref.split("/")[0].strip()
     metadata = {"Series": series, "UUID": str(uuid.uuid4()), "fileId": str(uuid.uuid4()),
                 "description": description_to_use, "Filename": get_filename_from_cross_platform_path(file_path),
-                "FileReference": catalog_ref.removeprefix(f"{series}").strip().removeprefix("/").strip(),
+                "FileReference": catalogue_ref.removeprefix(series).strip().removeprefix("/").strip(),
                 "ClientSideOriginalFilepath": file_path, "IAID": discovery_iaid,
                 "formerRefDept": "" if former_ref_dept is None else former_ref_dept,
                 "formerRefTNA": "" if former_ref_tna is None else former_ref_tna}

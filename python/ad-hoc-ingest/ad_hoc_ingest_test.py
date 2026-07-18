@@ -1,6 +1,7 @@
 import argparse
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -308,24 +309,111 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
 
     @patch("discovery_client.is_discovery_api_reachable")
     @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
-    def test_should_not_call_discovery_when_description_is_supplied_within_the_input(self, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
-        csv_data = f"""catRef,description,Filename,checksum
-        JS 8/3,"Description of Kew, Richmond, London",JS-8-3.pdf,some_checksum"""
-        data_set = pd.read_csv(StringIO(csv_data))
-
-        ad_hoc_ingest.process_upload(data_set, SimpleNamespace(environment="test", input="/home/users/input-file.csv", asset_source="Surrogate", dry_run=True, output="/home/some/folder"), True)
-        mock_is_discovery_reachable.assert_not_called()
-
-        mock_upload_to_ingest_bucket.assert_called_once_with(data_set, SimpleNamespace(environment="test", input="/home/users/input-file.csv", asset_source="Surrogate", dry_run=True, output="/home/some/folder"), True, True)
-
-    @patch("discovery_client.is_discovery_api_reachable")
-    @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
-    def test_should_call_discovery_when_description_is_not_supplied_within_the_input(self, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
+    @patch("ad_hoc_ingest.get_input_dataset")
+    @patch("dataset_validator.validate_dataset")
+    @patch("ad_hoc_ingest.validate_arguments")
+    @patch("version_check.is_latest_version")
+    def test_should_call_discovery_when_description_is_not_supplied_within_the_input(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
         csv_data = f"""catRef,Filename,checksum
         JS 8/3,JS-8-3.pdf,some_checksum"""
         data_set = pd.read_csv(StringIO(csv_data))
 
-        ad_hoc_ingest.process_upload(data_set, SimpleNamespace(environment="test", input="/home/users/input-file.csv", asset_source="Surrogate", dry_run=True, output="/home/some/folder"), True)
-        mock_is_discovery_reachable.assert_called_once()
+        mock_version_check.return_value = True
+        mock_validate_arguments.return_value = True
+        mock_get_input_dataset.return_value = data_set
+        mock_validate_dataset.return_value = True
 
-        mock_upload_to_ingest_bucket.assert_called_once_with(data_set, SimpleNamespace(environment="test", input="/home/users/input-file.csv", asset_source="Surrogate", dry_run=True, output="/home/some/folder"), True, False)
+        with patch(
+            "sys.argv",
+            [
+                "ad_hoc_ingest.py",
+                "--environment",
+                "test",
+                "--input",
+                "/home/users/input-file.csv",
+                "--asset-source",
+                "Surrogate",
+                "--dry-run",
+                "--output",
+                "/home/some/folder",
+            ],
+        ):
+            ad_hoc_ingest.main()
+
+        mock_is_discovery_reachable.assert_called_once()
+        actual_args = mock_upload_to_ingest_bucket.call_args.args
+        self.assertEqual(False, actual_args[3])
+
+    @patch("discovery_client.is_discovery_api_reachable")
+    @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
+    @patch("ad_hoc_ingest.get_input_dataset")
+    @patch("dataset_validator.validate_dataset")
+    @patch("ad_hoc_ingest.validate_arguments")
+    @patch("version_check.is_latest_version")
+    def test_should_not_call_discovery_when_description_is_supplied_within_the_input(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
+        csv_data = f"""catRef,description,Filename,checksum
+        JS 8/3,"Description of Kew, Richmond, London",JS-8-3.pdf,some_checksum"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        mock_version_check.return_value = True
+        mock_validate_arguments.return_value = True
+        mock_get_input_dataset.return_value = data_set
+        mock_validate_dataset.return_value = True
+
+        with patch(
+            "sys.argv",
+            [
+                "ad_hoc_ingest.py",
+                "--environment",
+                "test",
+                "--input",
+                "/home/users/input-file.csv",
+                "--asset-source",
+                "Surrogate",
+                "--dry-run",
+                "--output",
+                "/home/some/folder",
+            ],
+        ):
+            ad_hoc_ingest.main()
+
+        mock_is_discovery_reachable.assert_not_called()
+        actual_args = mock_upload_to_ingest_bucket.call_args.args
+        self.assertEqual(True, actual_args[3])
+
+    @patch("discovery_client.is_discovery_api_reachable")
+    @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
+    @patch("ad_hoc_ingest.get_input_dataset")
+    @patch("dataset_validator.validate_dataset")
+    @patch("ad_hoc_ingest.validate_arguments")
+    @patch("version_check.is_latest_version")
+    def test_should_report_error_when_discovery_is_not_reachable(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
+        csv_data = f"""catRef,Filename,checksum
+        JS 8/3,JS-8-3.pdf,some_checksum"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        mock_is_discovery_reachable.return_value = False
+        mock_version_check.return_value = True
+        mock_validate_arguments.return_value = True
+        mock_get_input_dataset.return_value = data_set
+        mock_validate_dataset.return_value = True
+
+        with patch(
+            "sys.argv",
+            [
+                "ad_hoc_ingest.py",
+                "--environment",
+                "test",
+                "--input",
+                "/home/users/input-file.csv",
+                "--asset-source",
+                "Surrogate",
+                "--dry-run",
+                "--output",
+                "/home/some/folder",
+            ],
+        ):
+            with self.assertRaises(SystemExit) as ex:
+                ad_hoc_ingest.main()
+
+            self.assertEqual(1, ex.exception.code)

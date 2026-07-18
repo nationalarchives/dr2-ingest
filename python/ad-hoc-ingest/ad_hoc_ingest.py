@@ -13,6 +13,7 @@ import argument_parser_builder
 import aws_interactions
 import dataset_validator
 import discovery_client
+import message_printer
 import message_printer as mp
 import metadata_creator
 import version_check
@@ -142,6 +143,14 @@ def is_folder_writable(output_folder):
     except (OSError, PermissionError):
         return False
 
+def get_input_dataset(input_file_path):
+    if input_file_path.suffix.lower() == ".csv":
+        data_set = pd.read_csv(input_file_path, dtype=str, keep_default_na=False)
+    elif input_file_path.suffix.lower() in {".xls", ".xlsx"}:
+        data_set = pd.read_excel(input_file_path)
+    else:
+        raise Exception("Unsupported input file format. Only CSV and Excel (xls, xlsx) files are supported for input")
+    return data_set
 
 def main():
     if not version_check.is_latest_version():
@@ -152,32 +161,28 @@ def main():
     args = argument_parser_builder.build().parse_args()
     validate_arguments(args)
     input_file_path = Path(args.input)
-    if input_file_path.suffix.lower() == ".csv":
-        data_set = pd.read_csv(input_file_path, dtype=str, keep_default_na=False)
-    elif input_file_path.suffix.lower() in {".xls", ".xlsx"}:
-        data_set = pd.read_excel(input_file_path)
-    else:
-        raise Exception("Unsupported input file format. Only CSV and Excel (xls, xlsx) files are supported for input")
-
+    data_set = get_input_dataset(input_file_path)
     try:
         is_valid = dataset_validator.validate_dataset(data_set, str(input_file_path), args.dry_run)
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 
-    process_upload(data_set, args, is_valid)
-
-def process_upload(data_set, args, is_dataset_valid):
     description_override = "description" in data_set.columns
     if not description_override:
-        is_discovery_available = discovery_client.is_discovery_api_reachable()
-        if not is_discovery_available:
+        mp.print_message("Did not find 'description' column in the input file, this ingest will use description from Discovery")
+        if not discovery_client.is_discovery_api_reachable():
             mp.print_message("Discovery API is not available for getting metadata information, terminating process")
             sys.exit(1)
+    else:
+        mp.print_message("Found 'description' column in the input file, this ingest will use description supplied in the input file")
 
-    upload_files_to_ingest_bucket(data_set, args, is_dataset_valid, description_override)
+    upload_files_to_ingest_bucket(data_set, args, is_valid, description_override)
 
     if not args.dry_run:
         mp.print_message("Upload finished successfully")
+
+
+
 
 if __name__ == "__main__":
     main()
