@@ -153,12 +153,12 @@ def get_input_dataset(input_file_path):
     return data_set
 
 def main():
+    args = argument_parser_builder.build().parse_args()
     if not version_check.is_latest_version():
         version_check_response = input("Adhoc ingest is not at the latest version. Do you want to continue? y/n")
         if version_check_response.lower().strip() not in ["y", "yes"]:
             mp.print_message("Exiting")
             sys.exit(0)
-    args = argument_parser_builder.build().parse_args()
     validate_arguments(args)
     input_file_path = Path(args.input)
     data_set = get_input_dataset(input_file_path)

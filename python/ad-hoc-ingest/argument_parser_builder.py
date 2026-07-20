@@ -7,7 +7,6 @@ from moto.utilities.utils import str2bool
 def build():
     parser = argparse.ArgumentParser(
         description="Process an input CSV file to schedule corresponding ingests ",
-        add_help=False
     )
     parser.add_argument(
         "-i", "--input",

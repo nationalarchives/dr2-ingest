@@ -1,17 +1,18 @@
 import argparse
 import os
 import shutil
-import sys
 import tempfile
+from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
-from io import StringIO
+
+import pandas as pd
 from botocore.exceptions import ClientError
 
 import ad_hoc_ingest
-import pandas as pd
+
 
 class Test(TestCase):
     def setUp(self):

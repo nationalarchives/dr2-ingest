@@ -58,8 +58,9 @@ def create_metadata_for_upload(row):
         "Filename": row["Filename"],
         "FileReference": row["FileReference"],
         "ClientSideOriginalFilepath": row["ClientSideOriginalFilepath"],
-        "IAID": row["IAID"],
     }
+    if row["IAID"] != "":
+        metadata["IAID"] = row["IAID"]
     if row["digitalAssetSource"] != "":
         metadata["digitalAssetSource"] = row["digitalAssetSource"]
     if row["formerRefDept"] != "":

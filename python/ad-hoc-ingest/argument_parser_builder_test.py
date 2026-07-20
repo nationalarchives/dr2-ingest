@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from contextlib import redirect_stdout
 from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
@@ -67,4 +68,22 @@ class Test(TestCase):
             self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "-s"])
 
         self.assertIn("argument -s/--asset-source: expected one argument", captured_sys_exit.getvalue().strip().splitlines()[-1])
+
+    def test_should_show_help_for_all_arguments_when_user_asks_for_help(self):
+        output = StringIO()
+
+        with redirect_stdout(output):
+            with self.assertRaises(SystemExit) as exit_code:
+                self.parser.parse_args(["-h"])
+
+        self.assertEqual(0, exit_code.exception.code)
+        help_message = output.getvalue()
+        print(help_message)
+
+        self.assertIn("-h, --help            show this help message and exit", help_message)
+        self.assertIn("-i INPUT, --input INPUT", help_message)
+        self.assertIn("-e ENVIRONMENT, --environment ENVIRONMENT", help_message)
+        self.assertIn("-d [DRY_RUN], --dry-run [DRY_RUN]", help_message)
+        self.assertIn("-o OUTPUT, --output OUTPUT", help_message)
+        self.assertIn("-s {Born Digital,Surrogate,Digitised}, --asset-source {Born Digital,Surrogate,Digitised}", help_message)
 

@@ -208,3 +208,36 @@ class Test(TestCase):
                                                                                           input="/home/users/input-file.csv"))
             mock_title_and_description.assert_not_called()
             self.assertEqual("Born Digital", metadata["digitalAssetSource"])
+
+    def test_create_upload_metadata_should_create_correct_metadata_based_on_the_intermediate_metadata_row(self):
+        intermediate_metadata = textwrap.dedent("""\
+        "Series","UUID","fileId","description","Filename","FileReference","ClientSideOriginalFilepath","formerRefDept","formerRefTNA","checksum_md5","checksum_sha256","IAID","digitalAssetSource"
+        "S 31","9631b877-6f17-48b6-a59b-6241cb62a908","9d4bb6a7-7198-47c3-9240-e34bef43a911","This is 10 half of the book with a dummy catalog reference","10_half.png","2/1, f 0v","pages/10_half.png","FR-DEPT","FR-TNA","","4a3b2311c781f19b4642baeae66503ac57b0d0d9ce0b91694b588f7ae269675d","SOME_IAID","Surrogate"
+        """)
+        data_set = pd.read_csv(StringIO(intermediate_metadata))
+        for index, row in data_set.iterrows():
+            metadata = metadata_creator.create_metadata_for_upload(row)
+
+            self.assertEqual("S 31", metadata["Series"])
+            self.assertEqual("9631b877-6f17-48b6-a59b-6241cb62a908", metadata["UUID"])
+            self.assertEqual("9d4bb6a7-7198-47c3-9240-e34bef43a911", metadata["fileId"])
+            self.assertEqual("This is 10 half of the book with a dummy catalog reference", metadata["description"])
+            self.assertEqual("10_half.png", metadata["Filename"])
+            self.assertEqual("2/1, f 0v", metadata["FileReference"])
+            self.assertEqual("pages/10_half.png", metadata["ClientSideOriginalFilepath"])
+            self.assertEqual("FR-DEPT", metadata["formerRefDept"])
+            self.assertEqual("FR-TNA", metadata["formerRefTNA"])
+            self.assertEqual("4a3b2311c781f19b4642baeae66503ac57b0d0d9ce0b91694b588f7ae269675d", metadata["checksum_sha256"])
+            self.assertEqual("SOME_IAID", metadata["IAID"])
+            self.assertEqual("Surrogate", metadata["digitalAssetSource"])
+
+    def test_create_upload_metadata_should_not_add_iaid_to_upload_metadata_if_it_is_empty(self):
+        intermediate_metadata = textwrap.dedent("""\
+        "Series","UUID","fileId","description","Filename","FileReference","ClientSideOriginalFilepath","formerRefDept","formerRefTNA","checksum_md5","checksum_sha256","IAID","digitalAssetSource"
+        "S 31","9631b877-6f17-48b6-a59b-6241cb62a908","9d4bb6a7-7198-47c3-9240-e34bef43a911","This is 10 half of the book with a dummy catalog reference","10_half.png","2/1, f 0v","pages/10_half.png","FR-DEPT","FR-TNA","","4a3b2311c781f19b4642baeae66503ac57b0d0d9ce0b91694b588f7ae269675d","","Surrogate"
+        """)
+        data_set = pd.read_csv(StringIO(intermediate_metadata), keep_default_na=False)
+        for index, row in data_set.iterrows():
+            metadata = metadata_creator.create_metadata_for_upload(row)
+
+            self.assertNotIn("IAID", metadata)
