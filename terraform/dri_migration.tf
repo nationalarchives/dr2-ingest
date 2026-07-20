@@ -35,7 +35,8 @@ module "dr2_dri_migration_role" {
   policy_attachments = {
     dr2_dri_migration_policy = module.dr2_dri_migration_policy.policy_arn
   }
-  tags = {}
+  max_session_duration = 60 * 60 * 12
+  tags                 = {}
 }
 
 module "dr2_dri_migration_policy" {
