@@ -64,7 +64,7 @@ class Test(TestCase):
         mock_session.client.return_value = mock_sqs
 
         aws_interactions.send_sqs_message("some_asset", "some_bucket", "https://some-queue-url")
-        expected_message_body = json.dumps({"assetId": "some_asset", "bucket": "some_bucket"})
+        expected_message_body = json.dumps({"assetId": "some_asset", "bucket": "some_bucket", "metadataLocation": "s3://some_bucket/some_asset.metadata"})
 
         mock_session.client.assert_called_once()
         args, kwargs = mock_session.client.call_args

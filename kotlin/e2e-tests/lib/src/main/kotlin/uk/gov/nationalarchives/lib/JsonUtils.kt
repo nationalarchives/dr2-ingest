@@ -76,7 +76,7 @@ object JsonUtils {
     data class ValidationErrorMessage(val error: String, val assetId: String? = null, val s3Key: String? = null)
 
     @Serializable
-    data class SqsInputMessage(@Contextual val fileId: UUID, val bucket: String)
+    data class SqsInputMessage(@Contextual val fileId: UUID, val bucket: String, @Contextual val metadataLocation: URI)
 
     @Serializable
     data class ExternalNotificationMessage(val body: ExternalNotificationBody)
@@ -165,4 +165,13 @@ object JsonUtils {
         val driBatchReference: String,
         val checksum_sha256: String
     )
+
+    @Serializable
+    data class IngestMetadata(
+        val type: String,
+        @Contextual val location: URI? = null
+    )
+
+    @Serializable
+    data class SfnInput(@Contextual val metadataPackage: URI)
 }
