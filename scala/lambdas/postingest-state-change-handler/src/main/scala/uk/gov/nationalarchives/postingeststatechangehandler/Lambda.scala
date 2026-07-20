@@ -134,8 +134,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, SQSBatchResponse, Config, Depen
         case Outcome.Errored(e) =>
           IO.pure {
             e match {
-              case e: StateChangeException => Some(BatchItemFailure(e.sequenceNumber))
-              case _                       => None
+              case e: StateChangeException => Some(BatchItemFailure(e.sequenceNumber)) // Only match on StateChangeException else throw MatchError as this is unexpected behaviour
             }
           }
         case _ => IO.pure(None)
