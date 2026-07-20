@@ -3,15 +3,20 @@ package uk.gov.nationalarchives.lib
 import aws.sdk.kotlin.services.cloudwatchlogs.CloudWatchLogsClient
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
 import aws.sdk.kotlin.services.s3.S3Client
+import aws.sdk.kotlin.services.s3.model.Tag
 import aws.sdk.kotlin.services.sfn.SfnClient
+import aws.sdk.kotlin.services.sfn.model.ExecutionStatus
 import aws.sdk.kotlin.services.sqs.SqsClient
 import com.typesafe.config.ConfigFactory
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerializationException
+import java.net.URI
 import java.time.LocalDate
 import java.util.*
 import java.util.concurrent.TimeoutException
 import kotlin.test.*
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 class IngestUtilsTest {
     
@@ -305,6 +310,108 @@ class IngestUtilsTest {
         assertEquals("arn:aws:logs:eu-west-2:1:log-group:/judgment", IngestUtils.SourceSystem.valueOf("JUDGMENT").getCopyFilesLogGroup(config))
     }
 
+    @Test
+    fun waitForEntriesInLockTablePopulatesTheCorrectGroupIds(): Unit = runBlocking {
+        val ids = mutableListOf<UUID>(UUID.randomUUID())
+        val dynamoItems = mutableListOf(mapOf("groupId" to "ABCDE", "assetId" to ids.first().toString()))
+        val utils = groupIdLookupIngestUtils(dynamoItems, ids)
+        val groupIds = utils.waitForEntriesInLockTable()
+        assertEquals(groupIds.size, 1)
+        assertEquals(groupIds.first(), "ABCDE")
+    }
+
+    @Test
+    fun waitForEntriesInLockTableTimesOutIfAssetNotFound(): Unit = runBlocking {
+        val ids = mutableListOf<UUID>(UUID.randomUUID())
+        val dynamoItems = mutableListOf<Map<String, String>>()
+        val utils = groupIdLookupIngestUtils(dynamoItems, ids)
+        val ex = assertFailsWith<TimeoutException> { utils.waitForEntriesInLockTable(10.milliseconds) }
+        assertEquals(ex.message, "Timed out waiting for lock table entries")
+    }
+
+    @Test
+    fun checkStepFunctionCompletesReturnsTrueIfComplete(): Unit = runBlocking {
+        val metadataPackageUri = URI("s3://bucket/metadata")
+        val fileUri = URI("s3://bucket/file")
+        val metadataJson = """[{"type":"File","location":"$fileUri"}]"""
+        val groupIds = mutableSetOf("ABCDE")
+        val tag = Tag {
+            key = "TO_BE_DELETED"
+            value = "true"
+        }
+        val utils = sfnCompleteIngestUtils(
+            metadataPackageUri,
+            mapOf(metadataPackageUri to metadataJson),
+            mapOf(fileUri to tag),
+            listOf("key"),
+            groupIds,
+            ExecutionStatus.Succeeded
+        )
+        utils.checkStepFunctionCompletes()
+    }
+
+    @Test
+    fun checkStepFunctionCompletesReturnsErrorIfStatusNotSucceeded(): Unit = runBlocking {
+        val metadataPackageUri = URI("s3://bucket/metadata")
+        val fileUri = URI("s3://bucket/file")
+        val metadataJson = """[{"type":"File","location":"$fileUri"}]"""
+        val groupIds = mutableSetOf("ABCDE")
+        val tag = Tag {
+            key = "TO_BE_DELETED"
+            value = "true"
+        }
+        val utils = sfnCompleteIngestUtils(
+            metadataPackageUri,
+            mapOf(metadataPackageUri to metadataJson),
+            mapOf(fileUri to tag),
+            listOf("key"),
+            groupIds,
+            ExecutionStatus.Failed
+        )
+        val exception = assertFailsWith<Exception> { utils.checkStepFunctionCompletes(1.seconds) }
+        assertEquals(exception.message, "Timed out waiting for step function completion for group id ABCDE")
+    }
+
+    @Test
+    fun checkStepFunctionCompletesReturnsErrorIfMetadataNotDeleted(): Unit = runBlocking {
+        val metadataPackageUri = URI("s3://bucket/metadata")
+        val fileUri = URI("s3://bucket/file")
+        val metadataJson = """[{"type":"File","location":"$fileUri"}]"""
+        val groupIds = mutableSetOf("ABCDE")
+        val tag = Tag {
+            key = "TO_BE_DELETED"
+            value = "true"
+        }
+        val utils = sfnCompleteIngestUtils(
+            metadataPackageUri,
+            mapOf(metadataPackageUri to metadataJson),
+            mapOf(fileUri to tag),
+            listOf(),
+            groupIds,
+            ExecutionStatus.Succeeded
+        )
+        val exception = assertFailsWith<Exception> { utils.checkStepFunctionCompletes() }
+        assertEquals(exception.message, "Metadata file has not been deleted for group id ABCDE")
+    }
+
+    @Test
+    fun checkStepFunctionCompletesReturnsErrorIfFilesNotDeleted(): Unit = runBlocking {
+        val metadataPackageUri = URI("s3://bucket/metadata")
+        val fileUri = URI("s3://bucket/file")
+        val metadataJson = """[{"type":"File","location":"$fileUri"}]"""
+        val groupIds = mutableSetOf("ABCDE")
+        val utils = sfnCompleteIngestUtils(
+            metadataPackageUri,
+            mapOf(metadataPackageUri to metadataJson),
+            mapOf(),
+            listOf("key"),
+            groupIds,
+            ExecutionStatus.Succeeded
+        )
+        val exception = assertFailsWith<Exception> { utils.checkStepFunctionCompletes(1.milliseconds) }
+        assertEquals(exception.message, "Timed out waiting for step function completion for group id ABCDE")
+    }
+
     private fun createJudgmentFilesIngestUtils(fileContents: MutableList<ByteArray>, metadata: MutableList<JsonUtils.TREMetadata>): IngestUtils {
         return IngestUtils(
             SqsClient.builder().build(),
@@ -313,7 +420,8 @@ class IngestUtilsTest {
             DynamoDbClient.builder().build(),
             SfnClient.builder().build(),
             ConfigFactory.load(),
-            mutableListOf()
+            mutableListOf(),
+            mutableSetOf()
         )
     }
 
@@ -325,7 +433,8 @@ class IngestUtilsTest {
             DynamoDbClient.builder().build(),
             SfnClient.builder().build(),
             ConfigFactory.load(),
-            mutableListOf()
+            mutableListOf(),
+            mutableSetOf()
         )
     }
 
@@ -337,7 +446,35 @@ class IngestUtilsTest {
             AWSClients.TestDynamoClient(dynamoItems),
             AWSClients.TestSfnClient(sfnItems),
             ConfigFactory.load(),
-            files
+            files,
+            mutableSetOf()
+        )
+    }
+
+    private fun groupIdLookupIngestUtils(dynamoItems: MutableList<Map<String, String>>, files: MutableList<UUID>): IngestUtils {
+        return IngestUtils(
+            SqsClient.builder().build(),
+            S3Client.builder().build(),
+            CloudWatchLogsClient.builder().build(),
+            AWSClients.TestDynamoClient(dynamoItems),
+            SfnClient.builder().build(),
+            ConfigFactory.load(),
+            files,
+            mutableSetOf()
+        )
+    }
+
+    private fun sfnCompleteIngestUtils(metadataPackageUri: URI, s3Files: Map<URI, String>, s3Tags: Map<URI, Tag>, deleteMarkerResponse: List<String>, groupIds: MutableSet<String>, executionStatus: ExecutionStatus): IngestUtils {
+        val sfnInput = JsonUtils.SfnInput(metadataPackageUri)
+        return IngestUtils(
+            SqsClient.builder().build(),
+            AWSClients.TestMetadataS3Client(s3Files, s3Tags, deleteMarkerResponse),
+            CloudWatchLogsClient.builder().build(),
+            DynamoDbClient.builder().build(),
+            AWSClients.TestIngestSfnClient(sfnInput, executionStatus),
+            ConfigFactory.load(),
+            mutableListOf(),
+            groupIds,
         )
     }
 
@@ -349,7 +486,8 @@ class IngestUtilsTest {
             DynamoDbClient.builder().build(),
             SfnClient.builder().build(),
             ConfigFactory.load(),
-            files
+            files,
+            mutableSetOf()
         )
     }
 
@@ -361,7 +499,8 @@ class IngestUtilsTest {
             DynamoDbClient.builder().build(),
             SfnClient.builder().build(),
             ConfigFactory.load(),
-            files
+            files,
+            mutableSetOf()
         )
     }
 
@@ -373,7 +512,8 @@ class IngestUtilsTest {
             DynamoDbClient.builder().build(),
             SfnClient.builder().build(),
             ConfigFactory.load(),
-            files
+            files,
+            mutableSetOf()
         )
     }
 }
