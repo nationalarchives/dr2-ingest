@@ -50,5 +50,5 @@ rm tmp-creds
 aws s3 sync /path/to/output/ s3://<env>-dr2-ingest-cc-restore-cache
 
 # Send SQS message. You will need the asset id which is the name of the subfolder in the output directory
-aws sqs send-message --queue-url https://sqs.eu-west-2.amazonaws.com/059334750967/intg-dr2-preingest-restore-importer --message-body '{"assetId":"<asset_id>","bucket":"<env>-dr2-ingest-cc-restore-cache"}'
+aws sqs send-message --queue-url https://sqs.eu-west-2.amazonaws.com/123456789/intg-dr2-preingest-restore-importer --message-body '{"assetId":"<asset_id>","bucket":"<env>-dr2-ingest-cc-restore-cache","metadataLocation":"s3://<env>-dr2-ingest-cc-restore-cache/<asset_id>.metadata"}'
 ```

@@ -13,6 +13,18 @@
     },
     {
       "Action": [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:GetObjectTagging"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:s3:::${object_store_bucket}",
+        "arn:aws:s3:::${object_store_bucket}/*"
+      ]
+    },
+    {
+      "Action": [
         "s3:PutObject"
       ],
       "Effect": "Allow",
