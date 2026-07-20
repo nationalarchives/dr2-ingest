@@ -106,13 +106,13 @@ class TestLambdaFunction(unittest.TestCase):
         mock_get_object.return_value = {
             'Body': io.BytesIO(b'[' + json.dumps(metadata_object).encode() + b']')
         }
-        event = {'Records': [{'body': json.dumps({"bucket": "source-bucket", "assetId": asset_id})}]}
+        event = {'Records': [{'body': json.dumps({"bucket": "source-bucket", "assetId": asset_id, "metadataLocation": f"s3://metadata-bucket/{asset_id}.metadata"})}]}
         context = {}
 
         lambda_function.lambda_handler(event, context)
 
         mock_copy_records_metadata.assert_called_once_with(
-            'source-bucket', 'records-metadata-bucket', [metadata_object], f'{asset_id}.metadata')
+            'metadata-bucket', 'records-metadata-bucket', [metadata_object], f'{asset_id}.metadata')
 
     def test_copy_records_metadata_uploads_merged_metadata(self):
         with patch('lambda_function.s3_client.get_object') as mock_get_object, \
@@ -151,6 +151,24 @@ class TestLambdaFunction(unittest.TestCase):
                     mock_delete_objects, mock_send_message, mock_copy_objects,
                     mock_head_object, mock_list_objects, potential_message_id="message-id")
 
+
+    @patch('lambda_function.s3_client.list_objects')
+    @patch('lambda_function.s3_client.head_object')
+    @patch('lambda_function.copy_objects')
+    @patch('lambda_function.sqs_client.send_message')
+    @patch('lambda_function.s3_client.get_object')
+    @patch('lambda_function.s3_client.delete_objects')
+    @patch('lambda_function.validate_mandatory_fields_exist')
+    @patch('lambda_function.validate_formats')
+    @patch.dict(os.environ, {'DESTINATION_BUCKET': 'destination-bucket'})
+    @patch.dict(os.environ, {'SOURCE_SYSTEM': 'dri'})
+    def test_copy_returns_files_prefix_if_provided(self, mock_validate_formats, mock_validate_mandatory_fields_exist,
+                                                 mock_delete_objects, mock_get_object, mock_send_message, mock_copy_objects,
+                                                 mock_head_object, mock_list_objects):
+        copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object,
+                    mock_delete_objects, mock_send_message, mock_copy_objects,
+                    mock_head_object, mock_list_objects, potential_files_prefix="v1/test/prefix")
+
     @patch('lambda_function.s3_client.list_objects')
     @patch('lambda_function.s3_client.head_object')
     @patch('lambda_function.s3_client.copy_object')
@@ -166,7 +184,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_copy_object.side_effect = Exception("S3 copy_object failed")
         event = {
             'Records': [
-                {'body': f'{{"bucket": "source-bucket","fileId":"{asset_id}"}}'}
+                {'body': f'{{"bucket": "source-bucket","fileId":"{asset_id}", "metadataLocation":"s3://metadata-bucket/{asset_id}.metadata"}}'}
             ]
         }
         context = {}
@@ -197,7 +215,7 @@ class TestLambdaFunction(unittest.TestCase):
 
         event = {
             'Records': [
-                {'body': f'{{"bucket": "source-bucket","fileId":"{asset_id}"}}'}
+                {'body': f'{{"bucket": "source-bucket","fileId":"{asset_id}","metadataLocation":"s3://metadata-bucket/{asset_id}.metadata"}}'}
             ]
         }
         context = {}
@@ -231,7 +249,7 @@ class TestLambdaFunction(unittest.TestCase):
 
         event = {
             'Records': [
-                {'body': f'{{"bucket": "source-bucket","fileId":"{asset_id}"}}'}
+                {'body': f'{{"bucket": "source-bucket","metadataLocation":"s3://metadata-bucket/{asset_id}","fileId":"{asset_id}"}}'}
             ]
         }
         context = {}
@@ -257,7 +275,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_validate_metadata.return_value = True
         event = {
             'Records': [
-                {'body': f'{{"bucket": "source-bucket","fileId":"{asset_id}"}}'}
+                {'body': f'{{"bucket": "source-bucket","fileId":"{asset_id}","metadataLocation":"s3://metadata-bucket/{asset_id}.metadata"}}'}
             ]
         }
         context = {}
@@ -285,7 +303,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_validate_metadata.return_value = True
         event = {
             'Records': [
-                {'body': f'{{"bucket": "source-bucket","fileId":"{asset_id}"}}'}
+                {'body': f'{{"bucket": "source-bucket","fileId":"{asset_id}","metadataLocation":"s3://metadata-bucket/{asset_id}.metadata"}}'}
             ]
         }
         context = {}
@@ -323,20 +341,6 @@ class TestLambdaFunction(unittest.TestCase):
             "calling the ListObjects operation: Not Found'",
             str(ex.exception))
 
-    @patch('lambda_function.s3_client.list_objects')
-    def test_should_raise_exception_when_file_exists_but_corresponding_metadata_file_does_not_exist_in_source_bucket(
-            self, mock_list_objects):
-        asset_id, file_id = str(uuid.uuid4()), str(uuid.uuid4())
-        key = f'{asset_id}/{file_id}'
-        contents = [{'Size': 1, 'Key': key}]
-        mock_list_objects.return_value = {'Contents': contents, 'IsTruncated': False}
-
-        with self.assertRaises(Exception) as ex:
-            lambda_function.assert_objects_exist_in_bucket('some_bucket', 'some_key')
-
-        self.assertEqual(
-            "Object 'some_key.metadata' does not exist in 'some_bucket'",
-            str(ex.exception))
 
     def test_should_raise_an_exception_if_fields_are_missing(self):
         schema_location = "common/preingest-tdr/metadata-schema.json"
