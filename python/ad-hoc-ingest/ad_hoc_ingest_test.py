@@ -236,16 +236,32 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
     @patch("version_check.is_latest_version", return_value=False)
     @patch("builtins.input", return_value="n")
     def test_should_exit_when_not_at_latest_version_and_user_declines_to_continue(self, mock_input, _):
-        with self.assertRaises(SystemExit) as exc:
-            ad_hoc_ingest.main()
+        with patch(
+                "sys.argv",
+                [
+                    "ad_hoc_ingest.py",
+                    "--input",
+                    "/home/users/input-file.csv",
+                ],
+        ):
+            with self.assertRaises(SystemExit) as exc:
+                ad_hoc_ingest.main()
         self.assertEqual(0, exc.exception.code)
         mock_input.assert_called_once_with("Adhoc ingest is not at the latest version. Do you want to continue? y/n")
 
     @patch("version_check.is_latest_version", return_value=False)
     @patch("builtins.input", return_value="no")
     def test_should_exit_when_not_at_latest_version_and_user_types_no(self, _, __):
-        with self.assertRaises(SystemExit) as exc:
-            ad_hoc_ingest.main()
+        with patch(
+                "sys.argv",
+                [
+                    "ad_hoc_ingest.py",
+                    "--input",
+                    "/home/users/input-file.csv",
+                ],
+        ):
+            with self.assertRaises(SystemExit) as exc:
+                ad_hoc_ingest.main()
         self.assertEqual(0, exc.exception.code)
 
     @patch("argument_parser_builder.build")
