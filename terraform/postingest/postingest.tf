@@ -89,12 +89,9 @@ module "cc_confirmer_message_older_than_one_week_alarm" {
 }
 
 module "dr2_state_change_ddb_queue" {
-  source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  queue_name = local.state_change_ddb_queue_name
-  sqs_policy = templatefile("./templates/sqs/sqs_access_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.state_change_ddb_queue_name
-  })
+  source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
+  queue_name                                        = local.state_change_ddb_queue_name
+  sqs_policy                                        = ""
   create_dlq                                        = true
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = 180
