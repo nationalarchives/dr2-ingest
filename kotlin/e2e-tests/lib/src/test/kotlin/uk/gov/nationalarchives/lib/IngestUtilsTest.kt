@@ -15,6 +15,8 @@ import java.time.LocalDate
 import java.util.*
 import java.util.concurrent.TimeoutException
 import kotlin.test.*
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 class IngestUtilsTest {
     
@@ -323,7 +325,7 @@ class IngestUtilsTest {
         val ids = mutableListOf<UUID>(UUID.randomUUID())
         val dynamoItems = mutableListOf<Map<String, String>>()
         val utils = groupIdLookupIngestUtils(dynamoItems, ids)
-        val ex = assertFailsWith<TimeoutException> { utils.waitForEntriesInLockTable(10) }
+        val ex = assertFailsWith<TimeoutException> { utils.waitForEntriesInLockTable(10.milliseconds) }
         assertEquals(ex.message, "Timed out waiting for lock table entries")
     }
 
@@ -366,7 +368,7 @@ class IngestUtilsTest {
             groupIds,
             ExecutionStatus.Failed
         )
-        val exception = assertFailsWith<Exception> { utils.checkStepFunctionCompletes(1000) }
+        val exception = assertFailsWith<Exception> { utils.checkStepFunctionCompletes(1.seconds) }
         assertEquals(exception.message, "Timed out waiting for step function completion for group id ABCDE")
     }
 
@@ -406,7 +408,7 @@ class IngestUtilsTest {
             groupIds,
             ExecutionStatus.Succeeded
         )
-        val exception = assertFailsWith<Exception> { utils.checkStepFunctionCompletes(1) }
+        val exception = assertFailsWith<Exception> { utils.checkStepFunctionCompletes(1.milliseconds) }
         assertEquals(exception.message, "Timed out waiting for step function completion for group id ABCDE")
     }
 

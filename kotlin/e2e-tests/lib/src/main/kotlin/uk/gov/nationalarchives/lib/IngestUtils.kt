@@ -51,7 +51,9 @@ import java.util.*
 import java.util.concurrent.TimeoutException
 import java.util.zip.GZIPOutputStream
 import kotlin.random.Random
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 class IngestUtils(
@@ -67,12 +69,12 @@ class IngestUtils(
     private val completeStatus = "Asset has been written to custodial copy disk."
     private val failedStatus = "There has been an error ingesting the asset."
 
-    suspend fun waitForEntriesInLockTable(timeout: Long = 15 * 60 * 1000): MutableSet<String> {
+    suspend fun waitForEntriesInLockTable(timeout: Duration = 15.minutes): MutableSet<String> {
         val pollInterval = 30 * 1000
         val pendingAssetIds = assetIds.map { it.toString() }.toMutableSet()
         val tableName = config.getString("lockTable")
         try {
-            withTimeout(timeout.milliseconds) {
+            withTimeout(timeout) {
                 while (pendingAssetIds.isNotEmpty()) {
                     val rows = pendingAssetIds
                         .chunked(100)
@@ -137,11 +139,11 @@ class IngestUtils(
         return sfnClient.describeExecution(describeRequest)
     }
 
-    suspend fun checkStepFunctionCompletes(timeout: Long = 15 * 60 * 1000) {
+    suspend fun checkStepFunctionCompletes(timeout: Duration = 15.minutes) {
         groupIds.forEach { groupId ->
             try {
                 var status: ExecutionStatus? = null
-                withTimeout(timeout.milliseconds) {
+                withTimeout(timeout) {
                     while (status != ExecutionStatus.Succeeded) {
                         val response = describeStepFunction(groupId)
                         status = response.status
@@ -188,8 +190,6 @@ class IngestUtils(
             } catch (_: TimeoutCancellationException) {
                 throw TimeoutException("Timed out waiting for step function completion for group id $groupId")
             }
-
-
         }
     }
 
@@ -206,7 +206,7 @@ class IngestUtils(
         coroutineScope {
             assetIds.mapIndexed { index, assetId ->
                 launch {
-                    val body = if (index == 0) assetId.toString().repeat(600000)
+                    val body = if (index == 0) assetId.toString().repeat(600000) // This makes one file which is large enough to test multipart copy
                     else assetId.toString()
                     val checksum = if (emptyChecksum) ""
                     else if (invalidChecksum) invalidChecksumValue
