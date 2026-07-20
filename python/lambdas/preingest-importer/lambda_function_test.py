@@ -341,6 +341,20 @@ class TestLambdaFunction(unittest.TestCase):
             "calling the ListObjects operation: Not Found'",
             str(ex.exception))
 
+    @patch('lambda_function.s3_client.list_objects')
+    def test_should_raise_exception_when_file_exists_but_corresponding_metadata_file_does_not_exist_in_source_bucket(
+            self, mock_list_objects):
+        asset_id, file_id = str(uuid.uuid4()), str(uuid.uuid4())
+        key = f'{asset_id}/{file_id}'
+        contents = []
+        mock_list_objects.return_value = {'Contents': contents, 'IsTruncated': False}
+
+        with self.assertRaises(Exception) as ex:
+            lambda_function.assert_objects_exist_in_bucket('some_bucket', 'some_key')
+
+        self.assertEqual(
+            "Asset 'some_key' has no files in 'some_bucket'",
+            str(ex.exception))
 
     def test_should_raise_an_exception_if_fields_are_missing(self):
         schema_location = "common/preingest-tdr/metadata-schema.json"

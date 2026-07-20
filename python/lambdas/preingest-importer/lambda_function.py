@@ -28,7 +28,7 @@ def lambda_handler(event, context):
         metadata_file_id = parsed_metadata_url.path[1:]
         metadata_source_bucket = parsed_metadata_url.netloc
         files_source_bucket = body["bucket"]
-        files_prefix = body["filesPrefix"] if "filesPrefix" in body else asset_id
+        files_prefix = body.get("filesPrefix", asset_id)
         try:
             file_objects = assert_objects_exist_in_bucket(files_source_bucket, files_prefix)
             if not skip_validation:
