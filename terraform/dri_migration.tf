@@ -43,7 +43,8 @@ module "dr2_dri_migration_policy" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
   name   = local.dri_migration_policy_name
   policy_string = templatefile("${path.module}/templates/iam_policy/dri_migration_policy.json.tpl", {
-    environment = local.environment
-    account_id  = data.aws_caller_identity.current.account_id
+    environment              = local.environment
+    account_id               = data.aws_caller_identity.current.account_id
+    object_store_bucket_name = local.object_store_bucket_name
   })
 }
