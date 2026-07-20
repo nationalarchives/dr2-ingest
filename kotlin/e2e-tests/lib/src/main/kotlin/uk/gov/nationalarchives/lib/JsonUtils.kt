@@ -165,4 +165,13 @@ object JsonUtils {
         val driBatchReference: String,
         val checksum_sha256: String
     )
+
+    @Serializable
+    data class IngestMetadata(
+        val type: String,
+        @Contextual val location: URI? = null
+    )
+
+    @Serializable
+    data class SfnInput(@Contextual val metadataPackage: URI)
 }

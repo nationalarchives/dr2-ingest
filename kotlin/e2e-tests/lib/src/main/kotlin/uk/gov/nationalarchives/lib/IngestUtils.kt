@@ -5,15 +5,24 @@ import aws.sdk.kotlin.services.cloudwatchlogs.model.LiveTailSessionLogEvent
 import aws.sdk.kotlin.services.cloudwatchlogs.model.StartLiveTailRequest
 import aws.sdk.kotlin.services.cloudwatchlogs.model.StartLiveTailResponseStream
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
+import aws.sdk.kotlin.services.dynamodb.batchGetItem
 import aws.sdk.kotlin.services.dynamodb.model.AttributeValue
+import aws.sdk.kotlin.services.dynamodb.model.KeysAndAttributes
 import aws.sdk.kotlin.services.dynamodb.model.PutItemRequest
 import aws.sdk.kotlin.services.s3.S3Client
+import aws.sdk.kotlin.services.s3.getObjectTagging
+import aws.sdk.kotlin.services.s3.listObjectVersions
+import aws.sdk.kotlin.services.s3.model.GetObjectRequest
 import aws.sdk.kotlin.services.s3.model.PutObjectRequest
 import aws.sdk.kotlin.services.sfn.SfnClient
+import aws.sdk.kotlin.services.sfn.model.DescribeExecutionRequest
+import aws.sdk.kotlin.services.sfn.model.DescribeExecutionResponse
+import aws.sdk.kotlin.services.sfn.model.ExecutionStatus
 import aws.sdk.kotlin.services.sfn.model.StartExecutionRequest
 import aws.sdk.kotlin.services.sqs.SqsClient
 import aws.sdk.kotlin.services.sqs.model.SendMessageRequest
 import aws.smithy.kotlin.runtime.content.ByteStream
+import aws.smithy.kotlin.runtime.content.decodeToString
 import com.typesafe.config.Config
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.takeWhile
@@ -42,6 +51,10 @@ import java.util.*
 import java.util.concurrent.TimeoutException
 import java.util.zip.GZIPOutputStream
 import kotlin.random.Random
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class IngestUtils(
     private val sqsClient: SqsClient,
@@ -50,10 +63,36 @@ class IngestUtils(
     private val dynamoDbClient: DynamoDbClient,
     private val sfnClient: SfnClient,
     private val config: Config,
-    private val assetIds: MutableList<UUID>
+    private val assetIds: MutableList<UUID>,
+    private val groupIds: MutableSet<String>
 ) {
     private val completeStatus = "Asset has been written to custodial copy disk."
     private val failedStatus = "There has been an error ingesting the asset."
+
+    suspend fun waitForEntriesInLockTable(timeout: Duration = 15.minutes): MutableSet<String> {
+        val pollInterval = 30 * 1000
+        val pendingAssetIds = assetIds.map { it.toString() }.toMutableSet()
+        val tableName = config.getString("lockTable")
+        try {
+            withTimeout(timeout) {
+                while (pendingAssetIds.isNotEmpty()) {
+                    val rows = pendingAssetIds
+                        .chunked(100)
+                        .flatMap { assetIdsChunk -> getBatchRows(tableName, assetIdsChunk) }
+                    rows.forEach { row ->
+                        row["assetId"]?.asS()?.let { pendingAssetIds.remove(it) }
+                        row["groupId"]?.asS()?.takeIf { it.isNotBlank() }?.let { groupIds.add(it) }
+                    }
+                    if (pendingAssetIds.isNotEmpty()) {
+                        delay(pollInterval.milliseconds)
+                    }
+                }
+            }
+        } catch (_: TimeoutCancellationException) {
+            throw TimeoutException("Timed out waiting for lock table entries")
+        }
+        return groupIds
+    }
 
     fun checkForValidationFailureMessages(sourceSystemName: String, timeout: Long) {
         val sourceSystem = SourceSystem.valueOf(sourceSystemName.uppercase())
@@ -92,6 +131,68 @@ class IngestUtils(
         }
     }
 
+    private suspend fun describeStepFunction(groupId: String): DescribeExecutionResponse {
+        val stepFunctionName = "${groupId}_0"
+        val describeRequest = DescribeExecutionRequest {
+            executionArn = "arn:aws:states:eu-west-2:${config.getString("accountNumber")}:execution:${config.getString("ingestSfnName")}:$stepFunctionName"
+        }
+        return sfnClient.describeExecution(describeRequest)
+    }
+
+    suspend fun checkStepFunctionCompletes(timeout: Duration = 15.minutes) {
+        groupIds.forEach { groupId ->
+            try {
+                var status: ExecutionStatus? = null
+                withTimeout(timeout) {
+                    while (status != ExecutionStatus.Succeeded) {
+                        val response = describeStepFunction(groupId)
+                        status = response.status
+                        if (status != ExecutionStatus.Succeeded) {
+                            delay(30.seconds)
+                        }
+                    }
+                    val response = describeStepFunction(groupId)
+                    val sfnInput = response.input?.let { input -> jsonCodec.decodeFromString<JsonUtils.SfnInput>(input)}
+                    val metadataBucket = sfnInput?.metadataPackage?.host
+                    val metadataPrefix = sfnInput?.metadataPackage?.path?.drop(1)
+                    val versionResponse = s3Client.listObjectVersions {
+                        bucket = metadataBucket
+                        prefix = metadataPrefix
+                    }
+                    if (versionResponse.deleteMarkers.isNullOrEmpty()) {
+                        throw Exception("Metadata file has not been deleted for group id $groupId")
+                    }
+                    val metadataVersionId = versionResponse.versions?.first()?.versionId
+                    val getObjectRequest = GetObjectRequest {
+                        bucket = metadataBucket
+                        key = metadataPrefix
+                        versionId = metadataVersionId
+                    }
+                    s3Client.getObject(getObjectRequest) { resp ->
+                        val ingestMetadata = resp.body?.let {body -> body.decodeToString().let { bodyString -> jsonCodec.decodeFromString<List<JsonUtils.IngestMetadata>>(bodyString) } }
+                        do {
+                            val notDeletedFiles = ingestMetadata
+                                ?.filter { metadata -> metadata.type == "File" }
+                                ?.mapNotNull { metadata -> metadata.location }
+                                ?.filter { location ->
+                                    val taggingResponse = s3Client.getObjectTagging {
+                                        bucket = location.host
+                                        key = location.path.drop(1)
+                                    }
+                                    !taggingResponse.tagSet.map { tag -> tag.key }.contains("TO_BE_DELETED")
+                                }
+                            if (!notDeletedFiles.isNullOrEmpty()) {
+                                delay(30.seconds)
+                            }
+                        } while (!notDeletedFiles.isNullOrEmpty())
+                    }
+                }
+            } catch (_: TimeoutCancellationException) {
+                throw TimeoutException("Timed out waiting for step function completion for group id $groupId")
+            }
+        }
+    }
+
     suspend fun createFiles(
         numberOfFiles: Int,
         sourceSystemName: String = "TDR",
@@ -103,13 +204,16 @@ class IngestUtils(
         val invalidChecksumValue = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         assetIds.addAll(List<UUID>(numberOfFiles) { UUID.randomUUID() })
         coroutineScope {
-            assetIds.map {
+            assetIds.mapIndexed { index, assetId ->
                 launch {
+                    val body = if (index == 0) assetId.toString().repeat(600000) // This makes one file which is large enough to test multipart copy
+                    else assetId.toString()
                     val checksum = if (emptyChecksum) ""
                     else if (invalidChecksum) invalidChecksumValue
-                    else hash(it.toString())
+                    else hash(body)
                     val fileId = UUID.randomUUID()
-                    uploadPackage(sourceSystem, it, fileId, checksum, invalidMetadata)
+
+                    uploadPackage(sourceSystem, assetId, fileId, body, checksum, invalidMetadata)
                 }
             }
         }
@@ -233,7 +337,7 @@ class IngestUtils(
         return chars.shuffled(Random).take(length).joinToString("")
     }
 
-    private suspend fun uploadPackage(sourceSystem: SourceSystem, assetId: UUID, fileId: UUID, checksum: String, invalidMetadata: Boolean) {
+    private suspend fun uploadPackage(sourceSystem: SourceSystem, assetId: UUID, fileId: UUID, body: String, checksum: String, invalidMetadata: Boolean) {
         val thisYear = LocalDate.now().year
         fun <T> generateValue(value: T): T? = if (invalidMetadata && Random.nextBoolean()) null else value
 
@@ -242,7 +346,7 @@ class IngestUtils(
         val bucketName = sourceSystem.getBucket(config)
 
         suspend fun uploadNonJudgmentPackage(metadata: String) {
-            uploadFileToS3(bucketName,"$assetId/${fileId}", ByteStream.fromString(assetId.toString()))
+            uploadFileToS3(bucketName,"$assetId/${fileId}", ByteStream.fromString(body))
             uploadFileToS3(bucketName,"${assetId}.metadata", ByteStream.fromString(metadata))
         }
 
@@ -302,6 +406,19 @@ class IngestUtils(
         s3Client.putObject(request)
     }
 
+    private suspend fun getBatchRows(tableName: String, assetIds: List<String>): List<Map<String, AttributeValue>> {
+        val resp = dynamoDbClient.batchGetItem {
+            requestItems = mapOf(
+                tableName to KeysAndAttributes {
+                    keys = assetIds.map { assetId ->
+                        mapOf("assetId" to AttributeValue.S(assetId))
+                    }
+                }
+            )
+        }
+        return resp.responses?.get(tableName).orEmpty()
+    }
+
     private fun streamLogs(timeout: Long, logGroup: String, isComplete: (List<LiveTailSessionLogEvent>?) -> Boolean) =
         runBlocking {
             val request = StartLiveTailRequest {
@@ -311,7 +428,7 @@ class IngestUtils(
             cloudWatchLogsClient.startLiveTail(request) { response ->
                 response.responseStream?.let { stream ->
                     try {
-                        withTimeout(timeout) {
+                        withTimeout(timeout.milliseconds) {
                             stream.takeWhile { value ->
                                 when (value) {
                                     is StartLiveTailResponseStream.SessionUpdate -> {
@@ -320,7 +437,7 @@ class IngestUtils(
                                     else -> true
                                 }
                             }.collect {
-                                it.asSessionUpdateOrNull()?.sessionResults?.forEach { result -> println(result.message)}
+                                it.asSessionUpdateOrNull()?.sessionResults
                             }
                         }
                     } catch (_: TimeoutCancellationException) {
