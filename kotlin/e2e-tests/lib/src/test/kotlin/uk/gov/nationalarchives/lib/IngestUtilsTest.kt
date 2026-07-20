@@ -139,18 +139,26 @@ class IngestUtilsTest {
 
     @Test
     fun testSendTdrMessagesSendsAllFiles() {
-        val returnedFiles: MutableList<UUID> = mutableListOf()
+        val returnedMessages: MutableList<JsonUtils.SqsInputMessage> = mutableListOf()
         val files = mutableListOf<UUID>(UUID.randomUUID(), UUID.randomUUID())
-        runBlocking { sqsIngestUtils(returnedFiles, files).sendImportMessages("TDR") }
-        assertContentEquals(files, returnedFiles)
+        runBlocking { sqsIngestUtils(returnedMessages, files).sendImportMessages("TDR") }
+        assertContentEquals(files, returnedMessages.map { it.fileId })
     }
 
     @Test
     fun testSendTdrMessagesSendsNoFiles() {
-        val returnedFiles: MutableList<UUID> = mutableListOf()
+        val returnedMessages: MutableList<JsonUtils.SqsInputMessage> = mutableListOf()
         val files = mutableListOf<UUID>()
-        runBlocking { sqsIngestUtils(returnedFiles, files).sendImportMessages("TDR") }
-        assertContentEquals(files, returnedFiles)
+        runBlocking { sqsIngestUtils(returnedMessages, files).sendImportMessages("TDR") }
+        assertContentEquals(files, returnedMessages.map { it.fileId })
+    }
+
+    @Test
+    fun testSendTdrMessagesSendsMetadataLocation() {
+        val returnedMessages: MutableList<JsonUtils.SqsInputMessage> = mutableListOf()
+        val files = mutableListOf<UUID>(UUID.randomUUID())
+        runBlocking { sqsIngestUtils(returnedMessages, files).sendImportMessages("TDR") }
+        assertEquals("s3://input-bucket/${files.first()}.metadata", returnedMessages.map { it.metadataLocation }.first().toString())
     }
 
     @Test
@@ -478,7 +486,7 @@ class IngestUtilsTest {
         )
     }
 
-    private fun sqsIngestUtils(returnedFiles: MutableList<UUID>, files: MutableList<UUID>): IngestUtils {
+    private fun sqsIngestUtils(returnedFiles: MutableList<JsonUtils.SqsInputMessage>, files: MutableList<UUID>): IngestUtils {
         return IngestUtils(
             AWSClients.TestTdrSqsClient(returnedFiles),
             S3Client.builder().build(),

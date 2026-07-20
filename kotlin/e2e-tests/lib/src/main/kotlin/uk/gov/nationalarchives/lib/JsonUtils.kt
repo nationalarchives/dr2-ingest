@@ -76,7 +76,7 @@ object JsonUtils {
     data class ValidationErrorMessage(val error: String, val assetId: String? = null, val s3Key: String? = null)
 
     @Serializable
-    data class SqsInputMessage(@Contextual val fileId: UUID, val bucket: String)
+    data class SqsInputMessage(@Contextual val fileId: UUID, val bucket: String, @Contextual val metadataLocation: URI)
 
     @Serializable
     data class ExternalNotificationMessage(val body: ExternalNotificationBody)

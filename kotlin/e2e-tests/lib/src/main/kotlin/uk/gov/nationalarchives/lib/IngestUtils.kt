@@ -289,7 +289,8 @@ class IngestUtils(
             val inputParameters = JsonUtils.TREInputParameters("", idToRef(id), true, bucket, "$id.tar.gz")
             return jsonCodec.encodeToString(JsonUtils.TREInput(inputParameters))
         } else {
-            return jsonCodec.encodeToString(JsonUtils.SqsInputMessage(id, bucket))
+            val metadataLocation = URI.create("s3://$bucket/$id.metadata")
+            return jsonCodec.encodeToString(JsonUtils.SqsInputMessage(id, bucket, metadataLocation))
         }
     }
 

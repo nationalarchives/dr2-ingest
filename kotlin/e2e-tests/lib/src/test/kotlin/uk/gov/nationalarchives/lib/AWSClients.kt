@@ -92,10 +92,10 @@ object AWSClients {
         }
     }
 
-    class TestTdrSqsClient(private val filesList: MutableList<UUID>, delegate: SqsClient = SqsClient.builder().build()) : SqsClient by delegate {
+    class TestTdrSqsClient(private val messageList: MutableList<JsonUtils.SqsInputMessage>, delegate: SqsClient = SqsClient.builder().build()) : SqsClient by delegate {
         override suspend fun sendMessage(input: SendMessageRequest): SendMessageResponse {
-            val fileId = jsonCodec.decodeFromString<JsonUtils.SqsInputMessage>(input.messageBody!!).fileId
-            filesList.add(fileId)
+            val sqsMessage = jsonCodec.decodeFromString<JsonUtils.SqsInputMessage>(input.messageBody!!)
+            messageList.add(sqsMessage)
             return SendMessageResponse {}
         }
     }
