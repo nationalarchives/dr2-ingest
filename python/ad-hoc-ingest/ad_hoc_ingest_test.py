@@ -2,10 +2,13 @@ import argparse
 import os
 import shutil
 import tempfile
+from io import StringIO
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
+import pandas as pd
 from botocore.exceptions import ClientError
 
 import ad_hoc_ingest
@@ -55,13 +58,15 @@ class Test(TestCase):
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
-    def test_should_send_the_files_to_the_s3_bucket_and_send_a_message_to_the_queue(self, mock_upload_file, mock_upload_metadata, mock_send_message):
+    @patch("aws_interactions.get_region")
+    def test_should_send_the_files_to_the_s3_bucket_and_send_a_message_to_the_queue(self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+        mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_ref,,some_checksum,some_iaid""".strip()
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID,digitalAssetSource
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_ref,,some_checksum,some_iaid,Surrogate""".strip()
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -79,25 +84,28 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
             "FileReference": "3",
             "ClientSideOriginalFilepath": tmp1,
             "formerRefDept": "dept_ref",
+            "IAID": "some_iaid",
+            "digitalAssetSource": "Surrogate",
             "formerRefTNA": "tna_ref",
-            "checksum_sha256": "some_checksum",
-            "IAID": "some_iaid"
+            "checksum_sha256": "some_checksum"
         }
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  tmp1)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
-    def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_to_the_csv_file_and_send_a_message_to_the_queue(self, mock_upload_file, mock_upload_metadata, mock_send_message):
+    @patch("aws_interactions.get_region")
+    def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_to_the_csv_file_and_send_a_message_to_the_queue(self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+        mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum,some_iaid"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID,digitalAssetSource
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum,some_iaid,Surrogate"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -114,28 +122,32 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
             "ClientSideOriginalFilepath": "ad_hoc_ingest_test_file1.txt",
+            "IAID": "some_iaid",
+            "digitalAssetSource": "Surrogate",
             "formerRefDept": "dept_ref",
             "formerRefTNA": "tna_ref",
-            "checksum_sha256": "some_checksum",
-            "IAID": "some_iaid"
+            "checksum_sha256": "some_checksum"
         }
 
-        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  tmp1)
+        resolved_path = str(Path(tmp1).resolve())
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  resolved_path)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
+    @patch("aws_interactions.get_region")
     def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_with_mixed_forward_and_back_slashes(
-            self, mock_upload_file, mock_upload_metadata, mock_send_message):
+            self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+        mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "folder1/folder2/folder3/ad_hoc_ingest_test_file1.txt")
         os.makedirs(os.path.dirname(tmp1), exist_ok=True)
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
-JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum,some_iaid"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID,digitalAssetSource
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt,dept_ref,tna_ref,,some_checksum,some_iaid,Surrogate"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -152,28 +164,32 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
             "ClientSideOriginalFilepath": "folder1\\folder2/folder3\\ad_hoc_ingest_test_file1.txt",
+            "IAID": "some_iaid",
+            "digitalAssetSource": "Surrogate",
             "formerRefDept": "dept_ref",
             "formerRefTNA": "tna_ref",
-            "checksum_sha256": "some_checksum",
-            "IAID": "some_iaid"
+            "checksum_sha256": "some_checksum"
         }
 
-        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", tmp1)
+        resolved_path = str(Path(tmp1).resolve())
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", resolved_path)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
         mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache",
-                                                  "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+                                                  "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
+    @patch("aws_interactions.get_region")
     def test_should_create_metadata_with_description_having_comma_in_a_quoted_field(
-            self, mock_upload_file, mock_upload_metadata, mock_send_message):
+            self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+        mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
             f.write("temporary file one")
 
-        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID
-JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,AB 1/2/3,,some_checksum,some_iaid"""
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID,digitalAssetSource
+JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3,ad_hoc_ingest_test_file1.txt,,AB 1/2/3,,some_checksum,some_iaid,Born Digital"""
 
         tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
         with open(tmp2, "w") as f:
@@ -190,15 +206,17 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
             "Filename": "JS-8-3.pdf",
             "FileReference": "3",
             "ClientSideOriginalFilepath": "ad_hoc_ingest_test_file1.txt",
+            "IAID": "some_iaid",
+            "digitalAssetSource": "Born Digital",
             "formerRefTNA": "AB 1/2/3",
-            "checksum_sha256": "some_checksum",
-            "IAID": "some_iaid"
+            "checksum_sha256": "some_checksum"
         }
 
-        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", tmp1)
+        resolved_path = str(Path(tmp1).resolve())
+        mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", resolved_path)
         mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
         mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache",
-                                                  "https://sqs.eu-west-2.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+                                                  "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
 
 
     @patch("aws_interactions.get_account_number")
@@ -218,16 +236,32 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
     @patch("version_check.is_latest_version", return_value=False)
     @patch("builtins.input", return_value="n")
     def test_should_exit_when_not_at_latest_version_and_user_declines_to_continue(self, mock_input, _):
-        with self.assertRaises(SystemExit) as exc:
-            ad_hoc_ingest.main()
+        with patch(
+                "sys.argv",
+                [
+                    "ad_hoc_ingest.py",
+                    "--input",
+                    "/home/users/input-file.csv",
+                ],
+        ):
+            with self.assertRaises(SystemExit) as exc:
+                ad_hoc_ingest.main()
         self.assertEqual(0, exc.exception.code)
         mock_input.assert_called_once_with("Adhoc ingest is not at the latest version. Do you want to continue? y/n")
 
     @patch("version_check.is_latest_version", return_value=False)
     @patch("builtins.input", return_value="no")
     def test_should_exit_when_not_at_latest_version_and_user_types_no(self, _, __):
-        with self.assertRaises(SystemExit) as exc:
-            ad_hoc_ingest.main()
+        with patch(
+                "sys.argv",
+                [
+                    "ad_hoc_ingest.py",
+                    "--input",
+                    "/home/users/input-file.csv",
+                ],
+        ):
+            with self.assertRaises(SystemExit) as exc:
+                ad_hoc_ingest.main()
         self.assertEqual(0, exc.exception.code)
 
     @patch("argument_parser_builder.build")
@@ -290,3 +324,113 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
 
         self.assertEqual(3, mock_refresh_session.call_count)
 
+    @patch("discovery_client.is_discovery_api_reachable")
+    @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
+    @patch("ad_hoc_ingest.get_input_dataset")
+    @patch("dataset_validator.validate_dataset")
+    @patch("ad_hoc_ingest.validate_arguments")
+    @patch("version_check.is_latest_version")
+    def test_should_call_discovery_when_description_is_not_supplied_within_the_input(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
+        csv_data = f"""catRef,Filename,checksum
+        JS 8/3,JS-8-3.pdf,some_checksum"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        mock_version_check.return_value = True
+        mock_validate_arguments.return_value = True
+        mock_get_input_dataset.return_value = data_set
+        mock_validate_dataset.return_value = True
+
+        with patch(
+            "sys.argv",
+            [
+                "ad_hoc_ingest.py",
+                "--environment",
+                "test",
+                "--input",
+                "/home/users/input-file.csv",
+                "--asset-source",
+                "Surrogate",
+                "--dry-run",
+                "--output",
+                "/home/some/folder",
+            ],
+        ):
+            ad_hoc_ingest.main()
+
+        mock_is_discovery_reachable.assert_called_once()
+        actual_args = mock_upload_to_ingest_bucket.call_args.args
+        self.assertEqual(False, actual_args[3])
+
+    @patch("discovery_client.is_discovery_api_reachable")
+    @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
+    @patch("ad_hoc_ingest.get_input_dataset")
+    @patch("dataset_validator.validate_dataset")
+    @patch("ad_hoc_ingest.validate_arguments")
+    @patch("version_check.is_latest_version")
+    def test_should_not_call_discovery_when_description_is_supplied_within_the_input(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
+        csv_data = f"""catRef,description,Filename,checksum
+        JS 8/3,"Description of Kew, Richmond, London",JS-8-3.pdf,some_checksum"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        mock_version_check.return_value = True
+        mock_validate_arguments.return_value = True
+        mock_get_input_dataset.return_value = data_set
+        mock_validate_dataset.return_value = True
+
+        with patch(
+            "sys.argv",
+            [
+                "ad_hoc_ingest.py",
+                "--environment",
+                "test",
+                "--input",
+                "/home/users/input-file.csv",
+                "--asset-source",
+                "Surrogate",
+                "--dry-run",
+                "--output",
+                "/home/some/folder",
+            ],
+        ):
+            ad_hoc_ingest.main()
+
+        mock_is_discovery_reachable.assert_not_called()
+        actual_args = mock_upload_to_ingest_bucket.call_args.args
+        self.assertEqual(True, actual_args[3])
+
+    @patch("discovery_client.is_discovery_api_reachable")
+    @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
+    @patch("ad_hoc_ingest.get_input_dataset")
+    @patch("dataset_validator.validate_dataset")
+    @patch("ad_hoc_ingest.validate_arguments")
+    @patch("version_check.is_latest_version")
+    def test_should_report_error_when_discovery_is_not_reachable(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
+        csv_data = f"""catRef,Filename,checksum
+        JS 8/3,JS-8-3.pdf,some_checksum"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        mock_is_discovery_reachable.return_value = False
+        mock_version_check.return_value = True
+        mock_validate_arguments.return_value = True
+        mock_get_input_dataset.return_value = data_set
+        mock_validate_dataset.return_value = True
+
+        with patch(
+            "sys.argv",
+            [
+                "ad_hoc_ingest.py",
+                "--environment",
+                "test",
+                "--input",
+                "/home/users/input-file.csv",
+                "--asset-source",
+                "Surrogate",
+                "--dry-run",
+                "--output",
+                "/home/some/folder",
+            ],
+        ):
+            with self.assertRaises(SystemExit) as ex:
+                ad_hoc_ingest.main()
+
+            self.assertEqual(1, ex.exception.code)

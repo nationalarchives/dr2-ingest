@@ -23,7 +23,7 @@ as shown in the diagram.
 4. Read the files to be ingested from ad-hoc source and carry out validations on the input file.
    - The validations depend on Series to be ingested. 
 For each row in the input CSV file,
-5. Use Discovery API to get hold of the Title, Description and Former References.
+5. If the 'description' is supplied in the input file, it is used. Otherwise, use Discovery API to get hold of the Title, Description and Former References.
 6. Generate metadata and add it as a row to intermediate metadata CSV file.
    - The advantage of having metadata in CSV is, the user can examine the potential final metadata before ingesting. 
 For each row in the Metadata CSV file,
@@ -51,5 +51,8 @@ to the internet by a user who has permissions to access the relevant AWS service
 
 `-o   --output` 
     Optional file path where the intermediate results are stored. When available, the output of dry run is stored in that file. If not given, the script generates a file in the "tmp" folder of the machine
+
+`-s   --asset_source` 
+    Optional digital asset source, one of:('Born Digital', 'Surrogate' or 'Digitised') default is 'Born Digital'
 
 

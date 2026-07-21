@@ -13,6 +13,7 @@ import argument_parser_builder
 import aws_interactions
 import dataset_validator
 import discovery_client
+import message_printer
 import message_printer as mp
 import metadata_creator
 import version_check
@@ -59,7 +60,7 @@ def upload_files(output_file, account_number, args):
 
             mp.print_progress(f"Uploaded {counter} of {total}")
 
-def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
+def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid, description_override):
     data_set: pandas.DataFrame
     output_folder = args.output
     if not is_folder_writable(output_folder):
@@ -68,7 +69,7 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
 
     prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_metadata_file = os.path.join(output_folder, f"{prefix}_proposed_ingest.csv")
-    is_metadata_valid, row_count = write_intermediate_csv(args, data_set, is_upstream_valid, output_metadata_file)
+    is_metadata_valid, row_count = write_intermediate_csv(args, data_set, is_upstream_valid, description_override, output_metadata_file)
 
     if args.dry_run:
         if is_metadata_valid:
@@ -91,18 +92,18 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid):
             sys.exit(1)
 
 
-def write_intermediate_csv(args, data_set, is_upstream_valid, output_metadata_file):
+def write_intermediate_csv(args, data_set, is_upstream_valid, description_override, output_metadata_file):
     row_count = 0
     with open(output_metadata_file, mode="a", newline="", encoding="utf-8") as intermediate_metadata_csv:
         is_metadata_valid = is_upstream_valid
-        fieldnames = metadata_creator.get_field_names()
+        fieldnames = metadata_creator.field_names
         writer = csv.DictWriter(intermediate_metadata_csv, fieldnames, quoting=csv.QUOTE_ALL)
         writer.writeheader()
         total = len(data_set)
         for counter, row in data_set.iterrows():
             row_count += 1
             try:
-                metadata_dict = metadata_creator.create_intermediate_metadata_dict(row, args)
+                metadata_dict = metadata_creator.create_intermediate_metadata_dict(description_override, row, args)
                 writer.writerow(metadata_dict)
                 if row_count % 100 == 0:
                     intermediate_metadata_csv.flush()
@@ -142,38 +143,46 @@ def is_folder_writable(output_folder):
     except (OSError, PermissionError):
         return False
 
-
-def main():
-    if not version_check.is_latest_version():
-        version_check_response = input("Adhoc ingest is not at the latest version. Do you want to continue? y/n")
-        if version_check_response.lower().strip() not in ["y", "yes"]:
-            mp.print_message("Exiting")
-            sys.exit(0)
-    args = argument_parser_builder.build().parse_args()
-    validate_arguments(args)
-
-    input_file_path = Path(args.input)
+def get_input_dataset(input_file_path):
     if input_file_path.suffix.lower() == ".csv":
         data_set = pd.read_csv(input_file_path, dtype=str, keep_default_na=False)
     elif input_file_path.suffix.lower() in {".xls", ".xlsx"}:
         data_set = pd.read_excel(input_file_path)
     else:
         raise Exception("Unsupported input file format. Only CSV and Excel (xls, xlsx) files are supported for input")
+    return data_set
 
+def main():
+    args = argument_parser_builder.build().parse_args()
+    if not version_check.is_latest_version():
+        version_check_response = input("Adhoc ingest is not at the latest version. Do you want to continue? y/n")
+        if version_check_response.lower().strip() not in ["y", "yes"]:
+            mp.print_message("Exiting")
+            sys.exit(0)
+    validate_arguments(args)
+    input_file_path = Path(args.input)
+    data_set = get_input_dataset(input_file_path)
     try:
         is_valid = dataset_validator.validate_dataset(data_set, str(input_file_path), args.dry_run)
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 
-    is_discovery_available = discovery_client.is_discovery_api_reachable()
-    if not is_discovery_available:
-        mp.print_message("Discovery API is not available for getting metadata information, terminating process")
-        sys.exit(1)
+    description_override = "description" in data_set.columns
+    if not description_override:
+        mp.print_message("Did not find 'description' column in the input file, this ingest will use description from Discovery")
+        if not discovery_client.is_discovery_api_reachable():
+            mp.print_message("Discovery API is not available for getting metadata information, terminating process")
+            sys.exit(1)
+    else:
+        mp.print_message("Found 'description' column in the input file, this ingest will use description supplied in the input file")
 
-    upload_files_to_ingest_bucket(data_set, args, is_valid)
+    upload_files_to_ingest_bucket(data_set, args, is_valid, description_override)
 
     if not args.dry_run:
         mp.print_message("Upload finished successfully")
+
+
+
 
 if __name__ == "__main__":
     main()
