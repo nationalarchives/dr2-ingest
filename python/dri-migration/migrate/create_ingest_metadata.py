@@ -47,8 +47,7 @@ sts_client = boto3.client("sts")
 def get_clients(account_number, environment):
     credentials = sts_client.assume_role(
         RoleArn=f"arn:aws:iam::{account_number}:role/{environment}-dr2-ingest-dri-migration-role",
-        RoleSessionName="dri-migration",
-        DurationSeconds=60 * 60 * 12
+        RoleSessionName="dri-migration"
     )['Credentials']
     access_key = credentials['AccessKeyId']
     secret_key = credentials['SecretAccessKey']
