@@ -9,6 +9,7 @@ import boto3
 import botocore
 import jsonschema
 from botocore.exceptions import ClientError
+from urllib import parse
 
 s3_client = boto3.client("s3")
 sqs_client = boto3.client("sqs")
@@ -23,24 +24,28 @@ def lambda_handler(event, context):
     for record in event["Records"]:
         body: dict[str, str] = json.loads(record["body"])
         asset_id = body["assetId"] if "assetId" in body else body["fileId"]
-        metadata_file_id = f"{asset_id}.metadata"
-        source_bucket = body["bucket"]
+        parsed_metadata_url = parse.urlparse(body["metadataLocation"])
+        metadata_file_id = parsed_metadata_url.path[1:]
+        metadata_source_bucket = parsed_metadata_url.netloc
+        files_source_bucket = body["bucket"]
+        files_prefix = body.get("filesPrefix", asset_id)
         try:
-            file_objects = assert_objects_exist_in_bucket(source_bucket, asset_id)
+            file_objects = assert_objects_exist_in_bucket(files_source_bucket, files_prefix)
             if not skip_validation:
-                json_metadata = validate_metadata(source_bucket, metadata_file_id)
+                json_metadata = validate_metadata(metadata_source_bucket, metadata_file_id)
                 if records_metadata_bucket:
-                    copy_records_metadata(source_bucket, records_metadata_bucket, json_metadata, metadata_file_id)
+                    copy_records_metadata(metadata_source_bucket, records_metadata_bucket, json_metadata, metadata_file_id)
 
             transfer_files = [f['Key'] for f in file_objects]
-            copy_objects(destination_bucket, transfer_files, source_bucket)
+            copy_objects(destination_bucket, transfer_files, files_source_bucket)
+            copy_objects(destination_bucket, [metadata_file_id], metadata_source_bucket)
             potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
-            sqs_body = {"id": asset_id, "location": f"s3://{destination_bucket}/{metadata_file_id}"}
+            sqs_body = {"id": asset_id, "location": f"s3://{destination_bucket}/{metadata_file_id}", "filesPrefix": files_prefix}
             sqs_body.update(potential_message_id)
             if delete_from_source:
                 for batch in itertools.batched(transfer_files, 1000):
                     keys_to_delete = [{'Key': key} for key in batch]
-                    s3_client.delete_objects(Bucket=source_bucket, Delete={'Objects': keys_to_delete})
+                    s3_client.delete_objects(Bucket=files_source_bucket, Delete={'Objects': keys_to_delete})
             sqs_client.send_message(QueueUrl=destination_queue, MessageBody=json.dumps(sqs_body))
         except Exception as e:
             print(json.dumps({"error": str(e), "assetId": asset_id}))
@@ -73,13 +78,9 @@ def list_all_objects(source_bucket, file_id):
 
 def assert_objects_exist_in_bucket(source_bucket, asset_id):
     try:
-        contents = list_all_objects(source_bucket, asset_id)
-        missing_metadata = not any(c for c in contents if c['Key'] == f"{asset_id}.metadata")
-        missing_file_objects = not any(c for c in contents if c['Key'] != f"{asset_id}.metadata")
-        if missing_file_objects:
+        contents = list_all_objects(source_bucket, f"/{asset_id}")
+        if not contents:
             raise Exception(f"Asset '{asset_id}' has no files in '{source_bucket}'")
-        if missing_metadata:
-            raise Exception(f"Object '{asset_id}.metadata' does not exist in '{source_bucket}'")
         return contents
     except botocore.exceptions.ClientError as ex:
         raise Exception(f"Object '{asset_id}' does not exist in '{source_bucket}', underlying error is: '{ex}'")

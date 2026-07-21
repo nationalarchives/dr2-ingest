@@ -7,13 +7,15 @@ import lambda_function
 
 def copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exist, mock_get_object, mock_delete_object,
                 mock_send_message, mock_copy,
-                mock_head_object, mock_list_objects, potential_message_id=None, should_delete=False, skip_validation=False):
+                mock_head_object, mock_list_objects, potential_message_id=None, should_delete=False, skip_validation=False, potential_files_prefix=None):
     content_length = 5 * 1024 * 1024 * 1024
     asset_id = str(uuid.uuid4())
     def key(): return f'{asset_id}/{str(uuid.uuid4())}'
-    body_json = {"bucket": "source-bucket", "assetId": asset_id}
+    body_json = {"bucket": "source-bucket", "assetId": asset_id, "metadataLocation": f"s3://metadata-bucket/{asset_id}.metadata"}
+    if potential_files_prefix:
+        body_json['filesPrefix'] = potential_files_prefix
 
-    expected_message_body = {"id": asset_id, "location": f"s3://destination-bucket/{asset_id}.metadata"}
+    expected_message_body = {"id": asset_id, "location": f"s3://destination-bucket/{asset_id}.metadata", "filesPrefix": potential_files_prefix if potential_files_prefix else asset_id}
     if potential_message_id:
         body_json['messageId'] = potential_message_id
         expected_message_body['messageId'] = potential_message_id
@@ -44,14 +46,14 @@ def copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exis
 
     expected_sqs_args = {'MessageBody': json.dumps(expected_message_body), 'QueueUrl': 'destination-queue'}
 
-    self.assertEqual(1, mock_copy.call_count)
+    self.assertEqual(2, mock_copy.call_count)
     self.assertEqual(2, mock_list_objects.call_count)
 
     self.assertEqual('destination-bucket', mock_copy.call_args_list[0].args[0])
     self.assertEqual(sorted([f['Key'] for f in content_files]), sorted(mock_copy.call_args_list[0].args[1]))
 
 
-    self.assertEqual(1, mock_copy.call_count)
+    self.assertEqual(2, mock_copy.call_count)
     self.assertEqual(expected_sqs_args, mock_send_message.call_args_list[0][1])
 
     if skip_validation:
@@ -66,11 +68,11 @@ def copy_helper(self, mock_validate_formats, mock_validate_mandatory_fields_exis
         mock_validate_formats.assert_called_once()
         validate_format_args = mock_validate_formats.call_args_list[0].args
         self.assertEqual(metadata_object, validate_format_args[0])
-        self.assertEqual('source-bucket', validate_format_args[1])
+        self.assertEqual('metadata-bucket', validate_format_args[1])
         self.assertEqual(f'{asset_id}.metadata', validate_format_args[2])
         mock_get_object.assert_called_once()
         get_object_args = mock_get_object.call_args_list[0].kwargs
-        self.assertEqual('source-bucket', get_object_args['Bucket'])
+        self.assertEqual('metadata-bucket', get_object_args['Bucket'])
         self.assertEqual(f'{asset_id}.metadata', get_object_args['Key'])
 
     if should_delete:
