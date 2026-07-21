@@ -65,7 +65,10 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
                     Stream
                       .emit[IO, ByteBuffer](ByteBuffer.wrap(byteArray))
                       .toPublisherResource
-                      .use(pub => dependencies.s3.upload(config.outputBucket, id.toString, FlowAdapters.toPublisher(pub)))
+                      .use { pub =>
+                        log(Map("bucket" -> config.outputBucket, "key" -> id.toString))("Uploading file to S3") >>
+                          dependencies.s3.upload(config.outputBucket, id.toString, FlowAdapters.toPublisher(pub))
+                      }
                       .map { _ =>
                         tarEntry.getName -> id
                       }

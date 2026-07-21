@@ -1,3 +1,6 @@
+locals {
+  object_store_bucket_name = "prod-daobjectstore"
+}
 module "tdr_preingest" {
   source                              = "./preingest"
   environment                         = local.environment
@@ -45,6 +48,7 @@ module "dri_preingest" {
     "${local.environment}-copy-from-records-metadata" = templatefile("${path.module}/templates/iam_policy/preingest_dri_records_metadata.json.tpl", {
       records_metadata_bucket = local.records_metadata_bucket_name
       source_bucket           = local.dri_migration_bucket_name
+      object_store_bucket     = local.object_store_bucket_name
     })
   } : {}
   additional_importer_lambda_env_vars = local.environment == "prod" ? { RECORDS_METADATA_BUCKET = local.records_metadata_bucket_name } : {}
