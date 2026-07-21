@@ -342,6 +342,20 @@ class TestLambdaFunction(unittest.TestCase):
             str(ex.exception))
 
     @patch('lambda_function.s3_client.list_objects')
+    def test_should_add_trailing_slash_to_prefix_if_missing(self, mock_list_objects):
+        contents = [{'Key': 'test'}]
+        mock_list_objects.side_effect = [{'Contents': contents, 'IsTruncated': False}]
+        lambda_function.assert_objects_exist_in_bucket('some_bucket', 'some_key')
+        self.assertEqual(mock_list_objects.call_args.kwargs['Prefix'], 'some_key/')
+
+    @patch('lambda_function.s3_client.list_objects')
+    def test_keep_trailing_slash_on_prefix_if_included(self, mock_list_objects):
+        contents = [{'Key': 'test'}]
+        mock_list_objects.side_effect = [{'Contents': contents, 'IsTruncated': False}]
+        lambda_function.assert_objects_exist_in_bucket('some_bucket', 'some_key/')
+        self.assertEqual(mock_list_objects.call_args.kwargs['Prefix'], 'some_key/')
+
+    @patch('lambda_function.s3_client.list_objects')
     def test_should_raise_exception_when_file_exists_but_corresponding_metadata_file_does_not_exist_in_source_bucket(
             self, mock_list_objects):
         asset_id, file_id = str(uuid.uuid4()), str(uuid.uuid4())
