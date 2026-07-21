@@ -78,7 +78,7 @@ def list_all_objects(source_bucket, file_id):
 
 def assert_objects_exist_in_bucket(source_bucket, asset_id):
     try:
-        contents = list_all_objects(source_bucket, f"/{asset_id}")
+        contents = list_all_objects(source_bucket, f"{asset_id.removesuffix("/")}/")
         if not contents:
             raise Exception(f"Asset '{asset_id}' has no files in '{source_bucket}'")
         return contents
