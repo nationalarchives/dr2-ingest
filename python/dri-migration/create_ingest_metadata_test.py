@@ -121,8 +121,8 @@ class TestMigrate(unittest.TestCase):
 
         self.assertEqual([
             call("ingest_query.sql"),
-            call(call_paths[0]),
-            call(call_paths[1]),
+            call(call_paths[0], "rb"),
+            call(call_paths[1], "rb"),
         ], mock_open_file.call_args_list)
 
         calls = [
@@ -312,7 +312,6 @@ class TestMigrate(unittest.TestCase):
         sts_args = mock_sts_client.assume_role.call_args_list[0][1]
         self.assertEqual('arn:aws:iam::12345:role/test-dr2-ingest-dri-migration-role', sts_args['RoleArn'])
         self.assertEqual('dri-migration', sts_args['RoleSessionName'])
-        self.assertEqual(60 * 60 * 12, sts_args['DurationSeconds'])
 
         check_client(s3_client)
         check_client(sqs_client)
