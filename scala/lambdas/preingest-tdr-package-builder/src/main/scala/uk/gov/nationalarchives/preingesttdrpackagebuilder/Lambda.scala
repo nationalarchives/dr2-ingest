@@ -50,14 +50,15 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         fileLocation: URI,
         metadataId: UUID,
         potentialMessageId: Option[String],
-        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
+        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]],
+        potentialFilesPrefix: Option[String]
     ): IO[List[MetadataObject]] = {
       val jsonString = new String(metadataArr, "utf-8")
       decodePackageMetadata(jsonString)
         .flatMap { packageMetadataList =>
           def createMetadataObjects(firstPackageMetadata: PackageMetadata, fileName: String, originalFilePath: String) = for {
             assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId)
-            s3FilesMap <- listS3Objects(fileLocation.getHost, assetMetadata.id)
+            s3FilesMap <- listS3Objects(fileLocation.getHost, potentialFilesPrefix.getOrElse(assetMetadata.id.toString))
             contentFolderKey <- config.sourceSystem match {
               case SourceSystem.ADHOC | SourceSystem.PA => IO.pure(s"${firstPackageMetadata.series}/$defaultFolderName")
               case _                                    =>
@@ -140,11 +141,12 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         metadataByteArr: Array[Byte],
         fileLocation: URI,
         potentialMessageId: Option[String],
-        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
+        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]],
+        potentialFilesPrefix: Option[String]
     ): IO[List[MetadataObject]] = {
       val metadataId = dependencies.uuidGenerator()
       for {
-        nonMetadataObjects <- processNonMetadataObjects(metadataByteArr, fileLocation, metadataId, potentialMessageId, contentFolderCell)
+        nonMetadataObjects <- processNonMetadataObjects(metadataByteArr, fileLocation, metadataId, potentialMessageId, contentFolderCell, potentialFilesPrefix)
         metadataFiles <- processMetadataFiles(metadataByteArr, fileLocation, metadataId)
       } yield metadataFiles :: nonMetadataObjects
     }
@@ -158,7 +160,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         .flatMap(_.compile.toList)
         .map(_.toArray.flatMap(_.array()))
         .flatMap { metadataByteArray =>
-          processPackageMetadata(metadataByteArray, fileLocation, potentialMessageId, contentFolderCell)
+          processPackageMetadata(metadataByteArray, fileLocation, potentialMessageId, contentFolderCell, lockTableMessage.filesPrefix)
         }
     }
 
@@ -184,8 +186,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       }
     }
 
-    def listS3Objects(bucket: String, id: UUID): IO[Map[UUID, S3Object]] = {
-      dependencies.s3Client.listObjects(bucket, Option(id.toString)).map { res =>
+    def listS3Objects(bucket: String, prefix: String): IO[Map[UUID, S3Object]] = {
+      dependencies.s3Client.listObjects(bucket, Option(prefix)).map { res =>
         res
           .contents()
           .asScala

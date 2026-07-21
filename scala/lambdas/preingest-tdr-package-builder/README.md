@@ -6,11 +6,12 @@ Because of aggregation, assets are grouped and therefore each have group ID in t
 
 1. The lambda passes in the group ID it gets from the input and lock table name in a call to DDB
 2. It retrieves only the items from the ingest lock table that match the group ID
-3. Each lock table item has a `message` attribute which is a JSON string with an id and a file location like:
+3. Each lock table item has a `message` attribute which is a JSON string with an id and a file location. The message contains the optional fields `messageId` and `filesPrefix`:
     ```json
     {
       "id": "0c76c5d0-bb8e-4ebb-98c7-5900dc26a1a0",
       "location": "s3://raw-cache-bucket/0c76c5d0-bb8e-4ebb-98c7-5900dc26a1a0",
+      "filesPrefix": "optional/s3/prefix",
       "messageId": "optionalMessageId"
     }
     ```
@@ -23,6 +24,7 @@ Because of aggregation, assets are grouped and therefore each have group ID in t
               "Series":"TEST 123",
               "UUID":"0000b033-a309-4c42-8397-ba7854e345e2",
               "AssetId": "571bbd56-e823-4e8e-859a-d08002d33c75",
+              "fileId": "5ef26ecb-0d59-4c91-8740-57e8a0d1f23b",
               "description":null,
               "TransferringBody":"TestBody",
               "TransferInitiatedDatetime":"2024-10-07 09:54:48",
@@ -35,17 +37,20 @@ Because of aggregation, assets are grouped and therefore each have group ID in t
            ```
    2. convert the byte array returned into a string
    3. decode this string into a list of `PackageMetadata` objects
-   4. use the `PackageMetadata` to (in parallel):
+   4. create a map of `fileId` to keys in S3. First list those files  with a prefix of either the value of `filesPrefix` or `id` from the input message. The part of the key after the final `/` corresponds to the fileId in the package metadata which becomes the map key. For example, given the pacakge metadata above:
+      1. The message has no `filesPrefix` so the map entry would be `5ef26ecb-0d59-4c91-8740-57e8a0d1f23b -> /571bbd56-e823-4e8e-859a-d08002d33c75/5ef26ecb-0d59-4c91-8740-57e8a0d1f23b`
+      2. The message has a `filesPrefix` of `alternativePrefix/` so the map entry would be `5ef26ecb-0d59-4c91-8740-57e8a0d1f23b -> alternativePrefix/5ef26ecb-0d59-4c91-8740-57e8a0d1f23b`
+   5. use the `PackageMetadata` to (in parallel):
       1. generate:
-         1. a `FileMetadataObject` with information on the file
+         1. a `FileMetadataObject` with information on the file retrieved from the map
             * file size and S3 key is obtained from the file in S3
          2. an `AssetMetadataObject` (its parent). The ID for this object is found by checking for `AssetId` in the JSON. If this is not there then `UUID` is used.
          3. a `ContentFolderObject` (the Asset's parent), if the ContentFolder isn't already in the ContentFolder cache
             and then update the cache with the newly created object
       2. generate a `FileMetadataObject` with information on the `<uuid>.metadata` metadata file (in S3)
-   5. combine and return these as a list of `MetadataObjects`
-   6. (if the list of objects is empty, throw an error, otherwise) convert the list of `MetadataObjects` to a JSON file
-   7. upload the JSON file at this location `{batchId}/metadata.json` in S3.
+   6. combine and return these as a list of `MetadataObjects`
+   7. (if the list of objects is empty, throw an error, otherwise) convert the list of `MetadataObjects` to a JSON file
+   8. upload the JSON file at this location `{batchId}/metadata.json` in S3.
        1. Return an `Output` of `batchId`, `groupId`, location of metadata.json file (`packageMetadata`) and `retryCount`
        2. This output will serve as the input to our generic ingest process.
 
