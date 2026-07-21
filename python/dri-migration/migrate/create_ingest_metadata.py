@@ -195,7 +195,7 @@ def migrate(ic_db_path):
                 prefix = f"v1/{asset_uuid}"
                 tags = parse.urlencode([("Series", metadata["Series"])],)
                 s3_client.put_object(
-                    Body=upload_file,
+                    Body=upload_file.read(),
                     Key=f"{prefix}/{file_id}",
                     Bucket=object_store_bucket,
                     Tagging=tags,
