@@ -78,7 +78,6 @@ class Test(TestCase):
 
         self.assertEqual(0, exit_code.exception.code)
         help_message = output.getvalue()
-        print(help_message)
 
         self.assertIn("-h, --help            show this help message and exit", help_message)
         self.assertIn("-i INPUT, --input INPUT", help_message)
