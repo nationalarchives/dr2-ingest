@@ -190,11 +190,11 @@ def migrate(ic_db_path):
                 base_file_path = file_path[1:]
                 upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], base_file_path)
 
-            with open(upload_file_path) as upload_file:
+            with open(upload_file_path, "rb") as upload_file:
                 prefix = f"v1/{asset_uuid}"
                 tags = parse.urlencode([("Series", metadata["Series"])],)
                 s3_client.put_object(
-                    Body=upload_file.read(),
+                    Body=upload_file,
                     Key=f"{prefix}/{file_id}",
                     Bucket=object_store_bucket,
                     Tagging=tags,
