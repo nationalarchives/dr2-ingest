@@ -52,7 +52,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       formerRefDept: Option[String],
       formerRefTNA: Option[String],
       iaid: Option[String],
-      upstreamSystem: SourceSystem
+      upstreamSystem: SourceSystem,
+      filesPrefix: Option[String]
   )
   val dateGen: Gen[String] = for {
     year <- Gen.posNum[Int]
@@ -120,6 +121,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     formerRefTNA <- Gen.option(formerRefTNAGen)
     iaid <- Gen.option(Gen.nonEmptyStringOf(Gen.asciiChar))
     upstreamSystem <- Gen.oneOf(SourceSystem.values.toList)
+    filesPrefix <- Gen.option(Gen.nonEmptyStringOf(Gen.alphaChar))
   } yield TestData(
     fileId,
     assetId,
@@ -141,7 +143,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     formerRefDept,
     formerRefTNA,
     iaid,
-    upstreamSystem
+    upstreamSystem,
+    filesPrefix
   )
 
   val testListDataGen: Gen[List[TestData]] = Gen.nonEmptyListOf(testDataGen)
@@ -196,12 +199,15 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       .unsafeRunSync()
 
     val expectedId = if testData.assetId.isDefined then testData.assetId.get else tdrFileId
+    val expectedPrefix = if testData.filesPrefix.isDefined then testData.filesPrefix.get else expectedId
 
     val potentialLockTableMessageId = Some("messageId")
-    val initialS3Objects = allTestData.map(testData => s"$expectedId/${testData.fileId}" -> MockTdrFile(testData.fileSize)).toMap ++ Map(s"$expectedId.metadata" -> packageMetadata)
+    val initialS3Objects =
+      allTestData.map(testData => s"$expectedPrefix/${testData.fileId}" -> MockTdrFile(testData.fileSize)).toMap ++ Map(s"$expectedId.metadata" -> packageMetadata)
 
     val initialDynamoObjects = allTestData.map { testData =>
-      val lockTableMessageAsString = new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$expectedId.metadata"), potentialLockTableMessageId).asJson.noSpaces
+      val lockTableMessageAsString =
+        new LockTableMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$expectedId.metadata"), testData.filesPrefix, potentialLockTableMessageId).asJson.noSpaces
       IngestLockTableItem(UUID.randomUUID(), testData.groupId, lockTableMessageAsString, dateTimeNow.toString)
     }
     val input = Input(testData.groupId, testData.batchId, 1, 2)
@@ -283,7 +289,7 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       fileObject.fileSize should equal(testData.fileSize)
       fileObject.representationType should equal(RepresentationType.Preservation)
       fileObject.representationSuffix should equal(1)
-      fileObject.location should equal(URI.create(s"s3://bucket/$expectedId/${testData.fileId}"))
+      fileObject.location should equal(URI.create(s"s3://bucket/$expectedPrefix/${testData.fileId}"))
       fileObject.checksums should equal(testData.checksums)
     }
 

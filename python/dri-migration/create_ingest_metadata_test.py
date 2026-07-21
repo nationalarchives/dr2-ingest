@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import PureWindowsPath, PurePosixPath
 from sqlite3 import Connection
-from unittest.mock import patch, MagicMock, mock_open, call, Mock
+from unittest.mock import patch, MagicMock, mock_open, call, Mock, ANY
 from parameterized import parameterized
 from migrate import create_ingest_metadata
 
@@ -18,6 +18,8 @@ def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows, mock_wri
     os.environ['ACCOUNT_NUMBER'] = '123456789'
     os.environ['ENVIRONMENT'] = 'testenv'
     os.environ['NETWORK_LOCATION'] = '/network-location'
+    os.environ['OBJECT_STORE_BUCKET'] = 'testenv-da-object-store'
+    os.environ["OBJECT_STORE_ACCOUNT_NUMBER"] = '56789'
 
     if test_run:
         os.environ['TEST_RUN'] = test_run
@@ -85,18 +87,18 @@ class TestMigrate(unittest.TestCase):
     @patch('migrate.create_ingest_metadata.get_clients')
     def test_migrate_s3_sqs(
             self, test_run, checksum, get_clients, mock_checksum,
-            mock_create_skeleton, _, __, mock_connect, write_to_ic_db
+            mock_create_skeleton, mock_open_file, __, mock_connect, write_to_ic_db
     ):
         row_fmt = [
             "fmt/123", "uuid-abc", "unitref-abc", "fileid-xyz", "/test/file1", "/dri/a/1/test/file1",
             json.dumps([{"SHA256": "test"}]),
-            "series1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
+            "series 1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
             "filename.txt", "fileref", "meta", "1", "1", 1, "BornDigital"
         ]
         row_x_fmt = [
             "x-fmt/123", "uuid-def", "unitref-def", "fileid-xyz", "/test/file2", "/dri/a/1/test/file2",
             json.dumps([{"SHA256": "test"}]),
-            "series1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
+            "series 1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
             "filename.txt", "fileref", "meta", "1", "1", 1, "Surrogate"
         ]
         rows = [row_fmt, row_x_fmt]
@@ -117,12 +119,32 @@ class TestMigrate(unittest.TestCase):
             else:
                 call_paths = (PureWindowsPath("/network-location/dri/a/1/test/file1"), PureWindowsPath("/network-location/dri/a/1/test/file2"))
 
+        self.assertEqual([
+            call("ingest_query.sql"),
+            call(call_paths[0]),
+            call(call_paths[1]),
+        ], mock_open_file.call_args_list)
+
         calls = [
-            call(call_paths[0], "testenv-dr2-ingest-dri-migration-cache", "uuid-abc/fileid-xyz"),
-            call(call_paths[1], "testenv-dr2-ingest-dri-migration-cache", "uuid-def/fileid-xyz")
+            call(
+                Body=ANY,
+                Key="v1/uuid-abc/fileid-xyz",
+                Bucket="testenv-da-object-store",
+                Tagging="Series=series+1",
+                IfNoneMatch="*",
+                ExpectedBucketOwner="56789"
+            ),
+            call(
+                Body=ANY,
+                Key="v1/uuid-def/fileid-xyz",
+                Bucket="testenv-da-object-store",
+                Tagging="Series=series+1",
+                IfNoneMatch="*",
+                ExpectedBucketOwner="56789"
+            ),
         ]
 
-        mock_s3.upload_file.assert_has_calls(calls)
+        mock_s3.put_object.assert_has_calls(calls)
         s3_args = mock_s3.upload_fileobj.call_args_list
         sqs_args = mock_sqs.send_message_batch.call_args_list
 
@@ -139,7 +161,7 @@ class TestMigrate(unittest.TestCase):
 
             self.assertEqual(metadata_uuid, metadata["UUID"])
             self.assertEqual(unit_ref.replace("-", ""), metadata["IAID"])
-            self.assertEqual("series1", metadata["Series"])
+            self.assertEqual("series 1", metadata["Series"])
             self.assertEqual(checksum, metadata["checksum_sha256"])
             self.assertEqual("meta", metadata["preservicaMetadata"])
             self.assertEqual(expected_digital_asset_source, metadata["digitalAssetSource"])
@@ -152,7 +174,10 @@ class TestMigrate(unittest.TestCase):
             sent_entries = [json.loads(x['MessageBody']) for x in sqs_args[0][1]["Entries"]]
             sent_body = sent_entries[idx]
             self.assertEqual(rows[idx][1], sent_body["assetId"])
-            self.assertEqual("testenv-dr2-ingest-dri-migration-cache", sent_body["bucket"])
+            self.assertEqual("testenv-da-object-store", sent_body["bucket"])
+            self.assertEqual(f"s3://testenv-dr2-ingest-dri-migration-cache/{metadata_uuid}.metadata",
+                             sent_body["metadataLocation"])
+            self.assertEqual(f"v1/{metadata_uuid}", sent_body["filesPrefix"])
 
         is_test_run = test_run == "true" or test_run is None
         verify_function_calls(self, is_test_run, get_clients, mock_connect, mock_create_skeleton, mock_checksum,
@@ -172,7 +197,7 @@ class TestMigrate(unittest.TestCase):
         row = [
             "fmt/123", "uuid-abc", "unitref-abc", "fileid-xyz", "/test/file1", "/dri/a/1/test/file1",
             json.dumps([{"SHA256": "test"}]),
-            "series1", "desc1", "desc2", "2021-01-01", None, None,
+            "series 1", "desc1", "desc2", "2021-01-01", None, None,
             "filename.txt", "fileref", "meta", "1", "1", 1, "BornDigital"
         ]
         setup_test(mock_checksum, mock_connect, mock_create_skeleton, [row], write_to_ic_db, None)
@@ -287,6 +312,7 @@ class TestMigrate(unittest.TestCase):
         sts_args = mock_sts_client.assume_role.call_args_list[0][1]
         self.assertEqual('arn:aws:iam::12345:role/test-dr2-ingest-dri-migration-role', sts_args['RoleArn'])
         self.assertEqual('dri-migration', sts_args['RoleSessionName'])
+        self.assertEqual(60 * 60 * 12, sts_args['DurationSeconds'])
 
         check_client(s3_client)
         check_client(sqs_client)
