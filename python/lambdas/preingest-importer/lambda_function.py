@@ -6,9 +6,7 @@ import re
 import uuid
 
 import boto3
-import botocore
 import jsonschema
-from botocore.exceptions import ClientError
 from urllib import parse
 
 s3_client = boto3.client("s3")
@@ -29,14 +27,14 @@ def lambda_handler(event, context):
         metadata_source_bucket = parsed_metadata_url.netloc
         files_source_bucket = body["bucket"]
         files_prefix = body.get("filesPrefix", asset_id)
+        response = s3_client.get_object(Bucket=metadata_source_bucket, Key=metadata_file_id)
+        json_metadata = json.loads(response['Body'].read().decode('utf-8'))
         try:
-            file_objects = assert_objects_exist_in_bucket(files_source_bucket, files_prefix)
             if not skip_validation:
-                json_metadata = validate_metadata(metadata_source_bucket, metadata_file_id)
+                json_metadata = validate_metadata(json_metadata)
                 if records_metadata_bucket:
                     copy_records_metadata(metadata_source_bucket, records_metadata_bucket, json_metadata, metadata_file_id)
-
-            transfer_files = [f['Key'] for f in file_objects]
+            transfer_files = [f"{files_prefix}/{m['fileId']}" for m in json_metadata]
             copy_objects(destination_bucket, transfer_files, files_source_bucket)
             copy_objects(destination_bucket, [metadata_file_id], metadata_source_bucket)
             potential_message_id = {key: value for key, value in body.items() if key == "messageId"}
@@ -64,35 +62,12 @@ def copy_records_metadata(source_bucket, records_metadata_bucket, json_metadata,
     s3_client.upload_fileobj(json_bytes, source_bucket, metadata_file_key)
 
 
-
-def list_all_objects(source_bucket, file_id):
-    all_contents = []
-    is_truncated = True
-    while is_truncated:
-        response = s3_client.list_objects(Bucket=source_bucket, Prefix=file_id)
-        all_contents.extend(response['Contents'])
-        is_truncated = response['IsTruncated']
-
-    return all_contents
-
-
-def assert_objects_exist_in_bucket(source_bucket, asset_id):
-    try:
-        contents = list_all_objects(source_bucket, f"{asset_id.removesuffix("/")}/")
-        if not contents:
-            raise Exception(f"Asset '{asset_id}' has no files in '{source_bucket}'")
-        return contents
-    except botocore.exceptions.ClientError as ex:
-        raise Exception(f"Object '{asset_id}' does not exist in '{source_bucket}', underlying error is: '{ex}'")
-
-
-def validate_metadata(bucket, s3_key):
+def validate_metadata(json_metadata):
     source_system = os.environ["SOURCE_SYSTEM"]
-    response = s3_client.get_object(Bucket=bucket, Key=s3_key)
-    json_metadata = json.loads(response['Body'].read().decode('utf-8'))
+
     for metadata in json_metadata:
         validate_mandatory_fields_exist(f"common/preingest-{source_system}/metadata-schema.json", metadata)
-        validate_formats(metadata, bucket, s3_key)
+        validate_formats(metadata)
     return json_metadata
 
 
@@ -109,22 +84,22 @@ def validate_mandatory_fields_exist(schema_location, json_metadata):
     return True
 
 
-def validate_formats(json_metadata, bucket, s3_key):
+def validate_formats(json_metadata):
     uuid_content = json_metadata["UUID"]
     try:
         uuid.UUID(uuid_content)
     except ValueError:
         raise Exception(
-            f"Unable to parse UUID, '{uuid_content}' from file '{s3_key}' in bucket '{bucket}'. Invalid format")
+            f"Unable to parse UUID, '{uuid_content}' from file. Invalid format")
 
     series = json_metadata["Series"]
     if not series.strip():
-        raise Exception(f"Empty Series value in file '{s3_key}' in bucket '{bucket}'. Unable to proceed")
+        raise Exception("Empty Series value in file. Unable to proceed")
 
     pattern = "^([A-Z]{1,4} [1-9][0-9]{0,3}|Unknown|MOCK1 123)$"
     match = re.match(pattern, series)
     if not match:
-        raise Exception(f"Invalid Series value, '{series}' in file '{s3_key}' in bucket '{bucket}'. Unable to proceed")
+        raise Exception(f"Invalid Series value, '{series}' in file. Unable to proceed")
 
     return True
 
@@ -137,4 +112,3 @@ def copy_objects(destination_bucket, s3_keys, source_bucket):
         except Exception as e:
             print(f"Error during copy of '{s3_key}' from '{source_bucket}' to '{destination_bucket}': {e}")
             raise e
-
