@@ -144,7 +144,7 @@ module "dr2_state_change_lambda" {
   sqs_queue_mapping_batch_size   = 10
   sqs_report_batch_item_failures = true
   lambda_sqs_queue_mappings = [{
-    sqs_queue_arn         = module.dr2_state_change_ddb_queue.sqs_arn
+    sqs_queue_arn         = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.state_change_ddb_queue_name}"
     ignore_enabled_status = true
   }]
 
