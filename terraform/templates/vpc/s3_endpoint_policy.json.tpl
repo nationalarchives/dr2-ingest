@@ -19,7 +19,7 @@
       "Principal": "*",
       "Action": [
         "s3:ListBucket",
-        "s3:GetObject",
+        "s3:GetObject*",
         "s3:PutObject"
       ],
       "Resource": [
@@ -28,7 +28,9 @@
         "arn:aws:s3:::${tdr_export_bucket}",
         "arn:aws:s3:::${tdr_export_bucket}/*",
         "${tre_export_bucket_arn}",
-        "${tre_export_bucket_arn}/*"
+        "${tre_export_bucket_arn}/*",
+        "arn:aws:s3:::${object_store_bucket_name}",
+        "arn:aws:s3:::${object_store_bucket_name}/*"
       ]
     }
   ]

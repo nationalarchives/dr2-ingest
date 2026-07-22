@@ -25,11 +25,8 @@ The lambda doesn't return anything, but it sends a message to `OUTPUT_QUEUE_URL`
 
 1. Read the `assetId` (if it's there, else `fileId`) from the message body and save it as `assetId`
 2. Read the `bucket` and from the message body
-3. Call `head_object` on the `s3://bucket/assetId` key (which contains all objects related to the asset), then:
-    1. Check if a `"{asset_id}.metadata"` file exists, if not, throw an exception
-    2. Check if there are any file objects, if there aren't any, throw an exception
-    3. Return the files
-4. Call `get_object` to retrieve the metadata file at the `s3://bucket/{asset_id}.metadata` key, then
+3. Determine the file S3 prefix which is the value of `filesPrefix` in the message body if present or `assetId` otherwise.
+4. Call `get_object` to retrieve the metadata file using the url from `metadataLocation` in the message body.
     1. Convert metadata to a JSON
     2. Confirm that mandatory fields exist
     3. Confirm that UUID is in the correct format
@@ -42,9 +39,10 @@ The lambda doesn't return anything, but it sends a message to `OUTPUT_QUEUE_URL`
     3. Load this JSON file from the bucket referenced by `RECORDS_METADATA_BUCKET`.
     4. Add this to a `migratedMetadata` field in the original JSON.
     5. Upload this new JSON back to the source bucket.
-6. Copy files from the `bucket` to the `OUTPUT_BUCKET_NAME`
-7. If `DELETE_FROM_SOURCE` is set to `true`, delete all files and metadata json from the source bucket.
-8. Send the `assetId`, location of the metadata file and `messageId` (if there is one) to `OUTPUT_QUEUE_URL`
+6. Generate a list of keys by looping through the metadata JSON and concatenating the prefix from step 3 with the `fileId` from the JSON.
+7. Copy files from the `bucket` to the `OUTPUT_BUCKET_NAME`
+8. If `DELETE_FROM_SOURCE` is set to `true`, delete all files and metadata json from the source bucket.
+9. Send the `assetId`, location of the metadata file, files prefix and `messageId` (if there is one) to `OUTPUT_QUEUE_URL`
 
 [Link to the infrastructure code](https://github.com/nationalarchives/dp-terraform-environments)
 
