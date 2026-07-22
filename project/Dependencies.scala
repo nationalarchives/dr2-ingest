@@ -5,11 +5,12 @@ object Dependencies {
   lazy val daAwsClientsVersion = "0.1.160"
   private val fs2Version = "3.13.0"
   private val sttpVersion = "4.0.25"
-  private val circeVersion = "0.15.0-M1"
+  private val circeVersion = "0.14.16"
   private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
   private lazy val scalaTestVersion = "3.2.20"
   private lazy val nettyVersion = "4.2.15.Final"
+  private lazy val jacksonVersion = "3.2.1"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.47.2"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
@@ -28,8 +29,8 @@ object Dependencies {
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
   lazy val fs2IO = "co.fs2" %% "fs2-io" % fs2Version
   lazy val fs2Reactive = "co.fs2" %% "fs2-reactive-streams" % fs2Version
-  lazy val jacksonCore = "tools.jackson.core" % "jackson-core" % "3.2.1"
-  lazy val jacksonDatabind = "tools.jackson.core" % "jackson-databind" % "3.2.1"
+  lazy val jacksonCore = "tools.jackson.core" % "jackson-core" % jacksonVersion
+  lazy val jacksonDatabind = "tools.jackson.core" % "jackson-databind" % jacksonVersion
   lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.6.0"
   lazy val jawnParser = "org.typelevel" %% "jawn-parser" % "1.7.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
