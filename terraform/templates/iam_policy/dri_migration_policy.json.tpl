@@ -27,6 +27,19 @@
         "arn:aws:s3:::${object_store_bucket_name}",
         "arn:aws:s3:::${object_store_bucket_name}/*"
       ]
+    },
+    {
+      "Action": [
+        "kms:GenerateDataKey",
+	    "kms:Decrypt"
+      ],
+      "Effect": "Allow",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:PrincipalOrgID": "$${aws:ResourceOrgID}"
+        }
+      }
     }
   ]
 }

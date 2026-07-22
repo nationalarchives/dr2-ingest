@@ -25,6 +25,13 @@
     },
     {
       "Action": [
+        "kms:Decrypt"
+      ],
+      "Effect": "Allow",
+      "Resource": "*"
+    },
+    {
+      "Action": [
         "s3:PutObject"
       ],
       "Effect": "Allow",

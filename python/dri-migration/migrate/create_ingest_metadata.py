@@ -47,8 +47,7 @@ sts_client = boto3.client("sts")
 def get_clients(account_number, environment):
     credentials = sts_client.assume_role(
         RoleArn=f"arn:aws:iam::{account_number}:role/{environment}-dr2-ingest-dri-migration-role",
-        RoleSessionName="dri-migration",
-        DurationSeconds=60 * 60 * 12
+        RoleSessionName="dri-migration"
     )['Credentials']
     access_key = credentials['AccessKeyId']
     secret_key = credentials['SecretAccessKey']
@@ -191,7 +190,7 @@ def migrate(ic_db_path):
                 base_file_path = file_path[1:]
                 upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], base_file_path)
 
-            with open(upload_file_path) as upload_file:
+            with open(upload_file_path, "rb") as upload_file:
                 prefix = f"v1/{asset_uuid}"
                 tags = parse.urlencode([("Series", metadata["Series"])],)
                 s3_client.put_object(
