@@ -11,7 +11,7 @@
     }
   ],
   "expectedErrors": [
-    "Attempt to decode value on failed cursor: DownField(fileSize)",
-    "Attempt to decode value on failed cursor: DownField(title)"
+    "DecodingFailure at .fileSize: Missing required field",
+    "DecodingFailure at .title: Missing required field"
   ]
 }

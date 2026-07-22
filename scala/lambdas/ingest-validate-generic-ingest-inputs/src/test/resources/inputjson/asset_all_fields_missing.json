@@ -5,12 +5,12 @@
     }
   ],
   "expectedErrors": [
-    "Attempt to decode value on failed cursor: DownField(digitalAssetSource)",
-    "Attempt to decode value on failed cursor: DownField(filePath)",
-    "Attempt to decode value on failed cursor: DownField(id)",
-    "Attempt to decode value on failed cursor: DownField(name)",
-    "Attempt to decode value on failed cursor: DownField(originalMetadataFiles)",
-    "Attempt to decode value on failed cursor: DownField(title)",
-    "Attempt to decode value on failed cursor: DownField(upstreamSystem)"
+    "DecodingFailure at .digitalAssetSource: Missing required field",
+    "DecodingFailure at .filePath: Missing required field",
+    "DecodingFailure at .id: Missing required field",
+    "DecodingFailure at .name: Missing required field",
+    "DecodingFailure at .originalMetadataFiles: Missing required field",
+    "DecodingFailure at .title: Missing required field",
+    "DecodingFailure at .upstreamSystem: Missing required field"
   ]
 }
