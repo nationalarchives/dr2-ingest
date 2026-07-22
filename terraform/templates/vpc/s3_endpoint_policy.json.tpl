@@ -19,7 +19,7 @@
       "Principal": "*",
       "Action": [
         "s3:ListBucket",
-        "s3:GetObject",
+        "s3:GetObject*",
         "s3:PutObject"
       ],
       "Resource": [
