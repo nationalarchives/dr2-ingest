@@ -30,7 +30,8 @@
     },
     {
       "Action": [
-        "kms:GenerateDataKey"
+        "kms:GenerateDataKey",
+	"kms:Decrypt"
       ],
       "Effect": "Allow",
       "Resource": "*",
