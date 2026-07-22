@@ -5,7 +5,7 @@ locals {
   sse_encryption            = "sse"
   visibility_timeout        = 180
   redrive_maximum_receives  = 5
-  source_bucket_permissions = jsonencode(var.delete_from_source ? ["s3:GetObject", "s3:GetObjectTagging", "s3:ListBucket", "s3:DeleteObject"] : ["s3:GetObject", "s3:GetObjectTagging", "s3:ListBucket"])
+  source_bucket_permissions = jsonencode(var.delete_from_source ? ["s3:GetObject", "s3:GetObjectTagging", "s3:DeleteObject"] : ["s3:GetObject", "s3:GetObjectTagging"])
 }
 module "dr2_importer_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"

@@ -5,7 +5,7 @@
     }
   ],
   "expectedErrors": [
-    "Attempt to decode value on failed cursor: DownField(id)",
-    "Attempt to decode value on failed cursor: DownField(name)"
+    "DecodingFailure at .id: Missing required field",
+    "DecodingFailure at .name: Missing required field"
   ]
 }
