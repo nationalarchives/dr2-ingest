@@ -116,8 +116,9 @@ object DynamoFormatters {
   val firstQueued = "firstQueued"
   val lastQueued = "lastQueued"
   val resultCC = "result_CC"
+  val resultTC = "result_TC"
 
-  val queueAliasAndResultAttr: Map[String, String] = Map("CC" -> resultCC)
+  val queueAliasAndResultAttr: Map[String, String] = Map("CC" -> resultCC, "TC" -> resultTC)
 
   private def validateProperty(av: DynamoValue, name: String) =
     av.toAttributeValue.m().asScala.get(name).map(_.s()).map(Validated.Valid.apply).getOrElse(Validated.Invalid(name -> MissingProperty)).toValidatedNel
@@ -211,7 +212,8 @@ object DynamoFormatters {
       queue: Option[String],
       firstQueued: Option[String],
       lastQueued: Option[String],
-      resultCC: Option[String]
+      resultCC: Option[String],
+      resultTC: Option[String]
   )
 
   case class LockTableValidatedAttributes(
@@ -341,7 +343,8 @@ object DynamoFormatters {
       potentialQueue: Option[String],
       potentialFirstQueued: Option[String],
       potentialLastQueued: Option[String],
-      potentialResultCC: Option[String]
+      potentialResultCC: Option[String],
+      potentialResultTC: Option[String]
   )
 
   case class IngestQueueTableItem(sourceSystem: String, queuedTimeAndExecutionName: String, taskToken: String, executionName: String)

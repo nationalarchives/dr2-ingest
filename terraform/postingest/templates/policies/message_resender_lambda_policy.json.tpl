@@ -6,7 +6,7 @@
         "sqs:GetQueueAttributes"
       ],
       "Effect": "Allow",
-      "Resource": "${custodial_copy_checker_queue_arn}",
+      "Resource": ${queue_arns},
       "Sid": "readWriteSqs"
     },
     {
