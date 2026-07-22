@@ -28,8 +28,8 @@ object Dependencies {
   lazy val fs2Core = "co.fs2" %% "fs2-core" % fs2Version
   lazy val fs2IO = "co.fs2" %% "fs2-io" % fs2Version
   lazy val fs2Reactive = "co.fs2" %% "fs2-reactive-streams" % fs2Version
-  lazy val jacksonCore = "tools.jackson.core" % "jackson-core" % "3.2.0"
-  lazy val jacksonDatabind = "tools.jackson.core" % "jackson-databind" % "3.1.4"
+  lazy val jacksonCore = "tools.jackson.core" % "jackson-core" % "3.2.1"
+  lazy val jacksonDatabind = "tools.jackson.core" % "jackson-databind" % "3.2.1"
   lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.6.0"
   lazy val jawnParser = "org.typelevel" %% "jawn-parser" % "1.7.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
