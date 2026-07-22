@@ -31,7 +31,7 @@ def lambda_handler(event, context):
         json_metadata = json.loads(response['Body'].read().decode('utf-8'))
         try:
             if not skip_validation:
-                json_metadata = validate_metadata(json_metadata)
+                validate_metadata(json_metadata)
                 if records_metadata_bucket:
                     copy_records_metadata(metadata_source_bucket, records_metadata_bucket, json_metadata, metadata_file_id)
             transfer_files = [f"{files_prefix}/{m['fileId']}" for m in json_metadata]
@@ -68,7 +68,6 @@ def validate_metadata(json_metadata):
     for metadata in json_metadata:
         validate_mandatory_fields_exist(f"common/preingest-{source_system}/metadata-schema.json", metadata)
         validate_formats(metadata)
-    return json_metadata
 
 
 def validate_mandatory_fields_exist(schema_location, json_metadata):
