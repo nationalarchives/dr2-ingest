@@ -1,6 +1,8 @@
 # Post-Ingest state change handler
 
-This lambda is invoked via a Dynamo DB stream whenever an entry in Dynamo is changed ("MODIFY"), removed or added ("INSERT").
+At the end of the ingest workflow, the Post-Ingest state DynamoDB table is updated with information such as the `assetId`,
+`batchId` and `input`. This lambda is invoked via a DynamoDB stream whenever an entry in DynamoDB is changed ("MODIFY"),
+removed or added ("INSERT").
 We're only interested in MODIFY and INSERT events at the moment so REMOVE is ignored.
 
 ## Lambda input

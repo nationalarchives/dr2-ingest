@@ -1,7 +1,10 @@
 package uk.gov.nationalarchives.postingeststatechangehandler
 
+import cats.effect.implicits.parallelForGenSpawn
 import cats.effect.{IO, Outcome}
 import cats.syntax.all.*
+import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse
+import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFailure
 import io.circe.*
 import io.circe.Decoder.Result
 import io.circe.generic.semiauto.deriveDecoder
@@ -19,13 +22,14 @@ import uk.gov.nationalarchives.utils.ExternalUtils.{OutputMessage, OutputParamet
 import uk.gov.nationalarchives.utils.PostingestUtils.{OutputQueueMessage, Queue}
 import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient, DASQSClient}
+
 import scala.jdk.CollectionConverters.*
 import java.time.Instant
 import java.util.UUID
 
-class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
+class Lambda extends LambdaRunner[DynamodbEvent, SQSBatchResponse, Config, Dependencies]:
 
-  override def handler: (DynamodbEvent, Config, Dependencies) => IO[Unit] = (event, config, dependencies) => {
+  override def handler: (DynamodbEvent, Config, Dependencies) => IO[SQSBatchResponse] = (event, config, dependencies) => {
     def getPrimaryKey(item: PostIngestStateTableItem) =
       PostIngestStatePrimaryKey(PostIngestStatePartitionKey(item.assetId), PostIngestStateSortKey(item.batchId))
 
@@ -79,7 +83,10 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
         val queue1 = queues.find(_.queueOrder == 1).get
         val newImage = record.dynamodb.newImage.get
         val processInsertRecord = updateTableAndSendToSqs(newImage, queue1) >> sendOutputMessage(newImage, Some(queue1.queueAlias))
-        processInsertRecord.start
+
+        processInsertRecord.adaptError { case e: Throwable =>
+          StateChangeException(e.getMessage, record.dynamodb.sequenceNumber)
+        }.start
       }
 
     def newResultDiffersFromOld(newResult: Option[String], oldResult: Option[String]) = newResult.getOrElse("") != oldResult.getOrElse("")
@@ -103,11 +110,13 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
 
               case _ => IO.raiseError(new Exception("MODIFY Event was triggered but either an OldImage, NewImage or both don't exist"))
 
-          processModifyRecord.start
+          processModifyRecord.adaptError { case e: Throwable =>
+            StateChangeException(e.getMessage, record.dynamodb.sequenceNumber)
+          }.start
         }
     }
 
-    for {
+    for
       queues <- IO.fromEither(decode[List[Queue]](config.queues)).map(_.sortBy(_.queueOrder))
       queuePropsAndValues = queues.flatMap(queue => queue.productElementNames.zip(queue.productIterator))
       queuesWithSameValue = queuePropsAndValues.groupBy(identity).filter { case (_, propsAndVals) => propsAndVals.length > 1 }
@@ -121,11 +130,16 @@ class Lambda extends LambdaRunner[DynamodbEvent, Unit, Config, Dependencies]:
       insert <- getInsertFibers(queues)
       modify <- getModifyFibers(queues)
       allResults <- (insert ++ modify).parTraverse(_.join)
-      _ <- allResults.traverse {
-        case Outcome.Errored(e) => IO.raiseError(e)
-        case _                  => IO.unit
+      batchItemFailures <- allResults.traverseFilter {
+        case Outcome.Errored(e) =>
+          IO.pure {
+            e match {
+              case e: StateChangeException => Some(BatchItemFailure(e.sequenceNumber)) // Only match on StateChangeException else throw MatchError as this is unexpected behaviour
+            }
+          }
+        case _ => IO.pure(None)
       }
-    } yield ()
+    yield new SQSBatchResponse(batchItemFailures.asJava)
   }
 
   override def dependencies(config: Config): IO[Dependencies] = IO(
@@ -180,7 +194,8 @@ object Lambda:
       newItem <- imageOrError(potentialNewImage)
       key <- c.downField("Keys").as[DynamoObject]
       key <- postIngestStatePkFormat.read(key.toDynamoValue).toCirceError
-    } yield StreamRecord(key.some, oldItem, newItem)
+      sequenceNumber <- c.downField("SequenceNumber").as[String]
+    } yield StreamRecord(key.some, oldItem, newItem, sequenceNumber)
 
   private def imageOrError(potentialImage: Option[DynamoObject]) = {
     potentialImage match {
@@ -216,4 +231,6 @@ object Lambda:
 
   case class DynamodbStreamRecord(eventName: EventName, dynamodb: StreamRecord)
 
-  case class StreamRecord(keys: Option[PostIngestStatePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: Option[PostIngestStateTableItem])
+  case class StreamRecord(keys: Option[PostIngestStatePrimaryKey], oldImage: Option[PostIngestStateTableItem], newImage: Option[PostIngestStateTableItem], sequenceNumber: String)
+
+  case class StateChangeException(message: String, sequenceNumber: String) extends Exception(message)
