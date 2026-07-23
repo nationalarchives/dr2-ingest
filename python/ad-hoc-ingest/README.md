@@ -57,13 +57,13 @@ the script has following pre-requisites:
 `-e  --environment`
     Name of the environment where the records are ingested (e.g. intg, prod). The script makes use of the environment name to construct names of the AWS resources (default 'intg')
 
-`-d   --dry_run`
+`-d   --dry-run`
     Boolean value, when True, indicates that the script should only validate the data but stop short of actually uploading it to S3. False indicates that the script should ingest data as well. (default False)
 
 `-o   --output` 
     Optional file path where the intermediate results are stored. When available, the output of dry run is stored in that file. If not given, the script generates a file in the "tmp" folder of the machine
 
-`-s   --asset_source` 
+`-s   --asset-source` 
     Optional digital asset source, one of:('Born Digital', 'Surrogate' or 'Digitised') default is 'Born Digital'
 
 
