@@ -377,5 +377,15 @@ class TestLambdaFunction(unittest.TestCase):
             self.assertEqual(True, lambda_function.validate_formats(json.loads(mock_response_body)))
 
 
+    @patch('lambda_function.s3_client.copy')
+    def test_copy_objects_should_pass_the_correct_arguments_to_s3_call(self, mock_s3_copy):
+        lambda_function.copy_objects("destination", ["key"], "source")
+        args = mock_s3_copy.call_args_list[0].args
+        self.assertDictEqual({"Bucket": "source", "Key": "key"}, args[0])
+        self.assertEqual("destination", args[1])
+        self.assertEqual("key", args[2])
+        self.assertDictEqual({"TaggingDirective": "REPLACE", "AnnotationDirective": "EXCLUDE"}, args[3])
+
+
 if __name__ == '__main__':
     unittest.main()

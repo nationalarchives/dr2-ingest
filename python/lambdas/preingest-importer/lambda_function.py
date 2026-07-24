@@ -107,7 +107,7 @@ def copy_objects(destination_bucket, s3_keys, source_bucket):
     for s3_key in s3_keys:
         try:
             copy_source = {"Bucket": source_bucket, "Key": s3_key}
-            s3_client.copy(copy_source, destination_bucket, s3_key)
+            s3_client.copy(copy_source, destination_bucket, s3_key, {"TaggingDirective": "REPLACE", "AnnotationDirective": "EXCLUDE"})
         except Exception as e:
             print(f"Error during copy of '{s3_key}' from '{source_bucket}' to '{destination_bucket}': {e}")
             raise e
