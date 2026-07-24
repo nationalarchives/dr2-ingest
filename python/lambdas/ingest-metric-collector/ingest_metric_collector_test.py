@@ -1,8 +1,13 @@
+import json
+import os
 import unittest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
 
 import ingest_metric_collector
+
+
+SOURCE_SYSTEMS = ["TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"]
 
 def generate_metrics(state_machine_arn="arn:some_arn", state_machine_name= "test-dr2-something", value=0,
                      metric_name="ExecutionsRunning", source_system="", unit="Count"):
@@ -21,6 +26,7 @@ def generate_metrics(state_machine_arn="arn:some_arn", state_machine_name= "test
     return metrics
 
 
+@patch.dict(os.environ, {"SOURCE_SYSTEMS": json.dumps(SOURCE_SYSTEMS)})
 class TestLambdaFunction(unittest.TestCase):
     expected_source_systems = ("TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT")
 
@@ -30,7 +36,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_sfn.get_paginator.return_value.paginate.return_value = [{"stateMachines": []}]
         mock_boto_client.return_value = mock_sfn
 
-        metrics = ingest_metric_collector.get_stepfunction_metrics("env-prefix")
+        metrics = ingest_metric_collector.get_stepfunction_metrics("env-prefix", SOURCE_SYSTEMS)
         self.assertEqual([], metrics)
 
     @patch("ingest_metric_collector.boto3.client")
@@ -42,7 +48,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_sfn.list_executions.return_value = {"executions": []}
         mock_boto_client.return_value = mock_sfn
 
-        metrics = ingest_metric_collector.get_stepfunction_metrics("TDR-")
+        metrics = ingest_metric_collector.get_stepfunction_metrics("TDR-", SOURCE_SYSTEMS)
         # Should return one metric with 0 executions
         self.assertEqual(1, len(metrics))
 
@@ -60,7 +66,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_sfn.list_executions.return_value = {"executions": []}
         mock_boto_client.return_value = mock_sfn
 
-        metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2-")
+        metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2-", SOURCE_SYSTEMS)
 
         self.assertEqual(6, len(metrics))
         expected_metric = generate_metrics()
@@ -86,7 +92,7 @@ class TestLambdaFunction(unittest.TestCase):
         }
         mock_boto_client.return_value = mock_sfn
 
-        metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2")
+        metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2", SOURCE_SYSTEMS)
 
         # 1 metric for total executions + metrics per source system
         self.assertEqual(1 + len(self.expected_source_systems), len(metrics))
@@ -101,7 +107,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_dynamo.query.return_value = {"Items": []}
         mock_boto_client.return_value = mock_dynamo
 
-        metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2")
+        metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2", SOURCE_SYSTEMS)
 
         self.assertEqual(10, len(metrics))
 
@@ -141,7 +147,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_dynamo.query.side_effect = self.make_source_system_specific_mock(mock_mapping)
         mock_boto_client.return_value = mock_dynamo
 
-        metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2")
+        metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2", SOURCE_SYSTEMS)
         self.assertEqual(10, len(metrics))
 
         for ss, (count, seconds) in zip(self.expected_source_systems, ((1, 60), (0, 0), (0, 0), (0, 0), (0, 0))):
