@@ -13,7 +13,6 @@ import argument_parser_builder
 import aws_interactions
 import dataset_validator
 import discovery_client
-import message_printer
 import message_printer as mp
 import metadata_creator
 import version_check
