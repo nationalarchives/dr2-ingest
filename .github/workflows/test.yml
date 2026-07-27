@@ -25,7 +25,7 @@ jobs:
           gpg --import public_key.asc
           gpg --verify /tmp/wizcli-sha256.sig /tmp/wizcli-sha256
           echo "$(cat /tmp/wizcli-sha256) wizcli" | sha256sum --check
-          ./wizcli scan dir .
+          ./wizcli scan dir . --project $WIZ_PROJECT_ID
           (cd terraform && terraform fmt -check --recursive)
           find . -name requirements.txt | xargs -I {} pip install -r {}
           pytest
@@ -38,3 +38,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: test
           WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }}
           WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }}
+          WIZ_PROJECT_ID: ${{ secrets.WIZ_PROJECT_DR2 }}

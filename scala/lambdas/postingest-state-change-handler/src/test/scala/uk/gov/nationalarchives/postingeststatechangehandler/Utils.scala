@@ -38,10 +38,8 @@ object Utils {
         .update { messagesMap =>
           val newMessage = new SQSMessage()
           newMessage.setBody(message.asJson.noSpaces)
-          messagesMap.map {
-            case (queue, messages) if queue == queueUrl => queue -> (newMessage :: messages)
-            case (queue, messages)                      => queue -> messages
-          }
+          if messagesMap.contains(queueUrl) then messagesMap.updated(queueUrl, newMessage :: messagesMap(queueUrl))
+          else messagesMap + (queueUrl -> List(newMessage))
         }
         .map(_ => SendMessageResponse.builder.build)
     }
@@ -75,7 +73,21 @@ object Utils {
       }
 
       override def updateAttributeValues(dynamoDbRequest: DADynamoDbRequest): IO[Int] =
-        updateRequestsRef.update(updateRequests => dynamoDbRequest :: updateRequests).map(_ => 1)
+        updateRequestsRef.update(updateRequests => dynamoDbRequest :: updateRequests).flatMap { _ =>
+          itemsInTableRef
+            .update { existing =>
+              val assetIdToUpdate = dynamoDbRequest.primaryKeyAndItsValue.get("assetId").map(_.s()).getOrElse("")
+              existing.map { eachItem =>
+                if eachItem.assetId.toString == assetIdToUpdate then
+                  val newFirstQueued = dynamoDbRequest.attributeNamesAndValuesToUpdate.get("firstQueued").map(_.s())
+                  val newLastQueued = dynamoDbRequest.attributeNamesAndValuesToUpdate.get("lastQueued").map(_.s())
+                  val newQueue = dynamoDbRequest.attributeNamesAndValuesToUpdate.get("queue").map(_.s())
+                  eachItem.copy(potentialFirstQueued = newFirstQueued, potentialLastQueued = newLastQueued, potentialQueue = newQueue)
+                else eachItem
+              }
+            }
+            .map(_ => 1)
+        }
 
       override def queryItems[U](tableName: String, requestCondition: RequestCondition, potentialGsiName: Option[String] = None)(using
           returnTypeFormat: DynamoFormat[U]
