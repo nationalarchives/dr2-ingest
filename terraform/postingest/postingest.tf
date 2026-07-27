@@ -22,7 +22,7 @@ locals {
     {
       "queueAlias" : queue.queueAlias,
       "queueOrder" : queue.queueOrder,
-      "queueUrl" : module.confirmer_queues[queue.queueAlias].sqs_queue.url
+      "queueUrl" : module.dr2_confirmer_queues[queue.queueAlias].sqs_queue.url
     }
   ]
 }
@@ -61,7 +61,7 @@ module "postingest_state_table" {
   point_in_time_recovery_enabled = true
 }
 
-module "confirmer_queues" {
+module "dr2_confirmer_queues" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   for_each   = { for queue in local.postingest_queue_config : queue.queueAlias => queue }
   queue_name = each.value.queue_name
@@ -78,7 +78,7 @@ module "confirmer_queues" {
 
 module "confirmer_message_older_than_one_week_alarm" {
   source              = "git::https://github.com/nationalarchives/da-terraform-modules//cloudwatch_alarms"
-  for_each            = module.confirmer_queues
+  for_each            = module.dr2_confirmer_queues
   name                = "${each.value.sqs_queue.name}-messages-older-than-one-week-alarm"
   comparison_operator = "GreaterThanThreshold"
   metric_name         = "ApproximateAgeOfOldestMessage"
@@ -117,7 +117,7 @@ module "dr2_state_change_lambda" {
     "${local.state_change_lambda_name}-policy" = templatefile("${path.module}/templates/policies/state_change_lambda_policy.json.tpl", {
       queue_arns = jsonencode(
         concat(
-          [for v in module.confirmer_queues : v.sqs_arn],
+          [for v in module.dr2_confirmer_queues : v.sqs_arn],
           [module.dr2_state_change_lambda_dlq.sqs_arn]
         )
       )
@@ -160,7 +160,7 @@ module "dr2_message_resender_lambda" {
 
   policies = {
     "${local.resender_lambda_name}-policy" = templatefile("${path.module}/templates/policies/message_resender_lambda_policy.json.tpl", {
-      queue_arns           = jsonencode(values(module.confirmer_queues)[*].sqs_arn)
+      queue_arns           = jsonencode(values(module.dr2_confirmer_queues)[*].sqs_arn)
       postingest_state_arn = module.postingest_state_table.table_arn
       account_id           = data.aws_caller_identity.current.account_id
       lambda_name          = local.resender_lambda_name

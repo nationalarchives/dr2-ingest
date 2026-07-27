@@ -7,7 +7,7 @@ output "postingest_table_arn" {
 }
 
 output "postingest_queues" {
-  value = module.confirmer_queues
+  value = module.dr2_confirmer_queues
 }
 
 output "postingest_state_change_lambda_arn" {
