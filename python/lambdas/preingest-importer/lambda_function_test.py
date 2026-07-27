@@ -384,7 +384,7 @@ class TestLambdaFunction(unittest.TestCase):
         self.assertDictEqual({"Bucket": "source", "Key": "key"}, args[0])
         self.assertEqual("destination", args[1])
         self.assertEqual("key", args[2])
-        self.assertDictEqual({"TaggingDirective": "REPLACE", "AnnotationDirective": "EXCLUDE"}, args[3])
+        self.assertDictEqual({"TaggingDirective": "REPLACE"}, args[3])
 
 
 if __name__ == '__main__':
