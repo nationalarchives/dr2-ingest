@@ -66,7 +66,7 @@ class IngestUtils(
     private val assetIds: MutableList<UUID>,
     private val groupIds: MutableSet<String>
 ) {
-    private val completeStatus = "Asset has been written to custodial copy disk."
+    private val completeStatus = "Asset has been written to tape"
     private val failedStatus = "There has been an error ingesting the asset."
 
     suspend fun waitForEntriesInLockTable(timeout: Duration = 15.minutes): MutableSet<String> {

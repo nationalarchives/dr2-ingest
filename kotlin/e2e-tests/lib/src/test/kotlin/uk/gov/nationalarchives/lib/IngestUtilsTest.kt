@@ -60,7 +60,7 @@ class IngestUtilsTest {
         val assetId = UUID.randomUUID()
         val body = """{"body": 
             |{"properties": {"executionId": "", "messageType": "preserve.digital.asset.ingest.complete"}, 
-            |"parameters": {"assetId": "$assetId", "status": "Asset has been written to custodial copy disk."}}}""".trimMargin()
+            |"parameters": {"assetId": "$assetId", "status": "Asset has been written to tape"}}}""".trimMargin()
         assertFailsWith<TimeoutException> {
             messageIngestUtils(listOf(body), mutableListOf(assetId))
                 .checkForIngestStatusMessages("", timeout, "update")
@@ -72,7 +72,7 @@ class IngestUtilsTest {
         val assetId = UUID.randomUUID()
         val body = """{"body": 
             |{"properties": {"executionId": "", "messageType": "preserve.digital.asset.ingest.complete"}, 
-            |"parameters": {"assetId": "$assetId", "status": "Asset has been written to custodial copy disk."}}}""".trimMargin()
+            |"parameters": {"assetId": "$assetId", "status": "Asset has been written to tape"}}}""".trimMargin()
         messageIngestUtils(listOf(body), mutableListOf(assetId))
             .checkForIngestStatusMessages("", 1000, "complete")
     }
