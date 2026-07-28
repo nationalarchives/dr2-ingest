@@ -317,7 +317,6 @@ object ExternalUtils {
     case DRI extends SourceSystem("DRI")
     case `TRE: FCL Parser workflow` extends SourceSystem("TRE: FCL Parser workflow")
     case ADHOC extends SourceSystem("Ad hoc ingest")
-    case PA extends SourceSystem("Parliament Migration")
     case COURTDOC extends SourceSystem("TRE: FCL Parser workflow")
 
     override def toString: String = display
