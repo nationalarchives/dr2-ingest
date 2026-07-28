@@ -36,7 +36,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("CC"),
         Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString),
         Some(lastQueuedTime),
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
@@ -62,7 +63,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("CC"),
         Some(Instant.now().minus(java.time.Duration.ofDays(10)).toString),
         Some(Instant.now().minus(java.time.Duration.ofDays(5)).toString), // 5 days old, cutoff time is 4 days
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       ),
       PostIngestStateTableItem(
         assetId2,
@@ -72,7 +74,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("CC"),
         Some(Instant.now().minus(java.time.Duration.ofDays(16)).toString),
         Some(predictableStartOfTheDay().minus(java.time.Duration.ofDays(4)).minus(java.time.Duration.ofMinutes(1)).toString), // 4 days and 1 minute old
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
@@ -109,7 +112,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("CC"),
         Some(sixDaysOld),
         Some(sixDaysOld), // 6 days old, cutoff time is 4 days
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       ),
       PostIngestStateTableItem(
         uuidForNoUpdate,
@@ -119,7 +123,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("NO_CC"), // different queue
         Some(sixteenDaysOld),
         Some(sixteenDaysOld), // 16 days old, cutoff time is 4 days
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
@@ -177,7 +182,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("CC"),
         Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString),
         Some(lastQueued),
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       )
     )
     runLambda(initialDynamo, new ScheduledEvent(), defaultConfig, () => Instant.now(), errors)

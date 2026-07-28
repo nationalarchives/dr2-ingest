@@ -45,10 +45,9 @@ def setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows, mock_wri
     mock_write_to_ic_db.return_value = True
 
 
-def verify_function_calls(test: "TestMigrate", is_test_run, get_clients: Mock, mock_connect: Mock,
+def verify_function_calls(test: "TestMigrate", is_test_run, mock_connect: Mock,
                           mock_create_skeleton: Mock, mock_checksum: Mock, write_to_ic_db: Mock, ref_error_thrown=False):
 
-    get_clients.assert_called_with("123456789", "testenv")
     mock_connect.assert_called_with(dsn="localhost/SDB4", user="STORE", password="password")
     if ref_error_thrown:
        mock_create_skeleton.assert_called_with(["fmt", "x-fmt"])
@@ -84,9 +83,10 @@ class TestMigrate(unittest.TestCase):
     @patch('builtins.open', new_callable=mock_open, read_data="SELECT * FROM TEST")
     @patch('migrate.create_ingest_metadata.create_skeleton_suite_lookup')
     @patch('migrate.create_ingest_metadata.calculate_checksum')
-    @patch('migrate.create_ingest_metadata.get_clients')
+    @patch('migrate.create_ingest_metadata.sqs_client')
+    @patch('migrate.create_ingest_metadata.s3_client')
     def test_migrate_s3_sqs(
-            self, test_run, checksum, get_clients, mock_checksum,
+            self, test_run, checksum, mock_s3, mock_sqs, mock_checksum,
             mock_create_skeleton, mock_open_file, __, mock_connect, write_to_ic_db
     ):
         row_fmt = [
@@ -105,10 +105,6 @@ class TestMigrate(unittest.TestCase):
 
         setup_test(mock_checksum, mock_connect, mock_create_skeleton, rows, write_to_ic_db, test_run)
 
-        mock_s3 = MagicMock()
-        mock_sqs = MagicMock()
-        get_clients.return_value = (mock_s3, mock_sqs,)
-
         create_ingest_metadata.migrate(self.ic_db_name)
 
         if test_run == "true" or test_run is None:
@@ -121,8 +117,8 @@ class TestMigrate(unittest.TestCase):
 
         self.assertEqual([
             call("ingest_query.sql"),
-            call(call_paths[0]),
-            call(call_paths[1]),
+            call(call_paths[0], "rb"),
+            call(call_paths[1], "rb"),
         ], mock_open_file.call_args_list)
 
         calls = [
@@ -180,7 +176,7 @@ class TestMigrate(unittest.TestCase):
             self.assertEqual(f"v1/{metadata_uuid}", sent_body["filesPrefix"])
 
         is_test_run = test_run == "true" or test_run is None
-        verify_function_calls(self, is_test_run, get_clients, mock_connect, mock_create_skeleton, mock_checksum,
+        verify_function_calls(self, is_test_run, mock_connect, mock_create_skeleton, mock_checksum,
                               write_to_ic_db)
 
     @patch("migrate.create_ingest_metadata.write_to_ic_db")
@@ -189,9 +185,10 @@ class TestMigrate(unittest.TestCase):
     @patch('builtins.open', new_callable=mock_open, read_data="SELECT * FROM TEST")
     @patch('migrate.create_ingest_metadata.create_skeleton_suite_lookup')
     @patch('migrate.create_ingest_metadata.calculate_checksum')
-    @patch('migrate.create_ingest_metadata.get_clients')
+    @patch('migrate.create_ingest_metadata.sqs_client')
+    @patch('migrate.create_ingest_metadata.s3_client')
     def test_migrate_raises_error_if_consignment_ref_and_batch_ref_are_missing(
-            self, get_clients, mock_checksum,
+            self, mock_s3, mock_sqs, mock_checksum,
             mock_create_skeleton, ___, ____, mock_connect, write_to_ic_db
     ):
         row = [
@@ -201,16 +198,12 @@ class TestMigrate(unittest.TestCase):
             "filename.txt", "fileref", "meta", "1", "1", 1, "BornDigital"
         ]
         setup_test(mock_checksum, mock_connect, mock_create_skeleton, [row], write_to_ic_db, None)
-        mock_s3 = MagicMock()
-        mock_sqs = MagicMock()
-        get_clients.return_value = mock_s3, mock_sqs
-
         with self.assertRaises(ValueError) as cm:
             create_ingest_metadata.migrate(self.ic_db_name)
 
         self.assertEqual("We need either a consignment reference or a dri batch reference", str(cm.exception))
 
-        verify_function_calls(self, True, get_clients, mock_connect, mock_create_skeleton, write_to_ic_db,
+        verify_function_calls(self, True, mock_connect, mock_create_skeleton, write_to_ic_db,
                               mock_checksum, ref_error_thrown=True)
 
     def test_skeleton_suite_lookup(self):
@@ -295,27 +288,6 @@ class TestMigrate(unittest.TestCase):
         self.assertEqual(1, count('FileReference', 'ABC/Z'))
         self.assertEqual(1, count('FileReference', 'ABC/Z/1'))
         self.assertEqual(1, count('FileReference', 'DEF/Z'))
-
-    @patch('migrate.create_ingest_metadata.sts_client')
-    def test_get_clients(self,  mock_sts_client):
-        mock_sts_client.assume_role.return_value = {
-            'Credentials': {'AccessKeyId': 'TestAccessKey', 'SecretAccessKey': 'TestSecret', 'SessionToken': 'TestSessionToken'},
-        }
-        def check_client(client):
-            self.assertEqual('eu-west-2', client._client_config.region_name)
-            self.assertEqual('TestAccessKey', client._get_credentials().access_key)
-            self.assertEqual('TestSecret', client._get_credentials().secret_key)
-            self.assertEqual('TestSessionToken', client._get_credentials().token)
-
-        (s3_client, sqs_client) = create_ingest_metadata.get_clients(12345, "test")
-
-        sts_args = mock_sts_client.assume_role.call_args_list[0][1]
-        self.assertEqual('arn:aws:iam::12345:role/test-dr2-ingest-dri-migration-role', sts_args['RoleArn'])
-        self.assertEqual('dri-migration', sts_args['RoleSessionName'])
-        self.assertEqual(60 * 60 * 12, sts_args['DurationSeconds'])
-
-        check_client(s3_client)
-        check_client(sqs_client)
 
     ic_table_name = "dri_files"
     if os.path.exists(ic_db_name):

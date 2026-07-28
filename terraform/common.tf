@@ -104,23 +104,24 @@ locals {
     { id = "expire-current-versions", status = "Enabled", expiration = { days = 29 } },
     { id = "expire-object-delete-marker", status = "Enabled", expiration = { expired_object_delete_marker = true } }
   ]))
+  source_systems = ["TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"]
   flow_control_configs = {
     intg = {
       maxConcurrency = 3,
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = "TDR"
+          systemName       = local.source_systems[index(local.source_systems, "TDR")]
           reservedChannels = 0
           probability      = 50
         },
         {
-          systemName       = "COURTDOC"
+          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
           reservedChannels = 0
           probability      = 30
         },
         {
-          systemName       = "DEFAULT"
+          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
           reservedChannels = 1
           probability      = 20
         }
@@ -131,22 +132,22 @@ locals {
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = "TDR"
+          systemName       = local.source_systems[index(local.source_systems, "TDR")]
           reservedChannels = 0
           probability      = 50
         },
         {
-          systemName       = "COURTDOC"
+          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
           reservedChannels = 1
           probability      = 1
         },
         {
-          systemName       = "DRI"
+          systemName       = local.source_systems[index(local.source_systems, "DRI")]
           reservedChannels = 0
           probability      = 48
         },
         {
-          systemName       = "DEFAULT"
+          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
           reservedChannels = 0
           probability      = 1
         }
@@ -157,17 +158,17 @@ locals {
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = "TDR"
+          systemName       = local.source_systems[index(local.source_systems, "TDR")]
           reservedChannels = 1
           probability      = 50
         },
         {
-          systemName       = "COURTDOC"
+          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
           reservedChannels = 0
           probability      = 30
         },
         {
-          systemName       = "DEFAULT"
+          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
           reservedChannels = 0
           probability      = 20
         }
@@ -251,6 +252,7 @@ module "vpc" {
     preservica_ingest_bucket = local.preservica_ingest_bucket
     tdr_export_bucket        = local.tdr_export_bucket
     tre_export_bucket_arn    = local.tre_terraform_prod_config["s3_court_document_pack_out_arn"]
+    object_store_bucket_name = local.object_store_bucket_name
   })
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id
@@ -746,8 +748,13 @@ module "eventbridge_alarm_notifications_destination" {
 module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_ingest_queues" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
   event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
-    cloudwatch_alarms = jsonencode(flatten([[for queue in local.ingest_queues : queue.event_alarms], [module.postingest.cc_confirmer_queue_oldest_message_alarm_arn]])),
-    state_value       = "ALARM"
+    cloudwatch_alarms = jsonencode(
+      flatten([
+        [for queue in local.ingest_queues : queue.event_alarms],
+        module.postingest.postingest_queue_oldest_message_alarm_arns
+      ])
+    ),
+    state_value = "ALARM"
   })
   name                = "${local.environment}-dr2-eventbridge-ingest-queue-alarm-only"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
