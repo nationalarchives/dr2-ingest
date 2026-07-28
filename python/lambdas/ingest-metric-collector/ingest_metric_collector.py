@@ -1,16 +1,16 @@
 import collections
 import logging
+import os
 from datetime import datetime, timezone
+import json
 
 import boto3
 from dateutil.parser import isoparse
 
-SOURCE_SYSTEMS = ("TDR", "COURTDOC", "ADHOC", "DRI", "PA", "DEFAULT")
-
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def get_stepfunction_metrics(resources_prefix):
+def get_stepfunction_metrics(resources_prefix, source_systems):
     metric_data = []
     sfn_client = boto3.client("stepfunctions")
 
@@ -37,8 +37,8 @@ def get_stepfunction_metrics(resources_prefix):
             if state_machine_name.startswith(resources_prefix) :
                 execution_ss = [e["name"].split("_", 1)[0] for e in executions]
                 counts = collections.Counter(execution_ss)
-                ss_execution_counts = {ss: counts.get(ss, 0) for ss in SOURCE_SYSTEMS}
-                unlisted_ss_count = sum(count for system, count in counts.items() if system not in SOURCE_SYSTEMS)
+                ss_execution_counts = {ss: counts.get(ss, 0) for ss in source_systems}
+                unlisted_ss_count = sum(count for system, count in counts.items() if system not in source_systems)
                 ss_execution_counts["DEFAULT"] = ss_execution_counts.get("DEFAULT", 0) + unlisted_ss_count
 
                 metric_data.extend(
@@ -56,12 +56,12 @@ def get_stepfunction_metrics(resources_prefix):
                 )
     return metric_data
 
-def get_flow_control_metrics(resources_prefix):
+def get_flow_control_metrics(resources_prefix, source_systems):
     metric_data = []
     dynamo_client = boto3.client("dynamodb")
     queue_table = resources_prefix + "-queue"
 
-    for source_system in SOURCE_SYSTEMS:
+    for source_system in source_systems:
         item_result = dynamo_client.query(
             TableName = queue_table,
             KeyConditionExpression = "sourceSystem = :ssPlaceHolder",
@@ -97,12 +97,13 @@ def get_flow_control_metrics(resources_prefix):
     return metric_data
 
 def lambda_handler(event, context):
+    source_systems = tuple(json.loads(os.environ["SOURCE_SYSTEMS"]))
     resources_prefix = context.function_name.split("-")[0] + "-dr2-ingest"
     metric_data = []
     sfn_collection_failed = False
     age_collection_failed = False
     try:
-        sfn_metrics = get_stepfunction_metrics(resources_prefix)
+        sfn_metrics = get_stepfunction_metrics(resources_prefix, source_systems)
         metric_data.extend(sfn_metrics)
         logger.info("Successfully collected step function metrics")
     except Exception as e:
@@ -110,7 +111,7 @@ def lambda_handler(event, context):
         sfn_collection_failed = True
 
     try:
-        age_metrics = get_flow_control_metrics(resources_prefix)
+        age_metrics = get_flow_control_metrics(resources_prefix, source_systems)
         metric_data.extend(age_metrics)
         logger.info("Successfully collected age metrics")
     except Exception as e:
