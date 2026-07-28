@@ -20,6 +20,6 @@ def print_message(text):
     print(text)
 
 def print_error(exception):
-    print(f"\033[91m *** ERROR ***")
-    print(str(exception), file=sys.stderr)
-    print(f"\033[0m")
+    sys.stderr.write("\033[91m*** ERROR ***\n")
+    sys.stderr.write(str(exception) + "\n")
+    sys.stderr.write(f"\033[0m\n")
