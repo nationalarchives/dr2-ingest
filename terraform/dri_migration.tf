@@ -13,9 +13,8 @@ module "dr2_dri_migration_key" {
       data.aws_iam_role.org_wiz_access_role.arn,
     ]
     user_roles = concat([
-      module.dr2_dri_migration_role.role_arn,
       module.dri_preingest.importer_lambda.role,
-    ], local.e2e_test_roles)
+    ], local.e2e_test_roles, local.environment == "prod" ? ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/prod-dr2-ingest-dri-migration"] : [module.dr2_dri_migration_role.role_arn])
   }
 }
 
