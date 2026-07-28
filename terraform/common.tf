@@ -104,23 +104,24 @@ locals {
     { id = "expire-current-versions", status = "Enabled", expiration = { days = 29 } },
     { id = "expire-object-delete-marker", status = "Enabled", expiration = { expired_object_delete_marker = true } }
   ]))
+  source_systems = ["TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"]
   flow_control_configs = {
     intg = {
       maxConcurrency = 3,
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = "TDR"
+          systemName       = local.source_systems[index(local.source_systems, "TDR")]
           reservedChannels = 0
           probability      = 50
         },
         {
-          systemName       = "COURTDOC"
+          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
           reservedChannels = 0
           probability      = 30
         },
         {
-          systemName       = "DEFAULT"
+          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
           reservedChannels = 1
           probability      = 20
         }
@@ -131,22 +132,22 @@ locals {
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = "TDR"
+          systemName       = local.source_systems[index(local.source_systems, "TDR")]
           reservedChannels = 0
           probability      = 50
         },
         {
-          systemName       = "COURTDOC"
+          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
           reservedChannels = 1
           probability      = 1
         },
         {
-          systemName       = "DRI"
+          systemName       = local.source_systems[index(local.source_systems, "DRI")]
           reservedChannels = 0
           probability      = 48
         },
         {
-          systemName       = "DEFAULT"
+          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
           reservedChannels = 0
           probability      = 1
         }
@@ -157,17 +158,17 @@ locals {
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = "TDR"
+          systemName       = local.source_systems[index(local.source_systems, "TDR")]
           reservedChannels = 1
           probability      = 50
         },
         {
-          systemName       = "COURTDOC"
+          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
           reservedChannels = 0
           probability      = 30
         },
         {
-          systemName       = "DEFAULT"
+          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
           reservedChannels = 0
           probability      = 20
         }

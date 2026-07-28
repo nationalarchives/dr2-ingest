@@ -22,6 +22,9 @@ module "dr2_ingest_metric_collector_lambda" {
       ingest_queue_table_arn     = module.ingest_queue_table.table_arn
     })
   }
+  plaintext_env_vars = {
+    SOURCE_SYSTEMS = jsonencode(local.source_systems)
+  }
   tags = {
     Name = local.ingest_metric_collector_lambda_name
   }
