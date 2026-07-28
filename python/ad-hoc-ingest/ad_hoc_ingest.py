@@ -182,8 +182,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"\033[91m *** ERROR ***")
-        print(str(e), file=sys.stderr)
-        print (f"\033[0m")
+        mp.print_error(e)
         sys.exit(1)
 

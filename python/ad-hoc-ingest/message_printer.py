@@ -18,3 +18,8 @@ def print_message(text):
         sys.stdout.write("\r" + " " * 200 + "\r")
         progress_message_active = False
     print(text)
+
+def print_error(exception):
+    print(f"\033[91m *** ERROR ***")
+    print(str(exception), file=sys.stderr)
+    print(f"\033[0m")
