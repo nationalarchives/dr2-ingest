@@ -136,12 +136,7 @@ module "dr2_state_change_lambda" {
 
   policies = {
     "${local.state_change_lambda_name}-policy" = templatefile("${path.module}/templates/policies/state_change_lambda_policy.json.tpl", {
-      queue_arns = jsonencode(
-        concat(
-          [for v in module.dr2_confirmer_queues : v.sqs_arn],
-          [module.dr2_state_change_lambda_dlq.sqs_arn]
-        )
-      )
+      queue_arns                      = jsonencode([for v in module.dr2_confirmer_queues : v.sqs_arn])
       dynamo_db_postingest_arn        = module.postingest_state_table.table_arn
       sns_external_notifications_arn  = var.notifications_topic_arn
       account_id                      = data.aws_caller_identity.current.account_id

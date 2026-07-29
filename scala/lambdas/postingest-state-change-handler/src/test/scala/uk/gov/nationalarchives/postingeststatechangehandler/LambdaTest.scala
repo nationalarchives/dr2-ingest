@@ -238,8 +238,9 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val assetId = UUID.randomUUID
     val oldDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, None, None)
     val newDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"result_$queue1"), None)
+    val sequenceNumber = "123"
 
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(oldDynamoItem).some, oldDynamoItem.some, newDynamoItem.some))))
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(oldDynamoItem).some, oldDynamoItem.some, newDynamoItem.some, sequenceNumber))))
 
     val queues =
       s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
@@ -281,8 +282,9 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   def assertValidConfig(queues: String, expectedErrorMessage: String): Assertion = {
     val assetId = UUID.randomUUID
     val newDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"result_$queue1"), None)
+    val sequenceNumber = "123"
 
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(getPrimaryKey(newDynamoItem).some, None, newDynamoItem.some))))
+    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(getPrimaryKey(newDynamoItem).some, None, newDynamoItem.some, sequenceNumber))))
     val config = Config("ddbTable", "ddbGsi", "topicArn", queues)
 
     val ex = intercept[Exception] {
