@@ -107,9 +107,9 @@ def write_intermediate_csv(args, data_set, is_upstream_valid, description_overri
             except Exception as e:
                 is_metadata_valid = False
                 if args.dry_run:
-                    mp.print_message(f"Error creating metadata: {e}")
+                    mp.print_message(f"Error creating metadata:\n{e}")
                 else:
-                    raise Exception(f"Error creating metadata: {e}")
+                    raise Exception(f"Error creating metadata:\n{e}")
 
     return is_metadata_valid, row_count
 
@@ -123,7 +123,7 @@ def get_account_number():
             if attempt == 3:
                 raise Exception(f"Unable to proceed because: \n{client_error}. \nTerminating the process.")
             else:
-                mp.print_message(f"An error caused due to: {client_error}")
+                mp.print_message(f"An error caused due to:\n{client_error}")
                 input("Fix the error and press enter to continue")
                 aws_interactions.refresh_session()
     return account_number

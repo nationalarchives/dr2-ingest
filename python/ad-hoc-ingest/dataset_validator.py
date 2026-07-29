@@ -38,7 +38,7 @@ def validate_dataset(data_set, input_file_path, is_dry_run=False):
 
     # return from here for fundamental failures, otherwise carry on and validate data in each row
     if not is_valid:
-        raise Exception("Detected validation errors in the input CSV, fix the errors before continuing further")
+        raise Exception("Detected validation errors in the input CSV. Fix the errors before continuing further")
 
     data_set: pandas.DataFrame
     all_files_exist = True
