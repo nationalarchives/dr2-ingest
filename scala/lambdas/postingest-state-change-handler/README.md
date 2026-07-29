@@ -188,25 +188,30 @@ The Lambda:
    6. send an SQS message with the:
       1. assetId
       2. batchId
-      3. resultAttrName - the attribute name that the next queue should use when updating the table. The result from the confirmer is updated in this attribute.
-      4. payload - JSON payload. The actual value depends on which queue the message is being sent to. 
-         - When sending to custodial copy confirmer queue, an example payload could be 
-      ```json
-         {"preservationSystemId":  "60240F9C-AC02-4708-98D8-2BC0470DA0C8"}
-      ```
-         - When sending to custodial copy tape confirmer queue, an example payload could be 
-      ```json
-         {"filePaths":  ["/absolute/path/of/file1", "/absolute/path/of/file2"]}
-      ```   7. send an SNS message with the:
-      1. Properties:
-         1. executionId - batchId
-         2. messageId - randomly generated UUID
-         3. parentMessageId - correlationId from the item
-         4. timestamp - the datetime now
-         5. messageType - either IngestUpdate or IngestComplete
-      2. Parameters:
-         1. assetId
-         2. status - either IngestedPreservation, IngestedCCDisk or IngestedTape
+      3. resultAttrName - the attribute name that the next queue should use when updating the table. The result from the Confirmer is updated in this attribute.
+
+      4. payload - JSON payload. The actual value depends on which queue the message is being sent to.
+         - When sending to Custodial Copy Confirmer queue, an example payload could be:
+
+           ```json
+           {"preservationSystemId": "60240F9C-AC02-4708-98D8-2BC0470DA0C8"}
+           ```
+
+         - When sending to custodial copy tape confirmer queue, an example payload could be:
+
+           ```json
+           {"filePaths": ["/absolute/path/of/file1", "/absolute/path/of/file2"]}
+           ```
+      5. send an SNS message with the:
+         1. Properties:
+            1. executionId - batchId
+            2. messageId - randomly generated UUID
+            3. parentMessageId - correlationId from the item
+            4. timestamp - the datetime now
+            5. messageType - either IngestUpdate or IngestComplete
+         2. Parameters:
+            1. assetId
+            2. status - either IngestedPreservation, IngestedCCDisk or IngestedTape
 
 Note: The queue configuration is defined in the `post_ingest.tf` terraform environments [file](https://github.com/nationalarchives/dr2-terraform-environments/blob/main/post_ingest/post_ingest.tf);
 in order to add/remove a queue, change the alias name, add another property, modify this file. If the queue configuration
