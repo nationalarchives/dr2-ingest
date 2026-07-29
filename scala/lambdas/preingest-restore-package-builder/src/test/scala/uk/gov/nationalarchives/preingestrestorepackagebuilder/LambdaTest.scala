@@ -41,7 +41,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
             </OriginalMetadataFiles>
             <TransferDateTime>2023-03-24T10:13:04.280Z</TransferDateTime>
             <TransferringBody/>
-            <UpstreamSystem>Parliament Migration</UpstreamSystem>
+            <UpstreamSystem>DRI</UpstreamSystem>
             <UpstreamSystemRef>SAM/A/123</UpstreamSystemRef>
             <UpstreamPath/>
           </Source>
@@ -92,7 +92,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     asset.description.isEmpty should equal(true)
     asset.transferringBody should equal(None)
     asset.transferCompleteDatetime.get should equal(OffsetDateTime.parse("2023-03-24T10:13:04.280Z"))
-    asset.upstreamSystem.display should equal("Parliament Migration")
+    asset.upstreamSystem.display should equal("DRI")
     asset.digitalAssetSource should equal("Digital Surrogate")
     asset.digitalAssetSubtype should equal(None)
     asset.filePath should equal("")
@@ -161,7 +161,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         <Entity>4b44388f-d788-44f7-a61e-21944941598b</Entity>
         <Content>
           <Source>
-            <UpstreamSystem>Parliament Migration</UpstreamSystem>
+            <UpstreamSystem>DRI</UpstreamSystem>
           </Source>
         </Content>
       </Metadata>
@@ -185,7 +185,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         <Entity>4b44388f-d788-44f7-a61e-21944941598b</Entity>
         <Content>
           <Source>
-            <UpstreamSystem>Parliament Migration</UpstreamSystem>
+            <UpstreamSystem>DRI</UpstreamSystem>
             <DigitalAssetSource>Digital Surrogate</DigitalAssetSource>
           </Source>
         </Content>
@@ -216,7 +216,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         <Entity>4b44388f-d788-44f7-a61e-21944941598b</Entity>
         <Content>
           <Source>
-            <UpstreamSystem>Parliament Migration</UpstreamSystem>
+            <UpstreamSystem>DRI</UpstreamSystem>
             <DigitalAssetSource>Digital Surrogate</DigitalAssetSource>
           </Source>
         </Content>
@@ -246,7 +246,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         <Entity>4b44388f-d788-44f7-a61e-21944941598b</Entity>
         <Content>
           <Source>
-            <UpstreamSystem>Parliament Migration</UpstreamSystem>
+            <UpstreamSystem>DRI</UpstreamSystem>
             <DigitalAssetSource>Digital Surrogate</DigitalAssetSource>
           </Source>
         </Content>
@@ -281,7 +281,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         <Entity>4b44388f-d788-44f7-a61e-21944941598b</Entity>
         <Content>
           <Source>
-            <UpstreamSystem>Parliament Migration</UpstreamSystem>
+            <UpstreamSystem>DRI</UpstreamSystem>
             <DigitalAssetSource>Digital Surrogate</DigitalAssetSource>
           </Source>
         </Content>

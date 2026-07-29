@@ -29,12 +29,17 @@ class StepDefs {
         val cloudWatchLogsClient = CloudWatchLogsClient.fromEnvironment()
         val dynamoClient = DynamoDbClient.fromEnvironment()
         val sfnClient = SfnClient.fromEnvironment()
-        IngestUtils(sqsClient, s3Client, cloudWatchLogsClient, dynamoClient, sfnClient, config, fileIds)
+        IngestUtils(sqsClient, s3Client, cloudWatchLogsClient, dynamoClient, sfnClient, config, fileIds, mutableSetOf())
     }
 
     @Given("An ingest with {int} files for {string} source system")
     fun anIngestWithFiles(numberOfFiles: Int, sourceSystem: String) = runBlocking {
         utils.createFiles(numberOfFiles, sourceSystem)
+    }
+
+    @Then("The step function completes successfully")
+    fun theStepFunctionCompletesSuccessfully() = runBlocking {
+        utils.checkStepFunctionCompletes()
     }
 
     @Then("I receive an ingest complete message")
@@ -57,6 +62,11 @@ class StepDefs {
     @When("I create a batch with this file")
     fun iCreateABatchWithThisFile() = runBlocking {
         utils.createBatch()
+    }
+
+    @Then("I wait for the aggregation to complete")
+    fun iWaitForTheAggregationToComplete() = runBlocking {
+        utils.waitForEntriesInLockTable()
     }
 
     @When("I send a message to the {string} importer queue")

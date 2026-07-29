@@ -2,7 +2,12 @@ variable "environment" {}
 
 variable "ingest_step_function_name" {}
 
-variable "source_name" {}
+variable "source_name" {
+  validation {
+    condition     = var.source_name == lower(var.source_name)
+    error_message = "The source_name should be lowercased"
+  }
+}
 
 variable "sns_topic_subscription" {
   type = object({

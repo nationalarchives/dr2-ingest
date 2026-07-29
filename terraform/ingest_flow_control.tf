@@ -26,7 +26,7 @@ module "dr2_ingest_flow_control_lambda" {
   s3_key          = "${var.lambda_code_version}/${local.ingest_flow_control_key_name}"
   plaintext_env_vars = {
     QUEUE_DDB_TABLE   = local.ingest_queue_dynamo_table_name
-    CONFIG_PARAM_NAME = local.ingest_flow_control_config_ssm_parameter_name
+    CONFIG_PARAM_NAME = aws_ssm_parameter.flow_control_config.name
     INGEST_SFN_ARN    = module.dr2_ingest_run_workflow_step_function.step_function_arn
   }
   tags = {

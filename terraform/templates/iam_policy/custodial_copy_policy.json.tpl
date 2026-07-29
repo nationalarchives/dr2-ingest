@@ -16,7 +16,8 @@
       "Resource": [
         "${custodial_copy_queue}",
         "${database_builder_queue}",
-        "${custodial_copy_confirmer_queue}"
+        "${custodial_copy_confirmer_queue}",
+        "${tape_copy_confirmer_queue}"
       ],
       "Sid": "readSqs"
     },
@@ -64,6 +65,8 @@
         "arn:aws:logs:eu-west-2:${account_id}:log-group:/custodial-copy-db-builder:*",
         "arn:aws:logs:eu-west-2:${account_id}:log-group:/custodial-copy-confirmer:*:*",
         "arn:aws:logs:eu-west-2:${account_id}:log-group:/custodial-copy-confirmer:*",
+        "arn:aws:logs:eu-west-2:${account_id}:log-group:/custodial-copy-tape-confirmer:*:*",
+        "arn:aws:logs:eu-west-2:${account_id}:log-group:/custodial-copy-tape-confirmer:*",
         "arn:aws:logs:eu-west-2:${account_id}:log-group:/custodial-copy-builder",
         "arn:aws:logs:eu-west-2:${account_id}:log-group:/custodial-copy-reconciler:*:*",
         "arn:aws:logs:eu-west-2:${account_id}:log-group:/custodial-copy-reconciler:*",
@@ -88,6 +91,8 @@
         "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-webapp",
         "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-re-indexer",
         "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-confirmer",
+        "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-tape-confirmer",
+        "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-mock-tape-api",
         "arn:aws:ecr:eu-west-2:${management_account_id}:repository/dr2-custodial-copy-reconciler"
       ]
     }

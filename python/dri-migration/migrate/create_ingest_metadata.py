@@ -10,11 +10,12 @@ import uuid
 from collections import defaultdict
 from contextlib import closing
 from os import listdir
+from urllib import parse
 
 import boto3
 import oracledb
 from botocore.config import Config
-from pathlib import PureWindowsPath, PurePosixPath, PurePath
+from pathlib import PureWindowsPath, PurePosixPath
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -42,18 +43,8 @@ page_size = 100
 config = Config(region_name="eu-west-2")
 
 sts_client = boto3.client("sts")
-
-def get_clients(account_number, environment):
-    credentials = sts_client.assume_role(
-        RoleArn=f"arn:aws:iam::{account_number}:role/{environment}-dr2-ingest-dri-migration-role",
-        RoleSessionName="dri-migration"
-    )['Credentials']
-    access_key = credentials['AccessKeyId']
-    secret_key = credentials['SecretAccessKey']
-    session_token = credentials['SessionToken']
-    s3_client = boto3.client("s3", aws_access_key_id=access_key, aws_secret_access_key=secret_key, aws_session_token=session_token, config=config)
-    sqs_client = boto3.client("sqs", aws_access_key_id=access_key, aws_secret_access_key=secret_key, aws_session_token=session_token, config=config)
-    return s3_client, sqs_client
+s3_client = boto3.client("s3")
+sqs_client = boto3.client("sqs")
 
 
 def calculate_checksum(file_path: str, algorithm: str) -> str:
@@ -92,9 +83,10 @@ def migrate(ic_db_path):
     environment = os.environ["ENVIRONMENT"]
     test_run = os.getenv("TEST_RUN", "true") == "true"
     assets = []
-    bucket = f"{environment}-dr2-ingest-dri-migration-cache"
+    raw_cache_bucket = f"{environment}-dr2-ingest-dri-migration-cache"
+    object_store_bucket = os.environ["OBJECT_STORE_BUCKET"]
+    object_store_account_number = os.environ["OBJECT_STORE_ACCOUNT_NUMBER"]
     queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-dri-importer"
-    s3_client, sqs_client = get_clients(account_number, environment)
     puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt']) if test_run else {}
     oracledb.defaults.fetch_lobs = False
     oracledb.init_oracle_client(lib_dir=os.environ['CLIENT_LOCATION'])
@@ -187,11 +179,27 @@ def migrate(ic_db_path):
                 base_file_path = file_path[1:]
                 upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], base_file_path)
 
-            s3_client.upload_file(upload_file_path, bucket, f'{asset_uuid}/{file_id}')
+            with open(upload_file_path, "rb") as upload_file:
+                prefix = f"v1/{asset_uuid}"
+                tags = parse.urlencode([("Series", metadata["Series"])],)
+                s3_client.put_object(
+                    Body=upload_file,
+                    Key=f"{prefix}/{file_id}",
+                    Bucket=object_store_bucket,
+                    Tagging=tags,
+                    IfNoneMatch="*",
+                    ExpectedBucketOwner=object_store_account_number
+                )
             assets.append((file_id, str(base_file_path), asset_uuid))
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
-        s3_client.upload_fileobj(json_bytes, bucket, f"{asset_uuid}.metadata")
-        all_sqs_messages.append(json.dumps({'assetId': asset_uuid, 'bucket': bucket}))
+        s3_client.upload_fileobj(json_bytes, raw_cache_bucket, f"{asset_uuid}.metadata")
+        sqs_message = {
+            'assetId': asset_uuid,
+            'bucket': object_store_bucket,
+            'metadataLocation': f's3://{raw_cache_bucket}/{asset_uuid}.metadata',
+            'filesPrefix': prefix
+        }
+        all_sqs_messages.append(json.dumps(sqs_message))
 
     with closing(sqlite3.connect(ic_db_path)) as connection:
         with connection:

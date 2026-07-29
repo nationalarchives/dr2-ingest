@@ -3,13 +3,16 @@ Feature: Ingest tests
   Scenario Outline: Ingest should succeed if all metadata is valid
     Given An ingest with <count> files for "<source>" source system
     When I send a message to the "<source>" importer queue
+    Then I wait for the aggregation to complete
     Then I receive an ingest complete message
+    Then The step function completes successfully
     Examples:
       | count | source   |
       | 50    | TDR      |
       | 10    | Adhoc    |
       | 10    | DRI      |
       | 1     | Judgment |
+
 
   Scenario: Ingest should fail if there is an empty checksum
     Given An ingest with 1 file with an empty checksum

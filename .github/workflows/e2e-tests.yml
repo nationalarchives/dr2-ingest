@@ -54,6 +54,9 @@ jobs:
           ADHOC_BUCKET: ${{ github.event.inputs.environment }}-dr2-ingest-adhoc-cache
           DRI_BUCKET:  ${{ github.event.inputs.environment }}-dr2-ingest-dri-migration-cache
           LOCK_TABLE: ${{ github.event.inputs.environment }}-dr2-ingest-lock
+          ACCOUNT_NUMBER: ${{ secrets.ACCOUNT_NUMBER }}
+          INGEST_SFN_NAME: ${{ github.event.inputs.environment }}-dr2-ingest
+
       - run: gh workflow run deploy.yml -f environment=staging -f to-deploy=$TO_DEPLOY
         if: ${{ github.event.inputs.environment == 'intg' }}
         env:

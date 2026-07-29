@@ -36,7 +36,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("CC"),
         Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString),
         Some(lastQueuedTime),
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
@@ -57,22 +58,24 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       PostIngestStateTableItem(
         assetId1,
         "batchId",
-        "input_message_payload1",
+        """{"input_message":"payload1"}""",
         Some("correlationId"),
         Some("CC"),
         Some(Instant.now().minus(java.time.Duration.ofDays(10)).toString),
         Some(Instant.now().minus(java.time.Duration.ofDays(5)).toString), // 5 days old, cutoff time is 4 days
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       ),
       PostIngestStateTableItem(
         assetId2,
         "batchId1",
-        "input_message_payload2",
+        """{"input_message":"payload2"}""",
         Some("correlationId1"),
         Some("CC"),
         Some(Instant.now().minus(java.time.Duration.ofDays(16)).toString),
         Some(predictableStartOfTheDay().minus(java.time.Duration.ofDays(4)).minus(java.time.Duration.ofMinutes(1)).toString), // 4 days and 1 minute old
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
@@ -89,8 +92,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       decode[QueueMessage](message.getBody).getOrElse(throw new RuntimeException("could not decode messages"))
     }
     messages.size should be(2)
-    messages.find(_.assetId == assetId1).get.payload should be("input_message_payload1")
-    messages.find(_.assetId == assetId2).get.payload should be("input_message_payload2")
+    messages.find(_.assetId == assetId1).get.payload.findAllByKey("input_message").head.asString.get should be("payload1")
+    messages.find(_.assetId == assetId2).get.payload.findAllByKey("input_message").head.asString.get should be("payload2")
   }
 
   "handler" should "not update 'lastQueued' time for an item belonging to a different queue" in {
@@ -104,12 +107,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       PostIngestStateTableItem(
         uuidForUpdate,
         "batchId",
-        "this_message_to_be_resent",
+        """{"this_message":"to_be_resent"}""",
         Some("correlationId"),
         Some("CC"),
         Some(sixDaysOld),
         Some(sixDaysOld), // 6 days old, cutoff time is 4 days
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       ),
       PostIngestStateTableItem(
         uuidForNoUpdate,
@@ -119,7 +123,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
         Some("NO_CC"), // different queue
         Some(sixteenDaysOld),
         Some(sixteenDaysOld), // 16 days old, cutoff time is 4 days
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       )
     )
     val placeholderInputEvent = new ScheduledEvent()
@@ -137,7 +142,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       decode[QueueMessage](message.getBody).getOrElse(throw new RuntimeException("could not decode messages"))
     }
     messages.size should be(1)
-    messages.find(_.assetId == uuidForUpdate).get.payload should be("this_message_to_be_resent")
+    messages.find(_.assetId == uuidForUpdate).get.payload.findAllByKey("this_message").head.asString.get should be("to_be_resent")
   }
 
   "handler" should "report error when it cannot fetch queue attributes" in {
@@ -172,12 +177,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
       PostIngestStateTableItem(
         UUID.randomUUID(),
         "batchId",
-        "input",
+        "{}",
         Some("correlationId"),
         Some("CC"),
         Some(Instant.now().minus(java.time.Duration.ofDays(6)).toString),
         Some(lastQueued),
-        Some("result_queue1")
+        Some("result_queue1"),
+        None
       )
     )
     runLambda(initialDynamo, new ScheduledEvent(), defaultConfig, () => Instant.now(), errors)

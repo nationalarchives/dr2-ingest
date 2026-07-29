@@ -39,5 +39,8 @@ module "dr2_e2e_tests_policy" {
     copy_files_from_adhoc_log_group    = "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${module.ad_hoc_preingest.importer_lambda.function_name}"
     copy_files_from_dri_log_group      = "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${module.dri_preingest.importer_lambda.function_name}"
     copy_files_from_courtdoc_log_group = "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${module.court_document_preingest.importer_lambda.function_name}"
+    ingest_sfn_name                    = local.ingest_step_function_name
+    account_id                         = data.aws_caller_identity.current.account_id
+    raw_cache_bucket_name              = local.ingest_raw_cache_bucket_name
   })
 }

@@ -89,7 +89,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     val result = runLambda(sqsEvent, List(initialFileItem), Map.empty)
     result.result.isLeft should equal(true)
     result.result.left.value.getMessage should equal(
-      "Failed to decode SQS message body: Attempt to decode value on failed cursor: DownField(assetId),DownField(parameters)"
+      "Failed to decode SQS message body: DecodingFailure at .parameters.assetId: Missing required field"
     )
   }
 

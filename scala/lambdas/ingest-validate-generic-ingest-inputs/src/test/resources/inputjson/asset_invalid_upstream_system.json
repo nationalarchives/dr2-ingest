@@ -20,6 +20,6 @@
     }
   ],
   "expectedErrors": [
-    "Invalid display name encountered for source system: InvalidSystem"
+    "DecodingFailure at : Invalid display name encountered for source system: InvalidSystem"
   ]
 }

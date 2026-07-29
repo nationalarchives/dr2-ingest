@@ -13,9 +13,8 @@ module "dr2_dri_migration_key" {
       data.aws_iam_role.org_wiz_access_role.arn,
     ]
     user_roles = concat([
-      module.dr2_dri_migration_role.role_arn,
       module.dri_preingest.importer_lambda.role,
-    ], local.e2e_test_roles)
+    ], local.e2e_test_roles, local.environment == "prod" ? ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/prod-dr2-ingest-dri-migration"] : [module.dr2_dri_migration_role.role_arn])
   }
 }
 
@@ -35,14 +34,16 @@ module "dr2_dri_migration_role" {
   policy_attachments = {
     dr2_dri_migration_policy = module.dr2_dri_migration_policy.policy_arn
   }
-  tags = {}
+  max_session_duration = 60 * 60 * 12
+  tags                 = {}
 }
 
 module "dr2_dri_migration_policy" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
   name   = local.dri_migration_policy_name
   policy_string = templatefile("${path.module}/templates/iam_policy/dri_migration_policy.json.tpl", {
-    environment = local.environment
-    account_id  = data.aws_caller_identity.current.account_id
+    environment              = local.environment
+    account_id               = data.aws_caller_identity.current.account_id
+    object_store_bucket_name = local.object_store_bucket_name
   })
 }

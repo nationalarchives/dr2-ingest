@@ -3,6 +3,7 @@
     {
       "Action": [
         "dynamodb:BatchWriteItem",
+        "dynamodb:BatchGetItem",
         "dynamodb:PutItem"
       ],
       "Effect": "Allow",
@@ -10,6 +11,16 @@
         "${dynamo_db_lock_table_arn}"
       ],
       "Sid": "updateDynamoLockTable"
+    },
+    {
+      "Action": [
+        "states:DescribeExecution"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:states:eu-west-2:${account_id}:execution:${ingest_sfn_name}:*"
+      ],
+      "Sid": "describeIngestStepFunction"
     },
     {
       "Action": [
@@ -57,6 +68,20 @@
         "arn:aws:s3:::${dri_input_bucket_name}/*"
       ],
       "Sid": "writeToRawCache"
+    },
+    {
+      "Action": [
+        "s3:ListBucketVersions",
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:GetObjectTagging"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:s3:::${raw_cache_bucket_name}",
+        "arn:aws:s3:::${raw_cache_bucket_name}/*"
+      ],
+      "Sid": "readFromRawCache"
     }
   ],
   "Version": "2012-10-17"

@@ -22,7 +22,6 @@ import uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.utils.ExternalUtils.RepresentationType.Preservation
-import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.PA
 import uk.gov.nationalarchives.utils.{ExternalUtils, LambdaRunner}
 import uk.gov.nationalarchives.utils.NaturalSorting.{natural, given}
 import uk.gov.nationalarchives.{DADynamoDBClient, DAS3Client}
@@ -50,17 +49,18 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         fileLocation: URI,
         metadataId: UUID,
         potentialMessageId: Option[String],
-        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
+        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]],
+        potentialFilesPrefix: Option[String]
     ): IO[List[MetadataObject]] = {
       val jsonString = new String(metadataArr, "utf-8")
       decodePackageMetadata(jsonString)
         .flatMap { packageMetadataList =>
           def createMetadataObjects(firstPackageMetadata: PackageMetadata, fileName: String, originalFilePath: String) = for {
             assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId)
-            s3FilesMap <- listS3Objects(fileLocation.getHost, assetMetadata.id)
+            s3FilesMap <- listS3Objects(fileLocation.getHost, potentialFilesPrefix.getOrElse(assetMetadata.id.toString))
             contentFolderKey <- config.sourceSystem match {
-              case SourceSystem.ADHOC | SourceSystem.PA => IO.pure(s"${firstPackageMetadata.series}/$defaultFolderName")
-              case _                                    =>
+              case SourceSystem.ADHOC => IO.pure(s"${firstPackageMetadata.series}/$defaultFolderName")
+              case _                  =>
                 IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
                   new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
                 )
@@ -82,8 +82,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                 )
               }
               val contentFolderName = config.sourceSystem match {
-                case SourceSystem.ADHOC | SourceSystem.PA => contentFolderKey.split("/").last
-                case _                                    => contentFolderKey
+                case SourceSystem.ADHOC => contentFolderKey.split("/").last
+                case _                  => contentFolderKey
               }
               val potentialContentFolder = contentFolderMap.get(contentFolderKey)
               if potentialContentFolder.isDefined then (contentFolderMap, assetMetadata.copy(parentId = potentialContentFolder.map(_.id)) :: fileMetadataObjs)
@@ -120,12 +120,13 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         firstPackageMetadata <- IO.fromOption(packageMetadataList.headOption)(new Exception("The metadata list is empty"))
       } yield {
         val metadataFileSize = metadataArr.length
+        val potentialAssetId = firstPackageMetadata.assetId.orElse(firstPackageMetadata.UUID)
         FileMetadataObject(
           metadataId,
-          Option(firstPackageMetadata.UUID),
-          s"${firstPackageMetadata.UUID}-metadata",
+          potentialAssetId,
+          s"${potentialAssetId.get}-metadata",
           packageMetadataList.flatMap(_.sortOrder).maxOption.getOrElse(packageMetadataList.length + 1),
-          s"${firstPackageMetadata.UUID}-metadata.json",
+          s"${potentialAssetId.get}-metadata.json",
           metadataFileSize,
           Preservation,
           1,
@@ -139,11 +140,12 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         metadataByteArr: Array[Byte],
         fileLocation: URI,
         potentialMessageId: Option[String],
-        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]]
+        contentFolderCell: AtomicCell[IO, Map[String, ContentFolderMetadataObject]],
+        potentialFilesPrefix: Option[String]
     ): IO[List[MetadataObject]] = {
       val metadataId = dependencies.uuidGenerator()
       for {
-        nonMetadataObjects <- processNonMetadataObjects(metadataByteArr, fileLocation, metadataId, potentialMessageId, contentFolderCell)
+        nonMetadataObjects <- processNonMetadataObjects(metadataByteArr, fileLocation, metadataId, potentialMessageId, contentFolderCell, potentialFilesPrefix)
         metadataFiles <- processMetadataFiles(metadataByteArr, fileLocation, metadataId)
       } yield metadataFiles :: nonMetadataObjects
     }
@@ -157,7 +159,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         .flatMap(_.compile.toList)
         .map(_.toArray.flatMap(_.array()))
         .flatMap { metadataByteArray =>
-          processPackageMetadata(metadataByteArray, fileLocation, potentialMessageId, contentFolderCell)
+          processPackageMetadata(metadataByteArray, fileLocation, potentialMessageId, contentFolderCell, lockTableMessage.filesPrefix)
         }
     }
 
@@ -183,8 +185,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       }
     }
 
-    def listS3Objects(bucket: String, id: UUID): IO[Map[UUID, S3Object]] = {
-      dependencies.s3Client.listObjects(bucket, Option(id.toString)).map { res =>
+    def listS3Objects(bucket: String, prefix: String): IO[Map[UUID, S3Object]] = {
+      dependencies.s3Client.listObjects(bucket, Option(prefix)).map { res =>
         res
           .contents()
           .asScala
@@ -204,15 +206,13 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         metadataId: UUID,
         potentialMessageId: Option[String]
     ): IO[AssetMetadataObject] = IO.pure {
-      val assetId = packageMetadata.UUID
+      val assetId = packageMetadata.assetId.getOrElse(packageMetadata.UUID.get)
       val sourceSpecificIdentifiers = config.sourceSystem match {
         case SourceSystem.TDR => List(IdField("BornDigitalRef", packageMetadata.fileReference), IdField(upstreamSystemRefIdKey, packageMetadata.fileReference))
         case SourceSystem.DRI =>
           List(IdField(upstreamSystemRefIdKey, s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
             packageMetadata.driBatchReference.map(driBatchRef => IdField("DRIBatchReference", driBatchRef)).toList ++
             packageMetadata.IAID.map(iaid => IdField(discoveryIaidKey, iaid)).toList
-        case SourceSystem.PA =>
-          packageMetadata.IAID.map(iaid => IdField(discoveryIaidKey, iaid)).toList
         case SourceSystem.ADHOC =>
           List(IdField(upstreamSystemRefIdKey, s"${packageMetadata.series}/${packageMetadata.fileReference}")) ++
             packageMetadata.formerRefDept.map(frd => List(IdField(formerRefDeptIdKey, frd))).getOrElse(Nil) ++
@@ -238,7 +238,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         List(
           IdField(
             "Code",
-            if config.sourceSystem == PA then packageMetadata.fileReference else s"${packageMetadata.series}/${packageMetadata.fileReference}"
+            s"${packageMetadata.series}/${packageMetadata.fileReference}"
           ),
           IdField("RecordID", assetId.toString)
         ) ++ sourceSpecificIdentifiers ++ packageMetadata.consignmentReference.map(consignmentRef => List(IdField("ConsignmentReference", consignmentRef))).getOrElse(Nil)
@@ -279,7 +279,8 @@ object Lambda:
   given Decoder[PackageMetadata] = (c: HCursor) =>
     for
       series <- c.downField("Series").as[String]
-      uuid <- c.downField("UUID").as[UUID]
+      uuid <- c.downField("UUID").as[Option[UUID]]
+      assetId <- c.downField("AssetId").as[Option[UUID]]
       fileId <- c.downField("fileId").as[UUID]
       description <- c.downField("description").as[Option[String]]
       transferringBody <- c.downField("TransferringBody").as[Option[String]]
@@ -298,6 +299,7 @@ object Lambda:
     yield PackageMetadata(
       series,
       uuid,
+      assetId,
       fileId,
       description,
       transferringBody,
@@ -317,7 +319,8 @@ object Lambda:
 
   case class PackageMetadata(
       series: String,
-      UUID: UUID,
+      UUID: Option[UUID],
+      assetId: Option[UUID],
       fileId: UUID,
       description: Option[String],
       transferringBody: Option[String],

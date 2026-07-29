@@ -93,3 +93,9 @@ Following snippet shows example of the metrics json sent to CloudWatch
     }
 ]
 ```
+
+## Environment Variables
+
+| Name           | Description                          |
+|----------------|--------------------------------------|
+| SOURCE_SYSTEMS | A stringified list of source systems |

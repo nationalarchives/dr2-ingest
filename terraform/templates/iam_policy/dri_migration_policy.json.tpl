@@ -15,6 +15,31 @@
         "arn:aws:s3:::${environment}-dr2-ingest-dri-migration-cache",
         "arn:aws:s3:::${environment}-dr2-ingest-dri-migration-cache/*"
       ]
+    },
+    {
+      "Sid": "ObjectStoreWriteAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectTagging"
+      ],
+      "Resource": [
+        "arn:aws:s3:::${object_store_bucket_name}",
+        "arn:aws:s3:::${object_store_bucket_name}/*"
+      ]
+    },
+    {
+      "Action": [
+        "kms:GenerateDataKey",
+	    "kms:Decrypt"
+      ],
+      "Effect": "Allow",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:PrincipalOrgID": "$${aws:ResourceOrgID}"
+        }
+      }
     }
   ]
 }
