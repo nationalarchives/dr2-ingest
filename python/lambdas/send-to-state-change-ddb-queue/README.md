@@ -1,9 +1,34 @@
 # DR2 Send to Post-Ingest State Change DDB Queue
 
+Since we are using a batch size of 100 in the Event Source Mapping, when a single item failed to process, the whole batch is failed.
+The Post-Ingest state Lambda then continued to fail until the unprocessable message fell out of the DynamoDB Stream window (about 6 hours).
+This left things in the postingest-state table that haven’t been processed and makes it difficult to debug.
+
+The solution is to add an intermediate lambda and SQS queue
+```mermaid
+flowchart LR;
+    DynamoDB(["Post-Ingest state DynamoDB"])
+    Lambda(["This Lambda"])
+    SQS(["SQS Queue"])
+    Lambda2(["Post-Ingest state Lambda"])
+
+    DynamoDB
+    --> Lambda
+    --> SQS
+    --> Lambda2
+
+```
+This solution extends the time to process a message from 24 hours/3 attempts to our SQS configuration.
+We could also do SQS ReportBatchItemFailures to isolate the affected item from the batch. 
+This would mean that items are processed out of order but this doesn't matter as in this case, each item is independent 
+and orchestrated by this processing.
+
+This lambda is triggered via a DynamoDB stream whenever an item in the Post-Ingest state DynamoDB is changed ("MODIFY"),
+removed or added ("INSERT").
+
 ## Input
 
-The lambda is triggered via a DynamoDB stream whenever an entry in DynamoDB is changed ("MODIFY"),
-removed or added ("INSERT").
+We're only interested in MODIFY and INSERT events at the moment so REMOVE is ignored.
 
 The input is provided by DynamoDB, a list of either:
 ```json
@@ -138,12 +163,12 @@ The lambda doesn't return anything, but it passes the event on to an SQS `QUEUE_
 
 ## Steps
 
-1. Send the `event` recevied to the `QUEUE_URL`
+1. Send the `event` received to the `QUEUE_URL`
 
-[Link to the infrastructure code](https://github.com/nationalarchives/dp-terraform-environments)
+[Link to the infrastructure code](https://github.com/nationalarchives/dr2-ingest/tree/main/terraform)
 
 ## Environment Variables
 
-| Name               | Description                                          |
-|--------------------|------------------------------------------------------|
-| QUEUE_URL   | The SQS queue to send the DynamoDB stream message to |
+| Name         | Description                                          |
+|--------------|------------------------------------------------------|
+| QUEUE_URL    | The SQS queue to send the DynamoDB stream message to |

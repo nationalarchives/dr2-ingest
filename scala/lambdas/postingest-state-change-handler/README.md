@@ -1,7 +1,7 @@
 # Post-Ingest state change handler
 
 At the end of the ingest workflow, the Post-Ingest state DynamoDB table is updated with information such as the `assetId`,
-`batchId` and `input`. This lambda is invoked via a DynamoDB stream whenever an entry in DynamoDB is changed ("MODIFY"),
+`batchId` and `input`. This lambda is triggered by an SQS queue whenever an entry in DynamoDB is changed ("MODIFY"),
 removed or added ("INSERT").
 We're only interested in MODIFY and INSERT events at the moment so REMOVE is ignored.
 
@@ -203,7 +203,12 @@ The Lambda:
          1. assetId
          2. status - either IngestedPreservation, IngestedCCDisk or IngestedTape
 
-Note: The queue configuration is defined in the `post_ingest.tf` terraform environments [file](https://github.com/nationalarchives/dr2-terraform-environments/blob/main/post_ingest/post_ingest.tf);
+
+
+Note: Any errors thrown will be returned from the lambda as a List of batchItemFailures (each containing the SequenceNumber)
+within an SQSBatchResponse so that they can be retried
+
+The queue configuration is defined in the `post_ingest.tf` terraform environments [file](https://github.com/nationalarchives/dr2-terraform-environments/blob/main/post_ingest/post_ingest.tf);
 in order to add/remove a queue, change the alias name, add another property, modify this file. If the queue configuration
 is modified, update the Decoder in the state change handler to account for the change(s).
 
