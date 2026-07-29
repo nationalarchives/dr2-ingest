@@ -4,9 +4,11 @@ import cats.effect.IO
 import cats.effect.std.Semaphore
 import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
-import io.circe.Encoder
+import io.circe.Encoder.encodeString
+import io.circe.{Encoder, Json}
 import io.circe.generic.semiauto.deriveEncoder
 import io.circe.jawn.decode
+import io.circe.parser.parse
 import org.scanamo.query.AndCondition
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
@@ -60,14 +62,16 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
 
     def sendToQueue(item: PostIngestStateTableItem, queue: Queue, semaphore: Semaphore[IO]): IO[Unit] = {
       semaphore.permit.use { _ =>
-        dependencies.sqsClient
-          .sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, item.input))
-          .handleErrorWith { error =>
-            logger.error(s"""Failed to send message for assetId '${item.assetId}' to '${queue.queueAlias}' queue:
-                 |${error.getMessage}""".stripMargin) >>
-              IO.raiseError(error)
-          }
-          .void
+        IO.fromEither(parse(item.input)).flatMap { payloadJson =>
+          dependencies.sqsClient
+            .sendMessage(queue.queueUrl)(QueueMessage(item.assetId, item.batchId, queue.resultAttrName, payloadJson))
+            .handleErrorWith { error =>
+              logger.error(s"""Failed to send message for assetId '${item.assetId}' to '${queue.queueAlias}' queue:
+                   |${error.getMessage}""".stripMargin) >>
+                IO.raiseError(error)
+            }
+            .void
+        }
       }
     }
 
@@ -105,5 +109,5 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
 object Lambda {
   case class Config(stateTableName: String, stateGsiName: String, queues: String) derives ConfigReader
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], sqsClient: DASQSClient[IO], instantGenerator: () => Instant)
-  case class QueueMessage(assetId: UUID, batchId: String, resultAttributeName: String, payload: String)
+  case class QueueMessage(assetId: UUID, batchId: String, resultAttributeName: String, payload: Json)
 }
