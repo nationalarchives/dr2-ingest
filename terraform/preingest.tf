@@ -52,6 +52,9 @@ module "dri_preingest" {
     })
   } : {}
   additional_importer_lambda_env_vars = local.environment == "prod" ? { RECORDS_METADATA_BUCKET = local.records_metadata_bucket_name } : {}
+  aggregator_lambda                   = {
+    timeout = 180
+  }
 }
 
 module "ad_hoc_preingest" {
