@@ -194,7 +194,6 @@ def migrate(ic_db_path):
                 except ClientError as e:
                     error = e.response["Error"]
                     if error["Code"] == "PreconditionFailed" and error.get("Condition") == "If-None-Match":
-                        pass
                         print(f"Skipping asset {asset_id} as it already exists in {object_store_bucket}")
                     else:
                         raise e
