@@ -202,16 +202,16 @@ The Lambda:
            ```json
            {"filePaths": ["/absolute/path/of/file1", "/absolute/path/of/file2"]}
            ```
-      5. send an SNS message with the:
-         1. Properties:
-            1. executionId - batchId
-            2. messageId - randomly generated UUID
-            3. parentMessageId - correlationId from the item
-            4. timestamp - the datetime now
-            5. messageType - either IngestUpdate or IngestComplete
-         2. Parameters:
-            1. assetId
-            2. status - either IngestedPreservation, IngestedCCDisk or IngestedTape
+   7. send an SNS message with the:
+      1. Properties:
+         1. executionId - batchId
+         2. messageId - randomly generated UUID
+         3. parentMessageId - correlationId from the item
+         4. timestamp - the datetime now
+         5. messageType - either IngestUpdate or IngestComplete
+      2. Parameters:
+         1. assetId
+         2. status - either IngestedPreservation, IngestedCCDisk or IngestedTape
 
 Note: The queue configuration is defined in the `post_ingest.tf` terraform environments [file](https://github.com/nationalarchives/dr2-terraform-environments/blob/main/post_ingest/post_ingest.tf);
 in order to add/remove a queue, change the alias name, add another property, modify this file. If the queue configuration
