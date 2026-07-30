@@ -24,13 +24,13 @@ as shown in the diagram.
 5. Validate the input CSV and the intended assets to be ingested.
    - The validations depend on Series to be ingested. 
 For each row in the input CSV file,
-5. If the 'description' is supplied in the input file, it is used. Otherwise, use Discovery API to get hold of the Title, Description and Former References.
-6. Generate metadata and add it as a row to intermediate metadata CSV file.
+6. If the 'description' is supplied in the input file, it is used. Otherwise, use Discovery API to get hold of the Title, Description and Former References.
+7. Generate metadata and add it as a row to intermediate metadata CSV file.
    - The advantage of having metadata in CSV is, the user can examine the potential final metadata before ingesting. 
 For each row in the Metadata CSV file,
-7. Generate a Metadata JSON file and get absolute path of the file to be ingested. 
-8. Upload the Metadata JSON and the file to `dr2-ingest-adhoc-cache` bucket. 
-9. Send a message to `dr2-preingest-adhoc-importer` to trigger the downstream preingest process.
+8. Generate a Metadata JSON file and get absolute path of the file to be ingested. 
+9. Upload the Metadata JSON and the file to `dr2-ingest-adhoc-cache` bucket. 
+10. Send a message to `dr2-preingest-adhoc-importer` to trigger the downstream preingest process.
 
 An example of an input CSV file is shown below:
 
