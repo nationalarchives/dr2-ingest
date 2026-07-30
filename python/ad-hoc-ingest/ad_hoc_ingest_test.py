@@ -1,4 +1,5 @@
 import argparse
+import io
 import os
 import shutil
 import tempfile
@@ -430,7 +431,8 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
                 "/home/some/folder",
             ],
         ):
-            with self.assertRaises(SystemExit) as ex:
-                ad_hoc_ingest.main()
+            with self.assertRaises(Exception) as ex:
+                with patch("sys.stdout", new=io.StringIO()) as mock_console:
+                    ad_hoc_ingest.main()
 
-            self.assertEqual(1, ex.exception.code)
+            self.assertEqual("Discovery API is not available for getting metadata information, terminating process", str(ex.exception))
