@@ -11,10 +11,12 @@ from collections import defaultdict
 from contextlib import closing
 from os import listdir
 from urllib import parse
+from concurrent.futures import ThreadPoolExecutor
 
 import boto3
 import oracledb
 from botocore.config import Config
+from botocore.exceptions import ClientError
 from pathlib import PureWindowsPath, PurePosixPath
 from dotenv import load_dotenv
 
@@ -45,7 +47,6 @@ config = Config(region_name="eu-west-2")
 sts_client = boto3.client("sts")
 s3_client = boto3.client("s3")
 sqs_client = boto3.client("sqs")
-
 
 def calculate_checksum(file_path: str, algorithm: str) -> str:
     try:
@@ -159,51 +160,69 @@ def migrate(ic_db_path):
 
     grouped_assets = group_assets(assets_with_redacted)
 
-    all_sqs_messages = []
-    assets = []
-
-    for asset_uuid, assets_list in grouped_assets.items():
+    def migrate_asset(asset_id):
+        assets_list = grouped_assets[asset_id]
         all_metadata = []
+        local_assets = []
         for asset in assets_list:
-            file_path = asset['file_path']
-            metadata = asset['metadata']
-            file_id = metadata['fileId']
-            all_metadata.append(metadata)
+            asset_file_path = asset['file_path']
+            asset_metadata = asset['metadata']
+            asset_file_id = asset_metadata['fileId']
+            all_metadata.append(asset_metadata)
             if test_run:
-                base_file_path = file_path
-                upload_file_path = file_path
+                base_file_path = asset_file_path
+                upload_file_path = asset_file_path
             elif os.name == "nt":
-                base_file_path = file_path[1:]
+                base_file_path = asset_file_path[1:]
                 upload_file_path = PureWindowsPath(os.environ['NETWORK_LOCATION'], base_file_path)
             else:
-                base_file_path = file_path[1:]
+                base_file_path = asset_file_path[1:]
                 upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], base_file_path)
 
             with open(upload_file_path, "rb") as upload_file:
-                prefix = f"v1/{asset_uuid}"
-                tags = parse.urlencode([("Series", metadata["Series"])],)
-                s3_client.put_object(
-                    Body=upload_file,
-                    Key=f"{prefix}/{file_id}",
-                    Bucket=object_store_bucket,
-                    Tagging=tags,
-                    IfNoneMatch="*",
-                    ExpectedBucketOwner=object_store_account_number
-                )
-            assets.append((file_id, str(base_file_path), asset_uuid))
+                prefix = f"v1/{asset_id}"
+                tags = parse.urlencode([("Series", asset_metadata["Series"])],)
+                try:
+                    s3_client.put_object(
+                        Body=upload_file,
+                        Key=f"{prefix}/{asset_file_id}",
+                        Bucket=object_store_bucket,
+                        Tagging=tags,
+                        IfNoneMatch="*",
+                        ExpectedBucketOwner=object_store_account_number
+                    )
+                except ClientError as e:
+                    error = e.response["Error"]
+                    if error["Code"] == "PreconditionFailed" and error["Condition"] == "If-None-Match":
+                        pass
+                    else:
+                        raise e
+            local_assets.append((asset_file_id, str(base_file_path), asset_id))
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
-        s3_client.upload_fileobj(json_bytes, raw_cache_bucket, f"{asset_uuid}.metadata")
-        sqs_message = {
-            'assetId': asset_uuid,
+        s3_client.upload_fileobj(json_bytes, raw_cache_bucket, f"{asset_id}.metadata")
+        asset_sqs_message = {
+            'assetId': asset_id,
             'bucket': object_store_bucket,
-            'metadataLocation': f's3://{raw_cache_bucket}/{asset_uuid}.metadata',
+            'metadataLocation': f's3://{raw_cache_bucket}/{asset_id}.metadata',
             'filesPrefix': prefix
         }
-        all_sqs_messages.append(json.dumps(sqs_message))
+        return local_assets, json.dumps(asset_sqs_message)
+
+    all_sqs_messages = []
+    db_assets = []
+    grouped_asset_ids = list(grouped_assets.keys())
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        count = 0
+        for migrated_assets, sqs_message in executor.map(migrate_asset, grouped_asset_ids):
+            count += 1
+            if count % 100 == 0:
+                print(f"Processed {count} assets")
+            db_assets.extend(migrated_assets)
+            all_sqs_messages.append(sqs_message)
 
     with closing(sqlite3.connect(ic_db_path)) as connection:
         with connection:
-            write_to_ic_db(assets, connection)
+            write_to_ic_db(db_assets, connection)
 
     for batch in itertools.batched(all_sqs_messages, 10):
         entries = [{'MessageBody': msg, 'Id': str(uuid.uuid4())} for msg in batch]
