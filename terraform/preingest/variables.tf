@@ -47,6 +47,15 @@ variable "private_subnet_ids" {
   default = []
 }
 
+variable "aggregator_lambda" {
+  type = object({
+    timeout = number
+  })
+  default = {
+    timeout = 60
+  }
+}
+
 variable "importer_lambda" {
   type = object({
     timeout            = number
