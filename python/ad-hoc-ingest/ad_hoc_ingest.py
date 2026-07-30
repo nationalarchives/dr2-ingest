@@ -13,7 +13,6 @@ import argument_parser_builder
 import aws_interactions
 import dataset_validator
 import discovery_client
-import message_printer
 import message_printer as mp
 import metadata_creator
 import version_check
@@ -52,7 +51,7 @@ def upload_files(output_file, account_number, args):
             except ClientError as client_error:
                 if attempt == 3:
                     mp.print_message(f"Exceeded number of attempts to recover from error; terminating at file: '{file_id}' from location: '{client_side_path}'")
-                    raise Exception(f"Unable to proceed because: {client_error}. Terminating the process.")
+                    raise Exception(f"Unable to proceed because: \n{client_error}. \nTerminating the process.")
                 else:
                     mp.print_message(f"An error occurred due to: {client_error}")
                     input("Fix the error and press 'Enter' to continue")
@@ -64,8 +63,7 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid, description
     data_set: pandas.DataFrame
     output_folder = args.output
     if not is_folder_writable(output_folder):
-        mp.print_message(f"Unable to write to the output location: '{output_folder}', please make sure that you have necessary permissions for that folder")
-        sys.exit(1)
+        raise Exception (f"Unable to write to the output location: '{output_folder}', please make sure that you have necessary permissions for that folder")
 
     prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_metadata_file = os.path.join(output_folder, f"{prefix}_proposed_ingest.csv")
@@ -88,9 +86,7 @@ def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid, description
             else:
                 sys.exit(0)
         except Exception as e:
-            mp.print_message(e)
-            sys.exit(1)
-
+            raise Exception(f"Error occurred during upload: \n{e}")
 
 def write_intermediate_csv(args, data_set, is_upstream_valid, description_override, output_metadata_file):
     row_count = 0
@@ -110,9 +106,10 @@ def write_intermediate_csv(args, data_set, is_upstream_valid, description_overri
                 mp.print_progress(f"Writing intermediate CSV: row {counter} of {total}")
             except Exception as e:
                 is_metadata_valid = False
-                mp.print_message(f"Error creating metadata: {e}")
-                if not args.dry_run:
-                    sys.exit(1)
+                if args.dry_run:
+                    mp.print_message(f"Error creating metadata:\n{e}")
+                else:
+                    raise Exception(f"Error creating metadata:\n{e}")
 
     return is_metadata_valid, row_count
 
@@ -124,9 +121,9 @@ def get_account_number():
             break
         except ClientError as client_error:
             if attempt == 3:
-                raise Exception(f"Unable to proceed because: {client_error}. Terminating the process.")
+                raise Exception(f"Unable to proceed because: \n{client_error}. \nTerminating the process.")
             else:
-                mp.print_message(f"An error caused due to: {client_error}")
+                mp.print_message(f"An error caused due to:\n{client_error}")
                 input("Fix the error and press enter to continue")
                 aws_interactions.refresh_session()
     return account_number
@@ -169,10 +166,8 @@ def main():
 
     description_override = "description" in data_set.columns
     if not description_override:
-        mp.print_message("Did not find 'description' column in the input file, this ingest will use description from Discovery")
         if not discovery_client.is_discovery_api_reachable():
-            mp.print_message("Discovery API is not available for getting metadata information, terminating process")
-            sys.exit(1)
+            raise Exception("Discovery API is not available for getting metadata information, terminating process")
     else:
         mp.print_message("Found 'description' column in the input file, this ingest will use description supplied in the input file")
 
@@ -183,7 +178,10 @@ def main():
 
 
 
-
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        mp.print_error(e)
+        sys.exit(1)
 
