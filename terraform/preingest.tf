@@ -87,7 +87,7 @@ module "court_document_preingest" {
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
   sns_topic_subscription = local.environment == "prod" ? {
-    topic_arn     = module.tre_config[local.tre_environment_name]["da_eventbus"],
+    topic_arn     = module.tre_config.terraform_config[local.tre_environment_name]["da_eventbus"],
     filter_policy = templatefile("${path.module}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})
   } : null
   source_name                = "courtdoc"
