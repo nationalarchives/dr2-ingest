@@ -15,6 +15,26 @@ from botocore.exceptions import ClientError
 import ad_hoc_ingest
 
 
+def call_main_method_with_predefined_args(dry_run = False):
+    with patch(
+            "sys.argv",
+            [
+                "ad_hoc_ingest.py",
+                "--environment",
+                "test",
+                "--input",
+                "/home/users/input-file.csv",
+                "--asset-source",
+                "Surrogate",
+                "--dry-run",
+                "True" if dry_run else "False",
+                "--output",
+                "/home/some/folder",
+            ],
+    ):
+        ad_hoc_ingest.main()
+
+
 class Test(TestCase):
     def setUp(self):
         self.test_dir = os.path.realpath(tempfile.mkdtemp())
@@ -341,34 +361,20 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
         mock_get_input_dataset.return_value = data_set
         mock_validate_dataset.return_value = True
 
-        with patch(
-            "sys.argv",
-            [
-                "ad_hoc_ingest.py",
-                "--environment",
-                "test",
-                "--input",
-                "/home/users/input-file.csv",
-                "--asset-source",
-                "Surrogate",
-                "--dry-run",
-                "--output",
-                "/home/some/folder",
-            ],
-        ):
-            ad_hoc_ingest.main()
+        call_main_method_with_predefined_args(True)
 
         mock_is_discovery_reachable.assert_called_once()
         actual_args = mock_upload_to_ingest_bucket.call_args.args
         self.assertEqual(False, actual_args[3])
 
+    @patch("ad_hoc_ingest.validate_aws_connectivity")
     @patch("discovery_client.is_discovery_api_reachable")
     @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
     @patch("ad_hoc_ingest.get_input_dataset")
     @patch("dataset_validator.validate_dataset")
     @patch("ad_hoc_ingest.validate_arguments")
     @patch("version_check.is_latest_version")
-    def test_should_not_call_discovery_when_description_is_supplied_within_the_input(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable):
+    def test_should_not_call_discovery_when_description_is_supplied_within_the_input(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable, mock_validate_aws_connectivity):
         csv_data = f"""catRef,description,Filename,checksum
         JS 8/3,"Description of Kew, Richmond, London",JS-8-3.pdf,some_checksum"""
         data_set = pd.read_csv(StringIO(csv_data))
@@ -378,22 +384,7 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
         mock_get_input_dataset.return_value = data_set
         mock_validate_dataset.return_value = True
 
-        with patch(
-            "sys.argv",
-            [
-                "ad_hoc_ingest.py",
-                "--environment",
-                "test",
-                "--input",
-                "/home/users/input-file.csv",
-                "--asset-source",
-                "Surrogate",
-                "--dry-run",
-                "--output",
-                "/home/some/folder",
-            ],
-        ):
-            ad_hoc_ingest.main()
+        call_main_method_with_predefined_args(True)
 
         mock_is_discovery_reachable.assert_not_called()
         actual_args = mock_upload_to_ingest_bucket.call_args.args
@@ -436,3 +427,75 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
                     ad_hoc_ingest.main()
 
             self.assertEqual("Discovery API is not available for getting metadata information, terminating process", str(ex.exception))
+
+    @patch("aws_interactions.get_account_number")
+    def test_validate_aws_connectivity_should_return_true_when_aws_interaction_successfully_returns_an_account_number(self, mock_get_account_number):
+        mock_get_account_number.return_value = "67"
+        self.assertEqual(None, ad_hoc_ingest.validate_aws_connectivity())
+
+    @patch("aws_interactions.get_account_number")
+    @patch("builtins.input", return_value="y")
+    def test_validate_aws_connectivity_should_return_true_when_account_number_is_not_retrieved_but_user_wants_to_continue(self, mock_input, mock_get_account_number):
+        error_response = {"Error": {"Code": "TokenExpired", "Message": "No token for you"}}
+        mock_get_account_number.side_effect = [ClientError(error_response, "sts get identity"), "987654321"]
+        result = ad_hoc_ingest.validate_aws_connectivity()
+        mock_input.assert_called_once()
+        continuity_question = mock_input.call_args.args[0]
+        self.assertIn("No token for you\nDo you want to continue? y/n", continuity_question)
+        self.assertEqual(None, result)
+
+    @patch("aws_interactions.get_account_number")
+    @patch("builtins.input", return_value="n")
+    def test_validate_aws_connectivity_should_exit_when_account_number_is_not_retrieved_and_user_decides_to_terminate(self, mock_input, mock_get_account_number):
+        error_response = {"Error": {"Code": "TokenExpired", "Message": "No token for you"}}
+        mock_get_account_number.side_effect = [ClientError(error_response, "sts get identity"), "987654321"]
+        with self.assertRaises(SystemExit) as e:
+            ad_hoc_ingest.validate_aws_connectivity()
+        mock_input.assert_called_once()
+        self.assertEqual(0, e.exception.code)
+        continuity_question = mock_input.call_args.args[0]
+        self.assertIn("No token for you\nDo you want to continue? y/n", continuity_question)
+
+
+    @patch("ad_hoc_ingest.validate_aws_connectivity")
+    @patch("discovery_client.is_discovery_api_reachable")
+    @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
+    @patch("ad_hoc_ingest.get_input_dataset")
+    @patch("dataset_validator.validate_dataset")
+    @patch("ad_hoc_ingest.validate_arguments")
+    @patch("version_check.is_latest_version")
+    def test_main_method_should_not_call_aws_connectivity_validation_when_dry_run_mode_is_true(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable, mock_validate_aws_connectivity):
+        csv_data = f"""catRef,description,Filename,checksum
+        JS 8/3,"Description of Kew, Richmond, London",JS-8-3.pdf,some_checksum"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        mock_version_check.return_value = True
+        mock_validate_arguments.return_value = True
+        mock_get_input_dataset.return_value = data_set
+        mock_validate_dataset.return_value = True
+
+        call_main_method_with_predefined_args(True)
+
+        mock_validate_aws_connectivity.assert_not_called()
+
+    @patch("ad_hoc_ingest.validate_aws_connectivity")
+    @patch("discovery_client.is_discovery_api_reachable")
+    @patch("ad_hoc_ingest.upload_files_to_ingest_bucket")
+    @patch("ad_hoc_ingest.get_input_dataset")
+    @patch("dataset_validator.validate_dataset")
+    @patch("ad_hoc_ingest.validate_arguments")
+    @patch("version_check.is_latest_version")
+    def test_main_method_should_not_call_aws_connectivity_validation_when_dry_run_mode_is_true(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable, mock_validate_aws_connectivity):
+        csv_data = f"""catRef,description,Filename,checksum
+        JS 8/3,"Description of Kew, Richmond, London",JS-8-3.pdf,some_checksum"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        mock_version_check.return_value = True
+        mock_validate_arguments.return_value = True
+        mock_get_input_dataset.return_value = data_set
+        mock_validate_dataset.return_value = True
+
+        call_main_method_with_predefined_args()
+
+        mock_validate_aws_connectivity.assert_called_once()
+

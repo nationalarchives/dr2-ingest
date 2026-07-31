@@ -149,6 +149,19 @@ def get_input_dataset(input_file_path):
         raise Exception("Unsupported input file format. Only CSV and Excel (xls, xlsx) files are supported for input")
     return data_set
 
+def validate_aws_connectivity():
+    try:
+        aws_interactions.get_account_number()
+        return
+    except(ClientError, Exception) as e:
+        continue_without_connectivity = input(f"Warning: Unable to connect to AWS services because:\n{e}\nDo you want to continue? y/n")
+        if continue_without_connectivity.lower().strip() not in ["y", "yes"]:
+            mp.print_message("Exiting")
+            sys.exit(0)
+        else:
+            mp.print_message("Continuing without AWS connectivity")
+            return
+
 def main():
     args = argument_parser_builder.build().parse_args()
     if not version_check.is_latest_version():
@@ -170,6 +183,9 @@ def main():
             raise Exception("Discovery API is not available for getting metadata information, terminating process")
     else:
         mp.print_message("Found 'description' column in the input file, this ingest will use description supplied in the input file")
+
+    if not args.dry_run:
+        validate_aws_connectivity()
 
     upload_files_to_ingest_bucket(data_set, args, is_valid, description_override)
 
