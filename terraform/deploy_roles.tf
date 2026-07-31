@@ -1,5 +1,5 @@
 locals {
-  repositories = ["dr2-ingest", "dr2-ip-lock-checker", "dr2-ingest-cc-notification-handler", "dr2-court-document-package-anonymiser"]
+  repositories = ["dr2-ingest"]
   all_repository_filters = flatten([
     for repository in local.repositories : [
       "repo:nationalarchives/${repository}:environment:${local.environment}",
@@ -60,7 +60,6 @@ module "deploy_lambda_policy" {
         module.dr2_ingest_validate_generic_ingest_inputs_lambda.lambda_arn,
         module.pause_ingest_lambda.lambda_arn,
         module.pause_preservica_activity_lambda.lambda_arn,
-        local.anonymiser_lambda_arns,
         module.postingest.postingest_state_change_lambda_arn,
         module.postingest.postingest_resender_lambda_arn,
         module.cleanup_handler_lambda.lambda_arn
