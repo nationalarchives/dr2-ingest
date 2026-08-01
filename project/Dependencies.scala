@@ -12,7 +12,7 @@ object Dependencies {
   private lazy val nettyVersion = "4.2.16.Final"
   private lazy val jacksonVersion = "3.2.1"
 
-  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.47.2"
+  lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.47.3"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.7.0"
   lazy val circeCore = "io.circe" %% "circe-core" % circeVersion
