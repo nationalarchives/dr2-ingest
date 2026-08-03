@@ -430,7 +430,6 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
     assetMetadataObjects.count(_.parentId == Option(contentFolderMetadataObjects.last.id)) should equal(1)
   }
 
-
   "lambda handler" should "return an error if the metadata list is empty" in {
     val ex = intercept[Exception] {
       runHandler()
