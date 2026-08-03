@@ -59,11 +59,11 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId)
             s3FilesMap <- listS3Objects(fileLocation.getHost, potentialFilesPrefix.getOrElse(assetMetadata.id.toString))
             contentFolderKey <- config.sourceSystem match {
-              case SourceSystem.ADHOC => IO.pure(s"${firstPackageMetadata.series}/$defaultFolderName")
+              case SourceSystem.ADHOC => IO.pure(s"${firstPackageMetadata.series}$defaultFolderName")
               case _                  =>
                 IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
                   new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
-                ).map(reference => s"${firstPackageMetadata.series}/$reference")
+                ).map(reference => s"${firstPackageMetadata.series}$reference")
             }
             metadataObjects <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
               val fileMetadataObjs: List[FileMetadataObject] = packageMetadataList.sortBy(p => natural(p.filename)).zipWithIndex.map { (packageMetadata, idx) =>
@@ -82,7 +82,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                 )
               }
 
-              val contentFolderName = contentFolderKey.replace(s"${firstPackageMetadata.series}/", "")
+              val contentFolderName = contentFolderKey.substring(firstPackageMetadata.series.length)
               val potentialContentFolder = contentFolderMap.get(contentFolderKey)
               if potentialContentFolder.isDefined then (contentFolderMap, assetMetadata.copy(parentId = potentialContentFolder.map(_.id)) :: fileMetadataObjs)
               else
