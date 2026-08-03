@@ -63,7 +63,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               case _                  =>
                 IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
                   new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
-                )
+                ).map(reference => s"${firstPackageMetadata.series}/$reference")
             }
             metadataObjects <- contentFolderCell.modify[List[MetadataObject]] { contentFolderMap =>
               val fileMetadataObjs: List[FileMetadataObject] = packageMetadataList.sortBy(p => natural(p.filename)).zipWithIndex.map { (packageMetadata, idx) =>
@@ -81,10 +81,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
                   packageMetadata.checksums
                 )
               }
-              val contentFolderName = config.sourceSystem match {
-                case SourceSystem.ADHOC => contentFolderKey.split("/").last
-                case _                  => contentFolderKey
-              }
+
+              val contentFolderName = contentFolderKey.replace(s"${firstPackageMetadata.series}/", "")
               val potentialContentFolder = contentFolderMap.get(contentFolderKey)
               if potentialContentFolder.isDefined then (contentFolderMap, assetMetadata.copy(parentId = potentialContentFolder.map(_.id)) :: fileMetadataObjs)
               else

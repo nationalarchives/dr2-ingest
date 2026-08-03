@@ -372,6 +372,65 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
 
   }
 
+  "lambda handler" should "create two content folders for two consignments two different series but the same consignment reference" in {
+    val uuidIterator: () => UUID = () => UUID.randomUUID
+
+    def packageMetadata(series: String, fileId: UUID) = PackageMetadata(
+      series,
+      None,
+      Option(UUID.randomUUID),
+      fileId,
+      None,
+      Option("body"),
+      Option("2024-10-18 00:00:01"),
+      Option("consignmentReference"),
+      s"file.txt",
+      checksum("checksum"),
+      "reference",
+      "/path/to/file.txt",
+      None,
+      None,
+      None,
+      None,
+      None,
+      None
+    ) :: Nil
+
+    val groupId = UUID.randomUUID.toString
+    val batchId = s"${groupId}_0"
+
+    def createInitialS3Objects(assetId: UUID, fileId: UUID, series: String): Map[String, S3Objects] =
+      Map(
+        s"$assetId.metadata" -> packageMetadata(series, fileId).asJson.noSpaces,
+        s"$assetId/$fileId" -> MockTdrFile(1)
+      )
+
+    val (assetIdOne, assetIdTwo, fileIdOne, fileIdTwo) = (UUID.randomUUID, UUID.randomUUID, UUID.randomUUID, UUID.randomUUID)
+
+    val initialS3Objects = createInitialS3Objects(assetIdOne, fileIdOne, "TST 123") ++ createInitialS3Objects(assetIdTwo, fileIdTwo, "TST 234")
+
+    val initialDynamoObjects = List(assetIdOne, assetIdTwo).map { assetId =>
+      val lockTableMessage = NotificationMessage(UUID.randomUUID(), URI.create(s"s3://bucket/$assetId.metadata")).asJson.noSpaces
+      IngestLockTableItem(UUID.randomUUID(), groupId, lockTableMessage, dateTimeNow.toString)
+    }
+
+    val input = Input(groupId, batchId, 1, 2)
+    val (s3Contents, output) = runHandler(uuidIterator, initialS3Objects, initialDynamoObjects, input)
+
+    val metadataObjects: List[MetadataObject] = s3Contents(s"$batchId/metadata.json").asInstanceOf[List[MetadataObject]]
+    val assetMetadataObjects = metadataObjects.collect { case assetMetadataObject: AssetMetadataObject => assetMetadataObject }
+    val contentFolderMetadataObjects = metadataObjects.collect { case contentFolderMetadataObject: ContentFolderMetadataObject => contentFolderMetadataObject }
+
+    contentFolderMetadataObjects.size should equal(2)
+
+    contentFolderMetadataObjects.count(_.series.contains("TST 123")) should equal(1)
+    contentFolderMetadataObjects.count(_.series.contains("TST 234")) should equal(1)
+
+    assetMetadataObjects.count(_.parentId == Option(contentFolderMetadataObjects.head.id)) should equal(1)
+    assetMetadataObjects.count(_.parentId == Option(contentFolderMetadataObjects.last.id)) should equal(1)
+  }
+
+
   "lambda handler" should "return an error if the metadata list is empty" in {
     val ex = intercept[Exception] {
       runHandler()
