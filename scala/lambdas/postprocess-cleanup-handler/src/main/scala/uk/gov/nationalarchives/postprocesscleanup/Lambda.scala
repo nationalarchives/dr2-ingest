@@ -21,21 +21,19 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
   private val deletionTagMap = Map("TO_BE_DELETED" -> "true")
 
-  override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = { (sqsEvent, config, dependencies) =>
+  override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = (sqsEvent, config, dependencies) =>
     val ttlAfter1Day = System.currentTimeMillis() / 1000 + 24 * 3600
 
-    def updateTtl(itemId: String): IO[Unit] = {
-      logger.info(s"Updating TTL for item with id=$itemId to $ttlAfter1Day") >>
-        dependencies.dynamoClient
-          .updateAttributeValues(
-            DADynamoDbRequest(
-              config.filesTableName,
-              primaryKeyAndItsValue = Map(id -> AttributeValue.builder().s(itemId).build(), batchId -> AttributeValue.builder().s("batchId").build()),
-              attributeNamesAndValuesToUpdate = Map(ttl -> AttributeValue.builder().n(ttlAfter1Day.toString).build())
-            )
+    def updateTtl(itemId: String): IO[Unit] = logger.info(s"Updating TTL for item with id=$itemId to $ttlAfter1Day") >>
+      dependencies.dynamoClient
+        .updateAttributeValues(
+          DADynamoDbRequest(
+            config.filesTableName,
+            primaryKeyAndItsValue = Map(id -> AttributeValue.builder().s(itemId).build(), batchId -> AttributeValue.builder().s("batchId").build()),
+            attributeNamesAndValuesToUpdate = Map(ttl -> AttributeValue.builder().n(ttlAfter1Day.toString).build())
           )
-          .void
-    }
+        )
+        .void
 
     def updateAllAncestorsTtl(parentPath: String): IO[Unit] =
       if parentPath.isEmpty then IO.unit
@@ -57,7 +55,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           case head :: Nil => IO.pure(head)
           case _           => IO.raiseError(new RuntimeException(s"More than one item found for assetId=$assetId"))
         }
-        _ <- logger.info(s"Updating TTL for assetID $assetId")
+        _ <- logger.info(s"Updating TTL for assetId $assetId")
         _ <- updateTtl(assetId)
 
         childrenParentPath = getParentPathForChildren(assetItem)
@@ -67,27 +65,24 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           Option(config.dynamoGsiName)
         )
 
-        _ <- logger.info(s"Updating TTL for children of assetID $assetId")
+        _ <- logger.info(s"Updating TTL for children of assetId $assetId")
         _ <- fileItems.traverse { fileItem =>
           dependencies.s3Client.updateObjectTags(config.rawCacheBucketName, fileItem.location.getPath.drop(1), deletionTagMap) >>
             updateTtl(fileItem.id.toString)
         }
 
         potentialParentPath = assetItem.potentialParentPath.getOrElse("")
-        _ <- logger.info(s"Updating TTL for ancestors of assetID $assetId with parentPath $potentialParentPath")
+        _ <- logger.info(s"Updating TTL for ancestors of assetId $assetId with parentPath $potentialParentPath")
         _ <- updateAllAncestorsTtl(potentialParentPath)
       } yield ()
     }.void
-  }
 
-  def getParentPathForChildren(assetItem: DynamoItem): String = {
+  def getParentPathForChildren(assetItem: DynamoItem): String =
     s"${assetItem.potentialParentPath.map(path => s"$path/").getOrElse("")}${assetItem.id}"
-  }
 
   override def dependencies(config: Config): IO[Dependencies] = IO(
     Dependencies(DADynamoDBClient[IO](), DAS3Client[IO]())
   )
-
 }
 
 object Lambda {
