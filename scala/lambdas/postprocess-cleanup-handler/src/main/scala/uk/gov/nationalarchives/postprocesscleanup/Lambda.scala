@@ -24,16 +24,18 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
   override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = { (sqsEvent, config, dependencies) =>
     val ttlAfter1Day = System.currentTimeMillis() / 1000 + 24 * 3600
 
-    def updateTtl(itemId: String): IO[Unit] =
-      dependencies.dynamoClient
-        .updateAttributeValues(
-          DADynamoDbRequest(
-            config.filesTableName,
-            primaryKeyAndItsValue = Map(id -> AttributeValue.builder().s(itemId).build(), batchId -> AttributeValue.builder().s("batchId").build()),
-            attributeNamesAndValuesToUpdate = Map(ttl -> AttributeValue.builder().n(ttlAfter1Day.toString).build())
+    def updateTtl(itemId: String): IO[Unit] = {
+      logger.info(s"Updating TTL for item with id=$itemId to $ttlAfter1Day") >>
+        dependencies.dynamoClient
+          .updateAttributeValues(
+            DADynamoDbRequest(
+              config.filesTableName,
+              primaryKeyAndItsValue = Map(id -> AttributeValue.builder().s(itemId).build(), batchId -> AttributeValue.builder().s("batchId").build()),
+              attributeNamesAndValuesToUpdate = Map(ttl -> AttributeValue.builder().n(ttlAfter1Day.toString).build())
+            )
           )
-        )
-        .void
+          .void
+    }
 
     def updateAllAncestorsTtl(parentPath: String): IO[Unit] =
       if parentPath.isEmpty then IO.unit
@@ -41,6 +43,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 
     sqsEvent.getRecords.asScala.toList.traverse { record =>
       for {
+        _ <- logger.info(s"Cleanup operation started for processing SQS message")
         sqsMessageBody <- IO.fromEither(decode[SqsMessageBody](record.getBody).left.map(err => new RuntimeException(s"Failed to decode SQS message body: ${err.getMessage}")))
         assetId = sqsMessageBody.parameters.assetId
         batchId = sqsMessageBody.properties.executionId
@@ -54,7 +57,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           case head :: Nil => IO.pure(head)
           case _           => IO.raiseError(new RuntimeException(s"More than one item found for assetId=$assetId"))
         }
-
+        _ <- logger.info(s"Updating TTL for assetID $assetId")
         _ <- updateTtl(assetId)
 
         childrenParentPath = getParentPathForChildren(assetItem)
@@ -64,11 +67,15 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
           Option(config.dynamoGsiName)
         )
 
+        _ <- logger.info(s"Updating TTL for children of assetID $assetId")
         _ <- fileItems.traverse { fileItem =>
           dependencies.s3Client.updateObjectTags(config.rawCacheBucketName, fileItem.location.getPath.drop(1), deletionTagMap) >>
             updateTtl(fileItem.id.toString)
         }
-        _ <- updateAllAncestorsTtl(assetItem.potentialParentPath.getOrElse(""))
+
+        potentialParentPath = assetItem.potentialParentPath.getOrElse("")
+        _ <- logger.info(s"Updating TTL for ancestors of assetID $assetId with parentPath $potentialParentPath")
+        _ <- updateAllAncestorsTtl(potentialParentPath)
       } yield ()
     }.void
   }
