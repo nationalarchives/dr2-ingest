@@ -230,5 +230,4 @@ entries in Dynamo.
 | POSTINGEST_QUEUES                         | The config for the queues                                               |
 
 
-In the future as we add more locations to store the files, we will update the queues as well as the attributes of the DDB
-item.
+In the future as we add more locations to store the files, we will update the queues as well as the attributes of the DDB item.
