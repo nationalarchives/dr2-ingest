@@ -429,13 +429,13 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
             self.assertEqual("Discovery API is not available for getting metadata information, terminating process", str(ex.exception))
 
     @patch("aws_interactions.get_account_number")
-    def test_validate_aws_connectivity_should_return_true_when_aws_interaction_successfully_returns_an_account_number(self, mock_get_account_number):
+    def test_validate_aws_connectivity_should_not_throw_an_exception_when_aws_interaction_successfully_returns_an_account_number(self, mock_get_account_number):
         mock_get_account_number.return_value = "67"
         self.assertEqual(None, ad_hoc_ingest.validate_aws_connectivity())
 
     @patch("aws_interactions.get_account_number")
     @patch("builtins.input", return_value="y")
-    def test_validate_aws_connectivity_should_return_true_when_account_number_is_not_retrieved_but_user_wants_to_continue(self, mock_input, mock_get_account_number):
+    def test_validate_aws_connectivity_should_not_throw_an_exception_when_account_number_is_not_retrieved_but_user_wants_to_continue(self, mock_input, mock_get_account_number):
         error_response = {"Error": {"Code": "TokenExpired", "Message": "No token for you"}}
         mock_get_account_number.side_effect = [ClientError(error_response, "sts get identity"), "987654321"]
         result = ad_hoc_ingest.validate_aws_connectivity()
