@@ -152,7 +152,6 @@ def get_input_dataset(input_file_path):
 def validate_aws_connectivity():
     try:
         aws_interactions.get_account_number()
-        return
     except(ClientError, Exception) as e:
         continue_without_connectivity = input(f"Warning: Unable to connect to AWS services because:\n{e}\nDo you want to continue? y/n")
         if continue_without_connectivity.lower().strip() not in ["y", "yes"]:
@@ -160,7 +159,6 @@ def validate_aws_connectivity():
             sys.exit(0)
         else:
             mp.print_message("Continuing without AWS connectivity")
-            return
 
 def main():
     args = argument_parser_builder.build().parse_args()
