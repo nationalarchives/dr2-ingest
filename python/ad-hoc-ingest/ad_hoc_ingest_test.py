@@ -485,7 +485,7 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
     @patch("dataset_validator.validate_dataset")
     @patch("ad_hoc_ingest.validate_arguments")
     @patch("version_check.is_latest_version")
-    def test_main_method_should_not_call_aws_connectivity_validation_when_dry_run_mode_is_true(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable, mock_validate_aws_connectivity):
+    def test_main_method_should_check_for_aws_connectivity_validation_when_dry_run_mode_is_false(self, mock_version_check,  mock_validate_arguments, mock_validate_dataset, mock_get_input_dataset, mock_upload_to_ingest_bucket, mock_is_discovery_reachable, mock_validate_aws_connectivity):
         csv_data = f"""catRef,description,Filename,checksum
         JS 8/3,"Description of Kew, Richmond, London",JS-8-3.pdf,some_checksum"""
         data_set = pd.read_csv(StringIO(csv_data))
