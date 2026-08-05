@@ -136,13 +136,13 @@ module "dr2_state_change_lambda" {
 
   policies = {
     "${local.state_change_lambda_name}-policy" = templatefile("${path.module}/templates/policies/state_change_lambda_policy.json.tpl", {
-      queue_arns                      = jsonencode([for v in module.dr2_confirmer_queues : v.sqs_arn])
-      dynamo_db_postingest_arn        = module.postingest_state_table.table_arn
-      sns_external_notifications_arn  = var.notifications_topic_arn
-      account_id                      = data.aws_caller_identity.current.account_id
-      lambda_name                     = local.state_change_lambda_name
-      dynamo_db_postingest_stream_arn = module.postingest_state_table.stream_arn
-      vpc_id                          = var.vpc_id
+      queue_arns                     = jsonencode([for v in module.dr2_confirmer_queues : v.sqs_arn])
+      dynamo_db_postingest_arn       = module.postingest_state_table.table_arn
+      sns_external_notifications_arn = var.notifications_topic_arn
+      account_id                     = data.aws_caller_identity.current.account_id
+      lambda_name                    = local.state_change_lambda_name
+      ddb_queue_arn                  = module.dr2_state_change_ddb_queue.sqs_arn
+      vpc_id                         = var.vpc_id
     })
   }
   s3_bucket   = local.code_deploy_bucket

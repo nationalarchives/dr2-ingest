@@ -9,15 +9,14 @@
       "Sid": "readSqs"
     },
     {
-      "Sid": "APIAccessForDynamoDBStreams",
-      "Effect": "Allow",
       "Action": [
-        "dynamodb:GetRecords",
-        "dynamodb:GetShardIterator",
-        "dynamodb:DescribeStream",
-        "dynamodb:ListStreams"
+        "sqs:DeleteMessage",
+        "sqs:ReceiveMessage",
+        "sqs:GetQueueAttributes"
       ],
-      "Resource": "${dynamo_db_postingest_stream_arn}"
+      "Effect": "Allow",
+      "Resource": "${ddb_queue_arn}",
+      "Sid": "receiveDeleteSqsMessage"
     },
     {
       "Action": [
