@@ -79,13 +79,16 @@ locals {
     module.ad_hoc_preingest.package_builder_lambda.function_name,
     module.ad_hoc_preingest.importer_lambda.function_name
   ], local.environment == "intg" ? [local.court_document_anonymiser_lambda_name] : [])
-  ingest_queues = [
+  custodial_copy_queues = [
     module.dr2_custodial_copy_queue,
     module.dr2_custodial_copy_queue_creator_queue,
-    module.dr2_custodial_copy_db_builder_queue,
-    module.dr2_external_notifications_queue,
-    module.cleanup_trigger_queue
+    module.dr2_custodial_copy_db_builder_queue
   ]
+  ingest_queues = flatten([
+    module.dr2_external_notifications_queue,
+    module.cleanup_trigger_queue,
+    local.custodial_copy_queues
+  ])
   importer_queues = [
     module.court_document_preingest.importer_sqs,
     module.tdr_preingest.importer_sqs,
@@ -786,6 +789,27 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_importer_queues"
     input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
       channel_id   = local.general_notifications_channel_id
       slackMessage = ":warning: Cloudwatch alarm <alarmName> has entered state <currentValue>"
+    })
+  }
+}
+
+module "cloudwatch_alarm_event_bridge_rule_for_unprocessed_messages" {
+  for_each = toset(["OK", "ALARM"])
+  source   = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
+  event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
+    cloudwatch_alarms = jsonencode(flatten([for queue in flatten([local.custodial_copy_queues, values(module.postingest.postingest_queues)]) : queue.unprocessed_message_alarm]))
+    state_value       = each.value
+  })
+  name                = "${local.environment}-dr2-eventbridge-unprocessed-messages-${lower(each.value)}"
+  api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
+  api_destination_input_transformer = {
+    input_paths = {
+      "alarmName"    = "$.detail.alarmName",
+      "currentValue" = "$.detail.state.value"
+    }
+    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
+      channel_id   = local.general_notifications_channel_id
+      slackMessage = ":${each.value == "OK" ? "green-tick" : "alert-noflash-slow"}: Cloudwatch alarm <alarmName> has entered state <currentValue>"
     })
   }
 }
