@@ -89,7 +89,7 @@ locals {
     module.cleanup_trigger_queue,
     local.custodial_copy_queues
   ])
-  
+
 
   retry_statement            = jsonencode([{ ErrorEquals = ["States.ALL"], IntervalSeconds = 2, MaxAttempts = 6, BackoffRate = 2, JitterStrategy = "FULL" }])
   messages_visible_threshold = 1000000
@@ -741,8 +741,6 @@ module "eventbridge_alarm_notifications_destination" {
   name                       = "${local.environment}-dr2-eventbridge-slack-destination"
 }
 
-
-
 module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_ingest_queues" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
   event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
@@ -755,26 +753,6 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_ingest_queues" {
     state_value = "ALARM"
   })
   name                = "${local.environment}-dr2-eventbridge-ingest-queue-alarm-only"
-  api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
-  api_destination_input_transformer = {
-    input_paths = {
-      "alarmName"    = "$.detail.alarmName",
-      "currentValue" = "$.detail.state.value"
-    }
-    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
-      channel_id   = local.general_notifications_channel_id
-      slackMessage = ":warning: Cloudwatch alarm <alarmName> has entered state <currentValue>"
-    })
-  }
-}
-
-module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_importer_queues" {
-  source = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
-  event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
-    cloudwatch_alarms = jsonencode(flatten([[for queue in local.importer_queues : queue.event_alarms]])),
-    state_value       = "ALARM"
-  })
-  name                = "${local.environment}-dr2-eventbridge-importer-queue-alarm-only"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   api_destination_input_transformer = {
     input_paths = {
