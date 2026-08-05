@@ -6,9 +6,7 @@ locals {
   ingest_step_function_name                            = "${local.environment}-dr2-ingest"
   ingest_run_workflow_step_function_name               = "${local.environment}-dr2-ingest-run-workflow"
   additional_user_roles                                = local.environment != "prod" ? [data.aws_ssm_parameter.dev_admin_role.value] : []
-  anonymiser_roles                                     = local.environment == "intg" ? flatten([module.dr2_court_document_package_anonymiser_lambda.*.lambda_role_arn]) : []
   e2e_test_roles                                       = local.environment == "prod" ? [] : [module.dr2_run_e2e_tests_role[0].role_arn]
-  anonymiser_lambda_arns                               = local.environment == "intg" ? flatten([module.dr2_court_document_package_anonymiser_lambda.*.lambda_arn]) : []
   files_dynamo_table_name                              = "${local.environment}-dr2-ingest-files"
   ingest_lock_dynamo_table_name                        = "${local.environment}-dr2-ingest-lock"
   ingest_queue_dynamo_table_name                       = "${local.environment}-dr2-ingest-queue"
@@ -34,6 +32,7 @@ locals {
   sse_encryption                                       = "sse"
   visibility_timeout                                   = 180
   redrive_maximum_receives                             = 5
+  tre_environment_name                                 = local.environment == "intg" ? "int" : local.environment
   nacl_inbound_from_subnet_https = [for idx, cidr in module.vpc.private_cidr_blocks : {
     rule_no    = 100 * (idx + 2)
     cidr_block = cidr
@@ -78,7 +77,7 @@ locals {
     module.ad_hoc_preingest.aggregator_lambda.function_name,
     module.ad_hoc_preingest.package_builder_lambda.function_name,
     module.ad_hoc_preingest.importer_lambda.function_name
-  ], local.environment == "intg" ? [local.court_document_anonymiser_lambda_name] : [])
+  ])
   custodial_copy_queues = [
     module.dr2_custodial_copy_queue,
     module.dr2_custodial_copy_queue_creator_queue,
@@ -249,7 +248,7 @@ module "vpc" {
     account_id               = data.aws_caller_identity.current.account_id,
     preservica_ingest_bucket = local.preservica_ingest_bucket
     tdr_export_bucket        = local.tdr_export_bucket
-    tre_export_bucket_arn    = local.tre_terraform_prod_config["s3_court_document_pack_out_arn"]
+    tre_export_bucket_arn    = module.tre_config.terraform_config[local.tre_environment_name]["s3_court_document_pack_out_arn"]
     object_store_bucket_name = local.object_store_bucket_name
   })
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
@@ -436,7 +435,7 @@ module "dr2_kms_key" {
       module.court_document_preingest.importer_lambda.role,
       module.cleanup_handler_lambda.lambda_role_arn,
       local.tna_to_preservica_role_arn,
-    ], local.additional_user_roles, local.anonymiser_roles, local.e2e_test_roles)
+    ], local.additional_user_roles, local.e2e_test_roles)
     ci_roles = [local.terraform_role_arn]
     service_details = [
       { service_name = "cloudwatch" },
