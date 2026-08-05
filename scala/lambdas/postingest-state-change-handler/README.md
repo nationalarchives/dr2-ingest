@@ -188,8 +188,20 @@ The Lambda:
    6. send an SQS message with the:
       1. assetId
       2. batchId
-      3. resultAttrName - the name that the next queue should use when updating the table
-      4. payload - the value from the resultAttrName of the queue that has just been updated, this is the data that will be sent to the next queue
+      3. resultAttrName - the attribute name that the next queue should use when updating the table. The result from the Confirmer is updated in this attribute.
+
+      4. payload - JSON payload. The actual value depends on which queue the message is being sent to.
+         - When sending to Custodial Copy Confirmer queue, an example payload could be:
+
+           ```json
+           {"preservationSystemId": "60240F9C-AC02-4708-98D8-2BC0470DA0C8"}
+           ```
+
+         - When sending to custodial copy tape confirmer queue, an example payload could be:
+
+           ```json
+           {"filePaths": ["/absolute/path/of/file1", "/absolute/path/of/file2"]}
+           ```
    7. send an SNS message with the:
       1. Properties:
          1. executionId - batchId
@@ -218,5 +230,4 @@ entries in Dynamo.
 | POSTINGEST_QUEUES                         | The config for the queues                                               |
 
 
-In the future as we add more locations to store the files, we will update the queues as well as the attributes of the DDB
-item.
+In the future as we add more locations to store the files, we will update the queues as well as the attributes of the DDB item.

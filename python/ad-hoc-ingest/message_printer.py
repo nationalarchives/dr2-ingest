@@ -10,7 +10,6 @@ def print_progress(text):
     sys.stdout.flush()
     progress_message_active = True
 
-
 def print_message(text):
     global progress_message_active
     # If a progress line is active, remove it before printing message
