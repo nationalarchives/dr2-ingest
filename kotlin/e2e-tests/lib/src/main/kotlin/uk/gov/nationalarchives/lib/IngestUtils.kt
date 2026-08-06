@@ -91,6 +91,7 @@ class IngestUtils(
         } catch (_: TimeoutCancellationException) {
             throw TimeoutException("Timed out waiting for lock table entries")
         }
+        println("Found group ids $groupIds")
         return groupIds
     }
 
@@ -111,8 +112,6 @@ class IngestUtils(
                         UUID.fromString(it.assetId ?:it.s3Key?.split(".")?.first())
                     }
                 assetIds.removeAll(assetIdsFromMessage)
-                println("Checking for validation failure messages")
-                println(assetIds.joinToString())
                 assetIds.isEmpty()
             } ?: false
         }
@@ -127,8 +126,6 @@ class IngestUtils(
                     .map { jsonCodec.decodeFromString<ExternalNotificationMessage>(it.message!!) }
                     .filter { it.body.properties.messageType == "preserve.digital.asset.ingest.$messageType" && it.body.parameters.status == status }
                     .map { it.body.parameters.assetId }
-                println("Checking for $messageType messages for $logGroupArn")
-                println(assetIds.joinToString { it.toString() })
                 assetIds.removeAll(assetIdsFromMessage)
                 assetIds.isEmpty()
             } ?: false
@@ -148,7 +145,6 @@ class IngestUtils(
             try {
                 var status: ExecutionStatus? = null
                 withTimeout(timeout) {
-                    println("Checking step function $groupId")
                     while (status != ExecutionStatus.Succeeded) {
                         val response = describeStepFunction(groupId)
                         status = response.status
@@ -208,6 +204,7 @@ class IngestUtils(
         val sourceSystem = SourceSystem.valueOf(sourceSystemName.uppercase())
         val invalidChecksumValue = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         assetIds.addAll(List<UUID>(numberOfFiles) { UUID.randomUUID() })
+        println(assetIds.joinToString())
         coroutineScope {
             assetIds.mapIndexed { index, assetId ->
                 launch {
