@@ -141,7 +141,7 @@ locals {
       ]
     }
     staging = {
-           maxConcurrency = 1,
+      maxConcurrency = 1,
       enabled        = true,
       sourceSystems = [
         {
