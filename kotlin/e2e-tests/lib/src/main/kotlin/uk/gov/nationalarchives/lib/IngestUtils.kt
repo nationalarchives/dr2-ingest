@@ -111,6 +111,8 @@ class IngestUtils(
                         UUID.fromString(it.assetId ?:it.s3Key?.split(".")?.first())
                     }
                 assetIds.removeAll(assetIdsFromMessage)
+                println("Checking for validation failure messages")
+                println(assetIds.joinToString())
                 assetIds.isEmpty()
             } ?: false
         }
@@ -125,6 +127,8 @@ class IngestUtils(
                     .map { jsonCodec.decodeFromString<ExternalNotificationMessage>(it.message!!) }
                     .filter { it.body.properties.messageType == "preserve.digital.asset.ingest.$messageType" && it.body.parameters.status == status }
                     .map { it.body.parameters.assetId }
+                println("Checking for $messageType messages for $logGroupArn")
+                println(assetIds.joinToString { it.toString() })
                 assetIds.removeAll(assetIdsFromMessage)
                 assetIds.isEmpty()
             } ?: false
@@ -144,6 +148,7 @@ class IngestUtils(
             try {
                 var status: ExecutionStatus? = null
                 withTimeout(timeout) {
+                    println("Checking step function $groupId")
                     while (status != ExecutionStatus.Succeeded) {
                         val response = describeStepFunction(groupId)
                         status = response.status
