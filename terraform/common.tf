@@ -109,70 +109,45 @@ locals {
   source_systems = ["TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"]
   flow_control_configs = {
     intg = {
-      maxConcurrency = 3,
+      maxConcurrency = 1,
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "TDR")]
-          reservedChannels = 0
-          probability      = 50
-        },
-        {
-          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
-          reservedChannels = 0
-          probability      = 30
-        },
-        {
           systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
-          reservedChannels = 1
-          probability      = 20
+          reservedChannels = 0
+          probability      = 100
         }
       ]
     }
     prod = {
-      maxConcurrency = 4,
+      maxConcurrency = 6,
       enabled        = true,
       sourceSystems = [
         {
           systemName       = local.source_systems[index(local.source_systems, "TDR")]
-          reservedChannels = 0
-          probability      = 50
-        },
-        {
-          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
           reservedChannels = 1
-          probability      = 1
+          probability      = 54
         },
         {
           systemName       = local.source_systems[index(local.source_systems, "DRI")]
           reservedChannels = 0
-          probability      = 48
+          probability      = 1
         },
         {
           systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
           reservedChannels = 0
-          probability      = 1
+          probability      = 45
         }
       ]
     }
     staging = {
-      maxConcurrency = 3,
+      maxConcurrency = 1,
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "TDR")]
-          reservedChannels = 1
-          probability      = 50
-        },
-        {
-          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
-          reservedChannels = 0
-          probability      = 30
-        },
-        {
           systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
           reservedChannels = 0
-          probability      = 20
+          probability      = 100
         }
       ]
     }
