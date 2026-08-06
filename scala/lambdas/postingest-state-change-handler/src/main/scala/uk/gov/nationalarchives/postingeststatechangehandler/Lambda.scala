@@ -3,11 +3,10 @@ package uk.gov.nationalarchives.postingeststatechangehandler
 import cats.effect.implicits.parallelForGenSpawn
 import cats.effect.{IO, Outcome}
 import cats.syntax.all.*
-import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse
+import com.amazonaws.services.lambda.runtime.events.{SQSBatchResponse, SQSEvent}
 import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFailure
 import io.circe.*
 import io.circe.Decoder.Result
-import io.circe.generic.semiauto.deriveDecoder
 import io.circe.jawn.decode
 import io.circe.parser.parse
 import org.scanamo.{DynamoArray, DynamoObject, DynamoReadError, DynamoValue}
@@ -29,9 +28,9 @@ import java.time.Instant
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
-class Lambda extends LambdaRunner[DynamodbEvent, SQSBatchResponse, Config, Dependencies]:
+class Lambda extends LambdaRunner[SQSEvent, SQSBatchResponse, Config, Dependencies]:
 
-  override def handler: (DynamodbEvent, Config, Dependencies) => IO[SQSBatchResponse] = (event, config, dependencies) => {
+  override def handler: (SQSEvent, Config, Dependencies) => IO[SQSBatchResponse] = (event, config, dependencies) => {
     def getPrimaryKey(item: PostIngestStateTableItem) =
       PostIngestStatePrimaryKey(PostIngestStatePartitionKey(item.assetId), PostIngestStateSortKey(item.batchId))
 
@@ -76,7 +75,7 @@ class Lambda extends LambdaRunner[DynamodbEvent, SQSBatchResponse, Config, Depen
           OutputQueueMessage(newItem.assetId, newItem.batchId, queue.resultAttrName, payload)
         )
 
-    def getInsertFibers(queues: List[Queue]) = event.Records
+    def getInsertFibers(queues: List[Queue], records: List[DynamodbStreamRecord]) = records
       .filter(_.eventName == EventName.INSERT)
       .parTraverse { record =>
         val queue1 = queues.find(_.queueOrder == 1).get
@@ -91,9 +90,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, SQSBatchResponse, Config, Depen
 
     def newResultDiffersFromOld(newResult: Option[String], oldResult: Option[String]) = newResult.getOrElse("") != oldResult.getOrElse("")
 
-    def getModifyFibers(queues: List[Queue]) = {
-      val numOfQueues = queues.length
-      event.Records
+    def getModifyFibers(queues: List[Queue], records: List[DynamodbStreamRecord]) =
+      records
         .filter(_.eventName == EventName.MODIFY)
         .parTraverse { record =>
           val processModifyRecord =
@@ -102,7 +100,8 @@ class Lambda extends LambdaRunner[DynamodbEvent, SQSBatchResponse, Config, Depen
                 val potentialQueue = queues.find(queue => queue.isResultChangeOnTheSameQueue(oldItem, newItem))
                 potentialQueue match {
                   case Some(queue) =>
-                    if queue.queueOrder == numOfQueues then deleteItemFromTable(newItem) >> sendOutputMessage(newItem) // new item has met final check; time to delete it from queue
+                    if queue.queueOrder == queues.length then
+                      deleteItemFromTable(newItem) >> sendOutputMessage(newItem) // new item has met final check; time to delete it from queue
                     else
                       val potentialNextQueue = queues.find(_.queueOrder == queue.queueOrder + 1)
                       if potentialNextQueue.isDefined then
@@ -123,7 +122,6 @@ class Lambda extends LambdaRunner[DynamodbEvent, SQSBatchResponse, Config, Depen
             StateChangeException(e.getMessage, record.dynamodb.sequenceNumber)
           }.start
         }
-    }
 
     for
       queues <- IO
@@ -144,8 +142,12 @@ class Lambda extends LambdaRunner[DynamodbEvent, SQSBatchResponse, Config, Depen
 
         new Exception(s"The values in each queue should be unique but there is more than 1 queue with:\n${queueMessage.mkString("\n")}")
       }
-      insert <- getInsertFibers(queues)
-      modify <- getModifyFibers(queues)
+
+      potentialDynamoRecords <- event.getRecords.asScala.toList.traverse(record => IO.fromEither(decode[Option[DynamodbStreamRecord]](record.getBody)))
+      dynamoRecords = potentialDynamoRecords.flatten
+
+      insert <- getInsertFibers(queues, dynamoRecords)
+      modify <- getModifyFibers(queues, dynamoRecords)
       allResults <- (insert ++ modify).parTraverse(_.join)
       batchItemFailures <- allResults.traverseFilter {
         case Outcome.Errored(e) =>
@@ -164,7 +166,6 @@ class Lambda extends LambdaRunner[DynamodbEvent, SQSBatchResponse, Config, Depen
   )
 
 object Lambda:
-  given Decoder[DynamodbEvent] = deriveDecoder[DynamodbEvent]
 
   private def jsonToDynamoValue(json: JsonObject): DynamoValue = {
     json("S").flatMap(_.asString).map(DynamoValue.fromString) <+>
@@ -221,8 +222,6 @@ object Lambda:
     }
   }
 
-  given Decoder[List[DynamodbStreamRecord]] = Decoder.decodeList[Option[DynamodbStreamRecord]].map(_.flatten)
-
   given Decoder[Option[DynamodbStreamRecord]] = (c: HCursor) =>
     for {
       eventName <- c.downField("eventName").as[String]
@@ -243,8 +242,6 @@ object Lambda:
   )
 
   case class Config(stateTableName: String, stateGsiName: String, topicArn: String, queues: String) derives ConfigReader
-
-  case class DynamodbEvent(Records: List[DynamodbStreamRecord])
 
   case class DynamodbStreamRecord(eventName: EventName, dynamodb: StreamRecord)
 
