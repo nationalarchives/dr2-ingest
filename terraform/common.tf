@@ -151,7 +151,6 @@ locals {
         }
       ]
     }
-    }
   }
   selected_flow_control_config = local.flow_control_configs[local.environment]
 }
