@@ -107,13 +107,17 @@ locals {
     { id = "expire-object-delete-marker", status = "Enabled", expiration = { expired_object_delete_marker = true } }
   ]))
   source_systems = ["TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"]
+  default        = local.source_systems[index(local.source_systems, "DEFAULT")]
+  tdr            = local.source_systems[index(local.source_systems, "TDR")]
+  dri            = local.source_systems[index(local.source_systems, "DRI")]
+
   flow_control_configs = {
     intg = {
       maxConcurrency = 1,
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
+          systemName       = local.default
           reservedChannels = 0
           probability      = 100
         }
@@ -124,17 +128,17 @@ locals {
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "TDR")]
+          systemName       = local.tdr
           reservedChannels = 1
           probability      = 54
         },
         {
-          systemName       = local.source_systems[index(local.source_systems, "DRI")]
+          systemName       = local.dri
           reservedChannels = 0
           probability      = 1
         },
         {
-          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
+          systemName       = local.default
           reservedChannels = 0
           probability      = 45
         }
@@ -145,7 +149,7 @@ locals {
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
+          systemName       = local.default
           reservedChannels = 0
           probability      = 100
         }
