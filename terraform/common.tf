@@ -19,7 +19,7 @@ locals {
   java_runtime                                         = "java21"
   java_lambda_memory_size                              = 512
   java_timeout_seconds                                 = 180
-  python_runtime                                       = "python3.12"
+  python_runtime                                       = "python3.14"
   python_lambda_memory_size                            = 128
   python_timeout_seconds                               = 30
   step_function_failure_log_group                      = "step-function-failures"
