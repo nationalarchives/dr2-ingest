@@ -27,25 +27,25 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
     val executionStarter = potentialInput.map(_.executionName).getOrElse("NO_EXECUTION_NAME")
 
     /** A recursive method to send task success to one and only one task per invocation. It takes a list of source systems, iterates over the list (recursively) to start a task on
-     * first system which has a reserved channel available
-     * @param sourceSystems
-     *   List of source systems to iterate over
-     * @param executionsBySystem
-     *   Map of SystemName -> count of running executions
-     * @param flowControlConfig
-     *   Flow control configuration
-     * @param taskExecutorName
-     *   Name of the task executor which sent the success
-     * @return
-     *   IO[String]: name of the task executor which sent success, a hard coded string "CONTINUE_TO_NEXT_SYSTEM" to indicate that no task was sent for the tried system or an empty
-     *   string to indicate that there is nothing more to do
-     */
+      * first system which has a reserved channel available
+      * @param sourceSystems
+      *   List of source systems to iterate over
+      * @param executionsBySystem
+      *   Map of SystemName -> count of running executions
+      * @param flowControlConfig
+      *   Flow control configuration
+      * @param taskExecutorName
+      *   Name of the task executor which sent the success
+      * @return
+      *   IO[String]: name of the task executor which sent success, a hard coded string "CONTINUE_TO_NEXT_SYSTEM" to indicate that no task was sent for the tried system or an empty
+      *   string to indicate that there is nothing more to do
+      */
     def startTaskOnReservedChannel(
-                                    sourceSystems: List[SourceSystem],
-                                    executionsBySystem: Map[String, Int],
-                                    flowControlConfig: FlowControlConfig,
-                                    taskExecutorName: String
-                                  ): IO[String] = {
+        sourceSystems: List[SourceSystem],
+        executionsBySystem: Map[String, Int],
+        flowControlConfig: FlowControlConfig,
+        taskExecutorName: String
+    ): IO[String] = {
       if sourceSystems.isEmpty then
         logInfo("Reserved channel: No more source systems to iterate over", taskExecutorName) >>
           IO.pure(taskExecutorName)
@@ -86,20 +86,20 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
     }
 
     /** A recursive method to send success to one of the systems, based on probability as configured in the Flow control configuration. It builds a probability ranges map based on
-     * the config (e.g. TDR -> (1, 25), FCL -> (25, 40) ... ). It then generates a random number between the minimum and maximum value over all probabilities and tries to schedule
-     * a task for that system. If there is no task waiting for the system, it recreates the probability map excluding that system from the config and generates a random number for
-     * the remaining systems only, thus making sure that the probabilities are honoured over all iterations.
-     *
-     * The probability of each system is kept intact in relation to each other, even if one of the systems does not have a waiting task. e.g. if there are 3 systems, one, two, and
-     * three with probabilities of 25, 55, 20, the ranges being 1-26, 26-81, 81-101. For this example, let's assume that system "two" does not have a waiting task. Iteration 1 -
-     * random number generated is 30 (which corresponds to system "two"), since system "two" does not have a waiting task, Iteration 2 - a new ranges map is constructed by
-     * excluding system "two" (1-26, 26-47) and a new number is generated between 1 and 47 this ensures that the probability in relation to each other is kept intact for the
-     * remaining systems
-     * @param sourceSystems
-     *   List of source systems to iterate for starting a task
-     * @return
-     *   IO[String]: name of the task executor which sent success, a hard coded string "CONTINUE_TO_NEXT_SYSTEM" to indicate that no task was sent for the tried system
-     */
+      * the config (e.g. TDR -> (1, 25), FCL -> (25, 40) ... ). It then generates a random number between the minimum and maximum value over all probabilities and tries to schedule
+      * a task for that system. If there is no task waiting for the system, it recreates the probability map excluding that system from the config and generates a random number for
+      * the remaining systems only, thus making sure that the probabilities are honoured over all iterations.
+      *
+      * The probability of each system is kept intact in relation to each other, even if one of the systems does not have a waiting task. e.g. if there are 3 systems, one, two, and
+      * three with probabilities of 25, 55, 20, the ranges being 1-26, 26-81, 81-101. For this example, let's assume that system "two" does not have a waiting task. Iteration 1 -
+      * random number generated is 30 (which corresponds to system "two"), since system "two" does not have a waiting task, Iteration 2 - a new ranges map is constructed by
+      * excluding system "two" (1-26, 26-47) and a new number is generated between 1 and 47 this ensures that the probability in relation to each other is kept intact for the
+      * remaining systems
+      * @param sourceSystems
+      *   List of source systems to iterate for starting a task
+      * @return
+      *   IO[String]: name of the task executor which sent success, a hard coded string "CONTINUE_TO_NEXT_SYSTEM" to indicate that no task was sent for the tried system
+      */
     def startTaskBasedOnProbability(sourceSystems: List[SourceSystem]): IO[String] = {
       sourceSystems match
         case Nil =>
@@ -252,13 +252,13 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
   }
 
   private def logInfo(
-                       message: String,
-                       executionName: String,
-                       currentSystem: String = "",
-                       remainingSystems: String = "",
-                       queuedTimeAndExecution: String = "",
-                       resumedExecution: String = ""
-                     ): IO[Unit] = {
+      message: String,
+      executionName: String,
+      currentSystem: String = "",
+      remainingSystems: String = "",
+      queuedTimeAndExecution: String = "",
+      resumedExecution: String = ""
+  ): IO[Unit] = {
     logger.info(
       Map(
         "executionName" -> executionName,
@@ -271,25 +271,25 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
   }
 
   /** Builds a map of system name to a range. Range is a case class representing a starting point (inclusive) and ending point (exclusive) of the range. e.g. A config where
-   * "System1" has 30% probability and "System2" has 15% probability will look like: "System1" -> Range(1, 31) "System2" -> Range(31, 46)
-   *
-   * If the probability for any system is zero, such system is excluded from the generated map
-   *
-   * @param systems
-   *   list of @SourceSystem
-   * @param rangeStart
-   *   starting point for the next range iteration
-   * @param sourceSystemProbabilityRanges
-   *   accumulator to build the map of all ranges
-   * @return
-   *   map of system name to probability ranges
-   */
+    * "System1" has 30% probability and "System2" has 15% probability will look like: "System1" -> Range(1, 31) "System2" -> Range(31, 46)
+    *
+    * If the probability for any system is zero, such system is excluded from the generated map
+    *
+    * @param systems
+    *   list of @SourceSystem
+    * @param rangeStart
+    *   starting point for the next range iteration
+    * @param sourceSystemProbabilityRanges
+    *   accumulator to build the map of all ranges
+    * @return
+    *   map of system name to probability ranges
+    */
   @tailrec
   final def buildProbabilityRangesMap(
-                                       systems: List[Lambda.SourceSystem],
-                                       rangeStart: Int,
-                                       sourceSystemProbabilityRanges: Map[String, Range]
-                                     ): Map[String, Range] = {
+      systems: List[Lambda.SourceSystem],
+      rangeStart: Int,
+      sourceSystemProbabilityRanges: Map[String, Range]
+  ): Map[String, Range] = {
     systems match
       case Nil => sourceSystemProbabilityRanges
       case _   =>

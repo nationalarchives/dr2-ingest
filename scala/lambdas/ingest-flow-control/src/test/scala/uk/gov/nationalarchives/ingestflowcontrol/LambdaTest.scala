@@ -131,7 +131,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-already-running").exists(_.taskTokenSuccess) should be(false)
   }
 
-  "lambda" should s"add a new task to dynamo but not send success when there is a max concurrency of 6, 5 running tasks and 1 reserved channel for another source system" in {
+  "lambda" should s"add a new task to dynamo but not send success when there is a max concurrency less than the number of running tasks + reserved channels for another source system" in {
     val initialDynamo = (1 to 5).map { i =>
       IngestQueueTableItem("DRI", Instant.now.minus(Duration.ofHours(1)).toString + "_DRI_2ec6248e_0", s"task-token-$i", "DRI_2ec6248e_0")
     }.toList
@@ -151,7 +151,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     lambdaRunResult.finalStepFnExecutions.forall(!_.taskTokenSuccess) should be(true)
   }
 
-  "lambda" should s"send task success to a running task when there is a max concurrency of 6, 5 running tasks and 1 reserved channel for a running source system" in {
+  "lambda" should s"send task success to a running task when there is a max concurrency less than the number of running tasks + reserved channels for running source systems" in {
     val initialDynamo = (1 to 5).map { i =>
       IngestQueueTableItem("DRI", Instant.now.minus(Duration.ofHours(1)).toString + "_DRI_2ec6248e_0", s"task-token-$i", "DRI_2ec6248e_0")
     }.toList
@@ -473,7 +473,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     configWithSpareChannels.hasSpareChannels(Map("SystemOne" -> 1, "DEFAULT" -> 1)) should be(true)
   }
 
-  "FlowControlConfig" should "indicate lack of spare channels when reserved channels equal the maximum concurrency" in {
+  "FlowControlConfig" should "indicate lack of spare channels when reserved channels + running executions equal the maximum concurrency" in {
     val configWithAllChannelsReserved =
       Lambda.FlowControlConfig(4, List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 1, 35), Lambda.SourceSystem("DEFAULT", 2, 40)), true)
     configWithAllChannelsReserved.hasSpareChannels(Map("SystemThree" -> 4)) should be(false)
