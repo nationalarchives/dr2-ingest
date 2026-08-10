@@ -25,7 +25,7 @@ module "cloudwatch_alarm_event_bridge_rule" {
     cloudwatch_alarms = jsonencode(flatten([module.dr2_importer_sqs.alarms, module.dr2_preingest_aggregator_queue.alarms]))
     state_value       = each.value
   })
-  name                = "${local.environment}-dr2-eventbridge-${var.source_name}-importer-queue-${lower(each.value)}"
+  name                = "${local.environment}-dr2-eventbridge-${var.source_name}-preingest-queues-${lower(each.value)}"
   api_destination_arn = var.slack_api_destination_arn
   api_destination_input_transformer = {
     input_paths = {
