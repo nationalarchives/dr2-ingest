@@ -64,7 +64,7 @@ class IngestUtils(
     private val sfnClient: SfnClient,
     private val config: Config,
     private val assetIds: MutableList<UUID>,
-    private val groupIds: MutableSet<String>
+    val groupIds: MutableSet<String>
 ) {
     private val completeStatus = "Asset has been written to tape"
     private val failedStatus = "There has been an error ingesting the asset."
@@ -91,6 +91,7 @@ class IngestUtils(
         } catch (_: TimeoutCancellationException) {
             throw TimeoutException("Timed out waiting for lock table entries")
         }
+        groupIds.forEach { println(it) }
         return groupIds
     }
 

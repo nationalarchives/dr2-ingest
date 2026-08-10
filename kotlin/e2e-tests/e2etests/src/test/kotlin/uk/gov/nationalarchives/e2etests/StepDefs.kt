@@ -14,6 +14,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import uk.gov.nationalarchives.lib.IngestUtils
 import java.util.*
+import java.util.concurrent.TimeoutException
 
 class StepDefs {
 
@@ -44,7 +45,14 @@ class StepDefs {
 
     @Then("I receive an ingest complete message")
     fun iReceiveAnIngestCompleteMessage() = runBlocking {
-        utils.checkForIngestStatusMessages(config.getString("externalLogGroup"), 2 * 60 * 60 * 1000, "complete")
+        try {
+            utils.checkForIngestStatusMessages(config.getString("externalLogGroup"), 2 * 60 * 60 * 1000, "complete")
+        } catch (e: TimeoutException) {
+            println("Timeout exception received")
+            println(fileIds.forEach { println(it) })
+            println(utils.groupIds.forEach { println(it) })
+            throw e
+        }
         assertTrue(fileIds.isEmpty())
     }
 
