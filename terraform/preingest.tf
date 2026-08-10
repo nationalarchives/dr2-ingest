@@ -79,14 +79,13 @@ module "ad_hoc_preingest" {
 }
 
 module "court_document_preingest" {
-  source                                       = "./preingest"
-  environment                                  = local.environment
-  aggregator_secondary_grouping_window_seconds = 60 * 60 * 4
-  ingest_lock_dynamo_table_name                = local.ingest_lock_dynamo_table_name
-  ingest_lock_table_arn                        = module.ingest_lock_table.table_arn
-  ingest_lock_table_group_id_gsi_name          = local.ingest_lock_table_group_id_gsi_name
-  ingest_raw_cache_bucket_name                 = local.ingest_raw_cache_bucket_name
-  ingest_step_function_name                    = local.ingest_step_function_name
+  source                              = "./preingest"
+  environment                         = local.environment
+  ingest_lock_dynamo_table_name       = local.ingest_lock_dynamo_table_name
+  ingest_lock_table_arn               = module.ingest_lock_table.table_arn
+  ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
+  ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
+  ingest_step_function_name           = local.ingest_step_function_name
   sns_topic_subscription = local.environment == "prod" ? {
     topic_arn     = module.tre_config.terraform_config[local.tre_environment_name]["da_eventbus"],
     filter_policy = templatefile("${path.module}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})

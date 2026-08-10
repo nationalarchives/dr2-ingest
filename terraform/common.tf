@@ -124,19 +124,14 @@ locals {
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "TDR")]
-          reservedChannels = 1
-          probability      = 54
-        },
-        {
           systemName       = local.source_systems[index(local.source_systems, "DRI")]
           reservedChannels = 0
           probability      = 1
         },
         {
           systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
-          reservedChannels = 0
-          probability      = 45
+          reservedChannels = 1
+          probability      = 99
         }
       ]
     }
