@@ -83,25 +83,27 @@ object TestUtils:
         publisher: Publisher[ByteBuffer]
     ): IO[CompletedUpload] =
       errors.raise(_.upload, "Upload failed") >>
-        ref.update { existing =>
-          val content = Flux
-            .from(publisher)
-            .toIterable
-            .asScala
-            .reduce { (buffer1, buffer2) =>
-              val bytes = new Array[Byte](buffer1.remaining() + buffer2.remaining())
-              buffer1.get(bytes, 0, buffer1.remaining())
-              buffer2.get(bytes, buffer1.remaining(), buffer2.remaining())
-              ByteBuffer.wrap(bytes)
-            }
+        ref
+          .update { existing =>
+            val content = Flux
+              .from(publisher)
+              .toIterable
+              .asScala
+              .reduce { (buffer1, buffer2) =>
+                val bytes = new Array[Byte](buffer1.remaining() + buffer2.remaining())
+                buffer1.get(bytes, 0, buffer1.remaining())
+                buffer2.get(bytes, buffer1.remaining(), buffer2.remaining())
+                ByteBuffer.wrap(bytes)
+              }
             S3Object(bucket, key, content) :: existing
-        }.map { _ =>
-          CompletedUpload
-            .builder()
-            .response(PutObjectResponse.builder().build())
-            .build()
-          
-        }
+          }
+          .map { _ =>
+            CompletedUpload
+              .builder()
+              .response(PutObjectResponse.builder().build())
+              .build()
+
+          }
 
     override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = IO.never
 
@@ -118,10 +120,9 @@ object TestUtils:
     override def updateObjectTags(bucket: String, key: String, newTags: Map[String, String], potentialVersionId: Option[String]): IO[PutObjectTaggingResponse] = IO.stub
 
   val reference = "TEST-REFERENCE"
-
   val config: Config = Config("bucket", "queueUrl")
-
   val inputBucket = "inputBucket"
+  val predictableUuid = UUID.fromString("e59fa46d-2c07-42dc-9d46-98af0fd38217")
 
   def inputMetadata(tdrUuid: UUID = UUID.randomUUID(), potentialCite: Option[String] = None, suffix: String = "2023/abc"): TREMetadata = TREMetadata(
     TREMetadataParameters(
@@ -131,22 +132,15 @@ object TestUtils:
     )
   )
 
-  def uuids: List[UUID] = List(
-    "cee5851e-813f-4a9d-ae9c-577f9eb601e0",
-    "fd03992b-7e10-4454-8381-0be4e6c0c1b5",
-    "e59fa46d-2c07-42dc-9d46-98af0fd38217"
-  ).map(UUID.fromString)
-
   def runLambda(
       initialS3State: List[S3Object],
       event: SQSEvent,
       errors: Option[Errors] = None
   ): (Either[Throwable, Unit], List[S3Object], List[Message]) =
-    val uuidIterator = uuids.iterator
     (for
       s3Ref <- Ref.of[IO, List[S3Object]](initialS3State)
       sqsRef <- Ref.of[IO, List[Message]](Nil)
-      dependencies = Dependencies(s3Client(s3Ref, errors), sqsClient(sqsRef, errors), () => uuidIterator.next())
+      dependencies = Dependencies(s3Client(s3Ref, errors), sqsClient(sqsRef, errors), () => predictableUuid)
       res <- new Lambda().handler(event, config, dependencies).attempt
       s3FinalState <- s3Ref.get
       sqsFinalState <- sqsRef.get

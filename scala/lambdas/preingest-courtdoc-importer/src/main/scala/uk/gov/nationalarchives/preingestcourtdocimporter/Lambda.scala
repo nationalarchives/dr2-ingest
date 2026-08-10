@@ -1,6 +1,6 @@
 package uk.gov.nationalarchives.preingestcourtdocimporter
 
-import cats.effect.{IO}
+import cats.effect.IO
 import cats.syntax.all.*
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import org.reactivestreams.{FlowAdapters, Publisher}
