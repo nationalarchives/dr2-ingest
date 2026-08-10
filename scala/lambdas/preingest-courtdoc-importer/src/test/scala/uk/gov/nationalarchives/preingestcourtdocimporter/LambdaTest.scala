@@ -149,7 +149,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     val sqsMessage = sqsState.head
     sqsMessage.id should equal(tdrUuid)
     sqsMessage.fileId should equal(predictableUuid)
-    sqsMessage.location should equal(s"s3://bucket/${predictableUuid}")
+    sqsMessage.location should equal(s"s3://bucket/$predictableUuid")
   }
 
   "lambda handler" should "error if there is a error downloading the files" in {

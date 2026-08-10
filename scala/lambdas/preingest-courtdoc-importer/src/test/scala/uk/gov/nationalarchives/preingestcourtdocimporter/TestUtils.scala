@@ -122,7 +122,7 @@ object TestUtils:
   val reference = "TEST-REFERENCE"
   val config: Config = Config("bucket", "queueUrl")
   val inputBucket = "inputBucket"
-  val predictableUuid = UUID.fromString("e59fa46d-2c07-42dc-9d46-98af0fd38217")
+  val predictableUuid: UUID = UUID.fromString("e59fa46d-2c07-42dc-9d46-98af0fd38217")
 
   def inputMetadata(tdrUuid: UUID = UUID.randomUUID(), potentialCite: Option[String] = None, suffix: String = "2023/abc"): TREMetadata = TREMetadata(
     TREMetadataParameters(
