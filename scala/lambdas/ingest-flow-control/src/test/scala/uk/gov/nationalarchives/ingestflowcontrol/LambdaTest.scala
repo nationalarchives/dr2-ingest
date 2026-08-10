@@ -131,6 +131,45 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-already-running").exists(_.taskTokenSuccess) should be(false)
   }
 
+  "lambda" should s"add a new task to dynamo but not send success when there is a max concurrency of 6, 5 running tasks and 1 reserved channel for another source system" in {
+    val initialDynamo = (1 to 5).map { i =>
+      IngestQueueTableItem("DRI", Instant.now.minus(Duration.ofHours(1)).toString + "_DRI_2ec6248e_0", s"task-token-$i", "DRI_2ec6248e_0")
+    }.toList
+
+    val validSourceSystems = List(SourceSystem("TDR", 1, 54), SourceSystem("DRI", 0, 1), SourceSystem("DEFAULT", 0, 45))
+    val initialConfig = FlowControlConfig(6, validSourceSystems, true)
+    val existingExecutions = (1 to 5).map { i =>
+      StepFunctionExecution(s"DRI_$i", s"DRI_$i")
+    }.toList
+    val input = Option(Input("DRI_execution_name_2", "task-token-for-dri"))
+
+    val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
+
+    lambdaRunResult.result.isRight should be(true)
+    lambdaRunResult.finalItemsInTable should have length 6
+    lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("task-token-for-dri") should be(true)
+    lambdaRunResult.finalStepFnExecutions.forall(!_.taskTokenSuccess) should be(true)
+  }
+
+  "lambda" should s"send task success to a running task when there is a max concurrency of 6, 5 running tasks and 1 reserved channel for a running source system" in {
+    val initialDynamo = (1 to 5).map { i =>
+      IngestQueueTableItem("DRI", Instant.now.minus(Duration.ofHours(1)).toString + "_DRI_2ec6248e_0", s"task-token-$i", "DRI_2ec6248e_0")
+    }.toList
+
+    val validSourceSystems = List(SourceSystem("TDR", 1, 54), SourceSystem("DRI", 0, 1), SourceSystem("DEFAULT", 0, 45))
+    val initialConfig = FlowControlConfig(6, validSourceSystems, true)
+    val existingExecutions = (1 to 4).map { i =>
+      StepFunctionExecution(s"DRI_$i", s"task-token-$i")
+    }.toList :+ StepFunctionExecution("TDR_1", "TDR_1")
+
+    val lambdaRunResult = runLambda(None, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
+
+    lambdaRunResult.result.isRight should be(true)
+    lambdaRunResult.finalItemsInTable should have length 4
+    lambdaRunResult.finalStepFnExecutions.count(!_.taskTokenSuccess) should be(4)
+    lambdaRunResult.finalStepFnExecutions.find(_.taskTokenSuccess).get.name should be("DRI_1")
+  }
+
   forAll(enabledTable) { enabled =>
     val prefix = if enabled then "" else "not"
     "lambda" should s"$prefix process tasks from existing entries in the dynamo table when no task token is passed in the input with enabled $enabled" in {
@@ -431,13 +470,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
       ),
       true
     )
-    configWithSpareChannels.hasSpareChannels should be(true)
+    configWithSpareChannels.hasSpareChannels(Map("SystemOne" -> 1, "DEFAULT" -> 1)) should be(true)
   }
 
   "FlowControlConfig" should "indicate lack of spare channels when reserved channels equal the maximum concurrency" in {
     val configWithAllChannelsReserved =
       Lambda.FlowControlConfig(4, List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 1, 35), Lambda.SourceSystem("DEFAULT", 2, 40)), true)
-    configWithAllChannelsReserved.hasSpareChannels should be(false)
+    configWithAllChannelsReserved.hasSpareChannels(Map("SystemThree" -> 4)) should be(false)
   }
 
   "FlowControlConfig" should "indicate true when at least one of the systems in the config has a reserved channel" in {
