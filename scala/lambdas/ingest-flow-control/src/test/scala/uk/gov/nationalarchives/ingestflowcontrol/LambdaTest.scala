@@ -151,7 +151,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     lambdaRunResult.finalStepFnExecutions.forall(!_.taskTokenSuccess) should be(true)
   }
 
-  "lambda" should s"send task success to a running task when there is a max concurrency less than the number of running tasks + reserved channels for running source systems" in {
+  "lambda" should s"send task success to a running task when there is a max concurrency more than the number of running tasks + reserved channels for running source systems" in {
     val initialDynamo = (1 to 5).map { i =>
       IngestQueueTableItem("DRI", Instant.now.minus(Duration.ofHours(1)).toString + "_DRI_2ec6248e_0", s"task-token-$i", "DRI_2ec6248e_0")
     }.toList
