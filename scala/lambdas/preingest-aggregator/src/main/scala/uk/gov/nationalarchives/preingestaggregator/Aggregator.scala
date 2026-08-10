@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.preingesttdraggregator
+package uk.gov.nationalarchives.preingestaggregator
 
 import cats.Parallel
 import cats.effect.Async
@@ -18,11 +18,11 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.IngestLockTableItem
 import uk.gov.nationalarchives.dynamoformatters.DynamoWriteUtils
-import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.NewGroupReason.*
-import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{Input, SFNArguments}
-import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
-import uk.gov.nationalarchives.preingesttdraggregator.Ids.*
-import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
+import uk.gov.nationalarchives.preingestaggregator.Aggregator.NewGroupReason.*
+import uk.gov.nationalarchives.preingestaggregator.Aggregator.{Input, SFNArguments}
+import uk.gov.nationalarchives.preingestaggregator.Duration.*
+import uk.gov.nationalarchives.preingestaggregator.Ids.*
+import uk.gov.nationalarchives.preingestaggregator.Lambda.{Config, Group}
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.IngestStarted
 import uk.gov.nationalarchives.utils.EventCodecs.given
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.IngestUpdate

@@ -376,13 +376,13 @@ lazy val aggregatorSettings = libraryDependencies ++= Seq(
   snsClient
 )
 
-lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
+lazy val preingestTdrAggregator = (project in file("preingest-aggregator"))
   .settings(name := baseDirectory.value.getName)
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(aggregatorSettings)
 
-lazy val preingestDriAggregator = (project in file("preingest-tdr-aggregator"))
+lazy val preingestDriAggregator = (project in file("preingest-aggregator"))
   .settings(
     name := "preingest-dri-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-dri-aggregator"
@@ -391,7 +391,7 @@ lazy val preingestDriAggregator = (project in file("preingest-tdr-aggregator"))
   .dependsOn(utils)
   .settings(aggregatorSettings)
 
-lazy val preingestAdHocAggregator = (project in file("preingest-tdr-aggregator"))
+lazy val preingestAdHocAggregator = (project in file("preingest-aggregator"))
   .settings(
     name := "preingest-adhoc-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-adhoc-aggregator"
@@ -400,7 +400,7 @@ lazy val preingestAdHocAggregator = (project in file("preingest-tdr-aggregator")
   .dependsOn(utils)
   .settings(aggregatorSettings)
 
-lazy val preingestRestoreAggregator = (project in file("preingest-tdr-aggregator"))
+lazy val preingestRestoreAggregator = (project in file("preingest-aggregator"))
   .settings(
     name := "preingest-restore-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-restore-aggregator"
@@ -409,7 +409,7 @@ lazy val preingestRestoreAggregator = (project in file("preingest-tdr-aggregator
   .dependsOn(utils)
   .settings(aggregatorSettings)
 
-lazy val preingestCourtDocumentAggregator = (project in file("preingest-tdr-aggregator"))
+lazy val preingestCourtDocumentAggregator = (project in file("preingest-aggregator"))
   .settings(
     name := "preingest-courtdoc-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-courtdoc-aggregator"
