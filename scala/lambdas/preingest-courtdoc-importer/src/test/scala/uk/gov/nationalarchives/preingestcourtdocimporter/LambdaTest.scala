@@ -2,14 +2,14 @@ package uk.gov.nationalarchives.preingestcourtdocimporter
 
 import cats.syntax.all.*
 import io.circe.Json
-import org.scalatest.matchers.should.Matchers.*
-import org.scalatest.flatspec.AnyFlatSpec
-import uk.gov.nationalarchives.preingestcourtdocimporter.Lambda.{TREInput, TREInputParameters}
+import io.circe.generic.auto.*
 import io.circe.parser.decode
 import io.circe.syntax.*
-import io.circe.generic.auto.*
-import TestUtils.*
 import org.scalatest.EitherValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers.*
+import uk.gov.nationalarchives.preingestcourtdocimporter.Lambda.{TREInput, TREInputParameters}
+import uk.gov.nationalarchives.preingestcourtdocimporter.TestUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 
 import java.time.OffsetDateTime

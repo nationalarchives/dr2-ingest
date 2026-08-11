@@ -90,11 +90,11 @@ object TestUtils:
               .toIterable
               .asScala
               .reduce { (buffer1, buffer2) =>
-                val r1 = buffer1.remaining()
-                val r2 = buffer2.remaining()
-                val bytes = new Array[Byte](r1 + r2)
-                buffer1.get(bytes, 0, r1)
-                buffer2.get(bytes, r1, r2)
+                val remainingElementsInBuffer1 = buffer1.remaining()
+                val remainingElementsInBuffer2 = buffer2.remaining()
+                val bytes = new Array[Byte](remainingElementsInBuffer1 + remainingElementsInBuffer2)
+                buffer1.get(bytes, 0, remainingElementsInBuffer1)
+                buffer2.get(bytes, remainingElementsInBuffer1, remainingElementsInBuffer2)
                 ByteBuffer.wrap(bytes)
               }
             S3Object(bucket, key, content) :: existing
