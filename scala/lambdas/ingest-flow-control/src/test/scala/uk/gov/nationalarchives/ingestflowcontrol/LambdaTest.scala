@@ -474,9 +474,9 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
   }
 
   "FlowControlConfig" should "indicate lack of spare channels when reserved channels + running executions equal the maximum concurrency" in {
-    val configWithAllChannelsReserved =
-      Lambda.FlowControlConfig(4, List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 1, 35), Lambda.SourceSystem("DEFAULT", 2, 40)), true)
-    configWithAllChannelsReserved.hasSpareChannels(Map("SystemThree" -> 4)) should be(false)
+    val configWithHalfChannelsReserved =
+      Lambda.FlowControlConfig(8, List(Lambda.SourceSystem("SystemOne", 1, 25), Lambda.SourceSystem("SystemTwo", 1, 35), Lambda.SourceSystem("DEFAULT", 2, 40)), true)
+    configWithHalfChannelsReserved.hasSpareChannels(Map("SystemThree" -> 4)) should be(false)
   }
 
   "FlowControlConfig" should "indicate true when at least one of the systems in the config has a reserved channel" in {
