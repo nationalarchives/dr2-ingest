@@ -377,7 +377,7 @@ lazy val aggregatorSettings = libraryDependencies ++= Seq(
 )
 
 lazy val preingestTdrAggregator = (project in file("preingest-aggregator"))
-  .settings(name := baseDirectory.value.getName)
+  .settings(name := "preingest-tdr-aggregator")
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(aggregatorSettings)
