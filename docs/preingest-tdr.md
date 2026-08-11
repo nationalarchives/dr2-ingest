@@ -6,7 +6,7 @@ The [`Preingest TDR Importer` Lambda](/python/lambdas/preingest-importer/) is re
 and untarring the package from TDR and for copying the file and metadata file to our raw cache bucket.
 The lambda then sends a message to the aggregator queue
 
-The [`Preingest TDR Aggregator` Lambda](/scala/lambdas/preingest-tdr-aggregator/) is responsible for batching up messages for ingest.
+The [`Preingest TDR Aggregator` Lambda](/scala/lambdas/preingest-aggregator/) is responsible for batching up messages for ingest.
 These are batched either based on the number of messages received in a 10-minute window or when the number of messages reaches 10000.
 The batches are written to DynamoDB and the preingest step function is triggered.
 
