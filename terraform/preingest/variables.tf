@@ -108,3 +108,7 @@ variable "lambda_code_version" {}
 variable "notifications_topic_arn" {}
 
 variable "code_deploy_bucket" {}
+
+variable "slack_api_destination_arn" {}
+
+variable "general_notifications_channel_id" {}
