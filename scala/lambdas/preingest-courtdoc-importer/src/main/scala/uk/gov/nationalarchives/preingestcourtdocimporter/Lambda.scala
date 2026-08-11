@@ -39,7 +39,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
           .string
         parsedJson <- IO.fromEither(
           decode[TREMetadata](contentJson).leftMap { error =>
-            new RuntimeException("Error parsing metadata.json. \nPlease check that the JSON is valid and that all required fields are present", error)
+            new RuntimeException("Error parsing metadata.json.\nPlease check that the JSON is valid and that all required fields are present", error)
           }
         )
       yield parsedJson
