@@ -26,24 +26,23 @@ module "tdr_preingest" {
 }
 
 module "dri_preingest" {
-  source                                       = "./preingest"
-  environment                                  = local.environment
-  ingest_lock_dynamo_table_name                = local.ingest_lock_dynamo_table_name
-  ingest_lock_table_arn                        = module.ingest_lock_table.table_arn
-  ingest_lock_table_group_id_gsi_name          = local.ingest_lock_table_group_id_gsi_name
-  ingest_raw_cache_bucket_name                 = local.ingest_raw_cache_bucket_name
-  ingest_step_function_name                    = local.ingest_step_function_name
-  source_name                                  = lower(local.source_systems[index(local.source_systems, "DRI")])
-  copy_source_bucket_arn                       = "arn:aws:s3:::${local.dri_migration_bucket_name}"
-  private_security_group_ids                   = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
-  private_subnet_ids                           = module.vpc.private_subnets
-  aggregator_secondary_grouping_window_seconds = 300
-  vpc_id                                       = module.vpc.vpc.id
-  vpc_arn                                      = module.vpc.vpc.arn
-  delete_from_source                           = true
-  lambda_code_version                          = var.lambda_code_version
-  notifications_topic_arn                      = module.dr2_notifications_sns.sns_arn
-  code_deploy_bucket                           = "mgmt-dp-code-deploy"
+  source                              = "./preingest"
+  environment                         = local.environment
+  ingest_lock_dynamo_table_name       = local.ingest_lock_dynamo_table_name
+  ingest_lock_table_arn               = module.ingest_lock_table.table_arn
+  ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
+  ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
+  ingest_step_function_name           = local.ingest_step_function_name
+  source_name                         = lower(local.source_systems[index(local.source_systems, "DRI")])
+  copy_source_bucket_arn              = "arn:aws:s3:::${local.dri_migration_bucket_name}"
+  private_security_group_ids          = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
+  private_subnet_ids                  = module.vpc.private_subnets
+  vpc_id                              = module.vpc.vpc.id
+  vpc_arn                             = module.vpc.vpc.arn
+  delete_from_source                  = true
+  lambda_code_version                 = var.lambda_code_version
+  notifications_topic_arn             = module.dr2_notifications_sns.sns_arn
+  code_deploy_bucket                  = "mgmt-dp-code-deploy"
   additional_importer_lambda_policies = local.environment == "prod" ? {
     "${local.environment}-copy-from-records-metadata" = templatefile("${path.module}/templates/iam_policy/preingest_dri_records_metadata.json.tpl", {
       records_metadata_bucket = local.records_metadata_bucket_name
@@ -51,9 +50,10 @@ module "dri_preingest" {
       object_store_bucket     = local.object_store_bucket_name
     })
   } : {}
-  additional_importer_lambda_env_vars = local.environment == "prod" ? { RECORDS_METADATA_BUCKET = local.records_metadata_bucket_name } : {}
+  additional_importer_lambda_env_vars          = local.environment == "prod" ? { RECORDS_METADATA_BUCKET = local.records_metadata_bucket_name } : {}
+  aggregator_secondary_grouping_window_seconds = 600
   aggregator_lambda = {
-    timeout = 180
+    timeout = 900 # Set to max as we're not sure how long it'll take to do 10k messages
   }
 }
 
@@ -87,12 +87,12 @@ module "court_document_preingest" {
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
   sns_topic_subscription = local.environment == "prod" ? {
-    topic_arn     = local.tre_prod_event_bus,
+    topic_arn     = module.tre_config.terraform_config[local.tre_environment_name]["da_eventbus"],
     filter_policy = templatefile("${path.module}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})
   } : null
   source_name                = "courtdoc"
   bucket_kms_arn             = module.tre_config.terraform_config["prod_s3_court_document_pack_out_kms_arn"]
-  copy_source_bucket_arn     = local.environment == "prod" ? local.tre_terraform_prod_config["s3_court_document_pack_out_arn"] : "arn:aws:s3:::${local.courtdoc_test_bucket_name}"
+  copy_source_bucket_arn     = module.tre_config.terraform_config[local.tre_environment_name]["s3_court_document_pack_out_arn"]
   private_security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids         = module.vpc.private_subnets
   importer_lambda = {

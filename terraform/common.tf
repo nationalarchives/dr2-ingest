@@ -6,9 +6,7 @@ locals {
   ingest_step_function_name                            = "${local.environment}-dr2-ingest"
   ingest_run_workflow_step_function_name               = "${local.environment}-dr2-ingest-run-workflow"
   additional_user_roles                                = local.environment != "prod" ? [data.aws_ssm_parameter.dev_admin_role.value] : []
-  anonymiser_roles                                     = local.environment == "intg" ? flatten([module.dr2_court_document_package_anonymiser_lambda.*.lambda_role_arn]) : []
   e2e_test_roles                                       = local.environment == "prod" ? [] : [module.dr2_run_e2e_tests_role[0].role_arn]
-  anonymiser_lambda_arns                               = local.environment == "intg" ? flatten([module.dr2_court_document_package_anonymiser_lambda.*.lambda_arn]) : []
   files_dynamo_table_name                              = "${local.environment}-dr2-ingest-files"
   ingest_lock_dynamo_table_name                        = "${local.environment}-dr2-ingest-lock"
   ingest_queue_dynamo_table_name                       = "${local.environment}-dr2-ingest-queue"
@@ -34,6 +32,7 @@ locals {
   sse_encryption                                       = "sse"
   visibility_timeout                                   = 180
   redrive_maximum_receives                             = 5
+  tre_environment_name                                 = local.environment == "intg" ? "int" : local.environment
   nacl_inbound_from_subnet_https = [for idx, cidr in module.vpc.private_cidr_blocks : {
     rule_no    = 100 * (idx + 2)
     cidr_block = cidr
@@ -78,14 +77,17 @@ locals {
     module.ad_hoc_preingest.aggregator_lambda.function_name,
     module.ad_hoc_preingest.package_builder_lambda.function_name,
     module.ad_hoc_preingest.importer_lambda.function_name
-  ], local.environment == "intg" ? [local.court_document_anonymiser_lambda_name] : [])
-  ingest_queues = [
+  ])
+  custodial_copy_queues = [
     module.dr2_custodial_copy_queue,
     module.dr2_custodial_copy_queue_creator_queue,
-    module.dr2_custodial_copy_db_builder_queue,
-    module.dr2_external_notifications_queue,
-    module.cleanup_trigger_queue
+    module.dr2_custodial_copy_db_builder_queue
   ]
+  ingest_queues = flatten([
+    module.dr2_external_notifications_queue,
+    module.cleanup_trigger_queue,
+    local.custodial_copy_queues
+  ])
   importer_queues = [
     module.court_document_preingest.importer_sqs,
     module.tdr_preingest.importer_sqs,
@@ -107,70 +109,40 @@ locals {
   source_systems = ["TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"]
   flow_control_configs = {
     intg = {
-      maxConcurrency = 3,
+      maxConcurrency = 1,
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "TDR")]
-          reservedChannels = 0
-          probability      = 50
-        },
-        {
-          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
-          reservedChannels = 0
-          probability      = 30
-        },
-        {
           systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
-          reservedChannels = 1
-          probability      = 20
+          reservedChannels = 0
+          probability      = 100
         }
       ]
     }
     prod = {
-      maxConcurrency = 4,
+      maxConcurrency = 6,
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "TDR")]
-          reservedChannels = 0
-          probability      = 50
-        },
-        {
-          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
-          reservedChannels = 1
-          probability      = 1
-        },
-        {
           systemName       = local.source_systems[index(local.source_systems, "DRI")]
           reservedChannels = 0
-          probability      = 48
+          probability      = 1
         },
         {
           systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
-          reservedChannels = 0
-          probability      = 1
+          reservedChannels = 1
+          probability      = 99
         }
       ]
     }
     staging = {
-      maxConcurrency = 3,
+      maxConcurrency = 1,
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "TDR")]
-          reservedChannels = 1
-          probability      = 50
-        },
-        {
-          systemName       = local.source_systems[index(local.source_systems, "COURTDOC")]
-          reservedChannels = 0
-          probability      = 30
-        },
-        {
           systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
           reservedChannels = 0
-          probability      = 20
+          probability      = 100
         }
       ]
     }
@@ -251,7 +223,7 @@ module "vpc" {
     account_id               = data.aws_caller_identity.current.account_id,
     preservica_ingest_bucket = local.preservica_ingest_bucket
     tdr_export_bucket        = local.tdr_export_bucket
-    tre_export_bucket_arn    = local.tre_terraform_prod_config["s3_court_document_pack_out_arn"]
+    tre_export_bucket_arn    = module.tre_config.terraform_config[local.tre_environment_name]["s3_court_document_pack_out_arn"]
     object_store_bucket_name = local.object_store_bucket_name
   })
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
@@ -438,7 +410,7 @@ module "dr2_kms_key" {
       module.court_document_preingest.importer_lambda.role,
       module.cleanup_handler_lambda.lambda_role_arn,
       local.tna_to_preservica_role_arn,
-    ], local.additional_user_roles, local.anonymiser_roles, local.e2e_test_roles)
+    ], local.additional_user_roles, local.e2e_test_roles)
     ci_roles = [local.terraform_role_arn]
     service_details = [
       { service_name = "cloudwatch" },
@@ -786,6 +758,27 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_importer_queues"
     input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
       channel_id   = local.general_notifications_channel_id
       slackMessage = ":warning: Cloudwatch alarm <alarmName> has entered state <currentValue>"
+    })
+  }
+}
+
+module "cloudwatch_alarm_event_bridge_rule_for_unprocessed_messages" {
+  for_each = toset(["OK", "ALARM"])
+  source   = "git::https://github.com/nationalarchives/da-terraform-modules//eventbridge_api_destination_rule"
+  event_pattern = templatefile("${path.module}/templates/eventbridge/cloudwatch_alarm_event_pattern.json.tpl", {
+    cloudwatch_alarms = jsonencode(flatten([for queue in flatten([local.custodial_copy_queues, values(module.postingest.postingest_queues)]) : queue.unprocessed_message_alarm]))
+    state_value       = each.value
+  })
+  name                = "${local.environment}-dr2-eventbridge-unprocessed-messages-${lower(each.value)}"
+  api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
+  api_destination_input_transformer = {
+    input_paths = {
+      "alarmName"    = "$.detail.alarmName",
+      "currentValue" = "$.detail.state.value"
+    }
+    input_template = templatefile("${path.module}/templates/eventbridge/slack_message_input_template.json.tpl", {
+      channel_id   = local.general_notifications_channel_id
+      slackMessage = ":${each.value == "OK" ? "green-tick" : "alert-noflash-slow"}: Cloudwatch alarm <alarmName> has entered state <currentValue>"
     })
   }
 }
