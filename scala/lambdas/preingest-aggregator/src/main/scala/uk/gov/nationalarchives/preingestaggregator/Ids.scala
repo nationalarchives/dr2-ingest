@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.preingesttdraggregator
+package uk.gov.nationalarchives.preingestaggregator
 
 import uk.gov.nationalarchives.utils.Generators
 

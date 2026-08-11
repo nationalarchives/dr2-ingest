@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.preingesttdraggregator
+package uk.gov.nationalarchives.preingestaggregator
 
 import cats.effect.IO
 import cats.effect.std.AtomicCell
@@ -10,9 +10,9 @@ import com.amazonaws.services.lambda.runtime.events.{SQSBatchResponse, SQSEvent}
 import io.circe.{Decoder, Encoder}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
-import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.Input
-import uk.gov.nationalarchives.preingesttdraggregator.Duration.Seconds
-import uk.gov.nationalarchives.preingesttdraggregator.Lambda.Config
+import uk.gov.nationalarchives.preingestaggregator.Aggregator.Input
+import uk.gov.nationalarchives.preingestaggregator.Duration.Seconds
+import uk.gov.nationalarchives.preingestaggregator.Lambda.Config
 
 import scala.jdk.CollectionConverters.*
 
