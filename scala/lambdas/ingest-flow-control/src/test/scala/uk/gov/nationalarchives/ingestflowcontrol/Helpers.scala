@@ -18,7 +18,7 @@ object Helpers {
 
   def notImplemented[T]: IO[Nothing] = IO.raiseError(new Exception("Not implemented"))
 
-  def predictableRandomNumberSelector(selected: Int = 10): (Int, Int) => Int = (min, max) => if selected > max then max else selected
+  def predictableRandomNumberSelector(selected: Int = 10): (Int, Int) => Int = (min, max) => if selected > max then max - 1 else selected
 
   def runLambda(
       input: Option[Input],
