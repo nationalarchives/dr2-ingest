@@ -15,6 +15,7 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 
 import java.time.Instant
 import scala.annotation.tailrec
+import scala.math.*
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import org.scanamo.syntax.*
 import software.amazon.awssdk.services.sfn.model.TaskTimedOutException
@@ -224,6 +225,7 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
       flowControlConfig <- dependencies.ssmClient.getParameter[FlowControlConfig](config.configParamName)
       _ <- writeTaskToQueueTable(flowControlConfig)
       runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
+      _ <- logInfo(s"Found ${runningExecutions.length} running executions", executionStarter)
       taskSuccessExecutor <-
         if runningExecutions.size < flowControlConfig.maxConcurrency && flowControlConfig.enabled then
           if flowControlConfig.hasReservedChannels then
@@ -232,7 +234,7 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
               if taskExecutorName.nonEmpty then
                 logInfo("Task started successfully on reserved channel. Terminating lambda", executionStarter, resumedExecution = taskExecutorName) >>
                   IO.pure(taskExecutorName)
-              else if (flowControlConfig.hasSpareChannels)
+              else if flowControlConfig.hasSpareChannels(executionsMap) then
                 logInfo("Attempting to start task based on probability", executionStarter) >>
                   startTaskBasedOnProbability(flowControlConfig.sourceSystems)
               else
@@ -336,7 +338,12 @@ object Lambda {
     require(sourceSystems.map(_.systemName).contains(default), "Missing 'DEFAULT' system in the configuration")
 
     val hasReservedChannels: Boolean = reservedChannelsCount > 0
-    val hasSpareChannels: Boolean = reservedChannelsCount < maxConcurrency
+    def hasSpareChannels(executionsMap: Map[String, Int]): Boolean =
+      val totalReservedChannels = sourceSystems.foldLeft(0) { (totalReserved, sourceSystem) =>
+        totalReserved + max(sourceSystem.reservedChannels - executionsMap.getOrElse(sourceSystem.systemName, 0), 0)
+      }
+      (executionsMap.values.sum + totalReservedChannels) < maxConcurrency
+
   }
 
   case class Range(startInclusive: Int, endExclusive: Int)
