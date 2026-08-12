@@ -72,7 +72,8 @@ each invocation of the lambda sends task success to, at most, one task. This lam
 1.It then reads the configuration, iterates over all the systems mentioned in the config to find a matching task in dynamoDB table. Since the iteration is done based on system names rather than executions, it is possible that an exeuction started by one system may progress a waiting execution from another system.
    4. Once it reads an entry from the configuration, it finds a list of all tasks from the dynamoDB table for that system. If there is a channel available for the system, it calls "sendTaskSuccess" for that system and invocation of this lambda eventually terminates.
    5. If there are not enough reserved channels for the system, it carries on iterating over the remaining systems to try and call "sendTaskSuccess" on any running execution
-   6. If there are no reserved channels available for any system, it tries to schedule a task based on probability.
+   6. It then calculates whether there are spare channels in the system. It adds the number of running executions to the number of reserved channels, excluding those reserved channels which are already in use. If this is less than the maximum concurrency, then there are spare channels.  
+   7. If there are no reserved channels available for any system, and there are spare channels, it tries to schedule a task based on probability.
 2. For progressing a task based on probability, it iterates over all the systems in the configuration by systemName
    1. It finds the number of free channels available and calculates the probability range for the system
    2. It generates a random number between 1 and 100 (both inclusive) and if the random number falls within the probability range of the system, it calls "sendTaskSuccess" for that system and invocation of this lambda eventually terminates.

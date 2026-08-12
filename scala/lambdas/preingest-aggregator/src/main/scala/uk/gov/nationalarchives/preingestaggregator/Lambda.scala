@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.preingesttdraggregator
+package uk.gov.nationalarchives.preingestaggregator
 
 import cats.Monoid
 import cats.effect.IO
@@ -10,9 +10,9 @@ import io.circe.generic.auto.*
 import pureconfig.ConfigReader.Result
 import pureconfig.module.catseffect.syntax.*
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
-import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
-import uk.gov.nationalarchives.preingesttdraggregator.Ids.GroupId
-import uk.gov.nationalarchives.preingesttdraggregator.Lambda.*
+import uk.gov.nationalarchives.preingestaggregator.Duration.*
+import uk.gov.nationalarchives.preingestaggregator.Ids.GroupId
+import uk.gov.nationalarchives.preingestaggregator.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.given
 import uk.gov.nationalarchives.utils.Generators.given
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASNSClient}

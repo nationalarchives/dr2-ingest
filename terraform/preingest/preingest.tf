@@ -43,7 +43,7 @@ module "dr2_preingest_aggregator_queue" {
 module "dr2_preingest_aggregator_lambda" {
   source                         = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   function_name                  = local.aggregator_name
-  handler                        = "uk.gov.nationalarchives.preingesttdraggregator.Lambda::handleRequest"
+  handler                        = "uk.gov.nationalarchives.preingestaggregator.Lambda::handleRequest"
   sqs_queue_batching_window      = local.aggregator_primary_grouping_window_seconds
   sqs_queue_mapping_batch_size   = local.aggregator_invocation_batch_size
   sqs_report_batch_item_failures = true
