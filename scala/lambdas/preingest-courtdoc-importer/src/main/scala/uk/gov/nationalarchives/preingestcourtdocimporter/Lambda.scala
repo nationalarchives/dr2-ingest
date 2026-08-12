@@ -24,7 +24,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
   override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = (sqsEvent, config, dependencies) => {
 
     val metadataFolder = "/out"
-    val dataFileFolder = "/out/data"
+    val dataFileFolder = s"$metadataFolder/data"
 
     def readJsonFromS3Location(
         bucket: String,
@@ -37,11 +37,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
           .through(text.utf8.decode)
           .compile
           .string
-        parsedJson <- IO.fromEither(
-          decode[TREMetadata](contentJson).leftMap { error =>
-            new RuntimeException("Error parsing metadata.json.\nPlease check that the JSON is valid and that all required fields are present", error)
-          }
-        )
+        parsedJson <- IO.fromEither(decode[TREMetadata](contentJson))
       yield parsedJson
 
     sqsEvent.getRecords.asScala.toList.parTraverse { record =>
@@ -50,27 +46,27 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
         batchRef = treInput.parameters.reference
         _ <- log(Map("batchRef" -> batchRef))(s"Processing batchRef $batchRef")
 
-        outputBucket = config.outputBucket
-        metadataDestinationKey = s"TRE-$batchRef-metadata.json"
-        metadataSourceKey = s"${treInput.parameters.s3FolderName}$metadataFolder/$metadataDestinationKey"
-        treMetadata <- readJsonFromS3Location(treInput.parameters.s3Bucket, metadataSourceKey).onError { err =>
+        metadataSourceKey = s"${treInput.parameters.s3FolderName}$metadataFolder/TRE-$batchRef-metadata.json"
+          treMetadata <- readJsonFromS3Location(treInput.parameters.s3Bucket, metadataSourceKey).onError { err =>
           log(Map("error" -> err.getMessage, "s3FolderName" -> treInput.parameters.s3FolderName))(err.getMessage)
         }
-        originalFileKey <- IO.pure(s"${treInput.parameters.s3FolderName}$dataFileFolder/${treMetadata.parameters.TRE.payload.filename}")
+        treFileKey = s"${treInput.parameters.s3FolderName}$dataFileFolder/${treMetadata.parameters.TRE.payload.filename}"
         dr2FileKey = dependencies.uuidGenerator()
 
-        _ <- dependencies.s3.copy(treInput.parameters.s3Bucket, originalFileKey, outputBucket, dr2FileKey.toString).onError { err =>
+        outputBucket = config.outputBucket
+        _ <- dependencies.s3.copy(treInput.parameters.s3Bucket, treFileKey, outputBucket, dr2FileKey.toString).onError { err =>
           log(Map("error" -> err.getMessage, "fileId" -> dr2FileKey.toString))(err.getMessage)
         }
+        metadataDestinationKey = s"${dependencies.uuidGenerator()}.metadata"
         _ <- dependencies.s3.copy(treInput.parameters.s3Bucket, metadataSourceKey, outputBucket, metadataDestinationKey).onError { err =>
           log(Map("error" -> err.getMessage, "metadataFileId" -> metadataSourceKey))(err.getMessage)
         }
 
         tdrId = treMetadata.parameters.TDR.`UUID`
         _ <- dependencies.sqsClient.sendMessage(config.outputQueueUrl)(
-          Message(tdrId, dr2FileKey, s"s3://${config.outputBucket}/$dr2FileKey", treInput.parameters.skipSeriesLookup)
+          Message(tdrId, dr2FileKey, s"s3://$outputBucket/$metadataDestinationKey", treInput.parameters.skipSeriesLookup)
         )
-        _ <- log(Map("batchRef" -> batchRef))(s"Finished processing batch $batchRef and imported file $dr2FileKey")
+        _ <- log(Map("batchRef" -> batchRef))(s"Finished processing batch $batchRef and imported file $dr2FileKey using metadata $metadataDestinationKey")
       yield ()
     }.void
   }
@@ -80,20 +76,9 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
 
 object Lambda:
 
-  private val chunkSize: Int = 1024 * 64
   case class Dependencies(s3: DAS3Client[IO], sqsClient: DASQSClient[IO], uuidGenerator: () => UUID)
 
   case class Message(id: UUID, fileId: UUID, location: String, skipSeriesLookup: Boolean)
-
-  given Decoder[TREInputProperties] = (c: HCursor) =>
-    for (
-      messageType <- c.downField("messageType").as[String];
-      `function` <- c.downField("function").as[String];
-      producer <- c.downField("producer").as[String];
-      executionId <- c.downField("executionId").as[String];
-      parentExecutionId <- c.downField("parentExecutionId").as[String];
-      timestamp <- c.downField("timestamp").as[String]
-    ) yield TREInputProperties(messageType, `function`, producer, executionId, parentExecutionId, timestamp)
 
   given Decoder[TREInputParameters] = (c: HCursor) =>
     for {
@@ -112,8 +97,6 @@ object Lambda:
 
   case class Config(outputBucket: String, outputQueueUrl: String) derives ConfigReader
 
-  case class TREInputProperties(messageType: String, `function`: String, producer: String, executionId: String, parentExecutionId: String, timestamp: String)
-
   case class TREInputParameters(reference: String, s3FolderName: String, originator: String, s3Bucket: String, status: String, skipSeriesLookup: Boolean = false)
 
-  case class TREInput(parameters: TREInputParameters, properties: Option[TREInputProperties] = None)
+  case class TREInput(parameters: TREInputParameters)

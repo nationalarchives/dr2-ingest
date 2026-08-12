@@ -11,7 +11,7 @@ import io.circe.syntax.*
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse, PutObjectTaggingResponse, CopyObjectResponse}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectTaggingResponse, CopyObjectResponse}
 import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityResponse, DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.{DAS3Client, DASQSClient}
@@ -29,7 +29,7 @@ object TestUtils:
 
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
-  case class Errors(download: Boolean = false, upload: Boolean = false, sendMessage: Boolean = false)
+  case class Errors(download: Boolean = false, copy: Boolean = false, sendMessage: Boolean = false)
 
   def sqsClient(ref: Ref[IO, List[Message]], errors: Option[Errors] = None): DASQSClient[IO] = new DASQSClient[IO] {
     override def sendMessage[T <: Product](queueUrl: String)(message: T, potentialFifoConfiguration: Option[DASQSClient.FifoQueueConfiguration], delaySeconds: Int)(using
@@ -58,13 +58,29 @@ object TestUtils:
         destinationBucket: String,
         destinationKey: String
     ): IO[CompletedCopy] =
-      for
-        downloaded <- download(sourceBucket, sourceKey)
-        _ <- upload(destinationBucket, destinationKey, downloaded)
-      yield CompletedCopy
-        .builder()
-        .response(CopyObjectResponse.builder().build())
-        .build()
+      errors.raise(_.copy, "Copy failed") >>
+        ref.get
+          .flatMap { existing =>
+            IO.fromOption(
+              existing.find(obj => obj.bucket == sourceBucket && obj.key == sourceKey)
+            )(
+              new Exception(s"Object not found: $sourceBucket/$sourceKey")
+            ).flatMap { source =>
+              ref.update { objects =>
+                S3Object(
+                  destinationBucket,
+                  destinationKey,
+                  source.content.duplicate()
+                ) :: objects
+              }
+            }
+          }
+          .as(
+            CompletedCopy
+              .builder()
+              .response(CopyObjectResponse.builder().build())
+              .build()
+          )
 
     override def download(
         bucket: String,
@@ -81,31 +97,7 @@ object TestUtils:
         bucket: String,
         key: String,
         publisher: Publisher[ByteBuffer]
-    ): IO[CompletedUpload] =
-      errors.raise(_.upload, "Upload failed") >>
-        ref
-          .update { existing =>
-            val content = Flux
-              .from(publisher)
-              .toIterable
-              .asScala
-              .reduce { (buffer1, buffer2) =>
-                val remainingElementsInBuffer1 = buffer1.remaining()
-                val remainingElementsInBuffer2 = buffer2.remaining()
-                val bytes = new Array[Byte](remainingElementsInBuffer1 + remainingElementsInBuffer2)
-                buffer1.get(bytes, 0, remainingElementsInBuffer1)
-                buffer2.get(bytes, remainingElementsInBuffer1, remainingElementsInBuffer2)
-                ByteBuffer.wrap(bytes)
-              }
-            S3Object(bucket, key, content) :: existing
-          }
-          .map { _ =>
-            CompletedUpload
-              .builder()
-              .response(PutObjectResponse.builder().build())
-              .build()
-
-          }
+    ): IO[CompletedUpload] = IO.stub
 
     override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = IO.never
 
@@ -124,7 +116,10 @@ object TestUtils:
   val reference = "TEST-REFERENCE"
   val config: Config = Config("bucket", "queueUrl")
   val inputBucket = "inputBucket"
-  val predictableUuid: UUID = UUID.fromString("e59fa46d-2c07-42dc-9d46-98af0fd38217")
+  val predictableUuids: List[UUID] = List(
+    "e59fa46d-2c07-42dc-9d46-98af0fd38217",
+    "fd03992b-7e10-4454-8381-0be4e6c0c1b5"
+  ).map(UUID.fromString)
 
   def inputMetadata(tdrUuid: UUID = UUID.randomUUID(), potentialCite: Option[String] = None, suffix: String = "2023/abc"): TREMetadata = TREMetadata(
     TREMetadataParameters(
@@ -139,28 +134,18 @@ object TestUtils:
       event: SQSEvent,
       errors: Option[Errors] = None
   ): (Either[Throwable, Unit], List[S3Object], List[Message]) =
+    val uuidIterator = predictableUuids.iterator
     (for
       s3Ref <- Ref.of[IO, List[S3Object]](initialS3State)
       sqsRef <- Ref.of[IO, List[Message]](Nil)
-      dependencies = Dependencies(s3Client(s3Ref, errors), sqsClient(sqsRef, errors), () => predictableUuid)
+      dependencies = Dependencies(s3Client(s3Ref, errors), sqsClient(sqsRef, errors), () => uuidIterator.next())
       res <- new Lambda().handler(event, config, dependencies).attempt
       s3FinalState <- s3Ref.get
       sqsFinalState <- sqsRef.get
     yield (res, s3FinalState, sqsFinalState)).unsafeRunSync()
 
   def createTestInput(s3FolderName: String, messageId: Option[String]): TREInput = TREInput(
-    TREInputParameters(reference, s3FolderName, "ABC", "some-test-bucket-name", "PARSE_SUCCESS"),
-    Option(
-      TREInputProperties(
-        "some.important.data.available",
-        "some-function-name",
-        "PQR",
-        "2B6D53BA-076A-4341-9F7E-D212C43E528B",
-        "771D05FD-91EB-450C-BEAA-DBD5AC4A53B7",
-        "2026-07-16T15:27:37.750Z"
-      )
-    )
-  )
+    TREInputParameters(reference, s3FolderName, "ABC", "some-test-bucket-name", "PARSE_SUCCESS"))
 
   def event(messageId: Option[String] = None): SQSEvent = {
     val sqsEvent = new SQSEvent()

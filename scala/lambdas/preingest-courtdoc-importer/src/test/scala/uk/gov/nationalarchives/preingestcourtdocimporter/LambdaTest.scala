@@ -27,15 +27,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     )
   ).asJson.noSpaces
 
-  "message decoder" should "correctly decode the message details from the json" in {
+  "message decoder" should "successfully decode the message parameters from json and ignore any other fields" in {
     val json = Json.obj(
-      "properties" -> Json.obj(
-        "messageType" -> Json.fromString("some.important.data.available"),
-        "function" -> Json.fromString("some-function-name"),
-        "producer" -> Json.fromString("PQR"),
-        "executionId" -> Json.fromString("2B6D53BA-076A-4341-9F7E-D212C43E528B"),
-        "parentExecutionId" -> Json.fromString("771D05FD-91EB-450C-BEAA-DBD5AC4A53B7"),
-        "timestamp" -> Json.fromString("2026-07-16T15:27:37.750Z")
+      "should-be-ignored" -> Json.obj(
+        "something" -> Json.fromString("not needed"),
+        "to" -> Json.fromString("be in the object"),
+        "ignore" -> Json.fromString("all such things"),
+        "without" -> Json.fromString("failing the decode")
       ),
       "parameters" -> Json.obj(
         "reference" -> Json.fromString("ABC-2026-A1B2"),
@@ -53,30 +51,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
         message.parameters.originator should equal("ABC")
         message.parameters.s3Bucket should equal("some-test-bucket-name")
         message.parameters.status should equal("PARSE_SUCCESS")
-        message.properties.get.messageType should equal("some.important.data.available")
-        message.properties.get.producer should equal("PQR")
-        message.properties.get.function should equal("some-function-name")
-        message.properties.get.executionId should equal("2B6D53BA-076A-4341-9F7E-D212C43E528B")
-        message.properties.get.parentExecutionId should equal("771D05FD-91EB-450C-BEAA-DBD5AC4A53B7")
-        message.properties.get.timestamp should equal("2026-07-16T15:27:37.750Z")
-      case Left(err) => fail(s"Decoding failed: $err")
-    }
-  }
-
-  "message decoder" should "error if the message is missing required fields" in {
-    val json = Json.obj(
-      "parameters" -> Json.obj(
-        "reference" -> Json.fromString("ABC-2026-A1B2"),
-        "s3FolderName" -> Json.fromString("ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2"),
-        "originator" -> Json.fromString("ABC"),
-        "s3Bucket" -> Json.fromString("some-test-bucket-name"),
-        "status" -> Json.fromString("PARSE_SUCCESS")
-      )
-    )
-    val decoded = json.as[TREInput]
-    decoded match {
-      case Right(message) =>
-        message.properties should equal(None) // properties is optional, so decoding should succeed with None
       case Left(err) => fail(s"Decoding failed: $err")
     }
   }
@@ -117,6 +91,23 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
       case Left(err) => fail(s"Decoding failed: $err")
     }
   }
+  
+  "message decoder" should "throw an exception when one of the required fields is missing" in {
+    val json = Json.obj(
+      "parameters" -> Json.obj(
+        "reference" -> Json.fromString("ABC-2026-A1B2"),
+        "s3FolderName" -> Json.fromString("ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2"),
+        "originator" -> Json.fromString("ABC"),
+        "s3Bucket" -> Json.fromString("some-test-bucket-name")
+      )
+    )
+    val decoded = json.as[TREInput]
+    decoded match {
+      case Right(_) => fail("Decoding should have failed due to missing 'status' field")
+      case Left(err) =>
+        err.getMessage should include("DecodingFailure at .parameters.status: Missing required field")
+    }
+  }
 
   "lambda handler" should "copy only the data file and the metadata file to the output bucket" in {
     val tdrUuid = UUID.randomUUID
@@ -127,8 +118,11 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     val metadata = decode[TREMetadata](s3State.head.content.array().map(_.toChar).mkString).value
 
     res.isRight should equal(true)
-    s3State.count(_.bucket == "bucket") should equal(2)
-    s3State(1).content.array().length should equal(100)
+    val objectsInDestinationBucket = s3State.filter(_.bucket == "bucket")
+    objectsInDestinationBucket.size should equal(2)
+    val expectedKeys = List(predictableUuids.head.toString, s"${predictableUuids(1)}.metadata")
+    objectsInDestinationBucket.find(_.key == predictableUuids.head.toString).get.content.array().length should equal(100)
+    objectsInDestinationBucket.map(_.key) should contain allElementsOf(expectedKeys)
 
     metadata.parameters.PARSER.uri.get should equal("https://example.com/id/court/2023/abc")
     metadata.parameters.PARSER.name.get should equal("test")
@@ -148,8 +142,8 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     sqsState.size should equal(1)
     val sqsMessage = sqsState.head
     sqsMessage.id should equal(tdrUuid)
-    sqsMessage.fileId should equal(predictableUuid)
-    sqsMessage.location should equal(s"s3://bucket/$predictableUuid")
+    sqsMessage.fileId should equal(predictableUuids.head)
+    sqsMessage.location should equal(s"s3://bucket/${predictableUuids(1)}.metadata")
   }
 
   "lambda handler" should "error if there is a error downloading the files" in {
@@ -162,16 +156,16 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     res.isLeft should equal(true)
     res.left.value.getMessage should equal("Error downloading files")
   }
-
-  "lambda handler" should "error if there is an error uploading the file" in {
+  
+  "lambda handler" should "error if there is an error copying the file" in {
     val tdrUuid = UUID.randomUUID
     val filesMap = initialTestDataInTRECommonBucket(inputMetadata(tdrUuid), reference, "ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2")
     val s3Objects = filesMap.map { case (fileName, content) => S3Object("some-test-bucket-name", fileName, content) }.toList
 
-    val (res, _, _) = runLambda(s3Objects, event(), Option(Errors(upload = true)))
+    val (res, _, _) = runLambda(s3Objects, event(), Option(Errors(copy = true)))
 
     res.isLeft should equal(true)
-    res.left.value.getMessage should equal("Upload failed")
+    res.left.value.getMessage should equal("Copy failed")
   }
 
   "lambda handler" should "error if there is an error sending the message to the queue" in {
