@@ -104,6 +104,7 @@ locals {
   source_systems = ["TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"]
   default        = local.source_systems[index(local.source_systems, "DEFAULT")]
   tdr            = local.source_systems[index(local.source_systems, "TDR")]
+  adhoc          = local.source_systems[index(local.source_systems, "ADHOC")]
   dri            = local.source_systems[index(local.source_systems, "DRI")]
 
   flow_control_configs = {
