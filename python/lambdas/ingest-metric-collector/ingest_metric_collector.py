@@ -81,7 +81,7 @@ def get_flow_control_metrics(resources_prefix, source_systems):
 
         if items:
             queued_at = isoparse(items[0]["queuedAt"]["S"].split("_")[0])
-            oldest_item_age = (datetime.now(timezone.utc) - queued_at).total_seconds()
+            oldest_item_age = int((datetime.now(timezone.utc) - queued_at).total_seconds())
         else:
             oldest_item_age = 0
         metric_data.append(

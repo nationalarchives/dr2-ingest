@@ -10,19 +10,27 @@ module "tdr_preingest" {
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
   sns_topic_subscription = {
-    topic_arn     = "arn:aws:sns:eu-west-2:${module.tdr_config.account_numbers[local.environment]}:tdr-external-notifications-${local.environment}"
-    filter_policy = templatefile("${path.module}/templates/sns/tdr_preingest_filter_policy.json.tpl", { bucket = local.tdr_export_bucket })
+    topic_arn = "arn:aws:sns:eu-west-2:${module.tdr_config.account_numbers[local.environment]}:tdr-external-notifications-${local.environment}"
+    filter_policy = templatefile("${path.module}/templates/sns/tdr_preingest_filter_policy.json.tpl", {
+      bucket = local.tdr_export_bucket
+    })
   }
-  source_name                = lower(local.source_systems[index(local.source_systems, "TDR")])
-  bucket_kms_arn             = module.tdr_config.terraform_config["${local.environment}_s3_export_bucket_kms_key_arn"]
-  copy_source_bucket_arn     = "arn:aws:s3:::${local.tdr_export_bucket}"
-  private_security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
-  private_subnet_ids         = module.vpc.private_subnets
-  vpc_id                     = module.vpc.vpc.id
-  vpc_arn                    = module.vpc.vpc.arn
-  lambda_code_version        = var.lambda_code_version
-  notifications_topic_arn    = module.dr2_notifications_sns.sns_arn
-  code_deploy_bucket         = "mgmt-dp-code-deploy"
+  source_name            = lower(local.source_systems[index(local.source_systems, "TDR")])
+  bucket_kms_arn         = module.tdr_config.terraform_config["${local.environment}_s3_export_bucket_kms_key_arn"]
+  copy_source_bucket_arn = "arn:aws:s3:::${local.tdr_export_bucket}"
+  private_security_group_ids = [
+    module.outbound_https_access_for_s3.security_group_id,
+    module.https_to_vpc_endpoints_security_group.security_group_id,
+    module.outbound_https_access_for_dynamo_db.security_group_id
+  ]
+  private_subnet_ids               = module.vpc.private_subnets
+  vpc_id                           = module.vpc.vpc.id
+  vpc_arn                          = module.vpc.vpc.arn
+  lambda_code_version              = var.lambda_code_version
+  notifications_topic_arn          = module.dr2_notifications_sns.sns_arn
+  code_deploy_bucket               = "mgmt-dp-code-deploy"
+  general_notifications_channel_id = local.general_notifications_channel_id
+  slack_api_destination_arn        = module.eventbridge_alarm_notifications_destination.api_destination_arn
 }
 
 module "dri_preingest" {
@@ -55,6 +63,8 @@ module "dri_preingest" {
   aggregator_lambda = {
     timeout = 900 # Set to max as we're not sure how long it'll take to do 10k messages
   }
+  general_notifications_channel_id = local.general_notifications_channel_id
+  slack_api_destination_arn        = module.eventbridge_alarm_notifications_destination.api_destination_arn
 }
 
 module "ad_hoc_preingest" {
@@ -76,17 +86,18 @@ module "ad_hoc_preingest" {
   lambda_code_version                          = var.lambda_code_version
   notifications_topic_arn                      = module.dr2_notifications_sns.sns_arn
   code_deploy_bucket                           = "mgmt-dp-code-deploy"
+  general_notifications_channel_id             = local.general_notifications_channel_id
+  slack_api_destination_arn                    = module.eventbridge_alarm_notifications_destination.api_destination_arn
 }
 
 module "court_document_preingest" {
-  source                                       = "./preingest"
-  environment                                  = local.environment
-  aggregator_secondary_grouping_window_seconds = 60 * 60 * 4
-  ingest_lock_dynamo_table_name                = local.ingest_lock_dynamo_table_name
-  ingest_lock_table_arn                        = module.ingest_lock_table.table_arn
-  ingest_lock_table_group_id_gsi_name          = local.ingest_lock_table_group_id_gsi_name
-  ingest_raw_cache_bucket_name                 = local.ingest_raw_cache_bucket_name
-  ingest_step_function_name                    = local.ingest_step_function_name
+  source                              = "./preingest"
+  environment                         = local.environment
+  ingest_lock_dynamo_table_name       = local.ingest_lock_dynamo_table_name
+  ingest_lock_table_arn               = module.ingest_lock_table.table_arn
+  ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
+  ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
+  ingest_step_function_name           = local.ingest_step_function_name
   sns_topic_subscription = local.environment == "prod" ? {
     topic_arn     = module.tre_config.terraform_config[local.tre_environment_name]["da_eventbus"],
     filter_policy = templatefile("${path.module}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})
@@ -106,11 +117,13 @@ module "court_document_preingest" {
   package_builder_lambda = {
     handler = "uk.gov.nationalarchives.preingestcourtdocpackagebuilder.Lambda::handleRequest"
   }
-  vpc_id                  = module.vpc.vpc.id
-  vpc_arn                 = module.vpc.vpc.arn
-  lambda_code_version     = var.lambda_code_version
-  notifications_topic_arn = module.dr2_notifications_sns.sns_arn
-  code_deploy_bucket      = "mgmt-dp-code-deploy"
+  vpc_id                           = module.vpc.vpc.id
+  vpc_arn                          = module.vpc.vpc.arn
+  lambda_code_version              = var.lambda_code_version
+  notifications_topic_arn          = module.dr2_notifications_sns.sns_arn
+  code_deploy_bucket               = "mgmt-dp-code-deploy"
+  general_notifications_channel_id = local.general_notifications_channel_id
+  slack_api_destination_arn        = module.eventbridge_alarm_notifications_destination.api_destination_arn
 }
 
 module "cc_restore_preingest" {
@@ -132,10 +145,12 @@ module "cc_restore_preingest" {
   package_builder_lambda = {
     handler = "uk.gov.nationalarchives.preingestrestorepackagebuilder.Lambda::handleRequest"
   }
-  vpc_id                  = module.vpc.vpc.id
-  vpc_arn                 = module.vpc.vpc.arn
-  lambda_code_version     = var.lambda_code_version
-  notifications_topic_arn = module.dr2_notifications_sns.sns_arn
-  code_deploy_bucket      = "mgmt-dp-code-deploy"
+  vpc_id                           = module.vpc.vpc.id
+  vpc_arn                          = module.vpc.vpc.arn
+  lambda_code_version              = var.lambda_code_version
+  notifications_topic_arn          = module.dr2_notifications_sns.sns_arn
+  code_deploy_bucket               = "mgmt-dp-code-deploy"
+  general_notifications_channel_id = local.general_notifications_channel_id
+  slack_api_destination_arn        = module.eventbridge_alarm_notifications_destination.api_destination_arn
 }
 

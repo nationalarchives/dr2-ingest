@@ -20,6 +20,8 @@ locals {
   messages_visible_threshold                   = 1000000
   code_deploy_bucket                           = "mgmt-dp-code-deploy"
   alias_name                                   = replace(var.lambda_code_version, ".", "-")
+  keep_aggregator_warm_name                    = "${local.environment}-aggregator-keep-warm"
+  keep_aggregator_warm_count                   = var.aggregator_secondary_grouping_window_seconds > 900 ? 1 : 0
 }
 
 module "dr2_preingest_aggregator_queue" {
@@ -41,7 +43,7 @@ module "dr2_preingest_aggregator_queue" {
 module "dr2_preingest_aggregator_lambda" {
   source                         = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   function_name                  = local.aggregator_name
-  handler                        = "uk.gov.nationalarchives.preingesttdraggregator.Lambda::handleRequest"
+  handler                        = "uk.gov.nationalarchives.preingestaggregator.Lambda::handleRequest"
   sqs_queue_batching_window      = local.aggregator_primary_grouping_window_seconds
   sqs_queue_mapping_batch_size   = local.aggregator_invocation_batch_size
   sqs_report_batch_item_failures = true
@@ -146,4 +148,44 @@ module "dr2_preingest_package_builder_lambda" {
     Name        = local.package_builder_lambda_name
     SfnFunction = "true"
   }
+}
+
+resource "aws_scheduler_schedule" "keep_aggregator_warm_schedule" {
+  count               = local.keep_aggregator_warm_count
+  schedule_expression = "rate(5 minutes)"
+  name                = local.keep_aggregator_warm_name
+  group_name          = "default"
+  flexible_time_window {
+    mode = "OFF"
+  }
+  target {
+    arn      = module.dr2_preingest_aggregator_lambda.lambda_arn
+    role_arn = module.dr2_keep_lambda_warm_role[count.index].role_arn
+    input = jsonencode({
+      "Records" : []
+    })
+  }
+}
+
+module "dr2_keep_lambda_warm_role" {
+  count  = local.keep_aggregator_warm_count
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
+  assume_role_policy = templatefile("${path.module}/templates/service_assume_role.json.tpl", {
+    service        = "scheduler.amazonaws.com"
+    account_number = data.aws_caller_identity.current.account_id
+  })
+  name = local.keep_aggregator_warm_name
+  policy_attachments = {
+    dr2_keep_lambda_warm_policy = module.dr2_keep_lambda_warm_policy[count.index].policy_arn
+  }
+  tags = {}
+}
+
+module "dr2_keep_lambda_warm_policy" {
+  count  = local.keep_aggregator_warm_count
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
+  name   = local.keep_aggregator_warm_name
+  policy_string = templatefile("${path.module}/templates/invoke_lambda_policy.json.tpl", {
+    lambda_arn = module.dr2_preingest_aggregator_lambda.lambda_arn
+  })
 }

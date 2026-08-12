@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.preingesttdraggregator
+package uk.gov.nationalarchives.preingestaggregator
 
 import io.circe.Json
 

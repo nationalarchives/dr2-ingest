@@ -1,4 +1,4 @@
-package uk.gov.nationalarchives.preingesttdraggregator
+package uk.gov.nationalarchives.preingestaggregator
 
 import cats.effect.std.AtomicCell
 import cats.effect.unsafe.implicits.global
@@ -7,11 +7,11 @@ import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFa
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import io.circe.Encoder
 import org.scalatest.flatspec.AnyFlatSpec
-import uk.gov.nationalarchives.preingesttdraggregator.Aggregator.{*, given}
-import uk.gov.nationalarchives.preingesttdraggregator.Duration.*
+import uk.gov.nationalarchives.preingestaggregator.Aggregator.{*, given}
+import uk.gov.nationalarchives.preingestaggregator.Duration.*
 import uk.gov.nationalarchives.utils.ExternalUtils.OutputMessage
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient, DASNSClient, utils}
-import uk.gov.nationalarchives.preingesttdraggregator.Lambda.{Config, Group}
+import uk.gov.nationalarchives.preingestaggregator.Lambda.{Config, Group}
 import org.scalatest.{Assertion, EitherValues}
 import org.scalatest.matchers.should.Matchers.*
 import org.scanamo.DynamoFormat
@@ -20,7 +20,7 @@ import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
-import uk.gov.nationalarchives.preingesttdraggregator.Ids.{BatchId, GroupId}
+import uk.gov.nationalarchives.preingestaggregator.Ids.{BatchId, GroupId}
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.IngestStarted
 import uk.gov.nationalarchives.utils.Generators
 
