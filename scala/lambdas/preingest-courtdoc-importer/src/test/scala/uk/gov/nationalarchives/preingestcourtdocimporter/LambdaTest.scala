@@ -91,7 +91,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
       case Left(err) => fail(s"Decoding failed: $err")
     }
   }
-  
+
   "message decoder" should "throw an exception when one of the required fields is missing" in {
     val json = Json.obj(
       "parameters" -> Json.obj(
@@ -103,7 +103,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     )
     val decoded = json.as[TREInput]
     decoded match {
-      case Right(_) => fail("Decoding should have failed due to missing 'status' field")
+      case Right(_)  => fail("Decoding should have failed due to missing 'status' field")
       case Left(err) =>
         err.getMessage should include("DecodingFailure at .parameters.status: Missing required field")
     }
@@ -122,7 +122,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     objectsInDestinationBucket.size should equal(2)
     val expectedKeys = List(predictableUuids.head.toString, s"${predictableUuids(1)}.metadata")
     objectsInDestinationBucket.find(_.key == predictableUuids.head.toString).get.content.array().length should equal(100)
-    objectsInDestinationBucket.map(_.key) should contain allElementsOf(expectedKeys)
+    objectsInDestinationBucket.map(_.key) should contain allElementsOf (expectedKeys)
 
     metadata.parameters.PARSER.uri.get should equal("https://example.com/id/court/2023/abc")
     metadata.parameters.PARSER.name.get should equal("test")
@@ -156,7 +156,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     res.isLeft should equal(true)
     res.left.value.getMessage should equal("Error downloading files")
   }
-  
+
   "lambda handler" should "error if there is an error copying the file" in {
     val tdrUuid = UUID.randomUUID
     val filesMap = initialTestDataInTRECommonBucket(inputMetadata(tdrUuid), reference, "ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2")

@@ -47,7 +47,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
         _ <- log(Map("batchRef" -> batchRef))(s"Processing batchRef $batchRef")
 
         metadataSourceKey = s"${treInput.parameters.s3FolderName}$metadataFolder/TRE-$batchRef-metadata.json"
-          treMetadata <- readJsonFromS3Location(treInput.parameters.s3Bucket, metadataSourceKey).onError { err =>
+        treMetadata <- readJsonFromS3Location(treInput.parameters.s3Bucket, metadataSourceKey).onError { err =>
           log(Map("error" -> err.getMessage, "s3FolderName" -> treInput.parameters.s3FolderName))(err.getMessage)
         }
         treFileKey = s"${treInput.parameters.s3FolderName}$dataFileFolder/${treMetadata.parameters.TRE.payload.filename}"

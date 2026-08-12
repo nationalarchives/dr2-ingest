@@ -145,7 +145,8 @@ object TestUtils:
     yield (res, s3FinalState, sqsFinalState)).unsafeRunSync()
 
   def createTestInput(s3FolderName: String, messageId: Option[String]): TREInput = TREInput(
-    TREInputParameters(reference, s3FolderName, "ABC", "some-test-bucket-name", "PARSE_SUCCESS"))
+    TREInputParameters(reference, s3FolderName, "ABC", "some-test-bucket-name", "PARSE_SUCCESS")
+  )
 
   def event(messageId: Option[String] = None): SQSEvent = {
     val sqsEvent = new SQSEvent()
