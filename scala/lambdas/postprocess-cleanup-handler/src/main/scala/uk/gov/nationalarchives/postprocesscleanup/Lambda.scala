@@ -21,6 +21,8 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
   private val deletionTagMap = Map("TO_BE_DELETED" -> "true")
 
+  private lazy val dependencies = Dependencies(DADynamoDBClient[IO](), DAS3Client[IO]())
+
   override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = (sqsEvent, config, dependencies) =>
     val ttlAfter1Day = System.currentTimeMillis() / 1000 + 24 * 3600
 
@@ -67,8 +69,13 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
 
         _ <- logger.info(s"Updating TTL for children of assetId $assetId")
         _ <- fileItems.traverse { fileItem =>
-          dependencies.s3Client.updateObjectTags(config.rawCacheBucketName, fileItem.location.getPath.drop(1), deletionTagMap) >>
-            updateTtl(fileItem.id.toString)
+          val key = fileItem.location.getPath.drop(1)
+          for
+            _ <- logger.info(s"Updating object tags for $key")
+            _ <- dependencies.s3Client.updateObjectTags(config.rawCacheBucketName, key, deletionTagMap)
+            _ <- logger.info(s"Updating ttl for ${fileItem.id}")
+            _ <- updateTtl(fileItem.id.toString)
+          yield ()
         }
 
         potentialParentPath = assetItem.potentialParentPath.getOrElse("")
@@ -80,9 +87,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
   def getParentPathForChildren(assetItem: DynamoItem): String =
     s"${assetItem.potentialParentPath.map(path => s"$path/").getOrElse("")}${assetItem.id}"
 
-  override def dependencies(config: Config): IO[Dependencies] = IO(
-    Dependencies(DADynamoDBClient[IO](), DAS3Client[IO]())
-  )
+  override def dependencies(config: Config): IO[Dependencies] = IO.pure(dependencies)
 }
 
 object Lambda {
