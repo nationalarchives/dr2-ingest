@@ -1,6 +1,6 @@
-# DR2 Preingest TDR aggregator
+# DR2 Preingest Aggregator
 
-This code is used for the TDR, Court Document and DRI migration preingest.
+This code is used for the TDR, Court Documents, DRI migration and Ad hoc and restoration preingests.
 
 The Aggregator SQS queue sends messages to this lambda. In order to reduce the number of invocations, this lambda uses
 Lambda's [built-in batching](https://aws.amazon.com/about-aws/whats-new/2020/11/aws-lambda-now-supports-batch-windows-of-up-to-5-minutes-for-functions/)
@@ -39,7 +39,7 @@ Once the lambda is invoked, each message is processed in parallel via a fibre. T
 4. If a group is to be created then it will:
    1. Generate a new group ID
    2. Pass in the group expiry time
-   3. Generate a batch ID which is "${groupId}_$retryCount" - retryCount is set to 0
+   3. Generate a batch ID which is `${groupId}_$retryCount` - retryCount is set to 0
    4. Generate a delay time which is the expiry time - the current time
       - This delay tells the next step function to wait until that delay is up, to start processing the group
    5. Write the `assetId` (from the message input), the `groupId`, the message body string from the SQS message and created at date to the DDB Lock Table
