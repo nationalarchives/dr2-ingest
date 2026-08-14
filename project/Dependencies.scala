@@ -77,4 +77,5 @@ object Dependencies {
   lazy val nettyTransport = "io.netty" % "netty-transport" % nettyVersion
   lazy val httpcore5 = "org.apache.httpcomponents.core5" % "httpcore5" % httpcoreVersion
   lazy val httpcore5H2 = "org.apache.httpcomponents.core5" % "httpcore5-h2" % httpcoreVersion
+  lazy val httpClient = "org.apache.httpcomponents.client5" % "httpclient5" % "5.6.4"
 }

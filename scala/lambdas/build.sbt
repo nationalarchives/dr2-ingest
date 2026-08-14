@@ -89,6 +89,7 @@ lazy val commonSettings = Seq(
     commonsLogging,
     httpcore5,
     httpcore5H2,
+    httpClient,
     jawnParser
   ),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
