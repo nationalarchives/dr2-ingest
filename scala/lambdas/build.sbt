@@ -86,7 +86,9 @@ lazy val commonSettings = Seq(
     nettyResolver,
     nettyTransportClasses,
     nettyTransport,
-    commonsLogging,
+    commonsLogging,    
+    httpcore5,
+    httpcore5H2,
     jawnParser
   ),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),

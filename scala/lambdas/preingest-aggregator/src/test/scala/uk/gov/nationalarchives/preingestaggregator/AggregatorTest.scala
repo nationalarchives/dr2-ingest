@@ -228,8 +228,8 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
   "aggregate" should "add a new group to the existing group if the expiry is after the lambda timeout and items is equal to max batch size" in {
     val assetId = UUID.randomUUID
     val existingGroupId = GroupId("TST")
-    val earlier = instant.plusMillis(10000)
-    val groupCache = Map("eventSourceArn" -> Group(existingGroupId, earlier, 10))
+    val later = instant.plusMillis(10000)
+    val groupCache = Map("eventSourceArn" -> Group(existingGroupId, later, 10))
     val output = getAggregatorOutput(List(assetId), groupCache).unsafeRunSync()
 
     output.failures.isEmpty should equal(true)
