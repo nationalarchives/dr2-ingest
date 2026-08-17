@@ -218,7 +218,7 @@ module "vpc" {
     account_id               = data.aws_caller_identity.current.account_id,
     preservica_ingest_bucket = local.preservica_ingest_bucket
     tdr_export_bucket        = local.tdr_export_bucket
-    tre_export_bucket_arn    = module.tre_config.terraform_config[local.tre_environment_name]["s3_court_document_pack_out_arn"]
+    tre_export_bucket_arn    = module.tre_config.terraform_config[local.tre_environment_name]["s3_common_bucket_arn"]
     object_store_bucket_name = local.object_store_bucket_name
   })
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
