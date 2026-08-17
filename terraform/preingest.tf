@@ -15,7 +15,7 @@ module "tdr_preingest" {
       bucket = local.tdr_export_bucket
     })
   }
-  source_name            = lower(local.source_systems[index(local.source_systems, "TDR")])
+  source_name            = lower(local.tdr)
   bucket_kms_arn         = module.tdr_config.terraform_config["${local.environment}_s3_export_bucket_kms_key_arn"]
   copy_source_bucket_arn = "arn:aws:s3:::${local.tdr_export_bucket}"
   private_security_group_ids = [
@@ -41,7 +41,7 @@ module "dri_preingest" {
   ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
   ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
   ingest_step_function_name           = local.ingest_step_function_name
-  source_name                         = lower(local.source_systems[index(local.source_systems, "DRI")])
+  source_name                         = lower(local.dri)
   copy_source_bucket_arn              = "arn:aws:s3:::${local.dri_migration_bucket_name}"
   private_security_group_ids          = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids                  = module.vpc.private_subnets
@@ -75,7 +75,7 @@ module "ad_hoc_preingest" {
   ingest_lock_table_group_id_gsi_name          = local.ingest_lock_table_group_id_gsi_name
   ingest_raw_cache_bucket_name                 = local.ingest_raw_cache_bucket_name
   ingest_step_function_name                    = local.ingest_step_function_name
-  source_name                                  = lower(local.source_systems[index(local.source_systems, "ADHOC")])
+  source_name                                  = lower(local.adhoc)
   copy_source_bucket_arn                       = "arn:aws:s3:::${local.adhoc_bucket_name}"
   private_security_group_ids                   = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids                           = module.vpc.private_subnets
