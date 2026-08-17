@@ -8,19 +8,16 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.auto.*
 import io.circe.syntax.*
-import org.apache.commons.compress.archivers.tar.{TarArchiveEntry, TarArchiveOutputStream}
-import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.core.async.SdkPublisher
-import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectResponse, PutObjectTaggingResponse}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectsResponse, HeadObjectResponse, ListObjectsV2Response, PutObjectTaggingResponse, CopyObjectResponse}
 import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityResponse, DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import software.amazon.awssdk.transfer.s3.model.{CompletedCopy, CompletedUpload}
 import uk.gov.nationalarchives.{DAS3Client, DASQSClient}
 import uk.gov.nationalarchives.preingestcourtdocimporter.Lambda.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -32,7 +29,7 @@ object TestUtils:
 
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
-  case class Errors(download: Boolean = false, upload: Boolean = false, sendMessage: Boolean = false)
+  case class Errors(download: Boolean = false, copy: Boolean = false, sendMessage: Boolean = false)
 
   def sqsClient(ref: Ref[IO, List[Message]], errors: Option[Errors] = None): DASQSClient[IO] = new DASQSClient[IO] {
     override def sendMessage[T <: Product](queueUrl: String)(message: T, potentialFifoConfiguration: Option[DASQSClient.FifoQueueConfiguration], delaySeconds: Int)(using
@@ -55,25 +52,52 @@ object TestUtils:
 
   def s3Client(ref: Ref[IO, List[S3Object]], errors: Option[Errors] = None): DAS3Client[IO] = new DAS3Client[IO]:
 
-    override def copy(sourceBucket: String, sourceKey: String, destinationBucket: String, destinationKey: String): IO[CompletedCopy] = IO.never
+    override def copy(
+        sourceBucket: String,
+        sourceKey: String,
+        destinationBucket: String,
+        destinationKey: String
+    ): IO[CompletedCopy] =
+      errors.raise(_.copy, "Copy failed") >>
+        ref.get
+          .flatMap { existing =>
+            IO.fromOption(
+              existing.find(obj => obj.bucket == sourceBucket && obj.key == sourceKey)
+            )(
+              new Exception(s"Object not found: $sourceBucket/$sourceKey")
+            ).flatMap { source =>
+              ref.update { objects =>
+                S3Object(
+                  destinationBucket,
+                  destinationKey,
+                  source.content.duplicate()
+                ) :: objects
+              }
+            }
+          }
+          .as(
+            CompletedCopy
+              .builder()
+              .response(CopyObjectResponse.builder().build())
+              .build()
+          )
 
-    override def download(bucket: String, key: String): IO[Publisher[ByteBuffer]] = errors.raise(_.download, "Error downloading files") >>
-      (for {
-        existing <- ref.get
-        s3Object <- IO.fromOption(existing.find(obj => obj.key == key && obj.bucket == bucket))(new Exception("Object not found"))
-      } yield Flux.just(s3Object.content))
+    override def download(
+        bucket: String,
+        key: String
+    ): IO[Publisher[ByteBuffer]] =
+      errors.raise(_.download, "Error downloading files") >>
+        ref.get.flatMap { existing =>
+          IO.fromOption(existing.find(obj => obj.key == key && obj.bucket == bucket))(new Exception(s"Object not found: $bucket/$key")).map { s3Object =>
+            Flux.just(s3Object.content.duplicate())
+          }
+        }
 
-    override def upload(bucket: String, key: String, publisher: Publisher[ByteBuffer]): IO[CompletedUpload] = errors.raise(_.upload, "Upload failed") >> ref
-      .update { existing =>
-        val content = Flux
-          .from(publisher)
-          .toIterable
-          .asScala
-          .toList
-          .head
-        S3Object(bucket, key, content) :: existing
-      }
-      .map(_ => CompletedUpload.builder.response(PutObjectResponse.builder.build).build)
+    override def upload(
+        bucket: String,
+        key: String,
+        publisher: Publisher[ByteBuffer]
+    ): IO[CompletedUpload] = IO.stub
 
     override def headObject(bucket: String, key: String): IO[HeadObjectResponse] = IO.never
 
@@ -90,10 +114,12 @@ object TestUtils:
     override def updateObjectTags(bucket: String, key: String, newTags: Map[String, String], potentialVersionId: Option[String]): IO[PutObjectTaggingResponse] = IO.stub
 
   val reference = "TEST-REFERENCE"
-
   val config: Config = Config("bucket", "queueUrl")
-
   val inputBucket = "inputBucket"
+  val predictableUuids: List[UUID] = List(
+    "e59fa46d-2c07-42dc-9d46-98af0fd38217",
+    "fd03992b-7e10-4454-8381-0be4e6c0c1b5"
+  ).map(UUID.fromString)
 
   def inputMetadata(tdrUuid: UUID = UUID.randomUUID(), potentialCite: Option[String] = None, suffix: String = "2023/abc"): TREMetadata = TREMetadata(
     TREMetadataParameters(
@@ -103,18 +129,12 @@ object TestUtils:
     )
   )
 
-  def uuids: List[UUID] = List(
-    "cee5851e-813f-4a9d-ae9c-577f9eb601e0",
-    "fd03992b-7e10-4454-8381-0be4e6c0c1b5",
-    "e59fa46d-2c07-42dc-9d46-98af0fd38217"
-  ).map(UUID.fromString)
-
   def runLambda(
       initialS3State: List[S3Object],
       event: SQSEvent,
       errors: Option[Errors] = None
   ): (Either[Throwable, Unit], List[S3Object], List[Message]) =
-    val uuidIterator = uuids.iterator
+    val uuidIterator = predictableUuids.iterator
     (for
       s3Ref <- Ref.of[IO, List[S3Object]](initialS3State)
       sqsRef <- Ref.of[IO, List[Message]](Nil)
@@ -124,37 +144,24 @@ object TestUtils:
       sqsFinalState <- sqsRef.get
     yield (res, s3FinalState, sqsFinalState)).unsafeRunSync()
 
-  def packageAvailable(s3Key: String, messageId: Option[String]): TREInput = TREInput(
-    TREInputParameters("status", "TEST-REFERENCE", skipSeriesLookup = false, inputBucket, s3Key),
-    Option(TREInputProperties(messageId))
+  def createTestInput(s3FolderName: String, messageId: Option[String]): TREInput = TREInput(
+    TREInputParameters(reference, s3FolderName, "ABC", "some-test-bucket-name", "PARSE_SUCCESS")
   )
 
   def event(messageId: Option[String] = None): SQSEvent = {
     val sqsEvent = new SQSEvent()
     val record = new SQSMessage()
-    record.setBody(packageAvailable("test.tar.gz", messageId).asJson.noSpaces)
+    record.setBody(createTestInput("ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2", messageId).asJson.noSpaces)
     sqsEvent.setRecords(List(record).asJava)
     sqsEvent
   }
 
-  def fileBytes(metadata: TREMetadata, batchReference: String): ByteBuffer = fileBytes(metadata.asJson.noSpaces, batchReference)
+  def initialTestDataInTRECommonBucket(metadata: TREMetadata, batchReference: String, s3FolderName: String): Map[String, ByteBuffer] =
+    initialTestDataInTRECommonBucket(metadata.asJson.noSpaces, batchReference, s3FolderName)
 
-  def fileBytes(content: String, batchReference: String): ByteBuffer = {
-    val byteArrayOutputStream = new ByteArrayOutputStream()
-    val gzipOut = new GzipCompressorOutputStream(byteArrayOutputStream)
-    val tarOut = new TarArchiveOutputStream(gzipOut)
-    val directoryEntry = new TarArchiveEntry(s"$batchReference/")
-    tarOut.putArchiveEntry(directoryEntry)
-    val files = Map("Test.docx" -> Array.fill(100)("a").mkString, "unused.txt" -> "", s"TRE-$batchReference-metadata.json" -> content)
-    files.foreach { (fileName, content) =>
-      val entry = new TarArchiveEntry(s"$batchReference/$fileName")
-      entry.setSize(content.length)
-      tarOut.putArchiveEntry(entry)
-      tarOut.write(content.getBytes)
-      tarOut.closeArchiveEntry()
+  def initialTestDataInTRECommonBucket(content: String, batchReference: String, s3FolderName: String): Map[String, ByteBuffer] = {
+    val files = Map(s"$s3FolderName/out/data/Test.docx" -> Array.fill(100)("a").mkString, "unused.txt" -> "", s"$s3FolderName/out/TRE-$batchReference-metadata.json" -> content)
+    files.map { case (fileName, fileContent) =>
+      fileName -> ByteBuffer.wrap(fileContent.getBytes)
     }
-    tarOut.close()
-    gzipOut.close()
-    byteArrayOutputStream.close()
-    ByteBuffer.wrap(byteArrayOutputStream.toByteArray)
   }

@@ -1,13 +1,15 @@
 package uk.gov.nationalarchives.preingestcourtdocimporter
 
 import cats.syntax.all.*
-import org.scalatest.matchers.should.Matchers.*
-import org.scalatest.flatspec.AnyFlatSpec
+import io.circe.Json
+import io.circe.generic.auto.*
 import io.circe.parser.decode
 import io.circe.syntax.*
-import io.circe.generic.auto.*
-import TestUtils.*
 import org.scalatest.EitherValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers.*
+import uk.gov.nationalarchives.preingestcourtdocimporter.Lambda.{TREInput, TREInputParameters}
+import uk.gov.nationalarchives.preingestcourtdocimporter.TestUtils.*
 import uk.gov.nationalarchives.utils.ExternalUtils.*
 
 import java.time.OffsetDateTime
@@ -25,18 +27,102 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     )
   ).asJson.noSpaces
 
-  "lambda handler" should "copy only the file and the metadata file to the output bucket" in {
-    val tdrUuid = UUID.randomUUID
-    val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), reference)
+  "message decoder" should "successfully decode the message parameters from json and ignore any other fields" in {
+    val json = Json.obj(
+      "should-be-ignored" -> Json.obj(
+        "something" -> Json.fromString("not needed"),
+        "to" -> Json.fromString("be in the object"),
+        "ignore" -> Json.fromString("all such things"),
+        "without" -> Json.fromString("failing the decode")
+      ),
+      "parameters" -> Json.obj(
+        "reference" -> Json.fromString("ABC-2026-A1B2"),
+        "s3FolderName" -> Json.fromString("ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2"),
+        "originator" -> Json.fromString("ABC"),
+        "s3Bucket" -> Json.fromString("some-test-bucket-name"),
+        "status" -> Json.fromString("PARSE_SUCCESS")
+      )
+    )
+    val decoded = json.as[TREInput]
+    decoded match {
+      case Right(message) =>
+        message.parameters.reference should equal("ABC-2026-A1B2")
+        message.parameters.s3FolderName should equal("ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2")
+        message.parameters.originator should equal("ABC")
+        message.parameters.s3Bucket should equal("some-test-bucket-name")
+        message.parameters.status should equal("PARSE_SUCCESS")
+      case Left(err) => fail(s"Decoding failed: $err")
+    }
+  }
 
-    val (res, s3State, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event())
+  "message decoder" should "set skipSeriesLookup to false if it does not exist in the json" in {
+    val json = Json.obj(
+      "parameters" -> Json.obj(
+        "reference" -> Json.fromString("ABC-2026-A1B2"),
+        "s3FolderName" -> Json.fromString("ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2"),
+        "originator" -> Json.fromString("ABC"),
+        "s3Bucket" -> Json.fromString("some-test-bucket-name"),
+        "status" -> Json.fromString("PARSE_SUCCESS")
+      )
+    )
+    val decoded = json.as[TREInput]
+    decoded match {
+      case Right(message) =>
+        message.parameters.skipSeriesLookup should equal(false)
+      case Left(err) => fail(s"Decoding failed: $err")
+    }
+  }
+
+  "message decoder" should "set skipSeriesLookup to true if a true value is provided in the json" in {
+    val json = Json.obj(
+      "parameters" -> Json.obj(
+        "reference" -> Json.fromString("ABC-2026-A1B2"),
+        "s3FolderName" -> Json.fromString("ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2"),
+        "originator" -> Json.fromString("ABC"),
+        "s3Bucket" -> Json.fromString("some-test-bucket-name"),
+        "status" -> Json.fromString("PARSE_SUCCESS"),
+        "skipSeriesLookup" -> Json.fromBoolean(true)
+      )
+    )
+    val decoded = json.as[TREInput]
+    decoded match {
+      case Right(message) =>
+        message.parameters.skipSeriesLookup should equal(true)
+      case Left(err) => fail(s"Decoding failed: $err")
+    }
+  }
+
+  "message decoder" should "throw an exception when one of the required fields is missing" in {
+    val json = Json.obj(
+      "parameters" -> Json.obj(
+        "reference" -> Json.fromString("ABC-2026-A1B2"),
+        "s3FolderName" -> Json.fromString("ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2"),
+        "originator" -> Json.fromString("ABC"),
+        "s3Bucket" -> Json.fromString("some-test-bucket-name")
+      )
+    )
+    val decoded = json.as[TREInput]
+    decoded match {
+      case Right(_)  => fail("Decoding should have failed due to missing 'status' field")
+      case Left(err) =>
+        err.getMessage should include("DecodingFailure at .parameters.status: Missing required field")
+    }
+  }
+
+  "lambda handler" should "copy only the data file and the metadata file to the output bucket" in {
+    val tdrUuid = UUID.randomUUID
+    val filesMap = initialTestDataInTRECommonBucket(inputMetadata(tdrUuid), reference, "ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2")
+    val s3Objects = filesMap.map { case (fileName, content) => S3Object("some-test-bucket-name", fileName, content) }.toList
+    val (res, s3State, _) = runLambda(s3Objects, event())
 
     val metadata = decode[TREMetadata](s3State.head.content.array().map(_.toChar).mkString).value
 
     res.isRight should equal(true)
-    s3State.count(_.bucket == "bucket") should equal(2)
-    s3State(1).content.array().length should equal(100)
+    val objectsInDestinationBucket = s3State.filter(_.bucket == "bucket")
+    objectsInDestinationBucket.size should equal(2)
+    val expectedKeys = List(predictableUuids.head.toString, s"${predictableUuids(1)}.metadata")
+    objectsInDestinationBucket.find(_.key == predictableUuids.head.toString).get.content.array().length should equal(100)
+    objectsInDestinationBucket.map(_.key) should contain allElementsOf (expectedKeys)
 
     metadata.parameters.PARSER.uri.get should equal("https://example.com/id/court/2023/abc")
     metadata.parameters.PARSER.name.get should equal("test")
@@ -47,85 +133,72 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
 
   "lambda handler" should "send the correct message to the sqs queue" in {
     val tdrUuid = UUID.randomUUID
-    val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), reference)
-
-    val (res, _, sqsState) = runLambda(List(S3Object("inputBucket", fileName, content)), event())
+    val filesMap = initialTestDataInTRECommonBucket(inputMetadata(tdrUuid), reference, "ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2")
+    val s3Objects = filesMap.map { case (fileName, content) => S3Object("some-test-bucket-name", fileName, content) }.toList
+    val (res, _, sqsState) = runLambda(s3Objects, event())
 
     res.isRight should equal(true)
 
     sqsState.size should equal(1)
     val sqsMessage = sqsState.head
     sqsMessage.id should equal(tdrUuid)
-    sqsMessage.fileId should equal(uuids.head)
-    sqsMessage.location should equal(s"s3://bucket/${uuids(2)}")
+    sqsMessage.fileId should equal(predictableUuids.head)
+    sqsMessage.location should equal(s"s3://bucket/${predictableUuids(1)}.metadata")
   }
 
-  "lambda handler" should "send a message id in the message if one is provided" in {
+  "lambda handler" should "error if there is a error downloading the files" in {
     val tdrUuid = UUID.randomUUID
-    val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), reference)
+    val filesMap = initialTestDataInTRECommonBucket(inputMetadata(tdrUuid), reference, "ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2")
+    val s3Objects = filesMap.map { case (fileName, content) => S3Object("some-test-bucket-name", fileName, content) }.toList
 
-    val (res, _, sqsState) = runLambda(List(S3Object("inputBucket", fileName, content)), event(Option("test-id")))
-
-    res.isRight should equal(true)
-
-    sqsState.size should equal(1)
-    val sqsMessage = sqsState.head
-    sqsMessage.messageId.get should equal("test-id")
-
-  }
-
-  "lambda handler" should "error if there is a error downloading the tar file" in {
-    val tdrUuid = UUID.randomUUID
-    val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), reference)
-
-    val (res, _, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event(), Option(Errors(download = true)))
+    val (res, _, _) = runLambda(s3Objects, event(), Option(Errors(download = true)))
 
     res.isLeft should equal(true)
     res.left.value.getMessage should equal("Error downloading files")
   }
 
-  "lambda handler" should "error if there is an error uploading the extracted file" in {
+  "lambda handler" should "error if there is an error copying the file" in {
     val tdrUuid = UUID.randomUUID
-    val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), reference)
+    val filesMap = initialTestDataInTRECommonBucket(inputMetadata(tdrUuid), reference, "ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2")
+    val s3Objects = filesMap.map { case (fileName, content) => S3Object("some-test-bucket-name", fileName, content) }.toList
 
-    val (res, _, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event(), Option(Errors(upload = true)))
+    val (res, _, _) = runLambda(s3Objects, event(), Option(Errors(copy = true)))
 
     res.isLeft should equal(true)
-    res.left.value.getMessage should equal("Upload failed")
+    res.left.value.getMessage should equal("Copy failed")
   }
 
   "lambda handler" should "error if there is an error sending the message to the queue" in {
     val tdrUuid = UUID.randomUUID
-    val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(tdrUuid), reference)
+    val filesMap = initialTestDataInTRECommonBucket(inputMetadata(tdrUuid), reference, "ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2")
+    val s3Objects = filesMap.map { case (fileName, content) => S3Object("some-test-bucket-name", fileName, content) }.toList
 
-    val (res, _, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event(), Option(Errors(sendMessage = true)))
+    val (res, _, _) = runLambda(s3Objects, event(), Option(Errors(sendMessage = true)))
 
     res.isLeft should equal(true)
     res.left.value.getMessage should equal("Error sending messages")
   }
 
-  "lambda handler" should "error if the metadata file cannot be found in the tar file" in {
-    val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(UUID.randomUUID), "ANOTHER-REFERENCE")
+  "lambda handler" should "error if the metadata file cannot be found in the source location" in {
+    val filesMap = initialTestDataInTRECommonBucket(inputMetadata(UUID.randomUUID()), "ANOTHER-REFERENCE", "ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2")
+    val s3Objects = filesMap.map { case (fileName, content) => S3Object("some-test-bucket-name", fileName, content) }.toList
 
-    val (res, _, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event())
+    val (res, _, _) = runLambda(s3Objects, event())
 
     res.isLeft should equal(true)
-    res.left.value.getMessage should equal(s"Cannot find metadata for $reference")
+    res.left.value.getMessage should equal(
+      s"Object not found: some-test-bucket-name/ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2/out/TRE-$reference-metadata.json"
+    )
   }
 
-  "lambda handler" should "error if the file cannot be found in the tar file" in {
-    val fileName = "test.tar.gz"
-    val content = fileBytes(inputMetadata(UUID.randomUUID, "AnotherFile.docx"), reference)
+  "lambda handler" should "error if the data file cannot be found in the source location" in {
+    val filesMap =
+      initialTestDataInTRECommonBucket(inputMetadata(UUID.randomUUID(), "AnotherFile.docx"), reference, "ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2")
+    val s3Objects = filesMap.map { case (fileName, content) => S3Object("some-test-bucket-name", fileName, content) }.toList
 
-    val (res, _, _) = runLambda(List(S3Object("inputBucket", fileName, content)), event())
+    val (res, _, _) = runLambda(s3Objects, event())
 
     res.isLeft should equal(true)
-    res.left.value.getMessage should equal(s"Cannot find file name for file belonging to $reference")
+    res.left.value.getMessage should equal(s"Object not found: some-test-bucket-name/ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2/out/data/AnotherFile.docx")
   }
 }
