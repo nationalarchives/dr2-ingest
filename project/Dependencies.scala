@@ -11,6 +11,7 @@ object Dependencies {
   private lazy val scalaTestVersion = "3.2.20"
   private lazy val nettyVersion = "4.2.16.Final"
   private lazy val jacksonVersion = "3.2.1"
+  private lazy val httpcoreVersion = "5.4.3"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.47.3"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
@@ -74,4 +75,7 @@ object Dependencies {
   lazy val nettyResolver = "io.netty" % "netty-resolver" % nettyVersion
   lazy val nettyTransportClasses = "io.netty" % "netty-transport-classes-epoll" % nettyVersion
   lazy val nettyTransport = "io.netty" % "netty-transport" % nettyVersion
+  lazy val httpcore5 = "org.apache.httpcomponents.core5" % "httpcore5" % httpcoreVersion
+  lazy val httpcore5H2 = "org.apache.httpcomponents.core5" % "httpcore5-h2" % httpcoreVersion
+  lazy val httpClient = "org.apache.httpcomponents.client5" % "httpclient5" % "5.6.4"
 }

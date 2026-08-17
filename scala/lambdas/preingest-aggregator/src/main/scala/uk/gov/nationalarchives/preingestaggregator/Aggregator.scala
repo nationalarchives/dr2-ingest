@@ -119,7 +119,7 @@ object Aggregator:
                 case Some(currentGroupForSource) =>
                   if currentGroupForSource.expires.toEpochMilli <= lambdaTimeoutTime.length then
                     log(ExpiryBeforeLambdaTimeout) >> startNewGroup(config, groupExpiryTime, msgInput.id, msgBody)
-                  else if currentGroupForSource.itemCount > config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(config, groupExpiryTime, msgInput.id, msgBody)
+                  else if currentGroupForSource.itemCount >= config.maxBatchSize then log(MaxGroupSizeExceeded) >> startNewGroup(config, groupExpiryTime, msgInput.id, msgBody)
                   else
                     writeToLockTable(msgInput.id, msgBody, config, currentGroupForSource.groupId) >>
                       Async[F].pure(currentGroupForSource.copy(itemCount = currentGroupForSource.itemCount + 1))
