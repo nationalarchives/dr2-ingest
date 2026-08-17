@@ -87,6 +87,10 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       jsonFileNamesAndIds = List(("folders", folderIds), ("assets", assetIds))
       bucketInfo <- jsonFileNamesAndIds.traverse((fileName, ids) => uploadFileToS3(fileName, ids))
       _ <- log("ids written to json files and uploaded to S3")
+      totalFileBytes = metadataJson.collect {
+        case jsonObj if jsonObj("type").str == File.toString => jsonObj("fileSize").num
+      }.sum
+
     } yield StateOutput(
       input.groupId,
       input.batchId,
@@ -94,7 +98,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies] {
       bucketInfo(1),
       bucketInfo.head,
       archiveFolderIds,
-      assetIds.size
+      assetIds.size,
+      totalFileBytes.toInt
     )
 
   override def dependencies(config: Config): IO[Dependencies] = {
@@ -125,7 +130,8 @@ object Lambda {
       assets: BucketInfo,
       folders: BucketInfo,
       archiveHierarchyFolders: List[UUID],
-      totalAssetCount: Int
+      totalAssetCount: Int,
+      totalFileBytes: Int
   )
   case class Input(groupId: String, batchId: String, metadataPackage: URI, executionName: String)
   case class Config(dynamoTableName: String, discoveryApiUrl: String, ingestStateBucket: String, ttlDays: Int) derives ConfigReader

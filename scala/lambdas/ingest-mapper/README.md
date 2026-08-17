@@ -53,7 +53,8 @@ The lambda:
   "contentFolders": [],
   "contentAssets": [
     "a8163bde-7daa-43a7-9363-644f93fe2f2b"
-  ]
+  ],
+  "totalFileBytes": 1000
 }
 ```
 
