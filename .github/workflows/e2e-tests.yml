@@ -37,6 +37,11 @@ jobs:
           aws-region: eu-west-2
           role-session-name: RunE2ETestsRole
       - run: |
+          chmod +x .github/scripts/invoke_flow_control_lambda.sh
+          .github/scripts/invoke_flow_control_lambda.sh "$FLOW_CONTROL_ARN" 300 &
+          FLOW_CONTROL_JOB_PID=$!
+          trap 'kill "$FLOW_CONTROL_JOB_PID" 2>/dev/null || true' EXIT
+
           cd kotlin/e2e-tests/e2etests/
           gradle test
         env:
@@ -56,6 +61,7 @@ jobs:
           LOCK_TABLE: ${{ github.event.inputs.environment }}-dr2-ingest-lock
           ACCOUNT_NUMBER: ${{ secrets.ACCOUNT_NUMBER }}
           INGEST_SFN_NAME: ${{ github.event.inputs.environment }}-dr2-ingest
+          FLOW_CONTROL_ARN: arn:aws:lambda:eu-west-2:${{ secrets.ACCOUNT_NUMBER }}:function:${{ github.event.inputs.environment }}-dr2-ingest-flow-control
 
       - run: gh workflow run deploy.yml -f environment=staging -f to-deploy=$TO_DEPLOY
         if: ${{ github.event.inputs.environment == 'intg' }}

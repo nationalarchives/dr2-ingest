@@ -42,5 +42,6 @@ module "dr2_e2e_tests_policy" {
     ingest_sfn_name                    = local.ingest_step_function_name
     account_id                         = data.aws_caller_identity.current.account_id
     raw_cache_bucket_name              = local.ingest_raw_cache_bucket_name
+    flow_control_lambda_arn            = module.dr2_ingest_flow_control_lambda.lambda_arn
   })
 }
