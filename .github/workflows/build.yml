@@ -3,9 +3,7 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
+
 permissions: {}
 jobs:
   pre-deploy:

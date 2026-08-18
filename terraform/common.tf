@@ -19,7 +19,7 @@ locals {
   java_runtime                                         = "java21"
   java_lambda_memory_size                              = 512
   java_timeout_seconds                                 = 180
-  python_runtime                                       = "python3.12"
+  python_runtime                                       = "python3.14"
   python_lambda_memory_size                            = 128
   python_timeout_seconds                               = 30
   step_function_failure_log_group                      = "step-function-failures"
@@ -102,13 +102,18 @@ locals {
     { id = "expire-object-delete-marker", status = "Enabled", expiration = { expired_object_delete_marker = true } }
   ]))
   source_systems = ["TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"]
+  default        = local.source_systems[index(local.source_systems, "DEFAULT")]
+  tdr            = local.source_systems[index(local.source_systems, "TDR")]
+  adhoc          = local.source_systems[index(local.source_systems, "ADHOC")]
+  dri            = local.source_systems[index(local.source_systems, "DRI")]
+
   flow_control_configs = {
     intg = {
       maxConcurrency = 1,
       enabled        = false,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
+          systemName       = local.default
           reservedChannels = 0
           probability      = 100
         }
@@ -119,12 +124,12 @@ locals {
       enabled        = true,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "DRI")]
+          systemName       = local.dri
           reservedChannels = 0
           probability      = 1
         },
         {
-          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
+          systemName       = local.default
           reservedChannels = 1
           probability      = 99
         }
@@ -135,7 +140,7 @@ locals {
       enabled        = false,
       sourceSystems = [
         {
-          systemName       = local.source_systems[index(local.source_systems, "DEFAULT")]
+          systemName       = local.default
           reservedChannels = 0
           probability      = 100
         }
@@ -218,7 +223,7 @@ module "vpc" {
     account_id               = data.aws_caller_identity.current.account_id,
     preservica_ingest_bucket = local.preservica_ingest_bucket
     tdr_export_bucket        = local.tdr_export_bucket
-    tre_export_bucket_arn    = module.tre_config.terraform_config[local.tre_environment_name]["s3_court_document_pack_out_arn"]
+    tre_export_bucket_arn    = module.tre_config.terraform_config[local.tre_environment_name]["s3_common_bucket_arn"]
     object_store_bucket_name = local.object_store_bucket_name
   })
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {

@@ -34,7 +34,7 @@ Once the lambda is invoked, each message is processed in parallel via a fibre. T
          - Since the expiry comprises the lambdaTimeoutTime + maxSecondaryBatchingWindow, what determines whether to
            create a new group is how much time is left on the maxSecondaryBatchingWindow; if there is 0 time left, then
            the group is ready to be processed and should not have anything added to it
-      2. If the item count is more than the batch size, create a new group
+      2. If the item count is more than or equal to the maximum batch size, create a new group
       3. Otherwise, increment the itemCount of the group (for that sourceId) and save it back to the cache
 4. If a group is to be created then it will:
    1. Generate a new group ID
