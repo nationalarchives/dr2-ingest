@@ -98,10 +98,13 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
         2. run `aws sts assume-role --role-arn arn:aws:iam::[account number]:role/[terraform role] --role-session-name run-terraform`, which should return a JSON
         3. run `export AWS_ACCESS_KEY_ID=[paste value from JSON]`
         4. run `export AWS_SECRET_ACCESS_KEY=[paste value from JSON]`
-        5. run `export AWS_SESSION_TOKEN=paste[paste value from JSON]`
+        5. run `export AWS_SESSION_TOKEN=[paste value from JSON]`
     3. Switch to the Terraform workspace corresponding to the DR2 environment to be worked on `terraform workspace select [workspace]`
         1. run `terraform workspace list` to see available workspaces and the current workspace
-    4. Run
+    4. Provide the lambda code version
+        1. find the latest tag version from [here](https://github.com/nationalarchives/dr2-ingest/tags )
+        2. run `export TF_VAR_lambda_code_version=[paste latest tag version]`
+   5. Run
       ```
       [location of project] $ terraform plan
       ```
