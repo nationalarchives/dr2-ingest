@@ -109,8 +109,8 @@ locals {
 
   flow_control_configs = {
     intg = {
-      maxConcurrency = 1,
-      enabled        = false,
+      maxConcurrency = 2,
+      enabled        = true,
       sourceSystems = [
         {
           systemName       = local.default
@@ -120,7 +120,7 @@ locals {
       ]
     }
     prod = {
-      maxConcurrency = 8,
+      maxConcurrency = 4,
       enabled        = true,
       sourceSystems = [
         {
@@ -136,8 +136,8 @@ locals {
       ]
     }
     staging = {
-      maxConcurrency = 1,
-      enabled        = false,
+      maxConcurrency = 2,
+      enabled        = true,
       sourceSystems = [
         {
           systemName       = local.default
