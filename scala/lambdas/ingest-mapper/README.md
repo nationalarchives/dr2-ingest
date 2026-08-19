@@ -61,6 +61,7 @@ The lambda:
   "totalFileBytes": 1000
 }
 ```
+Note: `totalFileBytes` is the sum of the bytes of all files (including the metadata.json)
 
 ## Environment Variables
 
