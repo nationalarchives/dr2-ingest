@@ -81,7 +81,9 @@ object Helpers {
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(sourceSystem).s(),
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedAt).s(),
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(taskToken).s(),
-              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(executionName).s()
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(executionName).s(),
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedAssetCount).n().toInt,
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedBytes).n().toLong
             ) :: existing
           }
           .map(_ => 1)
