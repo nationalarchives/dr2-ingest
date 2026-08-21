@@ -5,6 +5,7 @@ import cats.effect.{IO, Ref}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.*
 import ujson.Obj
+import uk.gov.nationalarchives.ingestmapper.Lambda.{BucketInfo, StateOutput}
 import uk.gov.nationalarchives.ingestmapper.MetadataService.Type.*
 import uk.gov.nationalarchives.ingestmapper.testUtils.LambdaTestTestUtils
 import uk.gov.nationalarchives.ingestmapper.testUtils.TestUtils.DynamoFilesTableItem
@@ -26,14 +27,24 @@ class LambdaTest extends AnyFlatSpec {
       s3Objects <- s3Ref.get
     } yield (stateData, s3Objects)).unsafeRunSync()
 
-    stateOutput.groupId should be("TEST")
-    stateOutput.batchId should be("TEST_0")
-    stateOutput.metadataPackage should be(URI.create(s"s3://input/TEST/metadata.json"))
-    stateOutput.assets.bucket should be("testInputStateBucket")
-    stateOutput.assets.key should be("executionName/assets.json")
-    stateOutput.folders.bucket should be("testInputStateBucket")
-    stateOutput.folders.key should be("executionName/folders.json")
-    stateOutput.totalAssetCount should be(2)
+    val expectedOutput = StateOutput(
+      "TEST",
+      "TEST_0",
+      URI.create(s"s3://input/TEST/metadata.json"),
+      BucketInfo("testInputStateBucket", "executionName/assets.json"),
+      BucketInfo("testInputStateBucket", "executionName/folders.json"),
+      List(
+        metadataResponse.identifiersOne.folderIdentifier,
+        metadataResponse.identifiersTwo.folderIdentifier,
+        UUID.fromString("61ac0166-ccdf-48c4-800f-29e5fba2efda"),
+        UUID.fromString("c7e6b27f-5778-4da8-9b83-1b64bbccbd03"),
+        UUID.fromString("5364b309-aa11-4660-b518-f47b5b96a588")
+      ),
+      2,
+      6
+    )
+
+    stateOutput shouldBe expectedOutput
 
     val assetsFileContent = s3Objects.head.fileContent
     val foldersFileContent = s3Objects(1).fileContent
