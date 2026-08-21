@@ -46,9 +46,10 @@ module "cleanup_handler_lambda" {
   }
   s3_bucket       = local.code_deploy_bucket
   s3_key          = "${var.lambda_code_version}/${local.cleanup_lambda_key}"
-  timeout_seconds = 900
-  memory_size     = 1024
+  timeout_seconds = local.java_timeout_seconds
+  memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
+  architecture    = "arm64"
   tags            = {}
   lambda_sqs_queue_mappings = [{
     sqs_queue_arn = local.sqs_queue_arn
