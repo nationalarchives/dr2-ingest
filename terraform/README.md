@@ -98,7 +98,7 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
         2. run `aws sts assume-role --role-arn arn:aws:iam::[account number]:role/[terraform role] --role-session-name run-terraform`, which should return a JSON
         3. run `export AWS_ACCESS_KEY_ID=[paste value from JSON]`
         4. run `export AWS_SECRET_ACCESS_KEY=[paste value from JSON]`
-        5. run `export AWS_SESSION_TOKEN=paste[paste value from JSON]`
+        5. run `export AWS_SESSION_TOKEN=[paste value from JSON]`
     3. Switch to the Terraform workspace corresponding to the DR2 environment to be worked on `terraform workspace select [workspace]`
         1. run `terraform workspace list` to see available workspaces and the current workspace
     4. Run
@@ -118,6 +118,10 @@ Example: preingest_court_document_step_function_arn        = module.court_docume
 2. Update template file dr2-ingest/terraform/templates/iam_policy/ingest_step_function_policy.json.tpl with the same arn.
 
 ### Troubleshooting:
+
+1. if after running `terraform init`, you get
+`Error refreshing state: Unable to access object "terraform.state" in S3 bucket "{management_bucket}" operation error S3: HeadObject, https response error StatusCode: 403...`
+you need to `aws sso login...` login with your aws credentials for the management account
 
 1. If you get the message starting with `Failed to unlock state: failed to delete the lock file...`, ask the person in the
 `Who:` section (of the message) if it is alright to unlock the state, if it is, run `terraform force-unlock [ID]`.
