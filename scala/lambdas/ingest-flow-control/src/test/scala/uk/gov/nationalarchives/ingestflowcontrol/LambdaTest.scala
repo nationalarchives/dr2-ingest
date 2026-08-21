@@ -19,10 +19,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
   )
 
   "lambda" should "report error when SSM client fails to get parameter" in {
-    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.toString + "_TDR_6b6db6bf_0", "taskToken", "TDR_6b6db6bf_0"))
+    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.toString + "_TDR_6b6db6bf_0", "taskToken", "TDR_6b6db6bf_0", 10, 20))
     val ssmParam = FlowControlConfig(1, List(SourceSystem("DEFAULT", 1, 100)), true)
     val sfnExecutions = List(StepFunctionExecution("", "taskToken"))
-    val input = Option(Input("SomeExecutionName", "differentTaskToken"))
+    val input = Option(Input("SomeExecutionName", "differentTaskToken", 30, 40))
 
     val lambdaRunResult = runLambda(input, initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector(), Option(Errors(getParameter = true)))
     lambdaRunResult.result.isLeft should be(true)
@@ -39,7 +39,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(6, validSourceSystems, true)
     val existingExecutions = List(StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task"))
-    val input = Option(Input("TDR_execution_name", "a-task-token-for-tdr-task"))
+    val input = Option(Input("TDR_execution_name", "a-task-token-for-tdr-task", 30, 40))
 
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(deleteItems = true)))
     lambdaRunResult.result.isLeft should be(true)
@@ -56,7 +56,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(6, validSourceSystems, true)
     val existingExecutions = List(StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task"))
-    val input = Option(Input("TDR_execution_name", "a-task-token-for-tdr-task"))
+    val input = Option(Input("TDR_execution_name", "a-task-token-for-tdr-task", 30, 40))
 
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(writeItem = true)))
     lambdaRunResult.result.isLeft should be(true)
@@ -72,7 +72,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(6, validSourceSystems, true)
     val existingExecutions = List(StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task"))
-    val input = Option(Input("TDR_execution_name", "a-task-token-for-tdr-task"))
+    val input = Option(Input("TDR_execution_name", "a-task-token-for-tdr-task", 30, 40))
 
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(queryItem = true)))
     lambdaRunResult.result.isLeft should be(true)
@@ -85,15 +85,23 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
   }
 
   "lambda" should "report error when SFN client cannot list step functions " in {
-    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.toString + "_TDR_2ec6248e_0", "taskToken", "TDR_2ec6248e_0"))
+    val timeNow = Instant.now.toString
+    val initialDynamo = List(IngestQueueTableItem("TDR", timeNow + "_TDR_2ec6248e_0", "taskToken", "TDR_2ec6248e_0", 10, 20))
     val ssmParam = FlowControlConfig(1, List(SourceSystem("DEFAULT", 1, 100)), true)
     val sfnExecutions = List(StepFunctionExecution("", "taskToken"))
-    val input = Option(Input("SomeExecutionName", "differentTaskToken"))
+    val input = Option(Input("SomeExecutionName", "differentTaskToken", 30, 40))
 
     val lambdaRunResult = runLambda(input, initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector(), Option(Errors(listStepFunctions = true)))
     lambdaRunResult.result.isLeft should be(true)
     lambdaRunResult.result.left.value.getMessage should equal("Error generating a list of step functions")
     lambdaRunResult.finalItemsInTable should have length 2
+    val itemAdded = lambdaRunResult.finalItemsInTable.head
+    itemAdded.sourceSystem should equal("DEFAULT")
+    itemAdded.queuedTimeAndExecutionName.endsWith("_SomeExecutionName") should equal(true)
+    itemAdded.taskToken should equal("differentTaskToken")
+    itemAdded.executionName should equal("SomeExecutionName")
+    itemAdded.totalAssetCount should equal(30)
+    itemAdded.totalFileBytes should equal(40)
     lambdaRunResult.finalItemsInTable.map(_.taskToken) should contain allElementsOf List("differentTaskToken", "taskToken")
     lambdaRunResult.finalStepFnExecutions should have length 1
     lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-fcl-task") should be(None)
@@ -104,7 +112,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 3, 65), SourceSystem("SystemThree", 1), SourceSystem("DEFAULT", 0, 10))
     val initialConfig = FlowControlConfig(6, validSourceSystems, true)
     val existingExecutions = List(StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task"))
-    val input = Option(Input("TDR_execution_name", "a-task-token-for-tdr-task"))
+    val input = Option(Input("TDR_execution_name", "a-task-token-for-tdr-task", 30, 40))
 
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(sendTaskSuccess = true)))
     lambdaRunResult.result.isLeft should be(true)
@@ -117,12 +125,12 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
   }
 
   "lambda" should "delete the task from dynamo table when SFN client sendTaskSuccess errors as task time out" in {
-    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_2ec6248e_0", "a-task-already-running", "TDR_2ec6248e_0"))
+    val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_2ec6248e_0", "a-task-already-running", "TDR_2ec6248e_0", 10, 20))
     val validSourceSystems =
       List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 2, 65), SourceSystem("SystemThree", 1, 25), SourceSystem("DEFAULT", 0, 10), SourceSystem("Zero", 1))
     val initialConfig = FlowControlConfig(7, validSourceSystems, true)
     val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "a-task-already-running"))
-    val input = Option(Input("TDR_execution_name_2", ""))
+    val input = Option(Input("TDR_execution_name_2", "", 30, 40))
 
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(), Option(Errors(sendTaskSuccessTimeOut = true)))
     lambdaRunResult.result.isRight should be(true)
@@ -133,7 +141,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
 
   "lambda" should s"add a new task to dynamo but not send success when there is a max concurrency less than the number of running tasks + reserved channels for another source system" in {
     val initialDynamo = (1 to 5).map { i =>
-      IngestQueueTableItem("DRI", Instant.now.minus(Duration.ofHours(1)).toString + "_DRI_2ec6248e_0", s"task-token-$i", "DRI_2ec6248e_0")
+      IngestQueueTableItem("DRI", Instant.now.minus(Duration.ofHours(1)).toString + "_DRI_2ec6248e_0", s"task-token-$i", "DRI_2ec6248e_0", 10, 20)
     }.toList
 
     val validSourceSystems = List(SourceSystem("TDR", 1, 54), SourceSystem("DRI", 0, 1), SourceSystem("DEFAULT", 0, 45))
@@ -141,19 +149,26 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     val existingExecutions = (1 to 5).map { i =>
       StepFunctionExecution(s"DRI_$i", s"DRI_$i")
     }.toList
-    val input = Option(Input("DRI_execution_name_2", "task-token-for-dri"))
+    val input = Option(Input("DRI_execution_name_2", "task-token-for-dri", 30, 40))
 
     val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
 
     lambdaRunResult.result.isRight should be(true)
     lambdaRunResult.finalItemsInTable should have length 6
+    val itemAdded = lambdaRunResult.finalItemsInTable.head
+    itemAdded.sourceSystem should equal("DRI")
+    itemAdded.queuedTimeAndExecutionName.endsWith("_execution_name_2") should equal(true)
+    itemAdded.taskToken should equal("task-token-for-dri")
+    itemAdded.executionName should equal("DRI_execution_name_2")
+    itemAdded.totalAssetCount should equal(30)
+    itemAdded.totalFileBytes should equal(40)
     lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("task-token-for-dri") should be(true)
     lambdaRunResult.finalStepFnExecutions.forall(!_.taskTokenSuccess) should be(true)
   }
 
   "lambda" should s"send task success to a running task when there is a max concurrency more than the number of running tasks + reserved channels for running source systems" in {
     val initialDynamo = (1 to 5).map { i =>
-      IngestQueueTableItem("DRI", Instant.now.minus(Duration.ofHours(1)).toString + "_DRI_2ec6248e_0", s"task-token-$i", "DRI_2ec6248e_0")
+      IngestQueueTableItem("DRI", Instant.now.minus(Duration.ofHours(1)).toString + "_DRI_2ec6248e_0", s"task-token-$i", "DRI_2ec6248e_0", 10, 20)
     }.toList
 
     val validSourceSystems = List(SourceSystem("TDR", 1, 54), SourceSystem("DRI", 0, 1), SourceSystem("DEFAULT", 0, 45))
@@ -173,13 +188,13 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
   forAll(enabledTable) { enabled =>
     val prefix = if enabled then "" else "not"
     "lambda" should s"$prefix process tasks from existing entries in the dynamo table when no task token is passed in the input with enabled $enabled" in {
-      val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_2ec6248e_0", "task-token-for-tdr", "TDR_2ec6248e_0")
+      val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_2ec6248e_0", "task-token-for-tdr", "TDR_2ec6248e_0", 10, 20)
       val initialDynamo = List(initialItem)
       val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 3), SourceSystem("SystemThree", 1, 100), SourceSystem("DEFAULT"))
       val ssmParam = FlowControlConfig(6, validSourceSystems, enabled)
       val sfnExecutions = List(StepFunctionExecution("TDR", "task-token-for-tdr"))
 
-      val lambdaRunResult = runLambda(Some(Input("SYS_EXECUTION_NAME", "")), initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector())
+      val lambdaRunResult = runLambda(Some(Input("SYS_EXECUTION_NAME", "", 30, 40)), initialDynamo, ssmParam, sfnExecutions, predictableRandomNumberSelector())
       lambdaRunResult.result.isRight should be(true)
       lambdaRunResult.finalItemsInTable should have length (if enabled then 0 else 1)
       lambdaRunResult.finalStepFnExecutions should have length 1
@@ -187,7 +202,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     }
 
     "lambda" should s"$prefix process tasks from existing entries in the dynamo table when there is no input with enabled $enabled" in {
-      val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_2ec6248e_0", "task-token-for-tdr", "TDR_2ec6248e_0")
+      val initialItem = IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_2ec6248e_0", "task-token-for-tdr", "TDR_2ec6248e_0", 10, 20)
       val initialDynamo = List(initialItem)
       val validSourceSystems = List(SourceSystem("TDR", 2), SourceSystem("SystemTwo", 3), SourceSystem("SystemThree", 1, 100), SourceSystem("DEFAULT"))
       val ssmParam = FlowControlConfig(6, validSourceSystems, enabled)
@@ -208,7 +223,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
         StepFunctionExecution("FCL_execution_name", "a-task-token-for-fcl-task"),
         StepFunctionExecution("TDR_execution_name", "a-task-token-for-tdr-task")
       )
-      val input = Option(Input("TDR_execution_name", "a-task-token-for-tdr-task"))
+      val input = Option(Input("TDR_execution_name", "a-task-token-for-tdr-task", 30, 40))
 
       val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
       lambdaRunResult.result.isRight should be(true)
@@ -218,12 +233,20 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
       lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-token-for-tdr-task").exists(_.taskTokenSuccess) should be(enabled)
 
       lambdaRunResult.finalItemsInTable should have length (if enabled then 0 else 1)
+      if !enabled then
+        val itemAdded = lambdaRunResult.finalItemsInTable.head
+        itemAdded.sourceSystem should equal("TDR")
+        itemAdded.queuedTimeAndExecutionName.endsWith("_TDR_execution_name") should equal(true)
+        itemAdded.taskToken should equal("a-task-token-for-tdr-task")
+        itemAdded.executionName should equal("TDR_execution_name")
+        itemAdded.totalAssetCount should equal(30)
+        itemAdded.totalFileBytes should equal(40)
     }
 
     "lambda" should s"$prefix add new task to dynamo but not send success when a reserved channel is not available for the system with enabled $enabled" in {
       val initialDynamo = List(
-        IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_6b6db6bf_0", "a-task-already-running", "TDR_6b6db6bf_0"),
-        IngestQueueTableItem("TST", Instant.now.minus(Duration.ofHours(2)).toString + "_TST_7b7db7bf_0", "a-task-for-system-two", "TST_7b7db7bf_0")
+        IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_6b6db6bf_0", "a-task-already-running", "TDR_6b6db6bf_0", 10, 20),
+        IngestQueueTableItem("TST", Instant.now.minus(Duration.ofHours(2)).toString + "_TST_7b7db7bf_0", "a-task-for-system-two", "TST_7b7db7bf_0", 10, 20)
       )
       val validSourceSystems = List(SourceSystem("TDR", 1), SourceSystem("TST", 3, 65), SourceSystem("SystemThree", 1, 25), SourceSystem("DEFAULT", 0, 10))
       val initialConfig = FlowControlConfig(6, validSourceSystems, enabled)
@@ -231,7 +254,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
         StepFunctionExecution("TDR_execution_name_1", "a-task-already-running"),
         StepFunctionExecution("TST_execution_name_1", "a-task-for-system-two")
       )
-      val input = Option(Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task"))
+      val input = Option(Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task", 30, 40))
 
       val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
       lambdaRunResult.result.isRight should be(true)
@@ -241,14 +264,21 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
       lambdaRunResult.finalStepFnExecutions.find(_.taskToken == "a-task-for-system-two").exists(_.taskTokenSuccess) should be(enabled)
 
       lambdaRunResult.finalItemsInTable should have length (if enabled then 2 else 3)
+      val itemAdded = lambdaRunResult.finalItemsInTable.head
+      itemAdded.sourceSystem should equal("TDR")
+      itemAdded.queuedTimeAndExecutionName.endsWith("_execution_name_2") should equal(true)
+      itemAdded.taskToken should equal("a-task-token-for-new-tdr-task")
+      itemAdded.executionName should equal("TDR_execution_name_2")
+      itemAdded.totalAssetCount should equal(30)
+      itemAdded.totalFileBytes should equal(40)
       lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("a-task-token-for-new-tdr-task") should be(true)
     }
 
     "lambda" should s"$prefix send success for only one system with one invocation when a reserved channel is available with enabled $enabled" in {
       val initialDynamo = List(
-        IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)).toString + "_TDR_2ec6248e_0", "tdr-task-1", "TST_6b6db6bf_0"),
-        IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)).toString + "_FCL_3ec124be_0", "fcl-task-1", "FCL_3ec124be_0"),
-        IngestQueueTableItem("ABC", Instant.now.toString + "_ABC_2ec6248e_0", "abc-task-1", "ABC_2ec6248e_0")
+        IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)).toString + "_TDR_2ec6248e_0", "tdr-task-1", "TST_6b6db6bf_0", 10, 20),
+        IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)).toString + "_FCL_3ec124be_0", "fcl-task-1", "FCL_3ec124be_0", 10, 20),
+        IngestQueueTableItem("ABC", Instant.now.toString + "_ABC_2ec6248e_0", "abc-task-1", "ABC_2ec6248e_0", 10, 20)
       )
       val validSourceSystems = List(SourceSystem("TDR", 2, 25), SourceSystem("FCL", 2, 65), SourceSystem("ABC", 2), SourceSystem("DEFAULT", 0, 10))
       val initialConfig = FlowControlConfig(7, validSourceSystems, enabled)
@@ -257,7 +287,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
         StepFunctionExecution("FCL_execution_name_1", "fcl-task-1"),
         StepFunctionExecution("ABC_execution_name_1", "abc-task-1")
       )
-      val input = Option(Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task"))
+      val input = Option(Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task", 30, 40))
 
       val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
       lambdaRunResult.result.isRight should be(true)
@@ -266,14 +296,21 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
       lambdaRunResult.finalStepFnExecutions.find(_.name != "TDR_execution_name_1").map(_.taskTokenSuccess).forall(identity) should be(false)
 
       lambdaRunResult.finalItemsInTable should have length (if enabled then 3 else 4)
+      val itemAdded = lambdaRunResult.finalItemsInTable.head
+      itemAdded.sourceSystem should equal("TDR")
+      itemAdded.queuedTimeAndExecutionName.endsWith("_execution_name_2") should equal(true)
+      itemAdded.taskToken should equal("a-task-token-for-new-tdr-task")
+      itemAdded.executionName should equal("TDR_execution_name_2")
+      itemAdded.totalAssetCount should equal(30)
+      itemAdded.totalFileBytes should equal(40)
       lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("a-task-token-for-new-tdr-task") should be(true)
     }
 
     "lambda" should s"$prefix send success on a task based on the probability assigned in the configuration with enabled $enabled" in {
       val initialDynamo = List(
-        IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)).toString + "_TDR_6b6db6bf_0", "tdr-task-1", "TDR_6b6db6bf_0"),
-        IngestQueueTableItem("FCL", Instant.now.toString + "_FCL_7b7db7bf_0", "fcl-task-1", "FCL_7b7db7bf_0"),
-        IngestQueueTableItem("ABC", Instant.now.toString + "_ABC_8b8db8bf_0", "abc-task-1", "ABC_8b8db8bf_0")
+        IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(2)).toString + "_TDR_6b6db6bf_0", "tdr-task-1", "TDR_6b6db6bf_0", 10, 20),
+        IngestQueueTableItem("FCL", Instant.now.toString + "_FCL_7b7db7bf_0", "fcl-task-1", "FCL_7b7db7bf_0", 10, 20),
+        IngestQueueTableItem("ABC", Instant.now.toString + "_ABC_8b8db8bf_0", "abc-task-1", "ABC_8b8db8bf_0", 10, 20)
       )
       val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("DEFAULT", 0, 10))
       val initialConfig = FlowControlConfig(4, validSourceSystems, enabled)
@@ -282,7 +319,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
         StepFunctionExecution("FCL_execution_name_1", "fcl-task-1", false),
         StepFunctionExecution("ABC_execution_name_1", "abc-task-1", true)
       )
-      val input = Option(Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task"))
+      val input = Option(Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task", 30, 40))
 
       val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector(26))
       lambdaRunResult.result.isRight should be(true)
@@ -290,13 +327,20 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
       lambdaRunResult.finalStepFnExecutions.map(_.taskTokenSuccess).forall(identity) should be(enabled)
 
       lambdaRunResult.finalItemsInTable should have length (if enabled then 3 else 4)
+      val itemAdded = lambdaRunResult.finalItemsInTable.head
+      itemAdded.sourceSystem should equal("TDR")
+      itemAdded.queuedTimeAndExecutionName.endsWith("_execution_name_2") should equal(true)
+      itemAdded.taskToken should equal("a-task-token-for-new-tdr-task")
+      itemAdded.executionName should equal("TDR_execution_name_2")
+      itemAdded.totalAssetCount should equal(30)
+      itemAdded.totalFileBytes should equal(40)
       lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("a-task-token-for-new-tdr-task") should be(true)
     }
 
     "lambda" should s"$prefix send success on a task based on the probability when the first pick system does not have a waiting task with enabled $enabled" in {
       val initialDynamo = List(
-        IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)).toString + "_FCL_6b6db6bf_0", "fcl-task-1", "FCL_6b6db6bf_0"),
-        IngestQueueTableItem("ABC", Instant.now.toString + "_ABC_7b7db7bf_0", "abc-task-1", "ABC_7b7db7bf_0")
+        IngestQueueTableItem("FCL", Instant.now.minus(Duration.ofHours(1)).toString + "_FCL_6b6db6bf_0", "fcl-task-1", "FCL_6b6db6bf_0", 10, 20),
+        IngestQueueTableItem("ABC", Instant.now.toString + "_ABC_7b7db7bf_0", "abc-task-1", "ABC_7b7db7bf_0", 10, 20)
       )
       val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("DEFAULT", 0, 10))
       val initialConfig = FlowControlConfig(4, validSourceSystems, enabled)
@@ -305,7 +349,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
         StepFunctionExecution("FCL_execution_name_1", "fcl-task-1"),
         StepFunctionExecution("ABC_execution_name_1", "abc-task-1", true)
       )
-      val input = Option(Input("XYZ_execution_name_2", "a-task-token-for-new-xyz-task"))
+      val input = Option(Input("XYZ_execution_name_2", "a-task-token-for-new-xyz-task", 30, 40))
 
       val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
       lambdaRunResult.result.isRight should be(true)
@@ -313,20 +357,34 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
       lambdaRunResult.finalStepFnExecutions.find(_.name == "FCL_execution_name_1").exists(_.taskTokenSuccess) should be(enabled)
 
       lambdaRunResult.finalItemsInTable should have length (if enabled then 2 else 3)
+      val itemAdded = lambdaRunResult.finalItemsInTable.head
+      itemAdded.sourceSystem should equal("DEFAULT")
+      itemAdded.queuedTimeAndExecutionName.endsWith("_execution_name_2") should equal(true)
+      itemAdded.taskToken should equal("a-task-token-for-new-xyz-task")
+      itemAdded.executionName should equal("XYZ_execution_name_2")
+      itemAdded.totalAssetCount should equal(30)
+      itemAdded.totalFileBytes should equal(40)
       lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("a-task-token-for-new-xyz-task") should be(true)
       lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("abc-task-1") should be(true)
     }
 
     "lambda" should s"$prefix write a system name as DEFAULT if the system name is not available in the config with enabled $enabled" in {
-      val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_6b6db6bf_0", "tdr-task-1", "TDR_6b6db6bf_0"))
+      val initialDynamo = List(IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_6b6db6bf_0", "tdr-task-1", "TDR_6b6db6bf_0", 10, 20))
       val validSourceSystems = List(SourceSystem("TDR", 0, 25), SourceSystem("FCL", 0, 65), SourceSystem("ABC", 1, 10), SourceSystem("DEFAULT"))
       val initialConfig = FlowControlConfig(4, validSourceSystems, enabled)
       val existingExecutions = List(StepFunctionExecution("TDR_execution_name_1", "tdr-task-1"))
-      val input = Option(Input("HDDexecutionname2", "a-task-token-for-new-hard-disk-task"))
+      val input = Option(Input("HDDexecutionname2", "a-task-token-for-new-hard-disk-task", 30, 40))
 
       val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
       lambdaRunResult.result.isRight should be(true)
       lambdaRunResult.finalItemsInTable should have length (if enabled then 1 else 2)
+      val itemAdded = lambdaRunResult.finalItemsInTable.head
+      itemAdded.sourceSystem should equal("DEFAULT")
+      itemAdded.queuedTimeAndExecutionName.endsWith("_HDDexecutionname2") should equal(true)
+      itemAdded.taskToken should equal("a-task-token-for-new-hard-disk-task")
+      itemAdded.executionName should equal("HDDexecutionname2")
+      itemAdded.totalAssetCount should equal(30)
+      itemAdded.totalFileBytes should equal(40)
       lambdaRunResult.finalItemsInTable.head.sourceSystem should be("DEFAULT")
     }
 
@@ -335,19 +393,27 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
       val validSourceSystems = List(SourceSystem("TDR", 1, 25), SourceSystem("FCL", 1, 65), SourceSystem("ABC", 1), SourceSystem("DEFAULT", 1, 10))
       val initialConfig = FlowControlConfig(4, validSourceSystems, enabled)
       val existingExecutions = List(StepFunctionExecution("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task"))
-      val input = Option(Input("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task"))
+      val input = Option(Input("HDD_execution_name_2", "a-task-token-for-new-hard-disk-task", 30, 40))
       val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
 
       lambdaRunResult.result.isRight should be(true)
       lambdaRunResult.finalItemsInTable should have length (if enabled then 0 else 1)
+      if !enabled then
+        val itemAdded = lambdaRunResult.finalItemsInTable.head
+        itemAdded.sourceSystem should equal("DEFAULT")
+        itemAdded.queuedTimeAndExecutionName.endsWith("_HDD_execution_name_2") should equal(true)
+        itemAdded.taskToken should equal("a-task-token-for-new-hard-disk-task")
+        itemAdded.executionName should equal("HDD_execution_name_2")
+        itemAdded.totalAssetCount should equal(30)
+        itemAdded.totalFileBytes should equal(40)
       lambdaRunResult.finalStepFnExecutions should have length 1
       lambdaRunResult.finalStepFnExecutions.head.taskTokenSuccess should be(enabled)
     }
 
     "lambda" should s"$prefix only add the new task to dynamo table when the maximum concurrency has been reached with enabled $enabled" in {
       val initialDynamo = List(
-        IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_6b6db6bf_0", "a-task-already-running", "TDR_6b6db6bf_0"),
-        IngestQueueTableItem("TST", Instant.now.minus(Duration.ofHours(2)).toString + "_TST_7b7db7bf_0", "a-running-task-for-system-two", "TST_7b7db7bf_0")
+        IngestQueueTableItem("TDR", Instant.now.minus(Duration.ofHours(1)).toString + "_TDR_6b6db6bf_0", "a-task-already-running", "TDR_6b6db6bf_0", 10, 20),
+        IngestQueueTableItem("TST", Instant.now.minus(Duration.ofHours(2)).toString + "_TST_7b7db7bf_0", "a-running-task-for-system-two", "TST_7b7db7bf_0", 10, 20)
       )
       val validSourceSystems = List(SourceSystem("TDR", 1), SourceSystem("TST", 1, 65), SourceSystem("SystemThree", 0, 25), SourceSystem("DEFAULT", 0, 10))
       val initialConfig = FlowControlConfig(2, validSourceSystems, enabled)
@@ -355,13 +421,20 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
         StepFunctionExecution("TDR_execution_name_1", "a-task-already-running", true),
         StepFunctionExecution("TST_execution_name_1", "a-running-task-for-system-two", true)
       )
-      val input = Option(Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task"))
+      val input = Option(Input("TDR_execution_name_2", "a-task-token-for-new-tdr-task", 30, 40))
 
       val lambdaRunResult = runLambda(input, initialDynamo, initialConfig, existingExecutions, predictableRandomNumberSelector())
       lambdaRunResult.result.isRight should be(true)
       lambdaRunResult.finalStepFnExecutions should have length 2
       lambdaRunResult.finalStepFnExecutions.map(_.taskTokenSuccess).forall(identity) should be(true)
       lambdaRunResult.finalItemsInTable should have length 3
+      val itemAdded = lambdaRunResult.finalItemsInTable.head
+      itemAdded.sourceSystem should equal("TDR")
+      itemAdded.queuedTimeAndExecutionName.endsWith("_execution_name_2") should equal(true)
+      itemAdded.taskToken should equal("a-task-token-for-new-tdr-task")
+      itemAdded.executionName should equal("TDR_execution_name_2")
+      itemAdded.totalAssetCount should equal(30)
+      itemAdded.totalFileBytes should equal(40)
       lambdaRunResult.finalItemsInTable.map(_.taskToken).contains("a-task-token-for-new-tdr-task") should be(true)
     }
   }
