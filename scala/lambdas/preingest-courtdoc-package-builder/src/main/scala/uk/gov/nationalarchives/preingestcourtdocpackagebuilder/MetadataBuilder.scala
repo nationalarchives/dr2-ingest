@@ -38,6 +38,7 @@ object MetadataBuilder:
 
     def metadataFromS3[T](s3Uri: URI): IO[MetadataInfo] = {
       val key = s3Uri.getPath.drop(1)
+      val id = key.split("\\.").head
       for
         pub <- s3Client.download(s3Uri.getHost, key)
         s3FileStrings <- pub
@@ -48,7 +49,7 @@ object MetadataBuilder:
           .toList
         metadataString = s3FileStrings.mkString
         metadata <- IO.fromEither(decode[TREMetadata](metadataString))
-      yield MetadataInfo(UUID.fromString(key), metadataString.getBytes.length, s3Uri, DigestUtils.sha256Hex(metadataString), metadata)
+      yield MetadataInfo(UUID.fromString(id), metadataString.getBytes.length, s3Uri, DigestUtils.sha256Hex(metadataString), metadata)
     }
 
     def generateMetadata(

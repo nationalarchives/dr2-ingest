@@ -177,7 +177,7 @@ class MetadataBuilderTest extends AnyFlatSpec with TableDrivenPropertyChecks:
                   treMetadataString.length,
                   RepresentationType.Preservation,
                   1,
-                  URI.create(s"s3://bucket/$metadataId"),
+                  URI.create(s"s3://bucket/$metadataId.metadata"),
                   List(Checksum("sha256", DigestUtils.sha256Hex(treMetadataString)))
                 )
               )
@@ -186,14 +186,14 @@ class MetadataBuilderTest extends AnyFlatSpec with TableDrivenPropertyChecks:
               val uuidsIterator = uuids.iterator
 
               val s3Objects = List(
-                S3Object("bucket", metadataId.toString, ByteBuffer.wrap(treMetadata.asJson.noSpaces.getBytes)),
+                S3Object("bucket", s"$metadataId.metadata", ByteBuffer.wrap(treMetadata.asJson.noSpaces.getBytes)),
                 S3Object("bucket", fileId.toString, ByteBuffer.wrap("test".getBytes))
               )
 
               val metadataBuilder =
                 MetadataBuilder(() => uuidsIterator.next(), s3Client(s3Objects, Ref.unsafe(Nil)), seriesMapper, uriProcessor)
 
-              val message = LockTableMessage(assetId, URI.create(s"s3://bucket/$metadataId"), fileId, potentialCorrelationId)
+              val message = LockTableMessage(assetId, URI.create(s"s3://bucket/$metadataId.metadata"), fileId, potentialCorrelationId)
               val item = IngestLockTableItem(assetId, "group_ID", message.asJson.noSpaces, "1")
 
               val metadataObjects = metadataBuilder.createMetadata(item).unsafeRunSync()

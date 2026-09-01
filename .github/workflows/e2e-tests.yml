@@ -40,10 +40,10 @@ jobs:
           chmod +x .github/scripts/invoke_flow_control_lambda.sh
           .github/scripts/invoke_flow_control_lambda.sh "$FLOW_CONTROL_ARN" 300 &
           FLOW_CONTROL_JOB_PID=$!
-          trap 'kill "$FLOW_CONTROL_JOB_PID" 2>/dev/null || true' EXIT
 
           cd kotlin/e2e-tests/e2etests/
           gradle test
+          trap 'kill "$FLOW_CONTROL_JOB_PID" 2>/dev/null || true' EXIT
         env:
           INGEST_SQS_QUEUE: https://sqs.eu-west-2.amazonaws.com/${{ secrets.ACCOUNT_NUMBER }}/${{ github.event.inputs.environment }}-dr2-preingest-tdr-importer
           JUDGMENT_SQS_QUEUE: https://sqs.eu-west-2.amazonaws.com/${{ secrets.ACCOUNT_NUMBER }}/${{ github.event.inputs.environment }}-dr2-preingest-courtdoc-importer
