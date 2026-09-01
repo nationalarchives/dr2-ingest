@@ -23,7 +23,9 @@ object MetadataBuilder:
 
   case class LockTableMessage(id: UUID, location: URI, fileId: UUID, messageId: Option[String], skipSeriesLookup: Boolean = false)
 
-  private case class MetadataInfo(id: UUID, fileSize: Long, location: URI, checksum: String, treMetadata: TREMetadata)
+  private case class MetadataInfo(id: UUID, fileSize: Long, location: URI, checksum: String, treMetadata: TREMetadata) {
+    require(location.getPath.endsWith(".metadata"), s"'location' URI $location does not end with '.metadata'")
+  }
 
   given Decoder[LockTableMessage] = (c: HCursor) =>
     for
