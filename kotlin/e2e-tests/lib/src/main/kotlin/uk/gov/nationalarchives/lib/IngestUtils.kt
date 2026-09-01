@@ -26,8 +26,6 @@ import aws.smithy.kotlin.runtime.content.decodeToString
 import com.typesafe.config.Config
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.takeWhile
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry
-import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import uk.gov.nationalarchives.lib.JsonUtils.ExternalNotificationMessage
 import uk.gov.nationalarchives.lib.JsonUtils.Parser
 import uk.gov.nationalarchives.lib.JsonUtils.Payload
@@ -40,7 +38,6 @@ import uk.gov.nationalarchives.lib.JsonUtils.ValidationErrorMessage
 import uk.gov.nationalarchives.lib.JsonUtils.jsonCodec
 import uk.gov.nationalarchives.lib.JsonUtils.AdhocMetadata
 import uk.gov.nationalarchives.lib.JsonUtils.DRIMetadata
-import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.security.MessageDigest
 import java.time.LocalDate
@@ -49,7 +46,6 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 import java.util.concurrent.TimeoutException
-import java.util.zip.GZIPOutputStream
 import kotlin.random.Random
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -108,7 +104,7 @@ class IngestUtils(
                         }
                     }
                     .map {
-                        UUID.fromString(it.assetId ?:it.s3Key?.split(".")?.first())
+                        UUID.fromString(it.assetId ?:it.s3FolderName)
                     }
                 assetIds.removeAll(assetIdsFromMessage)
                 assetIds.isEmpty()
@@ -221,36 +217,16 @@ class IngestUtils(
 
     private fun idToRef(id: UUID): String = id.toString().split("-").first()
 
-    private fun createTarGzByteStream(id: UUID, metadataBytes: ByteArray): ByteStream {
-        //This identifies as a Word doc in DROID.
-        val wordDocBytes = byteArrayOf(
-            0x50, 0x4B, 0x03, 0x04,  0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37, 0x4F,  0x5A, 0x5A, 0xDC.toByte(), 0xA7.toByte(),
-            0x7C, 0x06, 0x3A, 0x08,  0x00, 0x00, 0x3A, 0x08,0x00, 0x00, 0x11, 0x00,  0x00, 0x00, 0x77, 0x6F,
-            0x72, 0x64, 0x2F, 0x64,  0x6F, 0x63, 0x75, 0x6D, 0x65, 0x6E, 0x74, 0x2E,  0x78, 0x6D, 0x6C, 0x78,
-            0x6D, 0x6C, 0x6E, 0x73,  0x3A, 0x77, 0x3D, 0x22, 0x68, 0x74, 0x74, 0x70,  0x3A, 0x2F, 0x2F, 0x70,
-            0x75, 0x72, 0x6C, 0x2E,  0x6F, 0x63, 0x6C, 0x63, 0x2E, 0x6F, 0x72, 0x67,  0x2F, 0x6F, 0x6F, 0x78,
-            0x6D, 0x6C, 0x2F, 0x77,  0x6F, 0x72, 0x64, 0x70, 0x72, 0x6F, 0x63, 0x65,  0x73, 0x73, 0x69, 0x6E,
-            0x67, 0x6D, 0x6C, 0x2F,  0x6D, 0x61, 0x69, 0x6E, 0x22
-        )
-        val byteArrayOutputStream = ByteArrayOutputStream()
-        val batchRef = idToRef(id)
-
-        val filesToTar = listOf("$batchRef/test.docx" to wordDocBytes, "$batchRef/TRE-$batchRef-metadata.json" to metadataBytes)
-
-        GZIPOutputStream(byteArrayOutputStream).use { gzipOutput ->
-            TarArchiveOutputStream(gzipOutput).use { tarOutput ->
-                for ((fileName, fileContent) in filesToTar) {
-                    val entry = TarArchiveEntry(fileName)
-                    entry.size = fileContent.size.toLong()
-                    tarOutput.putArchiveEntry(entry)
-                    tarOutput.write(fileContent)
-                    tarOutput.closeArchiveEntry()
-                }
-                tarOutput.finish()
-            }
-        }
-        return ByteStream.fromBytes(byteArrayOutputStream.toByteArray())
-    }
+    //This identifies as a Word doc in DROID.
+    private val wordDocBytes = byteArrayOf(
+        0x50, 0x4B, 0x03, 0x04,  0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37, 0x4F,  0x5A, 0x5A, 0xDC.toByte(), 0xA7.toByte(),
+        0x7C, 0x06, 0x3A, 0x08,  0x00, 0x00, 0x3A, 0x08,0x00, 0x00, 0x11, 0x00,  0x00, 0x00, 0x77, 0x6F,
+        0x72, 0x64, 0x2F, 0x64,  0x6F, 0x63, 0x75, 0x6D, 0x65, 0x6E, 0x74, 0x2E,  0x78, 0x6D, 0x6C, 0x78,
+        0x6D, 0x6C, 0x6E, 0x73,  0x3A, 0x77, 0x3D, 0x22, 0x68, 0x74, 0x74, 0x70,  0x3A, 0x2F, 0x2F, 0x70,
+        0x75, 0x72, 0x6C, 0x2E,  0x6F, 0x63, 0x6C, 0x63, 0x2E, 0x6F, 0x72, 0x67,  0x2F, 0x6F, 0x6F, 0x78,
+        0x6D, 0x6C, 0x2F, 0x77,  0x6F, 0x72, 0x64, 0x70, 0x72, 0x6F, 0x63, 0x65,  0x73, 0x73, 0x69, 0x6E,
+        0x67, 0x6D, 0x6C, 0x2F,  0x6D, 0x61, 0x69, 0x6E, 0x22
+    )
 
     private fun createJudgmentMetadata(id: UUID, invalid: Boolean): ByteArray {
         val tdrUuid = if (invalid) null else id
@@ -264,8 +240,10 @@ class IngestUtils(
     suspend fun createJudgment(id: UUID, invalid: Boolean) {
         val bucketName = SourceSystem.JUDGMENT.getBucket(config)
         val metadataBytes = createJudgmentMetadata(id, invalid)
-        val tarGz = createTarGzByteStream(id, metadataBytes)
-        uploadFileToS3(bucketName,"$id.tar.gz", tarGz)
+        val batchRef = idToRef(id)
+        val s3FolderName = id.toString()
+        uploadFileToS3(bucketName, "$s3FolderName/out/data/test.docx", ByteStream.fromBytes(wordDocBytes))
+        uploadFileToS3(bucketName, "$s3FolderName/out/TRE-$batchRef-metadata.json", ByteStream.fromBytes(metadataBytes))
     }
 
     suspend fun sendImportMessages(sourceSystemName: String) = coroutineScope {
@@ -286,7 +264,7 @@ class IngestUtils(
     fun buildMessageBody(sourceSystem: SourceSystem, id: UUID): String {
         val bucket = sourceSystem.getBucket(config)
         if (sourceSystem == SourceSystem.JUDGMENT) {
-            val inputParameters = JsonUtils.TREInputParameters("", idToRef(id), true, bucket, "$id.tar.gz")
+            val inputParameters = JsonUtils.TREInputParameters(idToRef(id), id.toString(), "TDR", bucket, "COURT_DOCUMENT_PARSE_NO_ERRORS", true)
             return jsonCodec.encodeToString(JsonUtils.TREInput(inputParameters))
         } else {
             val metadataLocation = URI.create("s3://$bucket/$id.metadata")
