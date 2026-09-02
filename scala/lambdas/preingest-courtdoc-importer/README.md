@@ -6,7 +6,7 @@ The input to the Lambda is an SQS event, with a body like
 ```json
 {
   "properties": {
-    "messageType": "uk.gov.nationalarchives.da.messages.courtdocumentpackage.available.CourtDocumentPackageAvailable",
+    "messageType": "uk.gov.nationalarchives.tre.messages.courtdocumentpackage.prepare.CourtDocumentPackagePrepare",
     "function": "tre-tf-module-parse-judgment",
     "producer": "TRE",
     "executionId": "2403e328-f6af-4246-b4ef-970e8fb32f5c",

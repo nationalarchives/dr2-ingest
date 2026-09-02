@@ -23,8 +23,7 @@ import java.util.UUID
 class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
   override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = (sqsEvent, config, dependencies) => {
 
-    val metadataFolder = "/out"
-    val dataFileFolder = s"$metadataFolder/data"
+    val dataFileFolder = s"/data"
 
     def readJsonFromS3Location(
         bucket: String,
@@ -46,7 +45,7 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies]:
         batchRef = treInput.parameters.reference
         _ <- log(Map("batchRef" -> batchRef))(s"Processing batchRef $batchRef")
 
-        metadataSourceKey = s"${treInput.parameters.s3FolderName}$metadataFolder/TRE-$batchRef-metadata.json"
+        metadataSourceKey = s"${treInput.parameters.s3FolderName}/TRE-$batchRef-metadata.json"
         treMetadata <- readJsonFromS3Location(treInput.parameters.s3Bucket, metadataSourceKey).onError { err =>
           log(Map("error" -> err.getMessage, "s3FolderName" -> treInput.parameters.s3FolderName))(err.getMessage)
         }
