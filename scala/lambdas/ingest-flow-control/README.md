@@ -56,7 +56,7 @@ In the configuration shown above,
 
 It carries out the operations as follows:
 
-1. The Lambda makes a call to SSM to get the flow control config. It adds it to a class object which validates the config for:
+1. The Lambda makes a call to SSM Parameter Store to get the flow control config. It adds it to a class object which validates the config for:
    1. Reserved channels should not be fewer than zero
    2. Probability must be between 0 and 100
    3. The probability of all systems together should equate to 100%
