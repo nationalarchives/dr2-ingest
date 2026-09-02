@@ -242,8 +242,8 @@ class IngestUtils(
         val metadataBytes = createJudgmentMetadata(id, invalid)
         val batchRef = idToRef(id)
         val s3FolderName = id.toString()
-        uploadFileToS3(bucketName, "$s3FolderName/out/data/test.docx", ByteStream.fromBytes(wordDocBytes))
-        uploadFileToS3(bucketName, "$s3FolderName/out/TRE-$batchRef-metadata.json", ByteStream.fromBytes(metadataBytes))
+        uploadFileToS3(bucketName, "$s3FolderName/data/test.docx", ByteStream.fromBytes(wordDocBytes))
+        uploadFileToS3(bucketName, "$s3FolderName/TRE-$batchRef-metadata.json", ByteStream.fromBytes(metadataBytes))
     }
 
     suspend fun sendImportMessages(sourceSystemName: String) = coroutineScope {
