@@ -14,6 +14,7 @@ import uk.gov.nationalarchives.utils.ExternalUtils.SourceSystem.`TRE: FCL Parser
 import io.circe.syntax.*
 import io.circe.generic.auto.*
 import org.apache.commons.codec.digest.DigestUtils
+import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers.*
 import uk.gov.nationalarchives.preingestcourtdocpackagebuilder.SeriesMapper.DepartmentSeries
 
@@ -22,7 +23,7 @@ import java.nio.ByteBuffer
 import java.time.OffsetDateTime
 import java.util.UUID
 
-class MetadataBuilderTest extends AnyFlatSpec with TableDrivenPropertyChecks:
+class MetadataBuilderTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherValues:
 
   given Encoder[LockTableMessage] = (m: LockTableMessage) =>
     Json.obj(
@@ -84,6 +85,7 @@ class MetadataBuilderTest extends AnyFlatSpec with TableDrivenPropertyChecks:
     (None, "fileName.txt", null, "fileName.txt"),
     (Option("Press Summary of test"), "Press Summary of test.txt", "test", "Press Summary of test.txt")
   )
+
   forAll(fileReferences) { potentialFileReference =>
     forAll(cites) { (potentialCite, idFields) =>
       forAll(treNameTable) { (treName, treFileName, expectedFolderTitle, expectedAssetTitle) =>
@@ -155,6 +157,7 @@ class MetadataBuilderTest extends AnyFlatSpec with TableDrivenPropertyChecks:
                     Option(IdField("RecordID", tdrUuid))
                   ).flatten
                 )
+              val metadataS3Uri = URI.create(s"s3://bucket/$metadataId.metadata")
               val files = List(
                 FileMetadataObject(
                   fileId,
@@ -177,7 +180,7 @@ class MetadataBuilderTest extends AnyFlatSpec with TableDrivenPropertyChecks:
                   treMetadataString.length,
                   RepresentationType.Preservation,
                   1,
-                  URI.create(s"s3://bucket/$metadataId"),
+                  metadataS3Uri,
                   List(Checksum("sha256", DigestUtils.sha256Hex(treMetadataString)))
                 )
               )
@@ -186,14 +189,14 @@ class MetadataBuilderTest extends AnyFlatSpec with TableDrivenPropertyChecks:
               val uuidsIterator = uuids.iterator
 
               val s3Objects = List(
-                S3Object("bucket", metadataId.toString, ByteBuffer.wrap(treMetadata.asJson.noSpaces.getBytes)),
+                S3Object("bucket", s"$metadataId.metadata", ByteBuffer.wrap(treMetadata.asJson.noSpaces.getBytes)),
                 S3Object("bucket", fileId.toString, ByteBuffer.wrap("test".getBytes))
               )
 
               val metadataBuilder =
                 MetadataBuilder(() => uuidsIterator.next(), s3Client(s3Objects, Ref.unsafe(Nil)), seriesMapper, uriProcessor)
 
-              val message = LockTableMessage(assetId, URI.create(s"s3://bucket/$metadataId"), fileId, potentialCorrelationId)
+              val message = LockTableMessage(assetId, metadataS3Uri, fileId, potentialCorrelationId)
               val item = IngestLockTableItem(assetId, "group_ID", message.asJson.noSpaces, "1")
 
               val metadataObjects = metadataBuilder.createMetadata(item).unsafeRunSync()
@@ -203,4 +206,50 @@ class MetadataBuilderTest extends AnyFlatSpec with TableDrivenPropertyChecks:
         }
       }
     }
+  }
+
+  "createMetadata" should "error if the metadata filename does not end with .metadata" in {
+    val seriesMapper: SeriesMapper = (potentialCourt: Option[String], skipSeriesLookup: Boolean) => IO(DepartmentSeries(department, None))
+    val uriProcessor: UriProcessor = new UriProcessor {
+      override def verifyJudgmentName(treMetadata: TREMetadata): IO[Unit] = UriProcessor().verifyJudgmentName(treMetadata)
+
+      override def parseUri(treMetadata: TREMetadata): IO[Option[ParsedUri]] = IO.pure(None)
+    }
+
+    val treMetadata = TREMetadata(
+      TREMetadataParameters(
+        Parser(None, None, None, Nil, Nil),
+        TREParams(reference, Payload("")),
+        TDRParams(
+          "abcde",
+          "test-organisation",
+          "test-identifier",
+          OffsetDateTime.parse("2023-10-31T13:40:54Z"),
+          None,
+          UUID.fromString(tdrUuid)
+        )
+      )
+    ).asJson.noSpaces
+
+    val uuidsIterator = uuids.iterator
+
+    val assetId = UUID.randomUUID
+    val metadataId = UUID.randomUUID
+    val fileId = UUID.randomUUID
+    val metadataUri = s"s3://bucket/$metadataId"
+
+    val s3Objects = List(
+      S3Object("bucket", metadataId.toString, ByteBuffer.wrap(treMetadata.getBytes)),
+      S3Object("bucket", fileId.toString, ByteBuffer.wrap("test".getBytes))
+    )
+
+    val metadataBuilder =
+      MetadataBuilder(() => uuidsIterator.next(), s3Client(s3Objects, Ref.unsafe(Nil)), seriesMapper, uriProcessor)
+
+    val message = LockTableMessage(assetId, URI.create(metadataUri), fileId, potentialCorrelationId)
+    val item = IngestLockTableItem(assetId, "group_ID", message.asJson.noSpaces, "1")
+
+    val errorMessage = metadataBuilder.createMetadata(item).attempt.unsafeRunSync().left.value.getMessage
+
+    errorMessage should equal(s"requirement failed: 'location' URI $metadataUri does not end with '.metadata'")
   }
