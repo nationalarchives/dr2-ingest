@@ -160,7 +160,7 @@ object TestUtils:
     initialTestDataInTRECommonBucket(metadata.asJson.noSpaces, batchReference, s3FolderName)
 
   def initialTestDataInTRECommonBucket(content: String, batchReference: String, s3FolderName: String): Map[String, ByteBuffer] = {
-    val files = Map(s"$s3FolderName/out/data/Test.docx" -> Array.fill(100)("a").mkString, "unused.txt" -> "", s"$s3FolderName/out/TRE-$batchReference-metadata.json" -> content)
+    val files = Map(s"$s3FolderName/data/Test.docx" -> Array.fill(100)("a").mkString, "unused.txt" -> "", s"$s3FolderName/TRE-$batchReference-metadata.json" -> content)
     files.map { case (fileName, fileContent) =>
       fileName -> ByteBuffer.wrap(fileContent.getBytes)
     }

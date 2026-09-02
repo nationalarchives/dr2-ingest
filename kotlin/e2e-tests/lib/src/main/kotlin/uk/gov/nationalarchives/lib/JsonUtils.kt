@@ -73,7 +73,7 @@ object JsonUtils {
     data class AggregatorInputMessage(@Contextual val id: UUID, @Contextual val location: URI)
 
     @Serializable
-    data class ValidationErrorMessage(val error: String, val assetId: String? = null, val s3Key: String? = null)
+    data class ValidationErrorMessage(val error: String, val assetId: String? = null, val s3FolderName: String? = null)
 
     @Serializable
     data class SqsInputMessage(@Contextual val fileId: UUID, val bucket: String, @Contextual val metadataLocation: URI)
@@ -128,7 +128,14 @@ object JsonUtils {
     data class TREMetadata(val parameters: TREMetadataParameters)
 
     @Serializable
-    data class TREInputParameters(val status: String, val reference: String, val skipSeriesLookup: Boolean, val s3Bucket: String, val s3Key: String)
+    data class TREInputParameters(
+        val reference: String,
+        val s3FolderName: String,
+        val originator: String,
+        val s3Bucket: String,
+        val status: String,
+        val skipSeriesLookup: Boolean
+    )
 
     @Serializable
     data class TREInput(val parameters: TREInputParameters)

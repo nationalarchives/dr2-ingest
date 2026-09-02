@@ -187,7 +187,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
 
     res.isLeft should equal(true)
     res.left.value.getMessage should equal(
-      s"Object not found: some-test-bucket-name/ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2/out/TRE-$reference-metadata.json"
+      s"Object not found: some-test-bucket-name/ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2/TRE-$reference-metadata.json"
     )
   }
 
@@ -199,6 +199,6 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     val (res, _, _) = runLambda(s3Objects, event())
 
     res.isLeft should equal(true)
-    res.left.value.getMessage should equal(s"Object not found: some-test-bucket-name/ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2/out/data/AnotherFile.docx")
+    res.left.value.getMessage should equal(s"Object not found: some-test-bucket-name/ABC-2026-A1B2/2BFC0015-140A-4836-8F44-D918F2B9455C/ABC-2026-A1B2/data/AnotherFile.docx")
   }
 }
