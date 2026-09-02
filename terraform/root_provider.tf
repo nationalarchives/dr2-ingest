@@ -3,6 +3,11 @@ module "config" {
   project = "dr2"
 }
 
+module "ayr_config" {
+  source  = "./da-terraform-configurations"
+  project = "ayr"
+}
+
 module "tre_config" {
   source  = "./da-terraform-configurations"
   project = "tre"
