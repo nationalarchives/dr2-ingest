@@ -74,15 +74,17 @@ object DynamoWriteUtils {
       )
     }.toDynamoValue
 
-  def writeIngestQueueTableItem(ingestQueueTableItem: IngestQueueTableItem): DynamoValue =
-    val dynamoQueueItem = Map(
-      sourceSystem -> DynamoValue.fromString(ingestQueueTableItem.sourceSystem),
-      queuedAt -> DynamoValue.fromString(ingestQueueTableItem.queuedTimeAndExecutionName),
-      taskToken -> DynamoValue.fromString(ingestQueueTableItem.taskToken),
-      executionName -> DynamoValue.fromString(ingestQueueTableItem.executionName),
-      queuedAssetCount -> DynamoValue.fromNumber[Int](ingestQueueTableItem.totalAssetCount),
-      queuedBytes -> DynamoValue.fromNumber[Long](ingestQueueTableItem.totalFileBytes)
-    )
+  def writeIngestQueueTableItem(ingestQueueTableItem: IngestQueueTableItem, assertionFail: Boolean = false): DynamoValue =
+    val dynamoQueueItem = if assertionFail then Map()
+    else
+      Map(
+        sourceSystem -> DynamoValue.fromString(ingestQueueTableItem.sourceSystem),
+        queuedAt -> DynamoValue.fromString(ingestQueueTableItem.queuedTimeAndExecutionName),
+        taskToken -> DynamoValue.fromString(ingestQueueTableItem.taskToken),
+        executionName -> DynamoValue.fromString(ingestQueueTableItem.executionName),
+        queuedAssetCount -> DynamoValue.fromNumber[Int](ingestQueueTableItem.totalAssetCount),
+        queuedBytes -> DynamoValue.fromNumber[Long](ingestQueueTableItem.totalFileBytes)
+      )
     assert(dynamoQueueItem.size == ingestQueueTableItem.productArity, "The fields in the Map need to be updated to match the fields in IngestQueueTableItem")
     DynamoObject(dynamoQueueItem).toDynamoValue
 
