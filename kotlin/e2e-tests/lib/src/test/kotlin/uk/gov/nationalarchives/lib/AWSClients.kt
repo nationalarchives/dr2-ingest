@@ -36,14 +36,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import uk.gov.nationalarchives.lib.JsonUtils.jsonCodec
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.util.*
-import java.util.zip.GZIPInputStream
 
 object AWSClients {
 
@@ -180,28 +175,13 @@ object AWSClients {
     class TestJudgmentS3Client(private val fileContents: MutableList<ByteArray>, private val metadataList: MutableList<JsonUtils.TREMetadata>, delegate: S3Client = S3Client.builder().build()): S3Client by delegate {
         override suspend fun putObject(input: PutObjectRequest): PutObjectResponse {
             withContext(Dispatchers.IO) {
-                GZIPInputStream(ByteArrayInputStream(input.body?.toByteArray() ?: ByteArray(0))).use { gzipInput ->
-                    TarArchiveInputStream(gzipInput).use { tarInput ->
-                        var entry: TarArchiveEntry?
-                        val buffer = ByteArray(8192) // Buffer for reading
-
-                        while (tarInput.nextEntry.also { entry = it } != null) {
-                            if (entry!!.isDirectory) continue // Skip directories
-
-                            val outputStream = ByteArrayOutputStream()
-                            var bytesRead: Int
-                            while (tarInput.read(buffer).also { bytesRead = it } != -1) {
-                                outputStream.write(buffer, 0, bytesRead)
-                            }
-                            if (entry!!.name.contains("metadata")) {
-                                val metadata =
-                                    jsonCodec.decodeFromString<JsonUtils.TREMetadata>(outputStream.toString("utf-8"))
-                                metadataList.add(metadata)
-                            } else {
-                                fileContents.add(outputStream.toByteArray())
-                            }
-                        }
-                    }
+                val bytes = input.body?.toByteArray() ?: ByteArray(0)
+                val key = input.key.orEmpty()
+                if (key.contains("metadata")) {
+                    val metadata = jsonCodec.decodeFromString<JsonUtils.TREMetadata>(String(bytes, Charsets.UTF_8))
+                    metadataList.add(metadata)
+                } else {
+                    fileContents.add(bytes)
                 }
             }
             return PutObjectResponse {}
