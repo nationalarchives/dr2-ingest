@@ -64,15 +64,20 @@ object DynamoWriteUtils {
         ) ++ fileDynamoItem.checksums.map(eachChecksum => s"$checksumPrefix${eachChecksum.algorithm}" -> DynamoValue.fromString(eachChecksum.fingerprint)).toMap
     }.toDynamoValue
 
-  def writeLockTableItem(lockTableItem: IngestLockTableItem): DynamoValue =
-    DynamoObject {
+  def writeLockTableItem(lockTableItem: IngestLockTableItem, assertionFail: Boolean = false): DynamoValue =
+    val dynamoQueueItem = if assertionFail then Map()
+    else
       Map(
         assetId -> DynamoValue.fromString(lockTableItem.assetId.toString),
         groupId -> DynamoValue.fromString(lockTableItem.groupId),
         message -> DynamoValue.fromString(lockTableItem.message),
         createdAt -> DynamoValue.fromString(lockTableItem.createdAt)
       )
-    }.toDynamoValue
+
+    assert(dynamoQueueItem.size == lockTableItem.productArity, "The fields in the Map need to be updated to match the fields in IngestLockTableItem")
+    DynamoObject(dynamoQueueItem).toDynamoValue
+
+    DynamoObject(dynamoQueueItem).toDynamoValue
 
   def writeIngestQueueTableItem(ingestQueueTableItem: IngestQueueTableItem, assertionFail: Boolean = false): DynamoValue =
     val dynamoQueueItem = if assertionFail then Map()

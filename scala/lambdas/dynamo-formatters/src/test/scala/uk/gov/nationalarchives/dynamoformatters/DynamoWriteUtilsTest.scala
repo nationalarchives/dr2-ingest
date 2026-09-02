@@ -20,6 +20,42 @@ import scala.jdk.CollectionConverters.*
 
 class DynamoWriteUtilsTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherValues {
 
+  "writeLockTableItem" should "convert the values of an 'IngestLockTableItem' to a DynamoValue if the IngestLockTableItem has the expected number of fields" in {
+    val actualDynamoValue = DynamoWriteUtils.writeLockTableItem(
+      IngestLockTableItem(
+        UUID.fromString("90730c77-8faa-4dbf-b20d-bba1046dac87"),
+        "groupId",
+        "message",
+        "createdAt"
+      )
+    )
+
+    val expectedDynamoValue = DynamoObject(
+      Map(
+        "assetId" -> DynamoValue.fromString("90730c77-8faa-4dbf-b20d-bba1046dac87"),
+        "groupId" -> DynamoValue.fromString("groupId"),
+        "message" -> DynamoValue.fromString("message"),
+        "createdAt" -> DynamoValue.fromString("createdAt")
+      )
+    ).toDynamoValue
+
+    actualDynamoValue should be(expectedDynamoValue)
+  }
+
+  "writeLockTableItem" should "throw an error if the IngestLockTableItem has fewer fields than expected" in {
+    intercept[AssertionError] {
+      DynamoWriteUtils.writeLockTableItem(
+        IngestLockTableItem(
+          UUID.fromString("90730c77-8faa-4dbf-b20d-bba1046dac87"),
+          "groupId",
+          "message",
+          "createdAt"
+        ),
+        true
+      )
+    }.getMessage should be("assertion failed: The fields in the Map need to be updated to match the fields in IngestLockTableItem")
+  }
+
   "writeIngestQueueTableItem" should "convert the values of an 'IngestQueueTableItem' to a DynamoValue if the IngestQueueTableItem has the expected number of fields" in {
     val actualDynamoValue = DynamoWriteUtils.writeIngestQueueTableItem(
       IngestQueueTableItem(
