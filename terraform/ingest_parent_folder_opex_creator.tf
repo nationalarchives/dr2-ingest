@@ -22,6 +22,7 @@ module "dr2_ingest_parent_folder_opex_creator_lambda" {
   s3_key          = "${var.lambda_code_version}/${local.ingest_parent_folder_opex_creator_key_name}"
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
+  architecture    = "arm64"
   plaintext_env_vars = {
     DESTINATION_BUCKET = local.preservica_ingest_bucket
     S3_ROLE_ARN        = module.copy_tna_to_preservica_role.role_arn

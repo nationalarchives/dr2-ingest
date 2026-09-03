@@ -22,6 +22,7 @@ module "dr2_ingest_workflow_monitor_lambda" {
   s3_bucket       = local.code_deploy_bucket
   s3_key          = "${var.lambda_code_version}/${local.ingest_workflow_monitor_key_name}"
   runtime         = local.java_runtime
+  architecture    = "arm64"
   plaintext_env_vars = {
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_secret.name
   }

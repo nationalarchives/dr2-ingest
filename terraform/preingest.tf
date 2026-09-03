@@ -112,6 +112,7 @@ module "court_document_preingest" {
     timeout            = 900
     handler            = "uk.gov.nationalarchives.preingestcourtdocimporter.Lambda::handleRequest"
     runtime            = local.java_runtime
+    architecture       = "arm64"
     memory_size        = 512
   }
   package_builder_lambda = {

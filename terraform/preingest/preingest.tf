@@ -65,8 +65,9 @@ module "dr2_preingest_aggregator_lambda" {
       sns_topic                  = var.notifications_topic_arn
     })
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  memory_size  = local.java_lambda_memory_size
+  runtime      = local.java_runtime
+  architecture = "arm64"
   plaintext_env_vars = {
     LOCK_DDB_TABLE                = var.ingest_lock_dynamo_table_name
     MAX_BATCH_SIZE                = local.aggregator_group_size
@@ -134,6 +135,7 @@ module "dr2_preingest_package_builder_lambda" {
   snap_start      = true
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
+  architecture    = "arm64"
   plaintext_env_vars = {
     LOCK_DDB_TABLE                  = var.ingest_lock_dynamo_table_name
     LOCK_DDB_TABLE_GROUPID_GSI_NAME = var.ingest_lock_table_group_id_gsi_name
