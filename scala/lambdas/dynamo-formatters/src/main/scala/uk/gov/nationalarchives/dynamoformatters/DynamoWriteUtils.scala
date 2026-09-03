@@ -64,25 +64,34 @@ object DynamoWriteUtils {
         ) ++ fileDynamoItem.checksums.map(eachChecksum => s"$checksumPrefix${eachChecksum.algorithm}" -> DynamoValue.fromString(eachChecksum.fingerprint)).toMap
     }.toDynamoValue
 
-  def writeLockTableItem(lockTableItem: IngestLockTableItem): DynamoValue =
-    DynamoObject {
+  def writeLockTableItem(lockTableItem: IngestLockTableItem, assertionFail: Boolean = false): DynamoValue =
+    val dynamoQueueItem = if assertionFail then Map()
+    else
       Map(
         assetId -> DynamoValue.fromString(lockTableItem.assetId.toString),
         groupId -> DynamoValue.fromString(lockTableItem.groupId),
         message -> DynamoValue.fromString(lockTableItem.message),
         createdAt -> DynamoValue.fromString(lockTableItem.createdAt)
       )
-    }.toDynamoValue
 
-  def writeIngestQueueTableItem(ingestQueueTableItem: IngestQueueTableItem): DynamoValue =
-    DynamoObject {
+    assert(dynamoQueueItem.size == lockTableItem.productArity, "The fields in the Map need to be updated to match the fields in IngestLockTableItem")
+    DynamoObject(dynamoQueueItem).toDynamoValue
+
+    DynamoObject(dynamoQueueItem).toDynamoValue
+
+  def writeIngestQueueTableItem(ingestQueueTableItem: IngestQueueTableItem, assertionFail: Boolean = false): DynamoValue =
+    val dynamoQueueItem = if assertionFail then Map()
+    else
       Map(
         sourceSystem -> DynamoValue.fromString(ingestQueueTableItem.sourceSystem),
         queuedAt -> DynamoValue.fromString(ingestQueueTableItem.queuedTimeAndExecutionName),
         taskToken -> DynamoValue.fromString(ingestQueueTableItem.taskToken),
-        executionName -> DynamoValue.fromString(ingestQueueTableItem.executionName)
+        executionName -> DynamoValue.fromString(ingestQueueTableItem.executionName),
+        queuedAssetCount -> DynamoValue.fromNumber[Int](ingestQueueTableItem.totalAssetCount),
+        queuedBytes -> DynamoValue.fromNumber[Long](ingestQueueTableItem.totalFileBytes)
       )
-    }.toDynamoValue
+    assert(dynamoQueueItem.size == ingestQueueTableItem.productArity, "The fields in the Map need to be updated to match the fields in IngestQueueTableItem")
+    DynamoObject(dynamoQueueItem).toDynamoValue
 
   def writeStatusTableItem(stateTableItem: PostIngestStateTableItem): DynamoValue =
     DynamoObject {
