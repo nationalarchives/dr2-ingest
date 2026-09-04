@@ -49,7 +49,7 @@ module "cleanup_handler_lambda" {
   timeout_seconds = local.java_timeout_seconds
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
-  architecture    = "arm64"
+  architecture    = local.architecture_arm64
   tags            = {}
   lambda_sqs_queue_mappings = [{
     sqs_queue_arn = local.sqs_queue_arn

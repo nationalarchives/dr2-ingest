@@ -33,6 +33,7 @@ module "dr2_get_latest_preservica_version_lambda" {
   timeout_seconds = 180
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
+  architecture    = local.architecture_arm64
   tags            = {}
   lambda_invoke_permissions = {
     "events.amazonaws.com" = module.dr2_get_latest_preservica_version_cloudwatch_event.event_arn
