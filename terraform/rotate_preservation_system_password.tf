@@ -25,7 +25,7 @@ module "dr2_rotate_preservation_system_password_lambda" {
   s3_key       = "${var.lambda_code_version}/${local.rotate_preservation_system_password_key}"
   memory_size  = local.java_lambda_memory_size
   runtime      = local.java_runtime
-  architecture = "arm64"
+  architecture = local.architecture_arm64
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
     security_group_ids = local.clouflare_and_vpc_endpoints_security_groups

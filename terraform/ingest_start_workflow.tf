@@ -22,7 +22,7 @@ module "dr2_ingest_start_workflow_lambda" {
   snap_start      = true
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
-  architecture    = "arm64"
+  architecture    = local.architecture_arm64
   plaintext_env_vars = {
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_secret.name
   }

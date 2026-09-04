@@ -25,7 +25,7 @@ module "ingest_find_existing_asset" {
   s3_key          = "${var.lambda_code_version}/${local.ingest_find_existing_asset_key_name}"
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
-  architecture    = "arm64"
+  architecture    = local.architecture_arm64
   plaintext_env_vars = {
     FILES_DDB_TABLE        = local.files_dynamo_table_name
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_metadata.name

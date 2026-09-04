@@ -32,7 +32,7 @@ module "dr2_entity_event_generator_lambda" {
   timeout_seconds      = 60
   memory_size          = local.java_lambda_memory_size
   runtime              = local.java_runtime
-  architecture         = "arm64"
+  architecture         = local.architecture_arm64
   tags                 = {}
   reserved_concurrency = 1
   lambda_invoke_permissions = {

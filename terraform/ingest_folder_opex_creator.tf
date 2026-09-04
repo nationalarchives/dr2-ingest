@@ -26,7 +26,7 @@ module "dr2_ingest_folder_opex_creator_lambda" {
   s3_key          = "${var.lambda_code_version}/${local.ingest_folder_opex_creator_key_name}"
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
-  architecture    = "arm64"
+  architecture    = local.architecture_arm64
   plaintext_env_vars = {
     FILES_DDB_TABLE                      = local.files_dynamo_table_name
     FILES_DDB_TABLE_BATCHPARENT_GSI_NAME = local.files_table_batch_parent_global_secondary_index_name

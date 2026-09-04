@@ -22,7 +22,7 @@ module "dr2_ingest_flow_control_lambda" {
   snap_start      = true
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
-  architecture    = "arm64"
+  architecture    = local.architecture_arm64
   s3_bucket       = local.code_deploy_bucket
   s3_key          = "${var.lambda_code_version}/${local.ingest_flow_control_key_name}"
   plaintext_env_vars = {

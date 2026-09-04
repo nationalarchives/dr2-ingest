@@ -22,7 +22,7 @@ module "dr2_ingest_failure_notifications_lambda" {
   timeout_seconds = local.java_timeout_seconds
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
-  architecture    = "arm64"
+  architecture    = local.architecture_arm64
   tags            = {}
   plaintext_env_vars = {
     LOCK_DDB_TABLE                  = local.ingest_lock_dynamo_table_name
