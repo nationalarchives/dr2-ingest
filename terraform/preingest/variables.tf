@@ -62,6 +62,7 @@ variable "importer_lambda" {
     visibility_timeout = number
     handler            = string
     runtime            = string
+    architecture       = string
     memory_size        = number
   })
   default = {
@@ -69,6 +70,7 @@ variable "importer_lambda" {
     visibility_timeout = 300
     handler            = "lambda_function.lambda_handler"
     runtime            = "python3.12"
+    architecture       = "x86_64"
     memory_size        = 128
 
   }

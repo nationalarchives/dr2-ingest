@@ -8,6 +8,7 @@ locals {
   resender_lambda_key             = "postingest-message-resender"
   resender_lambda_name            = "${var.environment}-dr2-${local.resender_lambda_key}"
   java_runtime                    = "java21"
+  architecture_arm64              = "arm64"
   java_lambda_memory_size         = 512
   postingest_queue_config = [ // Before adding a new queue here, update the state change handler to expect it
     { "queueAlias" : "CC", "queueOrder" : 1, "queue_name" : "${var.environment}-dr2-postingest-custodial-copy-confirmer" },
@@ -129,10 +130,11 @@ module "dr2_state_change_lambda" {
       vpc_id                          = var.vpc_id
     })
   }
-  s3_bucket   = local.code_deploy_bucket
-  s3_key      = "${var.lambda_code_version}/${local.state_change_lambda_key}"
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  s3_bucket    = local.code_deploy_bucket
+  s3_key       = "${var.lambda_code_version}/${local.state_change_lambda_key}"
+  memory_size  = local.java_lambda_memory_size
+  runtime      = local.java_runtime
+  architecture = local.architecture_arm64
   dynamo_stream_config = {
     stream_arn             = module.postingest_state_table.stream_arn
     dead_letter_target_arn = module.dr2_state_change_lambda_dlq.sqs_arn
@@ -173,8 +175,9 @@ module "dr2_message_resender_lambda" {
   lambda_invoke_permissions = {
     "events.amazonaws.com" = module.dr2_message_resender_cloudwatch_event.event_arn
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  memory_size  = local.java_lambda_memory_size
+  runtime      = local.java_runtime
+  architecture = local.architecture_arm64
   plaintext_env_vars = {
     POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
     POSTINGEST_DDB_TABLE_LAST_QUEUED_GSI_NAME = local.postingest_gsi_lastqueued_name

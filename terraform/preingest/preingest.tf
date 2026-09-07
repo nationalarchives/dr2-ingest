@@ -9,6 +9,7 @@ locals {
   preingest_sfn_arn                            = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${local.preingest_name}"
   ingest_sfn_arn                               = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${var.ingest_step_function_name}"
   java_runtime                                 = "java21"
+  architecture_arm64                           = "arm64"
   java_lambda_memory_size                      = 512
   java_timeout_seconds                         = 180
   aggregator_primary_grouping_window_seconds   = var.aggregator_primary_grouping_window_seconds # How long the SQS Poller waits before invoking the Lambda after receiving the first message. Defaults to <=300 for Lambda.
@@ -65,8 +66,9 @@ module "dr2_preingest_aggregator_lambda" {
       sns_topic                  = var.notifications_topic_arn
     })
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  memory_size  = local.java_lambda_memory_size
+  runtime      = local.java_runtime
+  architecture = local.architecture_arm64
   plaintext_env_vars = {
     LOCK_DDB_TABLE                = var.ingest_lock_dynamo_table_name
     MAX_BATCH_SIZE                = local.aggregator_group_size
@@ -134,6 +136,7 @@ module "dr2_preingest_package_builder_lambda" {
   snap_start      = true
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
+  architecture    = local.architecture_arm64
   plaintext_env_vars = {
     LOCK_DDB_TABLE                  = var.ingest_lock_dynamo_table_name
     LOCK_DDB_TABLE_GROUPID_GSI_NAME = var.ingest_lock_table_group_id_gsi_name

@@ -246,7 +246,9 @@ class DynamoReadUtils(folderItemAsMap: Map[String, AttributeValue]) {
       getValidatedMandatoryAttributeAsString(sourceSystem),
       getValidatedMandatoryAttributeAsString(queuedAt),
       getValidatedMandatoryAttributeAsString(taskToken),
-      getValidatedMandatoryAttributeAsString(executionName)
+      getValidatedMandatoryAttributeAsString(executionName),
+      getNumber(queuedAssetCount, _.toInt),
+      getNumber(queuedBytes, _.toLong)
     ).mapN(IngestQueueTableItem.apply).toEither.left.map(InvalidPropertiesError.apply)
 
   def readArchiveFolderItem: Either[InvalidPropertiesError, ArchiveFolderDynamoItem] =

@@ -23,6 +23,7 @@ module "dr2_ingest_upsert_archive_folders_lambda" {
   s3_key          = "${var.lambda_code_version}/${local.ingest_upsert_archive_folders_key_name}"
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
+  architecture    = local.architecture_arm64
   plaintext_env_vars = {
     FILES_DDB_TABLE        = local.files_dynamo_table_name
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_update_metadata_insert_content.name

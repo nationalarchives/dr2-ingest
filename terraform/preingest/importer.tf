@@ -38,10 +38,11 @@ module "dr2_importer_lambda" {
       source_bucket_permissions = local.source_bucket_permissions
     })
   }, var.additional_importer_lambda_policies)
-  memory_size = var.importer_lambda.memory_size
-  runtime     = var.importer_lambda.runtime
-  s3_bucket   = local.code_deploy_bucket
-  s3_key      = "${var.lambda_code_version}/${local.importer_key}"
+  memory_size  = var.importer_lambda.memory_size
+  runtime      = var.importer_lambda.runtime
+  architecture = var.importer_lambda.architecture
+  s3_bucket    = local.code_deploy_bucket
+  s3_key       = "${var.lambda_code_version}/${local.importer_key}"
   plaintext_env_vars = merge(
     {
       OUTPUT_BUCKET_NAME = var.ingest_raw_cache_bucket_name
