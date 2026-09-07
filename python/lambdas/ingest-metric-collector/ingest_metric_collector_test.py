@@ -331,7 +331,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_boto_client.return_value = mock_client
         with self.assertRaises(Exception) as context:
             ingest_metric_collector.lambda_handler({}, DummyContext())
-        self.assertIn("Failed to collect metrics for step function as well as age", str(context.exception))
+        self.assertIn("Failed to collect metrics for step function as well as the queued executions", str(context.exception))
 
         mock_client.put_metric_data.assert_not_called()
 
