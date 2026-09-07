@@ -8,6 +8,7 @@ import ingest_metric_collector
 
 
 SOURCE_SYSTEMS = ["TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"]
+MAPPER_LAMBDA_STATE_NAME = "Get metadata and update Files table"
 
 def generate_metrics(state_machine_arn="arn:some_arn", state_machine_name= "test-dr2-something", value=0,
                      metric_name="ExecutionsRunning", source_system="", unit="Count"):
@@ -20,13 +21,17 @@ def generate_metrics(state_machine_arn="arn:some_arn", state_machine_name= "test
         "Value": value,
         "Unit": unit
     }
-    if source_system:
+    if source_system and metric_name == "ExecutionsRunning":
         metrics["Dimensions"].append({"Name": "SourceSystem", "Value": source_system})
+    elif source_system:
+        metrics["Dimensions"] = [{"Name": "SourceSystem", "Value": source_system}]
+    else:
+        pass
 
     return metrics
 
 
-@patch.dict(os.environ, {"SOURCE_SYSTEMS": json.dumps(SOURCE_SYSTEMS)})
+@patch.dict(os.environ, {"SOURCE_SYSTEMS": json.dumps(SOURCE_SYSTEMS), "MAPPER_LAMBDA_STATE_NAME": json.dumps(MAPPER_LAMBDA_STATE_NAME)})
 class TestLambdaFunction(unittest.TestCase):
     expected_source_systems = ("TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT")
 
@@ -36,7 +41,8 @@ class TestLambdaFunction(unittest.TestCase):
         mock_sfn.get_paginator.return_value.paginate.return_value = [{"stateMachines": []}]
         mock_boto_client.return_value = mock_sfn
 
-        metrics = ingest_metric_collector.get_stepfunction_metrics("env-prefix", SOURCE_SYSTEMS)
+        metrics = ingest_metric_collector.get_stepfunction_metrics("env-prefix", SOURCE_SYSTEMS,
+                                                                   MAPPER_LAMBDA_STATE_NAME)
         self.assertEqual([], metrics)
 
     @patch("ingest_metric_collector.boto3.client")
@@ -48,7 +54,8 @@ class TestLambdaFunction(unittest.TestCase):
         mock_sfn.list_executions.return_value = {"executions": []}
         mock_boto_client.return_value = mock_sfn
 
-        metrics = ingest_metric_collector.get_stepfunction_metrics("TDR-", SOURCE_SYSTEMS)
+        metrics = ingest_metric_collector.get_stepfunction_metrics("TDR-", SOURCE_SYSTEMS,
+                                                                   MAPPER_LAMBDA_STATE_NAME)
         # Should return one metric with 0 executions
         self.assertEqual(1, len(metrics))
 
@@ -66,7 +73,8 @@ class TestLambdaFunction(unittest.TestCase):
         mock_sfn.list_executions.return_value = {"executions": []}
         mock_boto_client.return_value = mock_sfn
 
-        metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2-", SOURCE_SYSTEMS)
+        metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2-", SOURCE_SYSTEMS,
+                                                                   MAPPER_LAMBDA_STATE_NAME)
 
         self.assertEqual(6, len(metrics))
         expected_metric = generate_metrics()
@@ -80,26 +88,136 @@ class TestLambdaFunction(unittest.TestCase):
     @patch("ingest_metric_collector.boto3.client")
     def test_get_stepfunction_metrics_should_return_metrics_when_executions_and_source_system_exist(self, mock_boto_client):
         mock_sfn = MagicMock()
-        mock_sfn.get_paginator.return_value.paginate.return_value = [
+        state_machine_mock = MagicMock()
+        state_machine_mock.paginate.return_value = [
             {"stateMachines": [{"name": "test-dr2-something", "stateMachineArn": "arn:some_arn"}]}
         ]
-        mock_sfn.list_executions.return_value = {
-            "executions": [
-                {"name": "TDR_job1"},
-                {"name": "COURTDOC_task1"},
-                {"name": "RANDOM_job2"},  # unknown ss should get added to DEFAULT
-            ]
-        }
+        get_execution_history_mock = MagicMock()
+        executions_list = [
+            {"name": "TDR_job1", "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:TDR_job1"},
+            {"name": "COURTDOC_task1", "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:COURTDOC_task1"},
+            {"name": "RANDOM_job2", "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:RANDOM_job2"},  # unknown ss should get added to DEFAULT
+        ]
+
+        events = [[
+            {
+                "events": [
+                    {
+                        "eventId": 1,
+                        "type": "ExecutionStarted"
+                    },
+                    {
+                        "eventId": 2,
+                        "type": "TaskStateExited",
+                        "stateExitedEventDetails": {
+                            "name": "Get metadata and update Files table",
+                            "output": f"""{{"totalAssetCount":{n + 1},"totalFileBytes":{(n + 1) * 1000}}}"""
+                        }
+                    }
+                ]
+            }]
+            for n, execution in enumerate(executions_list)
+        ]
+
+        get_execution_history_mock.paginate.side_effect = events
+        arg_to_mock = {"list_state_machines": state_machine_mock, "get_execution_history": get_execution_history_mock}
+        mock_sfn.get_paginator.side_effect = lambda arg: arg_to_mock[arg]
+
+        mock_sfn.list_executions.return_value = {"executions": executions_list}
         mock_boto_client.return_value = mock_sfn
 
-        metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2", SOURCE_SYSTEMS)
+        metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2", SOURCE_SYSTEMS,
+                                                                   MAPPER_LAMBDA_STATE_NAME)
 
-        # 1 metric for total executions + metrics per source system
-        self.assertEqual(1 + len(self.expected_source_systems), len(metrics))
+        expected_executions_running = 1
+        expected_executions_running_per_ss = len(self.expected_source_systems)
+        expected_asset_count_and_bytes = len(executions_list) * 2
+        expected_metrics_length = expected_executions_running + expected_executions_running_per_ss + expected_asset_count_and_bytes
 
-        for n, (ss, executions) in enumerate(zip(self.expected_source_systems, (1, 1, 0, 0, 1))):
+        self.assertEqual(expected_metrics_length, len(metrics))
+
+        total_executions_running = metrics.pop(0)
+        expected_executions = generate_metrics(value=len(executions_list))
+        self.assertEqual(expected_executions, total_executions_running)
+
+        for (ss, executions) in zip(self.expected_source_systems, (1, 1, 0, 0, 1)):
             expected_metric = generate_metrics(value=executions, source_system=ss)
-            self.assertEqual(expected_metric, metrics[n + 1])
+            self.assertEqual(expected_metric, metrics.pop(0))
+
+        expected_executions = generate_metrics(value=len(executions_list))
+        for (ss, count, total_bytes) in (("TDR", 1, 1000), ("COURTDOC", 2, 2000), ("DEFAULT", 3, 3000)):
+            count_expected_metric = generate_metrics(value=count, metric_name="AssetCount", source_system=ss)
+            self.assertEqual(count_expected_metric, metrics.pop(0))
+
+            bytes_expected_metric = generate_metrics(value=total_bytes, metric_name="Bytes", source_system=ss)
+            self.assertEqual(bytes_expected_metric, metrics.pop(0))
+
+        self.assertEqual(len(metrics), 0)
+
+    @patch("ingest_metric_collector.boto3.client")
+    def test_get_stepfunction_metrics_should_throw_an_error_if(self, mock_boto_client):
+        cases = [
+            ("no 'TaskStateExited' events are present",
+             "Task 'Get metadata and update Files table' not found in list of events with the status 'TaskStateExited'"),
+            ("no 'TaskStateExited' events with the expected Mapper lambda name",
+             f"Task 'Get metadata and update Files table' not found in list of events with the status 'TaskStateExited'"),
+            ("no Napper lambda Output Exists", "Mapper Lambda Task exited but produced no output.")
+        ]
+
+        for case_no, (state, exception_msg) in enumerate(cases):
+            # subTest keeps the loop running even if an assertion fails
+            with self.subTest(msg=state, expected="Exception: " + exception_msg):
+                mock_sfn = MagicMock()
+                state_machine_mock = MagicMock()
+                state_machine_mock.paginate.return_value = [
+                    {"stateMachines": [{"name": "test-dr2-something", "stateMachineArn": "arn:some_arn"}]}
+                ]
+                get_execution_history_mock = MagicMock()
+                executions_list = [
+                    {"name": "TDR_job1", "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:TDR_job1"}
+                ]
+
+                events = [
+                    [
+                        {
+                            "events": [
+                                {
+                                    "eventId": 1,
+                                    "type": "ExecutionStarted"
+                                },
+                                {
+                                    "eventId": 2,
+                                    "type": "TaskStateExited",
+                                    "stateExitedEventDetails": {
+                                        "name": "Get metadata and update Files table",
+                                        "output": f"""{{"totalAssetCount":1,"totalFileBytes":1000}}"""
+                                    }
+                                }
+
+
+                            ]
+                        }
+                    ]
+                ]
+                events_list = events[0][0]["events"]
+                match case_no:
+                    case 0:
+                        events_list.pop()
+                    case 1:
+                        events_list[1]["stateExitedEventDetails"]["name"] = "Not Mapper name"
+                    case 2:
+                        del events_list[-1]["stateExitedEventDetails"]["output"]
+                get_execution_history_mock.paginate.side_effect = events
+                arg_to_mock = {"list_state_machines": state_machine_mock, "get_execution_history": get_execution_history_mock}
+                mock_sfn.get_paginator.side_effect = lambda arg: arg_to_mock[arg]
+
+                mock_sfn.list_executions.return_value = {"executions": executions_list}
+                mock_boto_client.return_value = mock_sfn
+
+                with self.assertRaises(Exception) as e:
+                    ingest_metric_collector.get_stepfunction_metrics("test-dr2", SOURCE_SYSTEMS,
+                                                                     MAPPER_LAMBDA_STATE_NAME)
+                self.assertEqual(exception_msg, str(e.exception))
 
     @patch("ingest_metric_collector.boto3.client")
     def test_get_flow_control_metrics_should_return_zero_when_no_items_in_queue(self, mock_boto_client):
@@ -109,17 +227,21 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2", SOURCE_SYSTEMS)
 
-        self.assertEqual(10, len(metrics))
+        self.assertEqual(20, len(metrics))
 
         for n, ss in enumerate(self.expected_source_systems):
             ingest_queued_metric = generate_metrics(metric_name="IngestsQueued", source_system=ss)
             queue_age_metric = generate_metrics(metric_name="ApproximateAgeOfOldestQueuedIngest", source_system=ss,
                                                 unit="Seconds")
+            queue_asset_count_metric = generate_metrics(metric_name="QueuedAssetCount",
+                                                        source_system=ss, unit="Count")
+            expected_bytes = 1000 if ss == "TDR" else 0
+            queue_bytes_metric = generate_metrics(value=expected_bytes, metric_name="QueuedBytes", source_system=ss,
+                                                  unit="Bytes")
             ingest_queued_metric["Dimensions"] = ingest_queued_metric["Dimensions"][2:]
             queue_age_metric["Dimensions"] = queue_age_metric["Dimensions"][2:]
-
-            self.assertEqual(ingest_queued_metric, metrics.pop(0))
-            self.assertEqual(queue_age_metric, metrics.pop(0))
+            queue_asset_count_metric["Dimensions"] = queue_asset_count_metric["Dimensions"][2:]
+            queue_bytes_metric["Dimensions"] = queue_bytes_metric["Dimensions"][2:]
 
     def make_source_system_specific_mock(self, mock_mapping):
         def query_side_effect(**kwargs):
@@ -137,6 +259,8 @@ class TestLambdaFunction(unittest.TestCase):
                 {
                     "sourceSystem": {"S": "CRM"},
                     "queuedAt": {"S": (now - timedelta(seconds=60)).isoformat()},
+                    "totalAssetCount": 1,
+                    "totalFileBytes": 1000
                 }
             ],
             "COURTDOC": [],
@@ -148,19 +272,28 @@ class TestLambdaFunction(unittest.TestCase):
         mock_boto_client.return_value = mock_dynamo
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2", SOURCE_SYSTEMS)
-        self.assertEqual(10, len(metrics))
+        self.assertEqual(20, len(metrics))
 
         for ss, (count, seconds) in zip(self.expected_source_systems, ((1, 60), (0, 0), (0, 0), (0, 0), (0, 0))):
             ingest_queued_metric = generate_metrics(value=count, metric_name="IngestsQueued", source_system=ss)
             queue_age_metric = generate_metrics(value=seconds, metric_name="ApproximateAgeOfOldestQueuedIngest",
                                                 source_system=ss, unit="Seconds")
-            ingest_queued_metric["Dimensions"] = ingest_queued_metric["Dimensions"][2:]
-            queue_age_metric["Dimensions"] = queue_age_metric["Dimensions"][2:]
+            queue_asset_count_metric = generate_metrics(value=seconds, metric_name="QueuedAssetCount",
+                                                        source_system=ss, unit="Count")
+            expected_bytes = 1000 if ss == "TDR" else 0
+            queue_bytes_metric = generate_metrics(value=expected_bytes, metric_name="QueuedBytes", source_system=ss,
+                                                  unit="Bytes")
+            ingest_queued_metric["Dimensions"] = ingest_queued_metric["Dimensions"]
+            queue_age_metric["Dimensions"] = queue_age_metric["Dimensions"]
+            queue_asset_count_metric["Dimensions"] = queue_asset_count_metric["Dimensions"]
+            queue_bytes_metric["Dimensions"] = queue_bytes_metric["Dimensions"]
 
             self.assertEqual(ingest_queued_metric, metrics.pop(0))
             age_metric = metrics.pop(0)
             age_metric["Value"] = round(age_metric["Value"], 2)
             self.assertEqual(queue_age_metric, age_metric)
+            self.assertEqual(queue_asset_count_metric, metrics.pop(0))
+            self.assertEqual(queue_bytes_metric, metrics.pop(0))
 
     @patch("ingest_metric_collector.boto3.client")
     @patch("ingest_metric_collector.get_stepfunction_metrics", side_effect=Exception("sfn error"))

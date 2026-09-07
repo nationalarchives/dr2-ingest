@@ -4,6 +4,7 @@ locals {
   sample_files_bucket_name                             = "${local.environment}-dr2-sample-files"
   ingest_state_bucket_name                             = "${local.environment}-dr2-ingest-state"
   ingest_step_function_name                            = "${local.environment}-dr2-ingest"
+  ingest_step_function_mapper_lambda_state_name        = "Get metadata and update Files table"
   ingest_run_workflow_step_function_name               = "${local.environment}-dr2-ingest-run-workflow"
   additional_user_roles                                = local.environment != "prod" ? [data.aws_ssm_parameter.dev_admin_role.value] : []
   e2e_test_roles                                       = local.environment == "prod" ? [] : [module.dr2_run_e2e_tests_role[0].role_arn]
@@ -517,6 +518,7 @@ module "dr2_ingest_step_function" {
     account_id                                        = data.aws_caller_identity.current.account_id
     ingest_validate_generic_ingest_inputs_lambda_name = local.ingest_validate_generic_ingest_inputs_lambda_name
     ingest_mapper_lambda_name                         = local.ingest_mapper_lambda_name
+    ingest_mapper_lambda_state_name                   = local.ingest_step_function_mapper_lambda_state_name
     ingest_find_existing_asset_name_lambda_name       = local.ingest_find_existing_asset_name
     ingest_asset_opex_creator_lambda_name             = local.ingest_asset_opex_creator_lambda_name
     ingest_folder_opex_creator_lambda_name            = local.ingest_folder_opex_creator_lambda_name

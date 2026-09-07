@@ -10,7 +10,17 @@ from dateutil.parser import isoparse
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def get_stepfunction_metrics(resources_prefix, source_systems):
+def ss_metrics_template(metric_name, source_system, value, unit):
+    return {
+        "MetricName": metric_name,
+        "Dimensions": [
+            {"Name": "SourceSystem", "Value": source_system},
+        ],
+        "Value": value,
+        "Unit": unit
+    }
+
+def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_output):
     metric_data = []
     sfn_client = boto3.client("stepfunctions")
 
@@ -54,6 +64,51 @@ def get_stepfunction_metrics(resources_prefix, source_systems):
                     }
                     for ss, counts_ss in ss_execution_counts.items()
                 )
+
+            for execution in executions:
+                history_paginator = sfn_client.get_paginator("get_execution_history")
+                execution_arn = execution["executionArn"]
+                execution_name = execution["name"]
+                ss = execution_name.split("_", 1)[0]
+                ss = ss if ss in source_systems else "DEFAULT"
+
+                history_pages = history_paginator.paginate(executionArn=execution_arn)
+
+                for history_page in history_pages:
+                    for history_event in history_page["events"]:
+                        mapper_task_exited = history_event["type"] == "TaskStateExited" and history_event[
+                            "stateExitedEventDetails"]["name"] == sfn_state_with_output
+                        if mapper_task_exited:
+                            mapper_output_str = history_event["stateExitedEventDetails"].get("output")
+                            if mapper_output_str:
+                                output_dict: dict = json.loads(mapper_output_str)
+                                total_asset_count = output_dict["totalAssetCount"]
+                                total_file_bytes = output_dict["totalFileBytes"]
+                                metric_data.extend([
+                                    {
+                                        "MetricName": "AssetCount",
+                                        "Dimensions": [
+                                            {"Name" : "SourceSystem", "Value": ss},
+                                        ],
+                                        "Value" : int(total_asset_count),
+                                        "Unit": "Count"
+                                    },
+                                    {
+                                        "MetricName": "Bytes",
+                                        "Dimensions": [
+                                            {"Name" : "SourceSystem", "Value": ss},
+                                        ],
+                                        "Value" : int(total_file_bytes),
+                                        "Unit": "Count"
+                                    }
+                                ]
+                                )
+                                break
+                            else:
+                                raise Exception("Mapper Lambda Task exited but produced no output.")
+
+                    else:
+                        raise Exception(f"Task '{sfn_state_with_output}' not found in list of events with the status 'TaskStateExited'")
     return metric_data
 
 def get_flow_control_metrics(resources_prefix, source_systems):
@@ -68,15 +123,9 @@ def get_flow_control_metrics(resources_prefix, source_systems):
             ExpressionAttributeValues = {":ssPlaceHolder": {"S": source_system}}
         )
         items = item_result["Items"]
+
         metric_data.append(
-            {
-                "MetricName": "IngestsQueued",
-                "Dimensions": [
-                    {"Name": "SourceSystem", "Value": source_system},
-                ],
-                "Value": len(items),
-                "Unit": "Count"
-            }
+            ss_metrics_template("IngestsQueued", source_system, len(items), "Count")
         )
 
         if items:
@@ -85,25 +134,29 @@ def get_flow_control_metrics(resources_prefix, source_systems):
         else:
             oldest_item_age = 0
         metric_data.append(
-            {
-                "MetricName": "ApproximateAgeOfOldestQueuedIngest",
-                "Dimensions": [
-                    {"Name": "SourceSystem", "Value": source_system},
-                ],
-                "Value": oldest_item_age,
-                "Unit": "Seconds"
-            }
+            ss_metrics_template("ApproximateAgeOfOldestQueuedIngest", source_system, oldest_item_age, "Seconds")
+        )
+
+        metric_data.append(
+            ss_metrics_template("QueuedAssetCount", source_system, oldest_item_age, "Count")
+        )
+
+        total_file_bytes = sum(int(item["totalFileBytes"]) for item in items)
+        metric_data.append(
+            ss_metrics_template("QueuedBytes", source_system, total_file_bytes, "Bytes")
         )
     return metric_data
 
 def lambda_handler(event, context):
     source_systems = tuple(json.loads(os.environ["SOURCE_SYSTEMS"]))
+    mapper_lambda_state_name = tuple(json.loads(os.environ["MAPPER_LAMBDA_STATE_NAME"]))
+
     resources_prefix = context.function_name.split("-")[0] + "-dr2-ingest"
     metric_data = []
     sfn_collection_failed = False
     age_collection_failed = False
     try:
-        sfn_metrics = get_stepfunction_metrics(resources_prefix, source_systems)
+        sfn_metrics = get_stepfunction_metrics(resources_prefix, source_systems, mapper_lambda_state_name)
         metric_data.extend(sfn_metrics)
         logger.info("Successfully collected step function metrics")
     except Exception as e:
