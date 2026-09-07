@@ -1,7 +1,7 @@
 locals {
   assume_role_policy = templatefile("${path.module}/templates/iam_role/github_assume_role.json.tpl", {
     account_id   = data.aws_caller_identity.current.account_id,
-    repo_filters = jsonencode(["repo:nationalarchives/dr2-runbooks:environment:${local.environment}"])
+    repo_filters = jsonencode(["repo:nationalarchives@10154228/dr2-runbooks@866428977:environment:${local.environment}"])
   })
 }
 
