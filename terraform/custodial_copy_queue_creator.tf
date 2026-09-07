@@ -45,4 +45,6 @@ module "dr2_custodial_copy_queue_creator_lambda" {
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_metadata.name
     OUTPUT_QUEUE_URL       = module.dr2_custodial_copy_queue.sqs_queue_url
   }
+  s3_bucket       = local.code_deploy_bucket
+  s3_key          = "${var.lambda_code_version}/custodial-copy-queue-creator"
 }
