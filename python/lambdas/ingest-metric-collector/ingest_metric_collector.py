@@ -10,6 +10,7 @@ from dateutil.parser import isoparse
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+
 def ss_metrics_template(metric_name, source_system, value, unit):
     return {
         "MetricName": metric_name,
@@ -19,6 +20,7 @@ def ss_metrics_template(metric_name, source_system, value, unit):
         "Value": value,
         "Unit": unit
     }
+
 
 def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_output):
     metric_data = []
@@ -31,20 +33,21 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
             state_machine_name = state_machine["name"]
             state_machine_arn = state_machine["stateMachineArn"]
 
-            executions = sfn_client.list_executions(stateMachineArn = state_machine_arn, statusFilter="RUNNING")["executions"]
+            executions = sfn_client.list_executions(stateMachineArn=state_machine_arn, statusFilter="RUNNING")[
+                "executions"]
             metric_data.append(
                 {
                     "MetricName": "ExecutionsRunning",
                     "Dimensions": [
-                        {"Name" : "StateMachineArn", "Value": state_machine_arn},
-                        {"Name" : "StateMachineName", "Value": state_machine_name},
+                        {"Name": "StateMachineArn", "Value": state_machine_arn},
+                        {"Name": "StateMachineName", "Value": state_machine_name},
                     ],
-                    "Value" : len(executions),
+                    "Value": len(executions),
                     "Unit": "Count"
                 }
             )
 
-            if state_machine_name.startswith(resources_prefix) :
+            if state_machine_name.startswith(resources_prefix):
                 execution_ss = [e["name"].split("_", 1)[0] for e in executions]
                 counts = collections.Counter(execution_ss)
                 ss_execution_counts = {ss: counts.get(ss, 0) for ss in source_systems}
@@ -54,12 +57,12 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
                 metric_data.extend(
                     {
                         "MetricName": "ExecutionsRunning",
-                        "Dimensions" : [
+                        "Dimensions": [
                             {"Name": "StateMachineArn", "Value": state_machine_arn},
                             {"Name": "StateMachineName", "Value": state_machine_name},
-                            {"Name" : "SourceSystem", "Value": ss},
+                            {"Name": "SourceSystem", "Value": ss},
                         ],
-                        "Value" : counts_ss,
+                        "Value": counts_ss,
                         "Unit": "Count"
                     }
                     for ss, counts_ss in ss_execution_counts.items()
@@ -88,17 +91,17 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
                                     {
                                         "MetricName": "AssetCount",
                                         "Dimensions": [
-                                            {"Name" : "SourceSystem", "Value": ss},
+                                            {"Name": "SourceSystem", "Value": ss},
                                         ],
-                                        "Value" : int(total_asset_count),
+                                        "Value": int(total_asset_count),
                                         "Unit": "Count"
                                     },
                                     {
                                         "MetricName": "Bytes",
                                         "Dimensions": [
-                                            {"Name" : "SourceSystem", "Value": ss},
+                                            {"Name": "SourceSystem", "Value": ss},
                                         ],
-                                        "Value" : int(total_file_bytes),
+                                        "Value": int(total_file_bytes),
                                         "Unit": "Count"
                                     }
                                 ]
@@ -108,8 +111,10 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
                                 raise Exception("Mapper Lambda Task exited but produced no output.")
 
                     else:
-                        raise Exception(f"Task '{sfn_state_with_output}' not found in list of events with the status 'TaskStateExited'")
+                        raise Exception(
+                            f"Task '{sfn_state_with_output}' not found in list of events with the status 'TaskStateExited'")
     return metric_data
+
 
 def get_flow_control_metrics(resources_prefix, source_systems):
     metric_data = []
@@ -118,9 +123,9 @@ def get_flow_control_metrics(resources_prefix, source_systems):
 
     for source_system in source_systems:
         item_result = dynamo_client.query(
-            TableName = queue_table,
-            KeyConditionExpression = "sourceSystem = :ssPlaceHolder",
-            ExpressionAttributeValues = {":ssPlaceHolder": {"S": source_system}}
+            TableName=queue_table,
+            KeyConditionExpression="sourceSystem = :ssPlaceHolder",
+            ExpressionAttributeValues={":ssPlaceHolder": {"S": source_system}}
         )
         items = item_result["Items"]
 
@@ -147,6 +152,7 @@ def get_flow_control_metrics(resources_prefix, source_systems):
         )
     return metric_data
 
+
 def lambda_handler(event, context):
     source_systems = tuple(json.loads(os.environ["SOURCE_SYSTEMS"]))
     mapper_lambda_state_name = tuple(json.loads(os.environ["MAPPER_LAMBDA_STATE_NAME"]))
@@ -160,7 +166,7 @@ def lambda_handler(event, context):
         metric_data.extend(sfn_metrics)
         logger.info("Successfully collected step function metrics")
     except Exception as e:
-        logger.warning("Failed to collect step function metrics: %s", e, exc_info = True)
+        logger.warning("Failed to collect step function metrics: %s", e, exc_info=True)
         sfn_collection_failed = True
 
     try:
@@ -168,17 +174,19 @@ def lambda_handler(event, context):
         metric_data.extend(queue_metrics)
         logger.info("Successfully collected queue metrics")
     except Exception as e:
-        logger.warning("Failed to collect queue metrics@ %s", e, exc_info = True)
+        logger.warning("Failed to collect queue metrics@ %s", e, exc_info=True)
         queue_collection_failed = True
 
     if sfn_collection_failed and queue_collection_failed:
-        raise Exception(f"Failed to collect metrics for step function as well as the queued executions. Unable to proceed")
+        raise Exception(
+            f"Failed to collect metrics for step function as well as the queued executions. Unable to proceed"
+        )
     else:
         try:
             cloudwatch_client = boto3.client('cloudwatch')
             cloudwatch_client.put_metric_data(
-                Namespace = resources_prefix,
-                MetricData = metric_data
+                Namespace=resources_prefix,
+                MetricData=metric_data
             )
         except Exception as e:
             raise Exception(f"Failed to send metrics to CloudWatch due to underlying exception: '{e}'")
