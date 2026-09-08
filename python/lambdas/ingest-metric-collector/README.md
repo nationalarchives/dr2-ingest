@@ -42,12 +42,14 @@ The lambda does not return anything, it sends metrics to CloudWatch
                   2. `totalFileBytes` and source system (extracted from the execution name) to a metric
                      called `Bytes`
 3. Gathers the metrics from flow control
-   1. For each source system
+   * For each source system
       1. Queries the DynamoDB Queue table for the items that have the source system that are queued at that point in time
       2. Saves the items per source system
       3. Gets the first item (the oldest) and gets the value for `queuedAt`; makes the value 0 if there are no items
-      4. Saves the oldest item per source system
-   2. Returns these two metrics
+      4. Saves this `queuedAt` time (as a metric named "ApproximateAgeOfOldestQueuedIngest")
+      5. For each item
+         1. gets the value for `queuedAssetCount` and saves is (as a metric named "QueuedAssetCount")
+         2. gets the value for `queuedBytes` and saves is (as a metric named "QueuedBytes")
 4. It then combines these two sets of metrics and sends them to CloudWatch 
 5. If any call to collect metrics fails, it carries on collecting subsequent metrics and sends available metrics to CloudWatch
 6. If all calls to collect various metrics fail, the lambda raises an exception 

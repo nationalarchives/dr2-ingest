@@ -149,7 +149,6 @@ class TestLambdaFunction(unittest.TestCase):
             expected_metric = generate_metrics(value=executions, source_system=ss)
             self.assertEqual(expected_metric, metrics.pop(0))
 
-        expected_executions = generate_metrics(value=len(executions_list))
         for (ss, count, total_bytes) in (("TDR", 1, 1000), ("COURTDOC", 2, 2000), ("DEFAULT", 3, 3000)):
             count_expected_metric = generate_metrics(value=count, metric_name="AssetCount", source_system=ss)
             self.assertEqual(count_expected_metric, metrics.pop(0))
