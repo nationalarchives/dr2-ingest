@@ -49,7 +49,7 @@ class TestLambdaFunction(unittest.TestCase):
 
     @patch("ingest_metric_collector.boto3.client")
     def test_get_stepfunction_metrics_should_return_single_metric_when_no_executions_and_state_machine_not_from_known_source_systems(
-        self, mock_boto_client):
+            self, mock_boto_client):
         mock_sfn = MagicMock()
         mock_sfn.get_paginator.return_value.paginate.return_value = [
             {"stateMachines": [{"name": "unknown-ss-something", "stateMachineArn": "arn:some_arn"}]}
@@ -232,7 +232,7 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2", SOURCE_SYSTEMS)
 
-        self.assertEqual(20, len(metrics))
+        self.assertEqual(10, len(metrics))
 
         for n, ss in enumerate(self.expected_source_systems):
             ingest_queued_metric = generate_metrics(metric_name="IngestsQueued", source_system=ss)
@@ -278,36 +278,38 @@ class TestLambdaFunction(unittest.TestCase):
         mock_boto_client.return_value = mock_dynamo
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2", SOURCE_SYSTEMS)
-        self.assertEqual(20, len(metrics))
+        self.assertEqual(12, len(metrics))
 
         for ss, (count, seconds) in zip(self.expected_source_systems, ((1, 60), (0, 0), (0, 0), (0, 0), (0, 0))):
             ingest_queued_metric = generate_metrics(value=count, metric_name="IngestsQueued", source_system=ss)
             queue_age_metric = generate_metrics(value=seconds, metric_name="ApproximateAgeOfOldestQueuedIngest",
                                                 source_system=ss, unit="Seconds")
             expected_asset_count, expected_bytes = (1, 1000) if ss == "TDR" else (0, 0)
-            queue_asset_count_metric = generate_metrics(value=expected_asset_count, metric_name="QueuedAssetCount",
-                                                        source_system=ss, unit="Count")
 
             queue_bytes_metric = generate_metrics(value=expected_bytes, metric_name="QueuedBytes", source_system=ss,
                                                   unit="Bytes")
             ingest_queued_metric["Dimensions"] = ingest_queued_metric["Dimensions"]
             queue_age_metric["Dimensions"] = queue_age_metric["Dimensions"]
-            queue_asset_count_metric["Dimensions"] = queue_asset_count_metric["Dimensions"]
-            queue_bytes_metric["Dimensions"] = queue_bytes_metric["Dimensions"]
 
             self.assertEqual(ingest_queued_metric, metrics.pop(0))
             age_metric = metrics.pop(0)
             age_metric["Value"] = round(age_metric["Value"], 2)
             self.assertEqual(queue_age_metric, age_metric)
-            self.assertEqual(queue_asset_count_metric, metrics.pop(0))
-            self.assertEqual(queue_bytes_metric, metrics.pop(0))
+
+            if ss == "TDR":
+                queue_asset_count_metric = generate_metrics(value=expected_asset_count, metric_name="QueuedAssetCount",
+                                                            source_system=ss, unit="Count")
+                queue_asset_count_metric["Dimensions"] = queue_asset_count_metric["Dimensions"]
+                queue_bytes_metric["Dimensions"] = queue_bytes_metric["Dimensions"]
+                self.assertEqual(queue_asset_count_metric, metrics.pop(0))
+                self.assertEqual(queue_bytes_metric, metrics.pop(0))
 
     @patch("ingest_metric_collector.boto3.client")
     @patch("ingest_metric_collector.get_stepfunction_metrics", side_effect=Exception("sfn error"))
     @patch("ingest_metric_collector.get_flow_control_metrics",
            return_value=[{"MetricName": "ApproximateAgeOfOldestQueuedIngest", "Unit": "seconds", "Value": 0}])
     def test_lambda_handler_should_return_valid_metrics_when_get_stepfunction_metrics_fails_but_get_flow_control_metrics_succeed(
-        self, mock_flow_control, mock_sfn, mock_boto_client):
+            self, mock_flow_control, mock_sfn, mock_boto_client):
         mock_client = MagicMock()
         mock_boto_client.return_value = mock_client
 
@@ -323,7 +325,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch("ingest_metric_collector.get_stepfunction_metrics",
            return_value=[{"MetricName": "ExecutionsRunning", "Value": 1}])
     def test_lambda_handler_should_return_valid_metrics_when_get_stepfunction_metrics_succeed_but_get_flow_control_metrics_fails(
-        self, mock_sfn, mock_flow_control, mock_boto_client):
+            self, mock_sfn, mock_flow_control, mock_boto_client):
         mock_client = MagicMock()
         mock_boto_client.return_value = mock_client
 
@@ -338,7 +340,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch("ingest_metric_collector.get_stepfunction_metrics", side_effect=Exception("step function exception"))
     @patch("ingest_metric_collector.get_flow_control_metrics", side_effect=Exception("flow control exception"))
     def test_lambda_handler_should_throw_exception_when_get_stepfunction_metrics_as_well_as_get_flow_control_metrics_fails(
-        self, mock_flow_control, mock_sfn, mock_boto_client):
+            self, mock_flow_control, mock_sfn, mock_boto_client):
         mock_client = MagicMock()
         mock_boto_client.return_value = mock_client
         with self.assertRaises(Exception) as context:
