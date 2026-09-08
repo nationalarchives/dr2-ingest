@@ -48,3 +48,9 @@ module "dr2_custodial_copy_queue_creator_lambda" {
   s3_bucket = local.code_deploy_bucket
   s3_key    = "${var.lambda_code_version}/custodial-copy-queue-creator"
 }
+
+
+moved {
+  from = module.dr2_custodial_copy_queue_creator_lambda.aws_lambda_function.lambda_function[0]
+  to   = module.dr2_custodial_copy_queue_creator_lambda.aws_lambda_function.lambda_function_s3[0]
+}
