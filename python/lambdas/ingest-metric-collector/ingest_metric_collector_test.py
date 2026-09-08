@@ -265,8 +265,8 @@ class TestLambdaFunction(unittest.TestCase):
                 {
                     "sourceSystem": {"S": "CRM"},
                     "queuedAt": {"S": (now - timedelta(seconds=60)).isoformat()},
-                    "totalAssetCount": 1,
-                    "totalFileBytes": 1000
+                    "queuedAssetCount": 1,
+                    "queuedBytes": 1000
                 }
             ],
             "COURTDOC": [],
@@ -284,9 +284,10 @@ class TestLambdaFunction(unittest.TestCase):
             ingest_queued_metric = generate_metrics(value=count, metric_name="IngestsQueued", source_system=ss)
             queue_age_metric = generate_metrics(value=seconds, metric_name="ApproximateAgeOfOldestQueuedIngest",
                                                 source_system=ss, unit="Seconds")
-            queue_asset_count_metric = generate_metrics(value=seconds, metric_name="QueuedAssetCount",
+            expected_asset_count, expected_bytes = (1, 1000) if ss == "TDR" else (0, 0)
+            queue_asset_count_metric = generate_metrics(value=expected_asset_count, metric_name="QueuedAssetCount",
                                                         source_system=ss, unit="Count")
-            expected_bytes = 1000 if ss == "TDR" else 0
+
             queue_bytes_metric = generate_metrics(value=expected_bytes, metric_name="QueuedBytes", source_system=ss,
                                                   unit="Bytes")
             ingest_queued_metric["Dimensions"] = ingest_queued_metric["Dimensions"]

@@ -136,19 +136,22 @@ def get_flow_control_metrics(resources_prefix, source_systems):
         if items:
             queued_at = isoparse(items[0]["queuedAt"]["S"].split("_")[0])
             oldest_item_age = int((datetime.now(timezone.utc) - queued_at).total_seconds())
+            queued_asset_count = sum(int(item["queuedAssetCount"]) for item in items)
+            queued_file_bytes = sum(int(item["queuedBytes"]) for item in items)
         else:
             oldest_item_age = 0
+            queued_asset_count = 0
+            queued_file_bytes = 0
         metric_data.append(
             ss_metrics_template("ApproximateAgeOfOldestQueuedIngest", source_system, oldest_item_age, "Seconds")
         )
 
         metric_data.append(
-            ss_metrics_template("QueuedAssetCount", source_system, oldest_item_age, "Count")
+            ss_metrics_template("QueuedAssetCount", source_system, queued_asset_count, "Count")
         )
 
-        total_file_bytes = sum(int(item["totalFileBytes"]) for item in items)
         metric_data.append(
-            ss_metrics_template("QueuedBytes", source_system, total_file_bytes, "Bytes")
+            ss_metrics_template("QueuedBytes", source_system, queued_file_bytes, "Bytes")
         )
     return metric_data
 
