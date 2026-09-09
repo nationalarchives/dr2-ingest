@@ -155,7 +155,7 @@ def get_flow_control_metrics(resources_prefix, source_systems):
 
 def lambda_handler(event, context):
     source_systems = tuple(json.loads(os.environ["SOURCE_SYSTEMS"]))
-    mapper_lambda_state_name = tuple(json.loads(os.environ["MAPPER_LAMBDA_STATE_NAME"]))
+    mapper_lambda_state_name = os.environ["MAPPER_LAMBDA_STATE_NAME"]
 
     resources_prefix = context.function_name.split("-")[0] + "-dr2-ingest"
     metric_data = []
