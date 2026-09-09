@@ -30,7 +30,7 @@ module "dr2_custodial_copy_queue_creator_lambda" {
     })
   }
   sqs_queue_mapping_batch_size = 10
-  timeout_seconds              = 180
+  timeout_seconds              = local.java_timeout_seconds
   memory_size                  = 285
   runtime                      = local.java_runtime
   architecture                 = local.architecture_arm64
