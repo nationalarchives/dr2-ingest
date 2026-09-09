@@ -3,7 +3,7 @@ module "generate_reporting_data_role" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
   assume_role_policy = templatefile("${path.module}/templates/iam_role/github_assume_role.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
-  repo_filters = jsonencode(["repo:nationalarchives/dr2-reporting:ref:refs/heads/main"]) })
+  repo_filters = jsonencode(["repo:nationalarchives@10154228/dr2-reporting@1013042244:ref:refs/heads/main"]) })
   name = "${local.environment}-dr2-ingest-reporting-role"
   policy_attachments = {
     deploy_policy = module.generate_reporting_data_policy[count.index].policy_arn
