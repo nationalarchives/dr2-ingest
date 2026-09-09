@@ -146,11 +146,11 @@ module "dr2_state_change_lambda" {
       vpc_id                         = var.vpc_id
     })
   }
-  s3_bucket   = local.code_deploy_bucket
-  s3_key      = "${var.lambda_code_version}/${local.state_change_lambda_key}"
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
-  architecture = local.architecture_arm64
+  s3_bucket                      = local.code_deploy_bucket
+  s3_key                         = "${var.lambda_code_version}/${local.state_change_lambda_key}"
+  memory_size                    = local.java_lambda_memory_size
+  runtime                        = local.java_runtime
+  architecture                   = local.architecture_arm64
   sqs_queue_mapping_batch_size   = 10
   sqs_report_batch_item_failures = true
   lambda_sqs_queue_mappings = [{
