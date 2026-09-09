@@ -1,0 +1,43 @@
+name: Disable NAT gateways overnight
+on:
+  workflow_dispatch:
+    inputs:
+      enabled:
+        required: true
+        type: boolean
+
+permissions: {}
+
+jobs:
+  apply:
+    strategy:
+      matrix:
+        environment: [intg]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - id: role-name
+        env:
+          ENVIRONMENT: ${{ matrix.environment }}
+        run: echo role-name="$(echo $ENVIRONMENT | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
+
+      - uses: aws-actions/configure-aws-credentials@6782cb1b6df5d32e9354c1e6d6da4f956c0d61c4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
+          aws-region: eu-west-2
+
+      - if: inputs.enabled == false
+        run: |
+          aws lambda invoke --function-name ${{ matrix.environment }}-dr2-pause-ingest --payload '{"pause": true}' response.json
+
+      - uses: hashicorp/setup-terraform@b75000b53e9ce4de2b4712237bbdb711bdc92aba
+
+      - working-directory: terraform
+        run: |
+          terraform init
+          terraform workspace select ${{ matrix.environment }}
+          terraform apply -auto-approve \
+            -var="nat_gateway_enabled=${{ inputs.enabled }}" \
+            -var="interface_endpoints_enabled=${{ inputs.enabled }}"
