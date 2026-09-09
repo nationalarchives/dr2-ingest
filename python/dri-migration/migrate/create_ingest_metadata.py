@@ -164,6 +164,7 @@ def migrate(ic_db_path):
         assets_list = grouped_assets[asset_id]
         all_metadata = []
         local_assets = []
+        print("Writing assets to Object Store bucket")
         for asset in assets_list:
             asset_file_path = asset['file_path']
             asset_metadata = asset['metadata']
@@ -199,6 +200,8 @@ def migrate(ic_db_path):
                         raise e
             local_assets.append((asset_file_id, str(base_file_path), asset_id))
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
+
+        print("Writing metadata to Object Store bucket")
         s3_client.upload_fileobj(json_bytes, raw_cache_bucket, f"{asset_id}.metadata")
         asset_sqs_message = {
             'assetId': asset_id,
@@ -224,12 +227,14 @@ def migrate(ic_db_path):
         with connection:
             write_to_ic_db(db_assets, connection)
 
+    print("Sending messages to SQS")
     for batch in itertools.batched(all_sqs_messages, 10):
         entries = [{'MessageBody': msg, 'Id': str(uuid.uuid4())} for msg in batch]
         sqs_client.send_message_batch(QueueUrl=queue_url, Entries=entries)
 
 
 def write_to_ic_db(assets, connection: sqlite3.Connection):
+    print("Writing file ids to IC DB")
     for (file_id, path, asset_id) in assets:
         blob_cursor = connection.cursor()
         # If exact row exists (either because there are duplicates in DRI or script has been re-run) then skip,
@@ -248,5 +253,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         intelligent_caching_db_path = sys.argv[1]
         migrate(intelligent_caching_db_path)
+        print("Completed.")
     else:
         raise Exception("Missing arg: Path to SQLite database.")
