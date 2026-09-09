@@ -140,7 +140,9 @@
         "FunctionName": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_flow_control_lambda_name}:${alias_name}",
         "Payload": {
           "taskToken.$": "$$.Task.Token",
-          "executionName.$": "$$.Execution.Name"
+          "executionName.$": "$$.Execution.Name",
+          "totalAssetCount.$": "$.totalAssetCount",
+          "totalFileBytes.$": "$.totalFileBytes"
         }
       },
       "Retry": ${retry_statement},

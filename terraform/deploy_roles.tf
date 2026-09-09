@@ -1,11 +1,8 @@
 locals {
-  repositories = ["dr2-ingest", "dr2-ip-lock-checker", "dr2-ingest-cc-notification-handler", "dr2-court-document-package-anonymiser"]
-  all_repository_filters = flatten([
-    for repository in local.repositories : [
-      "repo:nationalarchives/${repository}:environment:${local.environment}",
-      "repo:nationalarchives/${repository}:ref:refs/heads/main"
-    ]
-  ])
+  all_repository_filters = [
+    "repo:nationalarchives@10154228/dr2-ingest@770892421:environment:${local.environment}",
+    "repo:nationalarchives@10154228/dr2-ingest@770892421:ref:refs/heads/main"
+  ]
 }
 module "deploy_lambda_role" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
@@ -60,7 +57,6 @@ module "deploy_lambda_policy" {
         module.dr2_ingest_validate_generic_ingest_inputs_lambda.lambda_arn,
         module.pause_ingest_lambda.lambda_arn,
         module.pause_preservica_activity_lambda.lambda_arn,
-        local.anonymiser_lambda_arns,
         module.postingest.postingest_state_change_lambda_arn,
         module.postingest.postingest_resender_lambda_arn,
         module.cleanup_handler_lambda.lambda_arn

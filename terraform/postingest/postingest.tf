@@ -8,6 +8,7 @@ locals {
   resender_lambda_key                        = "postingest-message-resender"
   resender_lambda_name                       = "${var.environment}-dr2-${local.resender_lambda_key}"
   java_runtime                               = "java21"
+  architecture_arm64                         = "arm64"
   java_lambda_memory_size                    = 512
   python_timeout_seconds                     = 30
   python_runtime                             = "python3.14"
@@ -149,7 +150,7 @@ module "dr2_state_change_lambda" {
   s3_key      = "${var.lambda_code_version}/${local.state_change_lambda_key}"
   memory_size = local.java_lambda_memory_size
   runtime     = local.java_runtime
-
+  architecture = local.architecture_arm64
   sqs_queue_mapping_batch_size   = 10
   sqs_report_batch_item_failures = true
   lambda_sqs_queue_mappings = [{
@@ -193,8 +194,9 @@ module "dr2_message_resender_lambda" {
   lambda_invoke_permissions = {
     "events.amazonaws.com" = module.dr2_message_resender_cloudwatch_event.event_arn
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  memory_size  = local.java_lambda_memory_size
+  runtime      = local.java_runtime
+  architecture = local.architecture_arm64
   plaintext_env_vars = {
     POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
     POSTINGEST_DDB_TABLE_LAST_QUEUED_GSI_NAME = local.postingest_gsi_lastqueued_name

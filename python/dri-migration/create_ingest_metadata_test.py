@@ -8,6 +8,7 @@ from pathlib import PureWindowsPath, PurePosixPath
 from sqlite3 import Connection
 from unittest.mock import patch, MagicMock, mock_open, call, Mock, ANY
 from parameterized import parameterized
+from botocore.exceptions import ClientError
 from migrate import create_ingest_metadata
 
 
@@ -205,6 +206,69 @@ class TestMigrate(unittest.TestCase):
 
         verify_function_calls(self, True, mock_connect, mock_create_skeleton, write_to_ic_db,
                               mock_checksum, ref_error_thrown=True)
+
+    @patch("migrate.create_ingest_metadata.write_to_ic_db")
+    @patch('oracledb.connect')
+    @patch('oracledb.init_oracle_client')
+    @patch('builtins.open', new_callable=mock_open, read_data="SELECT * FROM TEST")
+    @patch('migrate.create_ingest_metadata.create_skeleton_suite_lookup')
+    @patch('migrate.create_ingest_metadata.calculate_checksum')
+    @patch('migrate.create_ingest_metadata.sqs_client')
+    @patch('migrate.create_ingest_metadata.s3_client')
+    def test_migrate_continues_if_put_object_raises_precondition_failed_if_none_match(
+            self, mock_s3, mock_sqs, mock_checksum,
+            mock_create_skeleton, ___, ____, mock_connect, write_to_ic_db
+    ):
+        row = [
+            "fmt/123", "uuid-abc", "unitref-abc", "fileid-xyz", "/test/file1", "/dri/a/1/test/file1",
+            json.dumps([{"SHA256": "test"}]),
+            "series 1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
+            "filename.txt", "fileref", "meta", "1", "1", 1, "BornDigital"
+        ]
+        setup_test(mock_checksum, mock_connect, mock_create_skeleton, [row], write_to_ic_db, None)
+
+        precondition_error = ClientError(
+            {"Error": {"Code": "PreconditionFailed", "Condition": "If-None-Match", "Message": "At least one of the pre-conditions you specified did not hold"}},
+            "PutObject"
+        )
+        mock_s3.put_object.side_effect = precondition_error
+
+        # Should not raise; the PreconditionFailed/If-None-Match error is expected when the object already exists
+        create_ingest_metadata.migrate(self.ic_db_name)
+
+        mock_s3.put_object.assert_called_once()
+        mock_s3.upload_fileobj.assert_called_once()
+
+    @patch("migrate.create_ingest_metadata.write_to_ic_db")
+    @patch('oracledb.connect')
+    @patch('oracledb.init_oracle_client')
+    @patch('builtins.open', new_callable=mock_open, read_data="SELECT * FROM TEST")
+    @patch('migrate.create_ingest_metadata.create_skeleton_suite_lookup')
+    @patch('migrate.create_ingest_metadata.calculate_checksum')
+    @patch('migrate.create_ingest_metadata.sqs_client')
+    @patch('migrate.create_ingest_metadata.s3_client')
+    def test_migrate_raises_other_client_errors_from_put_object(
+            self, mock_s3, mock_sqs, mock_checksum,
+            mock_create_skeleton, ___, ____, mock_connect, write_to_ic_db
+    ):
+        row = [
+            "fmt/123", "uuid-abc", "unitref-abc", "fileid-xyz", "/test/file1", "/dri/a/1/test/file1",
+            json.dumps([{"SHA256": "test"}]),
+            "series 1", "desc1", "desc2", "2021-01-01", "consignment", "batch-ref",
+            "filename.txt", "fileref", "meta", "1", "1", 1, "BornDigital"
+        ]
+        setup_test(mock_checksum, mock_connect, mock_create_skeleton, [row], write_to_ic_db, None)
+
+        access_denied_error = ClientError(
+            {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
+            "PutObject"
+        )
+        mock_s3.put_object.side_effect = access_denied_error
+
+        with self.assertRaises(ClientError) as cm:
+            create_ingest_metadata.migrate(self.ic_db_name)
+
+        self.assertEqual("AccessDenied", cm.exception.response["Error"]["Code"])
 
     def test_skeleton_suite_lookup(self):
         self.test_dir = tempfile.mkdtemp()

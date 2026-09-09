@@ -1,6 +1,41 @@
 locals {
   custodial_copy_name                  = "${local.environment}-dr2-custodial-copy"
   custodial_copy_db_builder_queue_name = "${local.custodial_copy_name}-db-builder"
+  count_metrics = {
+    "PreservationSystemDownloadCount" = "$.icCacheNonHits",
+    "IntelligentCacheDownloadCount"   = "$.icCacheHits"
+  }
+  size_metrics = {
+    "PreservationSystemDownloadSize" = "$.psDownloadsInBytes"
+    "IntelligentCacheDownloadSize"   = "$.icDownloadsInBytes"
+  }
+}
+
+resource "aws_cloudwatch_log_metric_filter" "count_metrics" {
+  for_each       = local.count_metrics
+  name           = each.key
+  pattern        = "{ ${each.value} = \"*\" }"
+  log_group_name = "/custodial-copy-backend"
+
+  metric_transformation {
+    name      = each.key
+    namespace = "CustodialCopy"
+    value     = each.value
+  }
+}
+
+resource "aws_cloudwatch_log_metric_filter" "size_metrics" {
+  for_each       = local.size_metrics
+  name           = each.key
+  pattern        = "{ ${each.value} = \"*\" }"
+  log_group_name = "/custodial-copy-backend"
+
+  metric_transformation {
+    name      = each.key
+    namespace = "CustodialCopy"
+    value     = each.value
+    unit      = "Bytes"
+  }
 }
 
 module "custodial_copy_user_policy" {

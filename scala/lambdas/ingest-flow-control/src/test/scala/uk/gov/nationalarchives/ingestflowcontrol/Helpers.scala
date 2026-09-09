@@ -18,7 +18,7 @@ object Helpers {
 
   def notImplemented[T]: IO[Nothing] = IO.raiseError(new Exception("Not implemented"))
 
-  def predictableRandomNumberSelector(selected: Int = 10): (Int, Int) => Int = (min, max) => if selected > max then max else selected
+  def predictableRandomNumberSelector(selected: Int = 10): (Int, Int) => Int = (min, max) => if selected > max then max - 1 else selected
 
   def runLambda(
       input: Option[Input],
@@ -81,7 +81,9 @@ object Helpers {
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(sourceSystem).s(),
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedAt).s(),
               dynamoDbWriteRequest.attributeNamesAndValuesToWrite(taskToken).s(),
-              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(executionName).s()
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(executionName).s(),
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedAssetCount).n().toInt,
+              dynamoDbWriteRequest.attributeNamesAndValuesToWrite(queuedBytes).n().toLong
             ) :: existing
           }
           .map(_ => 1)

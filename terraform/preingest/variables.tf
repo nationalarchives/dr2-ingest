@@ -47,12 +47,22 @@ variable "private_subnet_ids" {
   default = []
 }
 
+variable "aggregator_lambda" {
+  type = object({
+    timeout = number
+  })
+  default = {
+    timeout = 60
+  }
+}
+
 variable "importer_lambda" {
   type = object({
     timeout            = number
     visibility_timeout = number
     handler            = string
     runtime            = string
+    architecture       = string
     memory_size        = number
   })
   default = {
@@ -60,6 +70,7 @@ variable "importer_lambda" {
     visibility_timeout = 300
     handler            = "lambda_function.lambda_handler"
     runtime            = "python3.12"
+    architecture       = "x86_64"
     memory_size        = 128
 
   }
@@ -99,3 +110,7 @@ variable "lambda_code_version" {}
 variable "notifications_topic_arn" {}
 
 variable "code_deploy_bucket" {}
+
+variable "slack_api_destination_arn" {}
+
+variable "general_notifications_channel_id" {}

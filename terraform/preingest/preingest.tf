@@ -9,10 +9,11 @@ locals {
   preingest_sfn_arn                            = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${local.preingest_name}"
   ingest_sfn_arn                               = "arn:aws:states:eu-west-2:${data.aws_caller_identity.current.account_id}:stateMachine:${var.ingest_step_function_name}"
   java_runtime                                 = "java21"
+  architecture_arm64                           = "arm64"
   java_lambda_memory_size                      = 512
   java_timeout_seconds                         = 180
   aggregator_primary_grouping_window_seconds   = var.aggregator_primary_grouping_window_seconds # How long the SQS Poller waits before invoking the Lambda after receiving the first message. Defaults to <=300 for Lambda.
-  aggregator_lambda_timeout_seconds            = 60                                             # <=900 for Lambda.
+  aggregator_lambda_timeout_seconds            = var.aggregator_lambda.timeout                  # <=900 for Lambda.
   aggregator_secondary_grouping_window_seconds = var.aggregator_secondary_grouping_window_seconds
   aggregator_invocation_batch_size             = 10000                                                                                      # Max number of messages to invoke the Lambda with, but all messages need to be processed before the Lambda times out. <=10000 for Lambda.
   aggregator_group_size                        = 10000                                                                                      # Max size of an aggregation group.
@@ -20,6 +21,8 @@ locals {
   messages_visible_threshold                   = 1000000
   code_deploy_bucket                           = "mgmt-dp-code-deploy"
   alias_name                                   = replace(var.lambda_code_version, ".", "-")
+  keep_aggregator_warm_name                    = "${local.environment}-aggregator-keep-warm"
+  keep_aggregator_warm_count                   = var.aggregator_secondary_grouping_window_seconds > 900 ? 1 : 0
 }
 
 module "dr2_preingest_aggregator_queue" {
@@ -41,7 +44,7 @@ module "dr2_preingest_aggregator_queue" {
 module "dr2_preingest_aggregator_lambda" {
   source                         = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   function_name                  = local.aggregator_name
-  handler                        = "uk.gov.nationalarchives.preingesttdraggregator.Lambda::handleRequest"
+  handler                        = "uk.gov.nationalarchives.preingestaggregator.Lambda::handleRequest"
   sqs_queue_batching_window      = local.aggregator_primary_grouping_window_seconds
   sqs_queue_mapping_batch_size   = local.aggregator_invocation_batch_size
   sqs_report_batch_item_failures = true
@@ -63,8 +66,9 @@ module "dr2_preingest_aggregator_lambda" {
       sns_topic                  = var.notifications_topic_arn
     })
   }
-  memory_size = local.java_lambda_memory_size
-  runtime     = local.java_runtime
+  memory_size  = local.java_lambda_memory_size
+  runtime      = local.java_runtime
+  architecture = local.architecture_arm64
   plaintext_env_vars = {
     LOCK_DDB_TABLE                = var.ingest_lock_dynamo_table_name
     MAX_BATCH_SIZE                = local.aggregator_group_size
@@ -132,6 +136,7 @@ module "dr2_preingest_package_builder_lambda" {
   snap_start      = true
   memory_size     = local.java_lambda_memory_size
   runtime         = local.java_runtime
+  architecture    = local.architecture_arm64
   plaintext_env_vars = {
     LOCK_DDB_TABLE                  = var.ingest_lock_dynamo_table_name
     LOCK_DDB_TABLE_GROUPID_GSI_NAME = var.ingest_lock_table_group_id_gsi_name
@@ -146,4 +151,44 @@ module "dr2_preingest_package_builder_lambda" {
     Name        = local.package_builder_lambda_name
     SfnFunction = "true"
   }
+}
+
+resource "aws_scheduler_schedule" "keep_aggregator_warm_schedule" {
+  count               = local.keep_aggregator_warm_count
+  schedule_expression = "rate(5 minutes)"
+  name                = local.keep_aggregator_warm_name
+  group_name          = "default"
+  flexible_time_window {
+    mode = "OFF"
+  }
+  target {
+    arn      = module.dr2_preingest_aggregator_lambda.lambda_arn
+    role_arn = module.dr2_keep_lambda_warm_role[count.index].role_arn
+    input = jsonencode({
+      "Records" : []
+    })
+  }
+}
+
+module "dr2_keep_lambda_warm_role" {
+  count  = local.keep_aggregator_warm_count
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
+  assume_role_policy = templatefile("${path.module}/templates/service_assume_role.json.tpl", {
+    service        = "scheduler.amazonaws.com"
+    account_number = data.aws_caller_identity.current.account_id
+  })
+  name = local.keep_aggregator_warm_name
+  policy_attachments = {
+    dr2_keep_lambda_warm_policy = module.dr2_keep_lambda_warm_policy[count.index].policy_arn
+  }
+  tags = {}
+}
+
+module "dr2_keep_lambda_warm_policy" {
+  count  = local.keep_aggregator_warm_count
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
+  name   = local.keep_aggregator_warm_name
+  policy_string = templatefile("${path.module}/templates/invoke_lambda_policy.json.tpl", {
+    lambda_arn = module.dr2_preingest_aggregator_lambda.lambda_arn
+  })
 }

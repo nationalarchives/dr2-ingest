@@ -3,9 +3,7 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
+
 permissions: {}
 jobs:
   pre-deploy:
@@ -16,10 +14,10 @@ jobs:
     outputs:
       next-version: ${{ steps.next-tag.outputs.next-version }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: sbt/setup-sbt@3afe9cf056c5d139bfc46579af1192d77a2f0821 # v1.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: sbt/setup-sbt@c7d2d6258b4bd0d3ec5129e6b3453199d3c79729 # v1.5.8
       - name: Configure AWS credentials from management account
-        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           role-to-assume: arn:aws:iam::${{ secrets.MANAGEMENT_ACCOUNT }}:role/MgmtDPGithubCodeDeploy
           aws-region: eu-west-2
@@ -44,10 +42,6 @@ jobs:
           cp pause-ingest target/outputs
           cp pause-preservica-activity target/outputs
           cp ip-lock-checker target/outputs
-          pip install cargo-lambda
-          (cd rust/lambdas/courtdoc-anonymiser && cargo lambda build --release -p lambda)
-          zip -jA court-document-package-anonymiser rust/lambdas/courtdoc-anonymiser/target/lambda/lambda/bootstrap
-          cp court-document-package-anonymiser target/outputs
           python .github/scripts/upload_files.py target/outputs $NEXT_VERSION 
           git tag $NEXT_VERSION
           git push origin $NEXT_VERSION
@@ -58,7 +52,7 @@ jobs:
     needs: pre-deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: gh workflow run deploy.yml -f environment=intg -f to-deploy=$NEXT_VERSION
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}

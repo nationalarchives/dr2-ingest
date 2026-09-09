@@ -9,7 +9,7 @@ module "dr2_run_e2e_tests_role" {
   assume_role_policy = templatefile("${path.module}/templates/iam_role/github_assume_role.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
     repo_filters = jsonencode([
-      "repo:nationalarchives/dr2-ingest:environment:${local.environment}"
+      "repo:nationalarchives@10154228/dr2-ingest@770892421:environment:${local.environment}"
     ])
   })
   name = "${local.environment}-dr2-run-e2e-tests-role"
@@ -42,5 +42,6 @@ module "dr2_e2e_tests_policy" {
     ingest_sfn_name                    = local.ingest_step_function_name
     account_id                         = data.aws_caller_identity.current.account_id
     raw_cache_bucket_name              = local.ingest_raw_cache_bucket_name
+    flow_control_lambda_arn            = module.dr2_ingest_flow_control_lambda.lambda_arn
   })
 }
