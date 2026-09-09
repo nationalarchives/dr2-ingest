@@ -29,11 +29,12 @@ module "dr2_custodial_copy_queue_creator_lambda" {
       vpc_id                     = module.vpc.vpc.id
     })
   }
-  timeout_seconds = 180
-  memory_size     = local.java_lambda_memory_size
-  runtime         = local.java_runtime
-  architecture    = local.architecture_arm64
-  tags            = {}
+  sqs_queue_mapping_batch_size = 10
+  timeout_seconds              = 180
+  memory_size                  = 285
+  runtime                      = local.java_runtime
+  architecture                 = local.architecture_arm64
+  tags                         = {}
   lambda_sqs_queue_mappings = [{
     sqs_queue_arn = module.dr2_custodial_copy_queue_creator_queue.sqs_arn
   }]
