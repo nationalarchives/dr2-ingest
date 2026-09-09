@@ -103,7 +103,10 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
     1. Make sure your credentials (for the environment that you are interested in) are valid; if not, follow the instructions at Step 4 and then
     2. Switch to the Terraform workspace corresponding to the DR2 environment to be worked on `terraform workspace select [workspace]`
         1. run `terraform workspace list` to see available workspaces and the current workspace
-    3. Run
+    3. Provide the lambda code version
+       1. find the latest tag version from [here](https://github.com/nationalarchives/dr2-ingest/tags)
+       2. run `export TF_VAR_lambda_code_version=[paste latest tag version]`
+    4. Run
          ```
          [location of project] $ terraform plan
          ```
