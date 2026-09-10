@@ -164,7 +164,6 @@ def migrate(ic_db_path):
         assets_list = grouped_assets[asset_id]
         all_metadata = []
         local_assets = []
-        print("Writing assets to Object Store bucket")
         for asset in assets_list:
             asset_file_path = asset['file_path']
             asset_metadata = asset['metadata']
@@ -201,7 +200,6 @@ def migrate(ic_db_path):
             local_assets.append((asset_file_id, str(base_file_path), asset_id))
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
 
-        print("Writing metadata to Object Store bucket")
         s3_client.upload_fileobj(json_bytes, raw_cache_bucket, f"{asset_id}.metadata")
         asset_sqs_message = {
             'assetId': asset_id,
@@ -214,6 +212,7 @@ def migrate(ic_db_path):
     all_sqs_messages = []
     db_assets = []
     grouped_asset_ids = list(grouped_assets.keys())
+    print("Processing assets...")
     with ThreadPoolExecutor(max_workers=20) as executor:
         count = 0
         for migrated_assets, sqs_message in executor.map(migrate_asset, grouped_asset_ids):
