@@ -314,6 +314,12 @@ class TestLambdaFunction(unittest.TestCase):
 
         ingest_metric_collector.lambda_handler({}, DummyContext())
 
+        self.assertEqual(
+            ("intg-dr2-ingest", ("TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"), '"Get metadata and update Files table"'),
+            mock_sfn.call_args.args
+        )
+        self.assertEqual(("intg-dr2-ingest", ("TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT")), mock_flow_control.call_args.args)
+
         mock_client.put_metric_data.assert_called_once_with(
             Namespace="intg-dr2-ingest",
             MetricData=[{"MetricName": "ApproximateAgeOfOldestQueuedIngest", "Unit": "seconds", "Value": 0}]
@@ -329,6 +335,12 @@ class TestLambdaFunction(unittest.TestCase):
         mock_boto_client.return_value = mock_client
 
         ingest_metric_collector.lambda_handler({}, DummyContext())
+
+        self.assertEqual(
+            ("intg-dr2-ingest", ("TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"), '"Get metadata and update Files table"'),
+            mock_sfn.call_args.args
+        )
+        self.assertEqual(("intg-dr2-ingest", ("TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT")), mock_flow_control.call_args.args)
 
         mock_client.put_metric_data.assert_called_once_with(
             Namespace="intg-dr2-ingest",
@@ -347,6 +359,11 @@ class TestLambdaFunction(unittest.TestCase):
         self.assertIn("Failed to collect metrics for step function as well as the queued executions",
                       str(context.exception))
 
+        self.assertEqual(
+            ("intg-dr2-ingest", ("TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"), '"Get metadata and update Files table"'),
+            mock_sfn.call_args.args
+        )
+        self.assertEqual(("intg-dr2-ingest", ("TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT")), mock_flow_control.call_args.args)
         mock_client.put_metric_data.assert_not_called()
 
     @patch("ingest_metric_collector.boto3.client")
@@ -362,6 +379,13 @@ class TestLambdaFunction(unittest.TestCase):
 
         with self.assertRaises(Exception) as context:
             ingest_metric_collector.lambda_handler({}, DummyContext())
+
+        self.assertEqual(
+            ("intg-dr2-ingest", ("TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT"), '"Get metadata and update Files table"'),
+            mock_sfn.call_args.args
+        )
+        self.assertEqual(("intg-dr2-ingest", ("TDR", "COURTDOC", "ADHOC", "DRI", "DEFAULT")),
+                         mock_flow_control.call_args.args)
         self.assertIn(
             "Failed to send metrics to CloudWatch due to underlying exception: 'dummy reason should be embedded in message'",
             str(context.exception)
