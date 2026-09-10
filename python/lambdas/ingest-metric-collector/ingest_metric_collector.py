@@ -33,8 +33,9 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
             state_machine_name = state_machine["name"]
             state_machine_arn = state_machine["stateMachineArn"]
 
-            executions = sfn_client.list_executions(stateMachineArn=state_machine_arn, statusFilter="RUNNING")[
-                "executions"]
+            executions = sfn_client.list_executions(stateMachineArn=state_machine_arn,
+                                                    statusFilter="RUNNING",
+                                                    maxResults=1000)["executions"]
             metric_data.append(
                 {
                     "MetricName": "ExecutionsRunning",
