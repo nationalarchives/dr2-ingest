@@ -67,8 +67,9 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
                     }
                     for ss, counts_ss in ss_execution_counts.items()
                 )
-
-            for execution in executions:
+            ingest_executions = [execution for execution in executions
+                                 if execution["stateMachineArn"].endswith(f":stateMachine:{resources_prefix}")]
+            for execution in ingest_executions:
                 history_paginator = sfn_client.get_paginator("get_execution_history")
                 execution_arn = execution["executionArn"]
                 execution_name = execution["name"]
