@@ -27,8 +27,9 @@ module "dr2_ip_lock_checker_lambda" {
   lambda_invoke_permissions = {
     "events.amazonaws.com" = module.dr2_ip_lock_checker_cloudwatch_event.event_arn
   }
-  memory_size = local.python_lambda_memory_size
-  runtime     = local.python_runtime
+  memory_size  = local.python_lambda_memory_size
+  runtime      = local.python_runtime
+  architecture = local.architecture_arm64
   plaintext_env_vars = {
     PRESERVICA_URL = data.aws_ssm_parameter.preservica_url.value
   }
