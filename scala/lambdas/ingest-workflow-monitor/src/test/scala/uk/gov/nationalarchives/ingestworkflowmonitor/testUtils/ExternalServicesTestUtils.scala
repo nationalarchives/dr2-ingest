@@ -31,7 +31,9 @@ class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChec
   val runningStatuses: TableFor2[String, String] = Table(
     ("API status", "Normalised status"),
     ("Running", "Running"),
-    ("Pending", "Running")
+    ("Pending", "Running"),
+    ("Suspended", "Running"),
+    ("Recoverable", "Running")
   )
   val failedStatuses: TableFor2[String, String] = Table(
     ("API status", "Normalised status"),
@@ -39,8 +41,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChec
   )
   val succeededStatuses: TableFor2[String, String] = Table(
     ("API status", "Normalised status"),
-    ("Suspended", "Succeeded"),
-    ("Recoverable", "Succeeded"),
     ("Succeeded", "Succeeded")
   )
 

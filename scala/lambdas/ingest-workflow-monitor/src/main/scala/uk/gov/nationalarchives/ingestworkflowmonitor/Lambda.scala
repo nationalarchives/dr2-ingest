@@ -15,8 +15,8 @@ class Lambda extends LambdaRunner[Input, StateOutput, Config, Dependencies]:
   private val mappedStatuses = Map(
     "Running" -> "Running",
     "Pending" -> "Running",
-    "Suspended" -> "Succeeded",
-    "Recoverable" -> "Succeeded",
+    "Suspended" -> "Running",
+    "Recoverable" -> "Running",
     "Succeeded" -> "Succeeded",
     "Failed" -> "Failed"
   )

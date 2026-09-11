@@ -1,11 +1,8 @@
 locals {
-  repositories = ["dr2-ingest"]
-  all_repository_filters = flatten([
-    for repository in local.repositories : [
-      "repo:nationalarchives/${repository}:environment:${local.environment}",
-      "repo:nationalarchives/${repository}:ref:refs/heads/main"
-    ]
-  ])
+  all_repository_filters = [
+    "repo:nationalarchives@10154228/dr2-ingest@770892421:environment:${local.environment}",
+    "repo:nationalarchives@10154228/dr2-ingest@770892421:ref:refs/heads/main"
+  ]
 }
 module "deploy_lambda_role" {
   source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
