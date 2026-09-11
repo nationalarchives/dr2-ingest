@@ -12,6 +12,7 @@ module "dr2_ingest_metric_collector_lambda" {
   handler         = "ingest_metric_collector.lambda_handler"
   timeout_seconds = local.python_timeout_seconds
   runtime         = local.python_runtime
+  architecture    = local.architecture_arm64
   s3_bucket       = local.code_deploy_bucket
   s3_key          = "${var.lambda_code_version}/${local.ingest_metric_collector_lambda_key}"
   policies = {
