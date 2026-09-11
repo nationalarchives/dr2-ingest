@@ -33,8 +33,9 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
             state_machine_name = state_machine["name"]
             state_machine_arn = state_machine["stateMachineArn"]
 
-            executions = sfn_client.list_executions(stateMachineArn=state_machine_arn, statusFilter="RUNNING")[
-                "executions"]
+            executions = sfn_client.list_executions(stateMachineArn=state_machine_arn,
+                                                    statusFilter="RUNNING",
+                                                    maxResults=1000)["executions"]
             metric_data.append(
                 {
                     "MetricName": "ExecutionsRunning",
@@ -67,8 +68,9 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
                     }
                     for ss, counts_ss in ss_execution_counts.items()
                 )
-
-            for execution in executions:
+            ingest_executions = [execution for execution in executions
+                                 if execution["stateMachineArn"].endswith(f":stateMachine:{resources_prefix}")]
+            for execution in ingest_executions:
                 history_paginator = sfn_client.get_paginator("get_execution_history")
                 execution_arn = execution["executionArn"]
                 execution_name = execution["name"]
