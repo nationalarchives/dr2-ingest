@@ -51,12 +51,12 @@ def verify_function_calls(test: "TestMigrate", is_test_run, mock_connect: Mock,
 
     mock_connect.assert_called_with(dsn="localhost/SDB4", user="STORE", password="password")
     if ref_error_thrown:
-       mock_create_skeleton.assert_called_with(["fmt", "x-fmt"])
+       mock_create_skeleton.assert_called_with(["fmt", "x-fmt"], "/test/droid")
        mock_checksum.assert_not_called()
        write_to_ic_db.assert_not_called()
     else:
         if is_test_run:
-            mock_create_skeleton.assert_called_with(["fmt", "x-fmt"])
+            mock_create_skeleton.assert_called_with(["fmt", "x-fmt"], "/test/droid")
             mock_checksum.assert_called_with("/test/file2", "sha256")
         else:
             mock_create_skeleton.assert_not_called()
@@ -289,7 +289,7 @@ class TestMigrate(unittest.TestCase):
             with open(os.path.join(self.test_dir, prefix, filename), 'w') as f:
                 f.write('test')
 
-        result = create_ingest_metadata.create_skeleton_suite_lookup(self.prefixes)
+        result = create_ingest_metadata.create_skeleton_suite_lookup(self.prefixes, self.test_dir)
 
         expected_keys = [
             'fmt/123',
