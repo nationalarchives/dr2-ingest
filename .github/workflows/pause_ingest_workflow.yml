@@ -18,14 +18,9 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - id: role-name
-        env:
-          ENVIRONMENT: ${{ matrix.environment }}
-        run: echo role-name="$(echo $ENVIRONMENT | sed -r 's/(^|-)(\w)/\U\2/g')TerraformRole" >> $GITHUB_OUTPUT
-
       - uses: aws-actions/configure-aws-credentials@6782cb1b6df5d32e9354c1e6d6da4f956c0d61c4
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
+          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ matrix.environment == 'intg' && 'IntgTerraformRole' || 'StagingTerraformRole' }}
           aws-region: eu-west-2
 
       - if: inputs.enabled == false
@@ -38,6 +33,15 @@ jobs:
         run: |
           terraform init
           terraform workspace select ${{ matrix.environment }}
-          terraform apply -auto-approve \
-            -var="nat_gateway_enabled=${{ inputs.enabled }}" \
-            -var="interface_endpoints_enabled=${{ inputs.enabled }}"
+          if [ "${{ inputs.enabled }}" = "false" ]; then
+            terraform apply -auto-approve \
+                -var="use_nat_gateway=false" \
+                -var="use_nat_instance=false" \
+                -var="interface_endpoints={}"
+            else
+                terraform apply -auto-approve
+            fi
+
+      -  if: inputs.enabled == true
+         run: |
+           aws lambda invoke --function-name ${{ matrix.environment }}-dr2-pause-ingest --payload '{"pause": false}' response.json
