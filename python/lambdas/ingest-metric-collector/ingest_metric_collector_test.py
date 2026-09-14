@@ -96,12 +96,20 @@ class TestLambdaFunction(unittest.TestCase):
         ]
         get_execution_history_mock = MagicMock()
         executions_list = [
-            {"name": "TDR_job1", "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:TDR_job1"},
+            {"name": "TDR_job1", "executionArn": "arn:aws:states:region:123456789012:execution:test-dr2:TDR_job1",
+             "stateMachineArn": "arn:aws:states:region:123456789012:stateMachine:test-dr2"},
             {"name": "COURTDOC_task1",
-             "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:COURTDOC_task1"},
-            {"name": "RANDOM_job2",
-             "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:RANDOM_job2"},
+             "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:COURTDOC_task1",
+             "stateMachineArn": "arn:aws:states:region:123456789012:stateMachine:test-dr2"
+             },
             # unknown ss should get added to DEFAULT
+            {"name": "RANDOM_job2",
+             "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:RANDOM_job2",
+             "stateMachineArn": "arn:aws:states:region:123456789012:stateMachine:test-dr2"},
+            # This execution should be excluded because the state machine arn does not end with "test-dr2"
+            {"name": "RANDOM_job3",
+             "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:RANDOM_job3",
+             "stateMachineArn": "arn:aws:states:region:123456789012:stateMachine:not-test-dr2"}
         ]
 
         events = [[
@@ -136,7 +144,7 @@ class TestLambdaFunction(unittest.TestCase):
 
         expected_executions_running = 1
         expected_executions_running_per_ss = len(self.expected_source_systems)
-        expected_asset_count_and_bytes = len(executions_list) * 2
+        expected_asset_count_and_bytes = (len(executions_list) - 1) * 2
         expected_metrics_length = expected_executions_running + expected_executions_running_per_ss + expected_asset_count_and_bytes
 
         self.assertEqual(expected_metrics_length, len(metrics))
@@ -145,7 +153,7 @@ class TestLambdaFunction(unittest.TestCase):
         expected_executions = generate_metrics(value=len(executions_list))
         self.assertEqual(expected_executions, total_executions_running)
 
-        for (ss, executions) in zip(self.expected_source_systems, (1, 1, 0, 0, 1)):
+        for (ss, executions) in zip(self.expected_source_systems, (1, 1, 0, 0, 2)):
             expected_metric = generate_metrics(value=executions, source_system=ss)
             self.assertEqual(expected_metric, metrics.pop(0))
 
@@ -179,7 +187,8 @@ class TestLambdaFunction(unittest.TestCase):
                 get_execution_history_mock = MagicMock()
                 executions_list = [
                     {"name": "TDR_job1",
-                     "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:TDR_job1"}
+                     "executionArn": "arn:aws:states:region:123456789012:execution:test-dr2:TDR_job1",
+                     "stateMachineArn": "arn:aws:states:region:123456789012:stateMachine:test-dr2"}
                 ]
 
                 events = [

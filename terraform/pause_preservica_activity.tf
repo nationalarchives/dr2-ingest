@@ -21,6 +21,7 @@ module "pause_preservica_activity_lambda" {
   timeout_seconds = 10
   memory_size     = local.python_lambda_memory_size
   runtime         = local.python_runtime
+  architecture    = local.architecture_arm64
   tags            = {}
   lambda_invoke_permissions = {
     "events.amazonaws.com" = module.pause_preservica_activity_checker_cloudwatch_event.event_arn
