@@ -52,7 +52,8 @@ variable "aggregator_lambda" {
     timeout = number
   })
   default = {
-    timeout = 60
+    # Set to max as we're not sure how long it'll take to do 10k messages and we’re seeing the Lambda timeout across multiple source systems causing items to reach the DLQ as duplicates
+    timeout = 900
   }
 }
 

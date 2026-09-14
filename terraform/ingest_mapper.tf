@@ -23,7 +23,7 @@ module "dr2_ingest_mapper_lambda" {
   snap_start      = true
   s3_bucket       = local.code_deploy_bucket
   s3_key          = "${var.lambda_code_version}/${local.ingest_mapper_key_name}"
-  memory_size     = local.java_lambda_memory_size
+  memory_size     = 1024
   runtime         = local.java_runtime
   architecture    = local.architecture_arm64
   plaintext_env_vars = {
