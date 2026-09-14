@@ -118,7 +118,7 @@ module "dr2_preingest_package_builder_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   function_name   = local.package_builder_lambda_name
   handler         = var.package_builder_lambda.handler
-  timeout_seconds = local.java_timeout_seconds
+  timeout_seconds = 900
   policies = {
     "${local.package_builder_lambda_name}-policy" = templatefile("${path.module}/templates/preingest_package_builder_policy.json.tpl", {
       account_id               = data.aws_caller_identity.current.account_id
@@ -134,7 +134,7 @@ module "dr2_preingest_package_builder_lambda" {
   s3_bucket       = local.code_deploy_bucket
   s3_key          = "${var.lambda_code_version}/preingest-${var.source_name}-package-builder"
   snap_start      = true
-  memory_size     = local.java_lambda_memory_size
+  memory_size     = 2048
   runtime         = local.java_runtime
   architecture    = local.architecture_arm64
   plaintext_env_vars = {
