@@ -60,11 +60,8 @@ module "dri_preingest" {
   } : {}
   additional_importer_lambda_env_vars          = local.environment == "prod" ? { RECORDS_METADATA_BUCKET = local.records_metadata_bucket_name } : {}
   aggregator_secondary_grouping_window_seconds = 600
-  aggregator_lambda = {
-    timeout = 900 # Set to max as we're not sure how long it'll take to do 10k messages
-  }
-  general_notifications_channel_id = local.general_notifications_channel_id
-  slack_api_destination_arn        = module.eventbridge_alarm_notifications_destination.api_destination_arn
+  general_notifications_channel_id             = local.general_notifications_channel_id
+  slack_api_destination_arn                    = module.eventbridge_alarm_notifications_destination.api_destination_arn
 }
 
 module "ad_hoc_preingest" {
