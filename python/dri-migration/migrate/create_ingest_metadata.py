@@ -22,10 +22,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def create_skeleton_suite_lookup(prefixes):
+def create_skeleton_suite_lookup(prefixes, droid_path):
     puid_lookup = {}
     for prefix in prefixes:
-        path = os.path.join(os.environ['DROID_PATH'], prefix)
+        path = os.path.join(droid_path, prefix)
 
         pattern = re.compile(r'((x-)?fmt-\d{1,5})-.*')
 
@@ -82,19 +82,21 @@ def migrate(ic_db_path):
     database_host = os.environ.get("DATABASE_HOST", "localhost")
     account_number = os.environ["ACCOUNT_NUMBER"]
     environment = os.environ["ENVIRONMENT"]
+    network_location = os.environ["NETWORK_LOCATION"]
     test_run = os.getenv("TEST_RUN", "true") == "true"
     assets = []
     raw_cache_bucket = f"{environment}-dr2-ingest-dri-migration-cache"
     object_store_bucket = os.environ["OBJECT_STORE_BUCKET"]
     object_store_account_number = os.environ["OBJECT_STORE_ACCOUNT_NUMBER"]
     queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-dri-importer"
-    puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt']) if test_run else {}
+    puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt'], os.environ["DROID_PATH"]) if test_run else {}
     oracledb.defaults.fetch_lobs = False
     oracledb.init_oracle_client(lib_dir=os.environ['CLIENT_LOCATION'])
     conn = oracledb.connect(dsn=f'{database_host}/SDB4', user="STORE", password=os.environ['STORE_PASSWORD'])
     cur = conn.cursor()
     cur.execute("SET TRANSACTION READ ONLY")
 
+    print("\nExecuting SQL query\n")
     with open("ingest_query.sql") as query:
         sql = query.read()
         cur.execute(sql)
@@ -174,10 +176,10 @@ def migrate(ic_db_path):
                 upload_file_path = asset_file_path
             elif os.name == "nt":
                 base_file_path = asset_file_path[1:]
-                upload_file_path = PureWindowsPath(os.environ['NETWORK_LOCATION'], base_file_path)
+                upload_file_path = PureWindowsPath(network_location, base_file_path)
             else:
                 base_file_path = asset_file_path[1:]
-                upload_file_path = PurePosixPath(os.environ['NETWORK_LOCATION'], base_file_path)
+                upload_file_path = PurePosixPath(network_location, base_file_path)
 
             with open(upload_file_path, "rb") as upload_file:
                 prefix = f"v1/{asset_id}"
@@ -199,6 +201,7 @@ def migrate(ic_db_path):
                         raise e
             local_assets.append((asset_file_id, str(base_file_path), asset_id))
         json_bytes = io.BytesIO(json.dumps(all_metadata).encode("utf-8"))
+
         s3_client.upload_fileobj(json_bytes, raw_cache_bucket, f"{asset_id}.metadata")
         asset_sqs_message = {
             'assetId': asset_id,
@@ -211,6 +214,7 @@ def migrate(ic_db_path):
     all_sqs_messages = []
     db_assets = []
     grouped_asset_ids = list(grouped_assets.keys())
+    print("Processing Assets...\n")
     with ThreadPoolExecutor(max_workers=20) as executor:
         count = 0
         for migrated_assets, sqs_message in executor.map(migrate_asset, grouped_asset_ids):
@@ -224,12 +228,14 @@ def migrate(ic_db_path):
         with connection:
             write_to_ic_db(db_assets, connection)
 
+    print("\nSending messages to SQS")
     for batch in itertools.batched(all_sqs_messages, 10):
         entries = [{'MessageBody': msg, 'Id': str(uuid.uuid4())} for msg in batch]
         sqs_client.send_message_batch(QueueUrl=queue_url, Entries=entries)
 
 
 def write_to_ic_db(assets, connection: sqlite3.Connection):
+    print("\nWriting file ids to IC DB")
     for (file_id, path, asset_id) in assets:
         blob_cursor = connection.cursor()
         # If exact row exists (either because there are duplicates in DRI or script has been re-run) then skip,
@@ -247,6 +253,8 @@ def write_to_ic_db(assets, connection: sqlite3.Connection):
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         intelligent_caching_db_path = sys.argv[1]
+        print("Starting...")
         migrate(intelligent_caching_db_path)
+        print("\nCompleted.")
     else:
         raise Exception("Missing arg: Path to SQLite database.")

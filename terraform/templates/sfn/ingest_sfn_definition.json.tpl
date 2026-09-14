@@ -22,9 +22,9 @@
       "Type": "Task",
       "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_validate_generic_ingest_inputs_lambda_name}:${alias_name}",
       "Retry": ${retry_statement},
-      "Next": "Get metadata and update Files table"
+      "Next": "${ingest_mapper_lambda_state_name}"
     },
-    "Get metadata and update Files table": {
+    "${ingest_mapper_lambda_state_name}": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_mapper_lambda_name}:${alias_name}",
       "Assign": {
