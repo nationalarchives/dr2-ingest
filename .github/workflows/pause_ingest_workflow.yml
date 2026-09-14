@@ -32,6 +32,7 @@ jobs:
       - working-directory: terraform
         run: |
           terraform init
+          export TF_VAR_lambda_code_version=$(curl  https://api.github.com/repos/nationalarchives/dr2-ingest/tags | jq -r '.[0].name')
           terraform workspace select ${{ matrix.environment }}
           if [ "${{ inputs.enabled }}" = "false" ]; then
             terraform apply -auto-approve \
