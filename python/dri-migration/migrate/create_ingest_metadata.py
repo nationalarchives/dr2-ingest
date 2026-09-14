@@ -83,14 +83,13 @@ def migrate(ic_db_path):
     account_number = os.environ["ACCOUNT_NUMBER"]
     environment = os.environ["ENVIRONMENT"]
     network_location = os.environ["NETWORK_LOCATION"]
-    droid_path = os.environ["DROID_PATH"]
     test_run = os.getenv("TEST_RUN", "true") == "true"
     assets = []
     raw_cache_bucket = f"{environment}-dr2-ingest-dri-migration-cache"
     object_store_bucket = os.environ["OBJECT_STORE_BUCKET"]
     object_store_account_number = os.environ["OBJECT_STORE_ACCOUNT_NUMBER"]
     queue_url = f"https://sqs.eu-west-2.amazonaws.com/{account_number}/{environment}-dr2-preingest-dri-importer"
-    puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt'], droid_path) if test_run else {}
+    puid_lookup = create_skeleton_suite_lookup(['fmt', 'x-fmt'], os.environ["DROID_PATH"]) if test_run else {}
     oracledb.defaults.fetch_lobs = False
     oracledb.init_oracle_client(lib_dir=os.environ['CLIENT_LOCATION'])
     conn = oracledb.connect(dsn=f'{database_host}/SDB4', user="STORE", password=os.environ['STORE_PASSWORD'])
