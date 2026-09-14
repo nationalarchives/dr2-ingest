@@ -2,6 +2,7 @@ locals {
   postingest_state_table_name                = "${var.environment}-dr2-postingest-state"
   postingest_gsi_firstqueued_name            = "QueueFirstQueuedIdx"
   postingest_gsi_lastqueued_name             = "QueueLastQueuedIdx"
+  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-postingest-send-to-state-change-queue"
   state_change_ddb_queue_name                = "${var.environment}-dr2-postingest-state-change-handler"
   state_change_lambda_key                    = "postingest-state-change-handler"
   state_change_lambda_name                   = "${var.environment}-dr2-${local.state_change_lambda_key}"
@@ -13,7 +14,6 @@ locals {
   python_timeout_seconds                     = 30
   python_runtime                             = "python3.14"
   python_lambda_memory_size                  = 128
-  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-postingest-send-to-state-change-ddb-queue"
   postingest_queue_config = [ // Before adding a new queue here, update the state change handler to expect it
     { "queueAlias" : "CC", "queueOrder" : 1, "queue_name" : "${var.environment}-dr2-postingest-custodial-copy-confirmer" },
     { "queueAlias" : "TC", "queueOrder" : 2, "queue_name" : "${var.environment}-dr2-postingest-custodial-copy-tape-confirmer" }
@@ -108,10 +108,10 @@ module "dr2_state_change_ddb_queue" {
   encryption_type                                   = "sse"
 }
 
-module "dr2_state_change_ddb_queue_lambda" {
+module "dr2_send_to_state_change_ddb_queue_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   description     = "A lambda function to pass on a DynamoDB Stream event to an SQS queue"
-  function_name   = local.state_change_lambda_name
+  function_name   = local.send_to_state_change_ddb_queue_lambda_name
   handler         = "send_to_state_change_ddb_queue.lambda_handler"
   timeout_seconds = local.python_timeout_seconds
   runtime         = local.python_runtime
