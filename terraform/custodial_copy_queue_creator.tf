@@ -29,11 +29,12 @@ module "dr2_custodial_copy_queue_creator_lambda" {
       vpc_id                     = module.vpc.vpc.id
     })
   }
-  timeout_seconds = 180
-  memory_size     = local.java_lambda_memory_size
-  runtime         = local.java_runtime
-  architecture    = local.architecture_arm64
-  tags            = {}
+  sqs_queue_mapping_batch_size = 10
+  timeout_seconds              = local.java_timeout_seconds
+  memory_size                  = 285
+  runtime                      = local.java_runtime
+  architecture                 = local.architecture_arm64
+  tags                         = {}
   lambda_sqs_queue_mappings = [{
     sqs_queue_arn = module.dr2_custodial_copy_queue_creator_queue.sqs_arn
   }]
@@ -45,4 +46,12 @@ module "dr2_custodial_copy_queue_creator_lambda" {
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_metadata.name
     OUTPUT_QUEUE_URL       = module.dr2_custodial_copy_queue.sqs_queue_url
   }
+  s3_bucket = local.code_deploy_bucket
+  s3_key    = "${var.lambda_code_version}/custodial-copy-queue-creator"
+}
+
+
+moved {
+  from = module.dr2_custodial_copy_queue_creator_lambda.aws_lambda_function.lambda_function[0]
+  to   = module.dr2_custodial_copy_queue_creator_lambda.aws_lambda_function.lambda_function_s3[0]
 }

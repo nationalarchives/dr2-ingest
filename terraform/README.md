@@ -1,4 +1,4 @@
-# Digital Records Repository Terraform Environments
+# Digital Records Repository Terraform
 
 Infrastructure as Code for Digital Records Repository's (DR2) AWS environments, see [nationalarchives/dr2-ingest](https://github.com/nationalarchives/dr2-ingest) for more information and documentation.
 
@@ -14,18 +14,21 @@ All of these files are run at once when terraform runs.
 - `slack_notifications_lambda` Resources for the notifications lambda.
 - `deploy_preservica_config` A lambda, queue, topic and bucket for deploying XML config to Preservica.
 
+## Planning
+
+Each time a terraform-related Pull Request is made, `terraform plan` is run on it; the results of which can be viewed [here](https://github.com/nationalarchives/dr2-ingest/actions/workflows/test_plan.yml)
 
 ## Deployment
 
-To start a deployment, run the [DR2 Terraform Environments Deploy job in GitHub actions][github-actions-job] by clicking 'Run Workflow' and selecting the environment you want to deploy to. All changes must be deployed first to integration, then staging, then production.
+To start a deployment, run the [Deploy DR2 Ingest Lambdas Deploy job in GitHub Actions][github-actions-job] by clicking 'Run Workflow' and selecting the environment you want to deploy to. All changes must be deployed first to integration, then staging, then production.
 
-The deployment will pause when Terraform has determined which changes need to be applied. Review the Terraform plan output by clicking the link provided in the Slack notification. This will be a link to Cloudwatch in the management account so you will need to be logged in to the management AWS account to use this.
+The deployment will pause when Terraform has determined which changes need to be applied. Review the Terraform plan output by clicking the link provided in the Slack notification. This will be a link to CloudWatch in the management account so you will need to be logged in to the management AWS account to use this.
 
 Check whether the changes look correct, then open the actions approval page and accept or reject them. To find the actions approval page, follow the link from the Slack notification.
 
 Deployments can be approved by anyone in the `digital-records-repository` GitHub team.
 
-[github-actions-job]: https://github.com/nationalarchives/dr2-terraform-environments/actions/workflows/apply.yml
+[github-actions-job]: https://github.com/nationalarchives/dr2-ingest/actions/workflows/deploy.yml
 
 ## Elastic IPs
 Each environment has one elastic IP per AZ created manually within the AWS console and then used within terraform using `data "aws_eip"`.
@@ -41,7 +44,7 @@ See: https://learn.hashicorp.com/terraform/getting-started/install.html
 
 See: https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html
 
-### Install Terraform Plugins on Intellij
+### Install Terraform Plugins on IntelliJ
 
 HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraform--hcl-language-support
 
@@ -49,15 +52,13 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
 
 **NOTE: Running Terraform locally should only be used to check the Terraform plan. Updating the DR2 environments should only ever be done through GitHub Actions**
 
-1. Clone DR2 Environments project to local machine: https://github.com/nationalarchives/dr2-terraform-environments and navigate to the directory
+1. `cd` into the `terraform` directory and clone DR2 Configurations: https://github.com/nationalarchives/da-terraform-configurations
 
-2. (In the `dr2-terraform-environments` directory) clone DR2 Configurations: https://github.com/nationalarchives/da-terraform-configurations
-
-3. Set the following Terraform environment variables on the local environment:
+2. Set the following Terraform environment variables on the local environment:
 
     * TF_VAR_account_number=*[account number of the environment to update]*
 
-4. Make sure your credentials (for the environment that you are interested in) are valid/still valid first (the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN)
+3. Make sure your credentials (for the environment that you are interested in) are valid/still valid first (the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN)
    * If not and you have the AWS CLI installed:
        1. run `aws sso login --profile [account name where credentials are] && export AWS_PROFILE=[account name where credentials are]`
        2. run `aws sts assume-role --role-arn arn:aws:iam::[account number]:role/[terraform role] --role-session-name run-terraform`, which should return a JSON
@@ -65,24 +66,24 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
        4. run `export AWS_SECRET_ACCESS_KEY=[paste value from JSON]`
        5. run `export AWS_SESSION_TOKEN=[paste value from JSON]`
 
-5. Initialise Terraform (if not done so previously):
+4. Initialise Terraform (if not done so previously):
 
    ```
    [location of project] $ terraform init
    ```
 
-6. To ensure the modules are up-to-date, run
+5. To ensure the modules are up-to-date, run
    ```
    [location of project] $ terraform get -update
    ```
-7. To ensure that the terraform configuration is up-to-date, run
+6. To ensure that the terraform configuration is up-to-date, run
    ```
    [location of project] $ cd da-terraform-configurations
    [location of project/da-terraform-configurations] $ git pull
    [location of project/da-terraform-configurations] $ cd ..
    ```
 
-8. Make your terraform changes
+7. Make your terraform changes
    1. Add/update a `.tf` file to the root of this project (might be best to copy an existing `.tf` file as a base)
       * If you are creating a Lambda, add its arn to the `deploy_lambda_policy` module in the `deploy_roles.tf` file at the root of this project
    2. Add/update an IAM policy, depending on the change you are making
@@ -94,12 +95,12 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
    4. If item created needs a KMS key, add it to the `dr2_kms_key` module in the `common.tf` file
    5. If this is a lambda which needs to be added to the ingest dashboard, add the lambda name to `local.dashboard_lambdas` in `common.tf`
 
-9. (Optional) To quickly validate the changes you made, run
+8. (Optional) To quickly validate the changes you made, run
    ```
    [location of project] $ terraform validate
    ```
 
-10. Run Terraform to view changes that will be made to the DR2 environment AWS resources
+9. Run Terraform to view changes that will be made to the DR2 environment AWS resources
     1. Make sure your credentials (for the environment that you are interested in) are valid; if not, follow the instructions at Step 4 and then
     2. Switch to the Terraform workspace corresponding to the DR2 environment to be worked on `terraform workspace select [workspace]`
         1. run `terraform workspace list` to see available workspaces and the current workspace
@@ -108,7 +109,7 @@ HCL Language Support: https://plugins.jetbrains.com/plugin/7808-hashicorp-terraf
          [location of project] $ terraform plan
          ```
 
-11. Run `terraform fmt --recursive` to properly format your Terraform changes before pushing to a branch.
+10. Run `terraform fmt --recursive` to properly format your Terraform changes before pushing to a branch.
 
 ### Adding preingest modules
 

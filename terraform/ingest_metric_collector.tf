@@ -23,7 +23,8 @@ module "dr2_ingest_metric_collector_lambda" {
     })
   }
   plaintext_env_vars = {
-    SOURCE_SYSTEMS = jsonencode(local.source_systems)
+    SOURCE_SYSTEMS           = jsonencode(local.source_systems)
+    MAPPER_LAMBDA_STATE_NAME = local.ingest_step_function_mapper_lambda_state_name
   }
   tags = {
     Name = local.ingest_metric_collector_lambda_name
