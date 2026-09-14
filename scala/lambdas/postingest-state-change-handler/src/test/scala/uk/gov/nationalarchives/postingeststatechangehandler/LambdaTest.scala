@@ -3,6 +3,8 @@ package uk.gov.nationalarchives.postingeststatechangehandler
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
 import cats.implicits.*
+import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFailure
+import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
 import org.scalatest.{Assertion, EitherValues}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -17,8 +19,11 @@ import uk.gov.nationalarchives.utils.ExternalUtils.MessageStatus.{IngestedCCDisk
 import uk.gov.nationalarchives.utils.ExternalUtils.MessageType.{IngestComplete, IngestUpdate}
 import uk.gov.nationalarchives.utils.ExternalUtils.OutputMessage
 import io.circe.parser.decode
+import io.circe.syntax._
 
+import scala.jdk.CollectionConverters.*
 import java.time.Instant
+import java.util
 import java.util.UUID
 
 class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherValues {
@@ -45,9 +50,44 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     )
   }
 
+  private def convertTableItemToString(tableItem: PostIngestStateTableItem, keys: Boolean = false) = {
+    val items = if keys then Iterator(("assetId", tableItem.assetId), ("batchId", tableItem.batchId)) else tableItem.productElementNames.zip(tableItem.productIterator)
+
+    val keyValues = items.map { case (attr, value) =>
+      val valueObj = value match
+        case Some(strValue: String) => s"""{"S":${strValue.asJson}}"""
+        case None                   => s"""{"NULL":null}"""
+        case somethingElse          => s"""{"S":"$somethingElse"}"""
+
+      val keyStripped = attr.stripPrefix("potential")
+      val keySnakeCase = s"${keyStripped.head.toLower}${keyStripped.tail}"
+      val key = if keySnakeCase.startsWith("result") then s"result_${keySnakeCase.takeRight(2)}" else keySnakeCase
+      s""""$key":$valueObj"""
+    }
+    s"""{${keyValues.mkString(",")}}"""
+  }
+
+  private def convertOptionalRecords(record: StreamRecord) = {
+    val keys = s""""Keys":${record.newImage.map(image => convertTableItemToString(image, true)).orNull},"""
+    val oldImage = s""""OldImage":${record.oldImage.map(image => convertTableItemToString(image)).orNull},"""
+    val newImage = s""""NewImage":${record.newImage.map(image => convertTableItemToString(image)).orNull},"""
+    keys + oldImage + newImage
+  }
+
+  private def generateSqsEvent(event: EventName, streamRecords: List[StreamRecord]) = {
+    case class MockSQSEvent() extends SQSEvent() {
+      override def getRecords: util.List[SQSMessage] = streamRecords.map { record =>
+        val sqsMessage = new SQSMessage()
+        sqsMessage.setBody(f"""{"eventName":"${event.toString}","dynamodb":{${convertOptionalRecords(record)}"SequenceNumber":${record.sequenceNumber.asJson}}}""")
+        sqsMessage
+      }.asJava
+    }
+    MockSQSEvent()
+  }
+
   private def runLambda(
       itemsInTable: List[PostIngestStateTableItem],
-      event: DynamodbEvent,
+      event: SQSEvent,
       config: Config = getConfig()
   ): IO[UpdatedRefs] = {
     for {
@@ -55,7 +95,7 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       updateTableReqsRef <- Ref[IO].of[List[DADynamoDbRequest]](Nil)
       sqsMessagesRef <- Ref[IO].of[Map[String, List[SQSMessage]]](Map.empty)
       snsMessagesRef <- Ref[IO].of[List[OutputMessage]](Nil)
-      _ <- new Lambda().handler(
+      sqsBatchResponse <- new Lambda().handler(
         event,
         config,
         Dependencies(createDynamoClient(itemsInTableRef, updateTableReqsRef), createSnsClient(snsMessagesRef), createSqsClient(sqsMessagesRef), () => instant, () => messageId)
@@ -64,13 +104,15 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       updateTableReqs <- updateTableReqsRef.get
       sqsMessages <- sqsMessagesRef.get
       snsMessages <- snsMessagesRef.get
-    } yield UpdatedRefs(itemsRemainingInTable, updateTableReqs, sqsMessages, snsMessages)
+    } yield UpdatedRefs(itemsRemainingInTable, updateTableReqs, sqsMessages, snsMessages, sqsBatchResponse.getBatchItemFailures.asScala.toList)
   }
 
   "handler" should "queue the item and send an SQS message to the CC queue if the event is an 'INSERT' one and NewImage exists" in {
     val oldDynamoItem = None
     val newDynamoItem = PostIngestStateTableItem(UUID.randomUUID, "batchId", "input", Some("correlationId"), None, None, None, None, None)
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some))))
+    val sequenceNumber = "123"
+
+    val event = generateSqsEvent(EventName.INSERT, List(StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some, sequenceNumber)))
     val refs = runLambda(List(newDynamoItem), event).unsafeRunSync()
 
     refs.itemsRemainingInTable.size should equal(1)
@@ -110,7 +152,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val oldDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, None, None)
     val newDynamoItem =
       PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"""{"filePaths":["/tmp/file1","/tmp/file2"]}"""), None)
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem.some, newDynamoItem.some))))
+    val sequenceNumber = "123"
+    val event = generateSqsEvent(EventName.MODIFY, List(StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem.some, newDynamoItem.some, sequenceNumber)))
     val refs = runLambda(List(newDynamoItem), event).unsafeRunSync()
 
     refs.itemsRemainingInTable.size should equal(1)
@@ -160,9 +203,10 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       Some(s"""{"filePaths":["/tmp/file1","/tmp/file2"]}"""),
       Some(s"result_$queue1")
     )
+    val sequenceNumber = "123"
     val additionalItemInTable =
       PostIngestStateTableItem(UUID.fromString("e5c55836-3917-405d-8bde-a1d970136c1d"), "batchId2", "input2", Some("correlationId2"), None, None, None, None, None)
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newImage).some, oldImage.some, newImage.some))))
+    val event = generateSqsEvent(EventName.MODIFY, List(StreamRecord(getPrimaryKey(newImage).some, oldImage.some, newImage.some, sequenceNumber)))
     val refs = runLambda(List(newImage, additionalItemInTable), event).unsafeRunSync()
 
     refs.itemsRemainingInTable.size should equal(1)
@@ -192,7 +236,8 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
       PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some(queue2), dateTime, dateTime, Some(s"result_$queue1"), Some(s"result_$queue2"))
     val newDynamoItem =
       PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some(queue2), dateTime, dateTime, Some(s"result_$queue1"), Some(s"result_$queue2"))
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem.some, newDynamoItem.some))))
+    val sequenceNumber = "123"
+    val event = generateSqsEvent(EventName.MODIFY, List(StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem.some, newDynamoItem.some, sequenceNumber)))
 
     val duplicatedQueues =
       s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "queueUrl1"},""" +
@@ -209,15 +254,16 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     )
   }
 
-  "handler" should s"throw an error if the event is a 'MODIFY' one, NewImage is present but no OldImage" in {
+  "handler" should "return a batchItem failure if the event is a 'MODIFY' one, NewImage is present but no OldImage" in {
     val oldDynamoItem = None
     val newDynamoItem =
       PostIngestStateTableItem(UUID.randomUUID(), "batchId", "input", Some("correlationId"), Some(queue2), dateTime, dateTime, Some(s"result_$queue1"), Some(s"result_$queue2"))
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some))))
-    val ex = intercept[Exception] {
-      runLambda(Nil, event).unsafeRunSync()
-    }
-    ex.getMessage should equal("MODIFY Event was triggered but either an OldImage, NewImage or both don't exist")
+    val sequenceNumber = "123"
+    val event = generateSqsEvent(EventName.MODIFY, List(StreamRecord(getPrimaryKey(newDynamoItem).some, oldDynamoItem, newDynamoItem.some, sequenceNumber)))
+    val refsResponse = runLambda(Nil, event).unsafeRunSync()
+
+    refsResponse.batchItemFailures.length should equal(1)
+    refsResponse.batchItemFailures.head.getItemIdentifier should equal("123")
   }
 
   "handler" should s"throw an error if the queue in configuration is unknown" in {
@@ -231,8 +277,9 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     val assetId = UUID.randomUUID
     val oldDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, None, None)
     val newDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"result_$queue1"), None)
+    val sequenceNumber = "123"
 
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.MODIFY, StreamRecord(getPrimaryKey(oldDynamoItem).some, oldDynamoItem.some, newDynamoItem.some))))
+    val event = generateSqsEvent(EventName.MODIFY, List(StreamRecord(getPrimaryKey(oldDynamoItem).some, oldDynamoItem.some, newDynamoItem.some, sequenceNumber)))
 
     val queues =
       s"""[{"queueAlias": "CC", "queueOrder": 1, "queueUrl": "$queue1Url"},""" +
@@ -274,8 +321,9 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
   def assertValidConfig(queues: String, expectedErrorMessage: String): Assertion = {
     val assetId = UUID.randomUUID
     val newDynamoItem = PostIngestStateTableItem(assetId, "batchId", "input", Some("correlationId"), Some("CC"), dateTime, dateTime, Some(s"result_$queue1"), None)
+    val sequenceNumber = "123"
 
-    val event = DynamodbEvent(List(DynamodbStreamRecord(EventName.INSERT, StreamRecord(getPrimaryKey(newDynamoItem).some, None, newDynamoItem.some))))
+    val event = generateSqsEvent(EventName.INSERT, List(StreamRecord(getPrimaryKey(newDynamoItem).some, None, newDynamoItem.some, sequenceNumber)))
     val config = Config("ddbTable", "ddbGsi", "topicArn", queues)
 
     val ex = intercept[Exception] {
@@ -284,10 +332,9 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
     ex.getMessage should equal(expectedErrorMessage)
   }
 
-  "Decoder" should "skip `REMOVE` events" in {
-    val eventsJson = {
-      """[
-        |  {
+  "Decoder" should "decode `INSERT` events" in {
+    val insertEventJson =
+      """{
         |    "eventName" : "INSERT",
         |    "dynamodb" : {
         |      "Keys" : {
@@ -312,10 +359,20 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         |       "queue": {
         |         "S": "CC"
         |       }
-        |      }
+        |      },
+        |      "SequenceNumber": "13021600000000001596893679"
         |    }
-        |  },
-        |  {
+        |  }""".stripMargin
+
+    val result = decode[Option[DynamodbStreamRecord]](insertEventJson)
+    result.isRight shouldBe true
+    result.map(_.map(_.eventName shouldBe EventName.INSERT))
+
+  }
+
+  "Decoder" should "decode `MODIFY` events" in {
+    val modifyEventJson =
+      """{
         |    "eventName" : "MODIFY",
         |    "dynamodb" : {
         |      "Keys" : {
@@ -360,10 +417,19 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         |       "queue": {
         |         "S": "CC"
         |       }
-        |      }
+        |      },
+        |      "SequenceNumber": "13021600000000001596893680"
         |    }
-        |  },
-        |  {
+        |  }""".stripMargin
+
+    val result = decode[Option[DynamodbStreamRecord]](modifyEventJson)
+    result.isRight shouldBe true
+    result.map(_.map(_.eventName shouldBe EventName.MODIFY))
+  }
+
+  "Decoder" should "skip `REMOVE` events" in {
+    val removeEventJson =
+      """{
         |    "eventName" : "REMOVE",
         |    "dynamodb" : {
         |      "Keys" : {
@@ -391,17 +457,16 @@ class LambdaTest extends AnyFlatSpec with TableDrivenPropertyChecks with EitherV
         |       "queue": {
         |         "S": "CC"
         |       }
-        |      }
+        |      },
+        |      "SequenceNumber": "13021600000000001596893681"
         |    }
         |  }
-        |]""".stripMargin
-    }
-    val result = decode[List[DynamodbStreamRecord]](eventsJson)
-    result.isRight shouldBe true
-    val dynamodbStreamRecords: List[DynamodbStreamRecord] = result.getOrElse(Nil)
-    dynamodbStreamRecords.size shouldBe 2
-    dynamodbStreamRecords.count(_.eventName.equals(EventName.REMOVE)) shouldBe 0
+        |""".stripMargin
 
+    val result = decode[Option[DynamodbStreamRecord]](removeEventJson)
+
+    result.isRight shouldBe true
+    result.map(_ shouldBe None)
   }
 }
 
@@ -409,5 +474,6 @@ case class UpdatedRefs(
     itemsRemainingInTable: List[PostIngestStateTableItem],
     updateTableReqs: List[DADynamoDbRequest],
     sentSqsMessages: Map[String, List[SQSMessage]],
-    sentSnsMessages: List[OutputMessage]
+    sentSnsMessages: List[OutputMessage],
+    batchItemFailures: List[BatchItemFailure]
 )
