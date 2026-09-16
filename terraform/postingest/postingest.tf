@@ -2,7 +2,7 @@ locals {
   postingest_state_table_name                = "${var.environment}-dr2-postingest-state"
   postingest_gsi_firstqueued_name            = "QueueFirstQueuedIdx"
   postingest_gsi_lastqueued_name             = "QueueLastQueuedIdx"
-  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-postingest-send-to-state-change-queue"
+  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-postingest-state-change-queue-sender"
   state_change_ddb_queue_name                = "${var.environment}-dr2-postingest-state-change-handler"
   state_change_lambda_key                    = "postingest-state-change-handler"
   state_change_lambda_name                   = "${var.environment}-dr2-${local.state_change_lambda_key}"
