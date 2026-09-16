@@ -123,8 +123,11 @@ module "dr2_send_to_state_change_ddb_queue_lambda" {
 
   policies = {
     "${local.send_to_state_change_ddb_queue_lambda_name}-policy" = templatefile("./templates/iam_policy/send_to_state_change_ddb_queue.json.tpl", {
-      state_change_handler_queue_arn = module.dr2_state_change_ddb_queue.sqs_arn
-      dead_letter_target_arn         = module.dr2_state_change_ddb_queue.dlq_sqs_arn
+      state_change_handler_queue_arn  = module.dr2_state_change_ddb_queue.sqs_arn
+      dead_letter_target_arn          = module.dr2_state_change_ddb_queue.dlq_sqs_arn
+      dynamo_db_postingest_stream_arn = module.postingest_state_table.stream_arn
+      account_id                      = data.aws_caller_identity.current.account_id
+      lambda_name                     = local.send_to_state_change_ddb_queue_lambda_name
     })
   }
   tags = {}
