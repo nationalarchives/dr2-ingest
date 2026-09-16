@@ -130,6 +130,11 @@ module "dr2_send_to_state_change_ddb_queue_lambda" {
       lambda_name                     = local.send_to_state_change_ddb_queue_lambda_name
     })
   }
+
+  plaintext_env_vars = {
+    QUEUE_URL = module.dr2_state_change_ddb_queue.sqs_queue_url
+  }
+
   tags = {}
 }
 
