@@ -5,7 +5,6 @@ import cats.syntax.all.*
 import io.circe.{Decoder, HCursor}
 import io.circe.generic.auto.*
 import pureconfig.ConfigReader
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import uk.gov.nationalarchives.DADynamoDBClient.DADynamoDbWriteItemRequest
 import uk.gov.nationalarchives.DASFNClient.Status.Running
 import uk.gov.nationalarchives.ingestflowcontrol.Lambda.*
@@ -15,9 +14,13 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{*, given}
 
 import java.time.Instant
 import scala.annotation.tailrec
+import scala.math.*
 import uk.gov.nationalarchives.DADynamoDBClient.given
 import org.scanamo.syntax.*
 import software.amazon.awssdk.services.sfn.model.TaskTimedOutException
+import uk.gov.nationalarchives.dynamoformatters.DynamoWriteUtils
+
+import scala.jdk.CollectionConverters.*
 
 class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencies] {
 
@@ -154,17 +157,22 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
           val inputSystemName = input.executionName.split("_").head
           val supportedSystemName = flowControlConfig.sourceSystems.find(_.systemName == inputSystemName).map(_.systemName).getOrElse(default)
           val queuedTimeAndExecutionName = Instant.now.toString + "_" + input.executionName
+          val dynamoQueueTableItem = DynamoWriteUtils.writeIngestQueueTableItem(
+            IngestQueueTableItem(
+              supportedSystemName,
+              queuedTimeAndExecutionName,
+              input.taskToken,
+              input.executionName,
+              input.totalAssetCount,
+              input.totalFileBytes
+            )
+          )
           logInfo("Writing task to ingest queue table", input.executionName, supportedSystemName, queuedTimeAndExecution = queuedTimeAndExecutionName) >>
             dependencies.dynamoClient
               .writeItem(
                 DADynamoDbWriteItemRequest(
                   config.flowControlQueueTableName,
-                  Map(
-                    sourceSystem -> AttributeValue.builder.s(supportedSystemName).build(),
-                    queuedAt -> AttributeValue.builder.s(queuedTimeAndExecutionName).build(),
-                    taskToken -> AttributeValue.builder.s(input.taskToken).build(),
-                    executionName -> AttributeValue.builder.s(input.executionName).build()
-                  )
+                  dynamoQueueTableItem.toAttributeValue.m().asScala.toMap
                 )
               )
               .void
@@ -224,6 +232,7 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
       flowControlConfig <- dependencies.ssmClient.getParameter[FlowControlConfig](config.configParamName)
       _ <- writeTaskToQueueTable(flowControlConfig)
       runningExecutions <- dependencies.stepFunctionClient.listStepFunctions(config.stepFunctionArn, Running)
+      _ <- logInfo(s"Found ${runningExecutions.length} running executions", executionStarter)
       taskSuccessExecutor <-
         if runningExecutions.size < flowControlConfig.maxConcurrency && flowControlConfig.enabled then
           if flowControlConfig.hasReservedChannels then
@@ -232,7 +241,7 @@ class Lambda extends LambdaRunner[Option[Input], TaskOutput, Config, Dependencie
               if taskExecutorName.nonEmpty then
                 logInfo("Task started successfully on reserved channel. Terminating lambda", executionStarter, resumedExecution = taskExecutorName) >>
                   IO.pure(taskExecutorName)
-              else if (flowControlConfig.hasSpareChannels)
+              else if flowControlConfig.hasSpareChannels(executionsMap) then
                 logInfo("Attempting to start task based on probability", executionStarter) >>
                   startTaskBasedOnProbability(flowControlConfig.sourceSystems)
               else
@@ -309,14 +318,16 @@ object Lambda {
     for {
       potentialExecutionName <- c.downField("executionName").as[Option[String]]
       potentialTaskToken <- c.downField("taskToken").as[Option[String]]
-    } yield (potentialExecutionName, potentialTaskToken).mapN(Input.apply)
+      potentialTotalAssetCount <- c.downField("totalAssetCount").as[Option[Int]]
+      potentialTotalFileBytes <- c.downField("totalFileBytes").as[Option[Long]]
+    } yield (potentialExecutionName, potentialTaskToken, potentialTotalAssetCount, potentialTotalFileBytes).mapN(Input.apply)
 
   private val default = "DEFAULT"
   private val continueProcessingNextSystem = "CONTINUE_TO_NEXT_SYSTEM"
 
   case class Dependencies(dynamoClient: DADynamoDBClient[IO], stepFunctionClient: DASFNClient[IO], ssmClient: DASSMClient[IO], randomInt: (Int, Int) => Int)
   case class Config(flowControlQueueTableName: String, configParamName: String, stepFunctionArn: String) derives ConfigReader
-  case class Input(executionName: String, taskToken: String)
+  case class Input(executionName: String, taskToken: String, totalAssetCount: Int, totalFileBytes: Long)
   case class TaskOutput(successSender: String, executionStarter: String)
 
   case class SourceSystem(systemName: String, reservedChannels: Int = 0, probability: Int = 0) {
@@ -336,7 +347,12 @@ object Lambda {
     require(sourceSystems.map(_.systemName).contains(default), "Missing 'DEFAULT' system in the configuration")
 
     val hasReservedChannels: Boolean = reservedChannelsCount > 0
-    val hasSpareChannels: Boolean = reservedChannelsCount < maxConcurrency
+    def hasSpareChannels(executionsMap: Map[String, Int]): Boolean =
+      val totalReservedChannels = sourceSystems.foldLeft(0) { (totalReserved, sourceSystem) =>
+        totalReserved + max(sourceSystem.reservedChannels - executionsMap.getOrElse(sourceSystem.systemName, 0), 0)
+      }
+      (executionsMap.values.sum + totalReservedChannels) < maxConcurrency
+
   }
 
   case class Range(startInclusive: Int, endExclusive: Int)

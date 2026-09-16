@@ -4,6 +4,25 @@ import sbtassembly.Log4j2MergeStrategy
 ThisBuild / organization := "uk.gov.nationalarchives"
 name := "lambdas"
 
+
+ThisBuild / commands += Command.command("listProjectIds") { state =>
+  val extracted = Project.extract(state)
+  val structure = extracted.structure
+
+  val projectIds =
+    structure.allProjectRefs
+      .map(_.project)
+      .distinct
+      .filterNot(List("ingestLambdasRoot", "root", "utils").contains)
+      .sorted
+
+  val json =
+    projectIds.map(id => "\"" + id + "\"").mkString("[", ",", "]")
+
+  println(json)
+  state
+}
+
 lazy val ingestLambdasRoot = (project in file("."))
   .aggregate(
     custodialCopyQueueCreator,
@@ -68,6 +87,9 @@ lazy val commonSettings = Seq(
     nettyTransportClasses,
     nettyTransport,
     commonsLogging,
+    httpcore5,
+    httpcore5H2,
+    httpClient,
     jawnParser
   ),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
@@ -376,13 +398,13 @@ lazy val aggregatorSettings = libraryDependencies ++= Seq(
   snsClient
 )
 
-lazy val preingestTdrAggregator = (project in file("preingest-tdr-aggregator"))
-  .settings(name := baseDirectory.value.getName)
+lazy val preingestTdrAggregator = (project in file("preingest-aggregator"))
+  .settings(name := "preingest-tdr-aggregator")
   .settings(commonSettings)
   .dependsOn(utils)
   .settings(aggregatorSettings)
 
-lazy val preingestDriAggregator = (project in file("preingest-tdr-aggregator"))
+lazy val preingestDriAggregator = (project in file("preingest-aggregator"))
   .settings(
     name := "preingest-dri-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-dri-aggregator"
@@ -391,7 +413,7 @@ lazy val preingestDriAggregator = (project in file("preingest-tdr-aggregator"))
   .dependsOn(utils)
   .settings(aggregatorSettings)
 
-lazy val preingestAdHocAggregator = (project in file("preingest-tdr-aggregator"))
+lazy val preingestAdHocAggregator = (project in file("preingest-aggregator"))
   .settings(
     name := "preingest-adhoc-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-adhoc-aggregator"
@@ -400,7 +422,7 @@ lazy val preingestAdHocAggregator = (project in file("preingest-tdr-aggregator")
   .dependsOn(utils)
   .settings(aggregatorSettings)
 
-lazy val preingestRestoreAggregator = (project in file("preingest-tdr-aggregator"))
+lazy val preingestRestoreAggregator = (project in file("preingest-aggregator"))
   .settings(
     name := "preingest-restore-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-restore-aggregator"
@@ -409,7 +431,7 @@ lazy val preingestRestoreAggregator = (project in file("preingest-tdr-aggregator
   .dependsOn(utils)
   .settings(aggregatorSettings)
 
-lazy val preingestCourtDocumentAggregator = (project in file("preingest-tdr-aggregator"))
+lazy val preingestCourtDocumentAggregator = (project in file("preingest-aggregator"))
   .settings(
     name := "preingest-courtdoc-aggregator",
     target := (preingestTdrAggregator / baseDirectory).value / "target" / "preingest-courtdoc-aggregator"

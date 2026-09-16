@@ -2,11 +2,16 @@
   "Statement": [
     {
       "Action": [
-        "states:listExecutions",
+        "states:GetExecutionHistory",
+        "states:ListExecutions",
         "states:ListStateMachines"
       ],
       "Effect": "Allow",
-      "Resource": ["${workflow_step_function_arn}", "arn:aws:states:eu-west-2:${account_id}:stateMachine:*"],
+      "Resource": [
+        "${workflow_step_function_arn}",
+        "arn:aws:states:eu-west-2:${account_id}:stateMachine:*",
+        "arn:aws:states:eu-west-2:${account_id}:execution:*"
+      ],
       "Sid": "listExecutions"
     },
     {

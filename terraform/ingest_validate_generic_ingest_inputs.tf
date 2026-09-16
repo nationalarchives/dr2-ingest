@@ -22,6 +22,7 @@ module "dr2_ingest_validate_generic_ingest_inputs_lambda" {
   s3_bucket       = local.code_deploy_bucket
   s3_key          = "${var.lambda_code_version}/${local.ingest_validate_generic_ingest_inputs_key_name}"
   runtime         = local.java_runtime
+  architecture    = local.architecture_arm64
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
     security_group_ids = [module.outbound_https_access_for_s3.security_group_id]

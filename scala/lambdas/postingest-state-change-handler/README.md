@@ -1,6 +1,8 @@
 # Post-Ingest state change handler
 
-This lambda is invoked via a Dynamo DB stream whenever an entry in Dynamo is changed ("MODIFY"), removed or added ("INSERT").
+At the end of the ingest workflow, the Post-Ingest state DynamoDB table is updated with information such as the `assetId`,
+`batchId` and `input`. This lambda is triggered by an SQS queue whenever an entry in DynamoDB is changed ("MODIFY"),
+removed or added ("INSERT").
 We're only interested in MODIFY and INSERT events at the moment so REMOVE is ignored.
 
 ## Lambda input
@@ -188,8 +190,20 @@ The Lambda:
    6. send an SQS message with the:
       1. assetId
       2. batchId
-      3. resultAttrName - the name that the next queue should use when updating the table
-      4. payload - the value from the resultAttrName of the queue that has just been updated, this is the data that will be sent to the next queue
+      3. resultAttrName - the attribute name that the next queue should use when updating the table. The result from the Confirmer is updated in this attribute.
+
+      4. payload - JSON payload. The actual value depends on which queue the message is being sent to.
+         - When sending to Custodial Copy Confirmer queue, an example payload could be:
+
+           ```json
+           {"preservationSystemId": "60240F9C-AC02-4708-98D8-2BC0470DA0C8"}
+           ```
+
+         - When sending to custodial copy tape confirmer queue, an example payload could be:
+
+           ```json
+           {"filePaths": ["/absolute/path/of/file1", "/absolute/path/of/file2"]}
+           ```
    7. send an SNS message with the:
       1. Properties:
          1. executionId - batchId
@@ -201,7 +215,12 @@ The Lambda:
          1. assetId
          2. status - either IngestedPreservation, IngestedCCDisk or IngestedTape
 
-Note: The queue configuration is defined in the `post_ingest.tf` terraform environments [file](https://github.com/nationalarchives/dr2-terraform-environments/blob/main/post_ingest/post_ingest.tf);
+
+
+Note: Any errors thrown will be returned from the lambda as a List of batchItemFailures (each containing the SequenceNumber)
+within an SQSBatchResponse so that they can be retried
+
+The queue configuration is defined in the `post_ingest.tf` terraform environments [file](https://github.com/nationalarchives/dr2-terraform-environments/blob/main/post_ingest/post_ingest.tf);
 in order to add/remove a queue, change the alias name, add another property, modify this file. If the queue configuration
 is modified, update the Decoder in the state change handler to account for the change(s).
 
@@ -218,5 +237,4 @@ entries in Dynamo.
 | POSTINGEST_QUEUES                         | The config for the queues                                               |
 
 
-In the future as we add more locations to store the files, we will update the queues as well as the attributes of the DDB
-item.
+In the future as we add more locations to store the files, we will update the queues as well as the attributes of the DDB item.

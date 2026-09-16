@@ -17,7 +17,6 @@ dependencies {
     api(libs.aws.sdk.kotlin.sfn.jvm)
     api(libs.com.typesafe.config)
     api(libs.org.jetbrains.kotlinx.kotlinx.serialization.json)
-    api(libs.org.apache.commons.commons.compress)
     testImplementation(libs.org.junit.platform.junit.platform.suite)
     testImplementation(libs.org.junit.jupiter.junit.jupiter)
     testImplementation(libs.org.jetbrains.kotlin.kotlin.test)

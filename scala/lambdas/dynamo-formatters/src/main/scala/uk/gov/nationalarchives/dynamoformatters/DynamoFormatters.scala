@@ -99,6 +99,8 @@ object DynamoFormatters {
   val correlationId = "correlationId"
   val queuedAt = "queuedAt"
   val sourceSystem = "sourceSystem"
+  val queuedAssetCount = "queuedAssetCount"
+  val queuedBytes = "queuedBytes"
   val taskToken = "taskToken"
   val executionName = "executionName"
   val filePath = "filePath"
@@ -347,7 +349,7 @@ object DynamoFormatters {
       potentialResultTC: Option[String]
   )
 
-  case class IngestQueueTableItem(sourceSystem: String, queuedTimeAndExecutionName: String, taskToken: String, executionName: String)
+  case class IngestQueueTableItem(sourceSystem: String, queuedTimeAndExecutionName: String, taskToken: String, executionName: String, totalAssetCount: Int, totalFileBytes: Long)
   case class IngestQueuePartitionKey(sourceSystem: String)
   case class IngestQueueSortKey(queuedAt: String)
   case class IngestQueuePrimaryKey(partitionKey: IngestQueuePartitionKey, sortKey: IngestQueueSortKey)

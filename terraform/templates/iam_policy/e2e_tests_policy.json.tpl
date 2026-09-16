@@ -82,6 +82,12 @@
         "arn:aws:s3:::${raw_cache_bucket_name}/*"
       ],
       "Sid": "readFromRawCache"
+    },
+    {
+      "Sid": "invokeFlowControl",
+      "Effect": "Allow",
+      "Action": "lambda:InvokeFunction",
+      "Resource": "${flow_control_lambda_arn}"
     }
   ],
   "Version": "2012-10-17"

@@ -23,7 +23,9 @@ object MetadataBuilder:
 
   case class LockTableMessage(id: UUID, location: URI, fileId: UUID, messageId: Option[String], skipSeriesLookup: Boolean = false)
 
-  private case class MetadataInfo(id: UUID, fileSize: Long, location: URI, checksum: String, treMetadata: TREMetadata)
+  private case class MetadataInfo(id: UUID, fileSize: Long, location: URI, checksum: String, treMetadata: TREMetadata) {
+    require(location.getPath.endsWith(".metadata"), s"'location' URI $location does not end with '.metadata'")
+  }
 
   given Decoder[LockTableMessage] = (c: HCursor) =>
     for
@@ -38,6 +40,7 @@ object MetadataBuilder:
 
     def metadataFromS3[T](s3Uri: URI): IO[MetadataInfo] = {
       val key = s3Uri.getPath.drop(1)
+      val id = key.split("\\.").head
       for
         pub <- s3Client.download(s3Uri.getHost, key)
         s3FileStrings <- pub
@@ -48,7 +51,7 @@ object MetadataBuilder:
           .toList
         metadataString = s3FileStrings.mkString
         metadata <- IO.fromEither(decode[TREMetadata](metadataString))
-      yield MetadataInfo(UUID.fromString(key), metadataString.getBytes.length, s3Uri, DigestUtils.sha256Hex(metadataString), metadata)
+      yield MetadataInfo(UUID.fromString(id), metadataString.getBytes.length, s3Uri, DigestUtils.sha256Hex(metadataString), metadata)
     }
 
     def generateMetadata(
