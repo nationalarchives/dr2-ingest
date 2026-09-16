@@ -5,7 +5,10 @@
         "sqs:SendMessage"
       ],
       "Effect": "Allow",
-      "Resource": "${state_change_handler_queue_arn}",
+      "Resource": [
+        "${state_change_handler_queue_arn}",
+        "${dead_letter_target_arn}"
+      ],
       "Sid": "sendSqsMessage"
     }
   ],
