@@ -134,7 +134,7 @@ module "dr2_state_change_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   function_name   = local.state_change_lambda_name
   handler         = "uk.gov.nationalarchives.postingeststatechangehandler.Lambda::handleRequest"
-  timeout_seconds = 900
+  timeout_seconds = 60
 
   policies = {
     "${local.state_change_lambda_name}-policy" = templatefile("${path.module}/templates/policies/state_change_lambda_policy.json.tpl", {
