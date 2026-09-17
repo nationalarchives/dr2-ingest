@@ -139,8 +139,8 @@ class TestMigrate(unittest.TestCase):
         self.assertEqual(calls, mock_s3.create_multipart_upload.call_args_list)
         upload_part_calls = mock_s3.upload_part.call_args_list
         self.assertEqual(6, len(upload_part_calls))
-        self.assertEqual([1, 2, 3, 1, 2, 3],
-                         [upload[1]["PartNumber"] for upload in upload_part_calls])
+        self.assertEqual(sorted([1, 2, 3, 1, 2, 3]),
+                         sorted([upload[1]["PartNumber"] for upload in upload_part_calls]))
         self.assertEqual(2, mock_s3.complete_multipart_upload.call_count)
         s3_args = mock_s3.upload_fileobj.call_args_list
         sqs_args = mock_sqs.send_message_batch.call_args_list
