@@ -1,4 +1,4 @@
-# 27. Lambda Aliases for Continuous Deployment of Step Function Lambdas
+# 28. Lambda Aliases for Continuous Deployment of Step Function Lambdas
 
 **Date:** 2026-07-02
 
