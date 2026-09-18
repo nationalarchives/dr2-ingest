@@ -117,11 +117,11 @@ class TestMigrate(unittest.TestCase):
             else:
                 call_paths = (PureWindowsPath("/network-location/dri/a/1/test/file1"), PureWindowsPath("/network-location/dri/a/1/test/file2"))
 
-        self.assertEqual([
-            call("ingest_query.sql"),
+        self.assertEqual(call("ingest_query.sql"), mock_open_file.call_args_list[0])
+        self.assertCountEqual([
             call(call_paths[0], "rb"),
             call(call_paths[1], "rb"),
-        ], mock_open_file.call_args_list)
+        ], mock_open_file.call_args_list[1:])
 
         calls = [
             call(
@@ -136,7 +136,7 @@ class TestMigrate(unittest.TestCase):
             ),
         ]
 
-        self.assertEqual(calls, mock_s3.create_multipart_upload.call_args_list)
+        self.assertCountEqual(calls, mock_s3.create_multipart_upload.call_args_list)
         upload_part_calls = mock_s3.upload_part.call_args_list
         self.assertEqual(6, len(upload_part_calls))
         self.assertEqual(sorted([1, 2, 3, 1, 2, 3]),
@@ -148,29 +148,42 @@ class TestMigrate(unittest.TestCase):
         sent_ids = {x['Id'] for x in sqs_args[0][1]["Entries"]}
         self.assertEqual(2, len(sent_ids))
 
-        for idx, s3_arg in enumerate(s3_args):
+        expected_by_uuid = {
+            row[1]: {
+                "unit_ref": row[2],
+                "digital_asset_source": row[19],
+            }
+            for row in rows
+        }
+        self.assertEqual(2, len(s3_args))
+        self.assertEqual(1, len(sqs_args))
+
+        sent_entries = [json.loads(x['MessageBody']) for x in sqs_args[0][1]["Entries"]]
+        sent_entries_by_asset_id = {entry["assetId"]: entry for entry in sent_entries}
+        self.assertEqual(set(expected_by_uuid), set(sent_entries_by_asset_id))
+
+        for s3_arg in s3_args:
             bytes_request, bucket, object_key = s3_arg[0]
             metadata_bytes = bytes_request.getvalue()
             metadata = json.loads(metadata_bytes.decode("utf-8"))[0]
-            metadata_uuid = rows[idx][1]
-            unit_ref = rows[idx][2]
-            expected_digital_asset_source = "BornDigital" if idx == 0 else "Surrogate"
+            metadata_uuid = metadata["UUID"]
+            expected = expected_by_uuid[metadata_uuid]
+            unit_ref = expected["unit_ref"]
 
             self.assertEqual(metadata_uuid, metadata["UUID"])
             self.assertEqual(unit_ref.replace("-", ""), metadata["IAID"])
             self.assertEqual("series 1", metadata["Series"])
             self.assertEqual(checksum, metadata["checksum_sha256"])
             self.assertEqual("meta", metadata["preservicaMetadata"])
-            self.assertEqual(expected_digital_asset_source, metadata["digitalAssetSource"])
+            self.assertEqual(expected["digital_asset_source"], metadata["digitalAssetSource"])
             self.assertEqual(1, metadata["sortOrder"])
             self.assertEqual("testenv-dr2-ingest-dri-migration-cache", bucket)
             self.assertEqual(f"{metadata_uuid}.metadata", object_key)
 
             self.assertEqual("https://sqs.eu-west-2.amazonaws.com/123456789/testenv-dr2-preingest-dri-importer",
                              sqs_args[0][1]["QueueUrl"])
-            sent_entries = [json.loads(x['MessageBody']) for x in sqs_args[0][1]["Entries"]]
-            sent_body = sent_entries[idx]
-            self.assertEqual(rows[idx][1], sent_body["assetId"])
+            sent_body = sent_entries_by_asset_id[metadata_uuid]
+            self.assertEqual(metadata_uuid, sent_body["assetId"])
             self.assertEqual("testenv-da-object-store", sent_body["bucket"])
             self.assertEqual(f"s3://testenv-dr2-ingest-dri-migration-cache/{metadata_uuid}.metadata",
                              sent_body["metadataLocation"])
