@@ -86,8 +86,9 @@ class TestMigrate(unittest.TestCase):
     @patch('migrate.create_ingest_metadata.calculate_checksum')
     @patch('migrate.create_ingest_metadata.sqs_client')
     @patch('migrate.create_ingest_metadata.s3_client')
+    @patch('migrate.create_ingest_metadata.os.path.getsize', return_value=10 * 1024 * 1024 + 1)
     def test_migrate_s3_sqs(
-            self, test_run, checksum, mock_s3, mock_sqs, mock_checksum,
+            self, test_run, checksum, mock_getsize, mock_s3, mock_sqs, mock_checksum,
             mock_create_skeleton, mock_open_file, __, mock_connect, write_to_ic_db
     ):
         row_fmt = [
@@ -124,24 +125,23 @@ class TestMigrate(unittest.TestCase):
 
         calls = [
             call(
-                Body=ANY,
                 Key="v1/uuid-abc/fileid-xyz",
                 Bucket="testenv-da-object-store",
                 Tagging="Series=series+1",
-                IfNoneMatch="*",
-                ExpectedBucketOwner="56789"
             ),
             call(
-                Body=ANY,
                 Key="v1/uuid-def/fileid-xyz",
                 Bucket="testenv-da-object-store",
                 Tagging="Series=series+1",
-                IfNoneMatch="*",
-                ExpectedBucketOwner="56789"
             ),
         ]
 
-        mock_s3.put_object.assert_has_calls(calls)
+        self.assertEqual(calls, mock_s3.create_multipart_upload.call_args_list)
+        upload_part_calls = mock_s3.upload_part.call_args_list
+        self.assertEqual(6, len(upload_part_calls))
+        self.assertEqual(sorted([1, 2, 3, 1, 2, 3]),
+                         sorted([upload[1]["PartNumber"] for upload in upload_part_calls]))
+        self.assertEqual(2, mock_s3.complete_multipart_upload.call_count)
         s3_args = mock_s3.upload_fileobj.call_args_list
         sqs_args = mock_sqs.send_message_batch.call_args_list
 
@@ -188,8 +188,9 @@ class TestMigrate(unittest.TestCase):
     @patch('migrate.create_ingest_metadata.calculate_checksum')
     @patch('migrate.create_ingest_metadata.sqs_client')
     @patch('migrate.create_ingest_metadata.s3_client')
+    @patch('migrate.create_ingest_metadata.os.path.getsize', return_value=1)
     def test_migrate_raises_error_if_consignment_ref_and_batch_ref_are_missing(
-            self, mock_s3, mock_sqs, mock_checksum,
+            self, mock_getsize, mock_s3, mock_sqs, mock_checksum,
             mock_create_skeleton, ___, ____, mock_connect, write_to_ic_db
     ):
         row = [
@@ -215,8 +216,9 @@ class TestMigrate(unittest.TestCase):
     @patch('migrate.create_ingest_metadata.calculate_checksum')
     @patch('migrate.create_ingest_metadata.sqs_client')
     @patch('migrate.create_ingest_metadata.s3_client')
-    def test_migrate_continues_if_put_object_raises_precondition_failed_if_none_match(
-            self, mock_s3, mock_sqs, mock_checksum,
+    @patch('migrate.create_ingest_metadata.os.path.getsize', return_value=1)
+    def test_migrate_continues_if_completion_raises_precondition_failed_if_none_match(
+            self, mock_getsize, mock_s3, mock_sqs, mock_checksum,
             mock_create_skeleton, ___, ____, mock_connect, write_to_ic_db
     ):
         row = [
@@ -231,12 +233,19 @@ class TestMigrate(unittest.TestCase):
             {"Error": {"Code": "PreconditionFailed", "Condition": "If-None-Match", "Message": "At least one of the pre-conditions you specified did not hold"}},
             "PutObject"
         )
-        mock_s3.put_object.side_effect = precondition_error
+        mock_s3.complete_multipart_upload.side_effect = precondition_error
 
         # Should not raise; the PreconditionFailed/If-None-Match error is expected when the object already exists
         create_ingest_metadata.migrate(self.ic_db_name)
 
-        mock_s3.put_object.assert_called_once()
+        mock_s3.create_multipart_upload.assert_called_once()
+        mock_s3.upload_part.assert_called_once()
+        mock_s3.complete_multipart_upload.assert_called_once()
+        mock_s3.abort_multipart_upload.assert_called_once_with(
+            Bucket="testenv-da-object-store",
+            Key="v1/uuid-abc/fileid-xyz",
+            UploadId=ANY
+        )
         mock_s3.upload_fileobj.assert_called_once()
 
     @patch("migrate.create_ingest_metadata.write_to_ic_db")
@@ -247,8 +256,9 @@ class TestMigrate(unittest.TestCase):
     @patch('migrate.create_ingest_metadata.calculate_checksum')
     @patch('migrate.create_ingest_metadata.sqs_client')
     @patch('migrate.create_ingest_metadata.s3_client')
-    def test_migrate_raises_other_client_errors_from_put_object(
-            self, mock_s3, mock_sqs, mock_checksum,
+    @patch('migrate.create_ingest_metadata.os.path.getsize', return_value=1)
+    def test_migrate_aborts_and_continues_after_other_completion_client_errors(
+            self, mock_getsize, mock_s3, mock_sqs, mock_checksum,
             mock_create_skeleton, ___, ____, mock_connect, write_to_ic_db
     ):
         row = [
@@ -263,12 +273,15 @@ class TestMigrate(unittest.TestCase):
             {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
             "PutObject"
         )
-        mock_s3.put_object.side_effect = access_denied_error
+        mock_s3.complete_multipart_upload.side_effect = access_denied_error
 
-        with self.assertRaises(ClientError) as cm:
-            create_ingest_metadata.migrate(self.ic_db_name)
-
-        self.assertEqual("AccessDenied", cm.exception.response["Error"]["Code"])
+        create_ingest_metadata.migrate(self.ic_db_name)
+        mock_s3.complete_multipart_upload.assert_called_once()
+        mock_s3.abort_multipart_upload.assert_called_once_with(
+            Bucket="testenv-da-object-store",
+            Key="v1/uuid-abc/fileid-xyz",
+            UploadId=ANY
+        )
 
     def test_skeleton_suite_lookup(self):
         self.test_dir = tempfile.mkdtemp()
