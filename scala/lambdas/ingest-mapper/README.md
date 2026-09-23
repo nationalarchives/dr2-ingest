@@ -20,7 +20,7 @@ The lambda:
 * Gets a list of series names from these parent objects. Extracts the department reference from the series reference by
   splitting the series by spaces and taking only the first part.
 * For each unique series and department pair, gets the title and description from Discovery. 
-  We first try called Discovery with `source=TNA` to check for TNA entries. If there are no assets returned we try `source=PA` to check for Parliament entries.  
+  We first try to call Discovery with `source=TNA` to check for TNA entries. If there are no assets returned, we try `source=PA` to check for Parliament entries.  
   This is run through the
   XSLT in `src/main/resources/transform.xsl` to replace the Encoded Archival Description (EAD) tags with newlines.
   The title and description may not be in EAD format. If this is the case, the unmodified title and description are added to the table.
