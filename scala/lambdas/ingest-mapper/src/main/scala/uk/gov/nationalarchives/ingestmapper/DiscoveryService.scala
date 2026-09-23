@@ -83,19 +83,19 @@ object DiscoveryService {
       private def defaultCollectionAsset(citableReference: String): F[DiscoveryCollectionAsset] =
         Async[F].pure(DiscoveryCollectionAsset(citableReference, DiscoveryScopeContent(None), None))
 
-      def fetchAsset(citableReference: String, sources: List[String]): F[List[DiscoveryCollectionAsset]] = {
+      def fetchAssets(citableReference: String, sources: List[String]): F[List[DiscoveryCollectionAsset]] = {
         val uri = uri"$discoveryBaseUrl/API/records/v1/collection/$citableReference?source=${sources.head}"
         val request = basicRequest.get(uri).response(asJson[DiscoveryCollectionAssetResponse])
         for
           response <- backend.send(request)
           body <- Async[F].fromEither(response.body)
-          assets <- if body.assets.isEmpty && sources.nonEmpty then fetchAsset(citableReference, sources.tail) else Async[F].pure(body.assets)
+          assets <- if body.assets.isEmpty && sources.nonEmpty then fetchAssets(citableReference, sources.tail) else Async[F].pure(body.assets)
         yield assets
       }
 
       def getAssetFromDiscoveryApi(citableReference: String): F[DiscoveryCollectionAsset] = {
         for {
-          assets <- fetchAsset(citableReference, List("TNA", "PA"))
+          assets <- fetchAssets(citableReference, List("TNA", "PA"))
           potentialAsset = assets.find(_.citableReference == citableReference)
           formattedAsset <- potentialAsset.map(stripHtmlFromDiscoveryResponse).getOrElse(defaultCollectionAsset(citableReference))
         } yield formattedAsset

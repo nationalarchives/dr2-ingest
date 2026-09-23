@@ -129,6 +129,22 @@ class DiscoveryServiceTest extends AnyFlatSpec {
     asset.citableReference should equal("T")
   }
 
+  "getAssetFromDiscoveryApi" should "return the default asset if both PA and TNA sources return no assets" in {
+    val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T?source=TNA"))
+      .thenRespond(ResponseStub(Exact(Right(DiscoveryCollectionAssetResponse(Nil))), StatusCode.Ok))
+      .whenRequestMatches(_.uri.equals(uri"$baseUrl/API/records/v1/collection/T?source=PA"))
+      .thenRespond(ResponseStub(Exact(Right(DiscoveryCollectionAssetResponse(Nil))), StatusCode.Ok))
+
+    val asset = DiscoveryService(baseUrl, backend, uuidIterator)
+      .getAssetFromDiscoveryApi("T")
+      .unsafeRunSync()
+
+    asset.citableReference should equal("T")
+    asset.scopeContent.description should equal(None)
+    asset.title should equal(None)
+  }
+
   "getAssetFromDiscoveryApi" should "should return the title and description unchanged if there is no xml in them" in {
     val response = DiscoveryCollectionAssetResponse(List(DiscoveryCollectionAsset("ref", DiscoveryScopeContent(Option("A description")), Option("A title"))))
     val backend: WebSocketStreamBackendStub[IO, Fs2Streams[IO]] = WebSocketStreamBackendStub[IO, Fs2Streams[IO]](new CatsMonadError())
