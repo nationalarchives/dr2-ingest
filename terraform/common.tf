@@ -234,7 +234,7 @@ module "vpc" {
     account_id = data.aws_caller_identity.current.account_id
   })
 
-  interface_endpoints = var.disable_networking ? {
+  interface_endpoints = var.disable_networking ? {} : {
     secretsmanager = {
       name = "com.amazonaws.${local.aws_region_name}.secretsmanager",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
@@ -280,7 +280,7 @@ module "vpc" {
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
-  } : {}
+  }
 }
 
 data "aws_eip" "eip" {

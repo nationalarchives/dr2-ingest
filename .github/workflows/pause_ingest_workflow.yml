@@ -1,10 +1,8 @@
 name: Disable NAT gateways overnight
 on:
-  workflow_dispatch:
-    inputs:
-      disabled:
-        required: true
-        type: boolean
+  schedule:
+    - cron: 0 20 * * MON-FRI
+    - cron: 0 8 * * MON-FRI
 
 permissions: {}
 
@@ -13,17 +11,23 @@ jobs:
     strategy:
       matrix:
         environment: [intg, staging]
+    env:
+      DISABLED: ${{ github.event.schedule == '0 20 * * MON-FRI' }}
     runs-on: ubuntu-latest
     steps:
       - env:
           GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         run: |
-          gh api --method POST /repos/nationalarchives/dr2-runbooks/actions/workflows/pause_and_resume_ingest.yml/dispatches \
-          -f 'ref=min' \
+          gh api --method POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2026-03-10" \
+          /repos/nationalarchives/dr2-runbooks/actions/workflows/pause_and_resume_ingest.yml/dispatches \
+          -f 'ref=main' \
           -f 'inputs[environment]=${{ matrix.environment }}' \
-          -f 'inputs[pause]=${{ inputs.disabled }}'
+          -f 'inputs[pause]=${{ env.DISABLED }}'
   apply:
     needs: pause-ingest
+    environment: ${{ matrix.environment }}
     strategy:
       matrix:
         environment: [intg, staging]
@@ -34,8 +38,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
         with:
+          submodules: recursive
+          token: ${{ secrets.WORKFLOW_TOKEN }}
           ref: ${{ matrix.environment }}
           persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
       - id: role-name
         run: |
           if [ "${{ matrix.environment }}" = "intg" ]; then
@@ -57,4 +65,4 @@ jobs:
           terraform apply -auto-approve
         env:
           TF_VAR_lambda_code_version: ${{ steps.version_for_environment.outputs.lambda_version }}
-          TF_VAR_disabled_networking: ${{ inputs.disabled }}
+          TF_VAR_disable_networking: ${{ env.DISABLED }}
