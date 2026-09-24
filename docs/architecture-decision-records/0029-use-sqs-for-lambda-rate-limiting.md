@@ -15,7 +15,7 @@ simultaneously, we have no rate limiting in place for these API calls.
 We make API calls in the `dr2-ingest-find-existing-asset` Lambda before the OPEX creation process,
 to check if the asset is already within the Preservation System and prevent re-ingesting if so, and
 after ingesting in the `dr2-ingest-asset-reconciler` Lambda, to confirm the full asset was ingested
-as expected. Due to the latency introduced by the Preservation System workflows we do not expect to
+as expected. Due to the latency introduced by the Preservation System workflows, we do not expect to
 need rate limiting for the reconciliation step as it is unlikely for multiple executions to reach
 this simultaneously, but have experienced a Preservation System outage caused by multiple OPEX
 creations running in parallel. As we use Map Runs to process multiple assets concurrently within a
