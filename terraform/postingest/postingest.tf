@@ -2,7 +2,8 @@ locals {
   postingest_state_table_name                = "${var.environment}-dr2-postingest-state"
   postingest_gsi_firstqueued_name            = "QueueFirstQueuedIdx"
   postingest_gsi_lastqueued_name             = "QueueLastQueuedIdx"
-  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-postingest-send-to-state-change-queue"
+  send_to_state_change_ddb_queue_key         = "postingest-state-change-queue-sender"
+  send_to_state_change_ddb_queue_lambda_name = "${var.environment}-dr2-${local.send_to_state_change_ddb_queue_key}"
   state_change_ddb_queue_name                = "${var.environment}-dr2-postingest-state-change-handler"
   state_change_lambda_key                    = "postingest-state-change-handler"
   state_change_lambda_name                   = "${var.environment}-dr2-${local.state_change_lambda_key}"
@@ -112,7 +113,7 @@ module "dr2_send_to_state_change_ddb_queue_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   description     = "A lambda function to pass on a DynamoDB Stream event to an SQS queue"
   function_name   = local.send_to_state_change_ddb_queue_lambda_name
-  handler         = "send_to_state_change_ddb_queue.lambda_handler"
+  handler         = "state_change_queue_sender.lambda_handler"
   timeout_seconds = local.python_timeout_seconds
   runtime         = local.python_runtime
   memory_size     = local.python_lambda_memory_size
@@ -120,12 +121,22 @@ module "dr2_send_to_state_change_ddb_queue_lambda" {
     stream_arn             = module.postingest_state_table.stream_arn
     dead_letter_target_arn = module.dr2_state_change_ddb_queue.dlq_sqs_arn
   }
-
+  s3_bucket = local.code_deploy_bucket
+  s3_key    = "${var.lambda_code_version}/${local.send_to_state_change_ddb_queue_key}"
   policies = {
     "${local.send_to_state_change_ddb_queue_lambda_name}-policy" = templatefile("./templates/iam_policy/send_to_state_change_ddb_queue.json.tpl", {
-      state_change_handler_queue_arn = module.dr2_state_change_ddb_queue.sqs_arn
+      state_change_handler_queue_arn  = module.dr2_state_change_ddb_queue.sqs_arn
+      dead_letter_target_arn          = module.dr2_state_change_ddb_queue.dlq_sqs_arn
+      dynamo_db_postingest_stream_arn = module.postingest_state_table.stream_arn
+      account_id                      = data.aws_caller_identity.current.account_id
+      lambda_name                     = local.send_to_state_change_ddb_queue_lambda_name
     })
   }
+
+  plaintext_env_vars = {
+    QUEUE_URL = module.dr2_state_change_ddb_queue.sqs_queue_url
+  }
+
   tags = {}
 }
 
@@ -133,7 +144,7 @@ module "dr2_state_change_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   function_name   = local.state_change_lambda_name
   handler         = "uk.gov.nationalarchives.postingeststatechangehandler.Lambda::handleRequest"
-  timeout_seconds = 900
+  timeout_seconds = 60
 
   policies = {
     "${local.state_change_lambda_name}-policy" = templatefile("${path.module}/templates/policies/state_change_lambda_policy.json.tpl", {
