@@ -1,6 +1,7 @@
 import collections
 import logging
 import os
+from collections import defaultdict
 from datetime import datetime, timezone
 import json
 
@@ -70,6 +71,9 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
                 )
             ingest_executions = [execution for execution in executions
                                  if execution["stateMachineArn"].endswith(f":stateMachine:{resources_prefix}")]
+
+            total_assets_count_per_ss = defaultdict(int)
+            total_bytes_per_ss = defaultdict(int)
             for execution in ingest_executions:
                 history_paginator = sfn_client.get_paginator("get_execution_history")
                 execution_arn = execution["executionArn"]
@@ -87,27 +91,9 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
                             mapper_output_str = history_event["stateExitedEventDetails"].get("output")
                             if mapper_output_str:
                                 output_dict: dict = json.loads(mapper_output_str)
-                                total_asset_count = output_dict["totalAssetCount"]
-                                total_file_bytes = output_dict["totalFileBytes"]
-                                metric_data.extend([
-                                    {
-                                        "MetricName": "AssetCount",
-                                        "Dimensions": [
-                                            {"Name": "SourceSystem", "Value": ss},
-                                        ],
-                                        "Value": int(total_asset_count),
-                                        "Unit": "Count"
-                                    },
-                                    {
-                                        "MetricName": "Bytes",
-                                        "Dimensions": [
-                                            {"Name": "SourceSystem", "Value": ss},
-                                        ],
-                                        "Value": int(total_file_bytes),
-                                        "Unit": "Count"
-                                    }
-                                ]
-                                )
+                                total_assets_count_per_ss[ss] += int(output_dict["totalAssetCount"])
+                                total_bytes_per_ss[ss] += int(output_dict["totalFileBytes"])
+
                                 break
                             else:
                                 raise Exception("Mapper Lambda Task exited but produced no output.")
@@ -115,6 +101,31 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
                     else:
                         raise Exception(
                             f"Task '{sfn_state_with_output}' not found in list of events with the status 'TaskStateExited'")
+
+            for ss, count in total_assets_count_per_ss.items():
+                metric_data.append(
+                    {
+                        "MetricName": "AssetCount",
+                        "Dimensions": [
+                            {"Name": "SourceSystem", "Value": ss},
+                        ],
+                        "Value": count,
+                        "Unit": "Count"
+                    }
+                )
+
+            for ss, count in total_bytes_per_ss.items():
+                metric_data.append(
+                    {
+                        "MetricName": "Bytes",
+                        "Dimensions": [
+                            {"Name": "SourceSystem", "Value": ss},
+                        ],
+                        "Value": count,
+                        "Unit": "Count"
+                    }
+                )
+
     return metric_data
 
 
@@ -146,12 +157,15 @@ def get_flow_control_metrics(resources_prefix, source_systems):
             ss_metrics_template("ApproximateAgeOfOldestQueuedIngest", source_system, oldest_item_age, "Seconds")
         )
 
-        for item in items:
-            metric_data.extend([
-                ss_metrics_template("QueuedAssetCount", source_system, item["queuedAssetCount"], "Count"),
-                ss_metrics_template("QueuedBytes", source_system, item["queuedBytes"], "Bytes")
-            ]
-            )
+        total_asset_counts = sum(int(item["queuedAssetCount"]["N"]) for item in items)
+        metric_data.append(
+            ss_metrics_template("QueuedAssetCount", source_system, total_asset_counts, "Count")
+        )
+
+        total_file_bytes = sum(int(item["queuedBytes"]["N"]) for item in items)
+        metric_data.append(
+            ss_metrics_template("QueuedBytes", source_system, total_file_bytes, "Bytes")
+        )
     return metric_data
 
 

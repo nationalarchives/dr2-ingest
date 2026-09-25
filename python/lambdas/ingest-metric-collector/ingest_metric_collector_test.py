@@ -106,8 +106,11 @@ class TestLambdaFunction(unittest.TestCase):
             {"name": "RANDOM_job2",
              "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:RANDOM_job2",
              "stateMachineArn": "arn:aws:states:region:123456789012:stateMachine:test-dr2"},
-            # This execution should be excluded because the state machine arn does not end with "test-dr2"
             {"name": "RANDOM_job3",
+             "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:RANDOM_job3",
+             "stateMachineArn": "arn:aws:states:region:123456789012:stateMachine:test-dr2"},
+            # This execution should be excluded because the state machine arn does not end with "test-dr2"
+            {"name": "RANDOM_job4",
              "executionArn": "arn:aws:states:region:123456789012:execution:stateMachine:RANDOM_job3",
              "stateMachineArn": "arn:aws:states:region:123456789012:stateMachine:not-test-dr2"}
         ]
@@ -141,10 +144,11 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2", SOURCE_SYSTEMS,
                                                                    MAPPER_LAMBDA_STATE_NAME)
-
         expected_executions_running = 1
         expected_executions_running_per_ss = len(self.expected_source_systems)
-        expected_asset_count_and_bytes = (len(executions_list) - 1) * 2
+        # tdr + courtdoc's count and bytes + (random2 + random3 become "default") count and bytes
+        expected_asset_count_and_bytes = 6
+
         expected_metrics_length = expected_executions_running + expected_executions_running_per_ss + expected_asset_count_and_bytes
 
         self.assertEqual(expected_metrics_length, len(metrics))
@@ -153,14 +157,15 @@ class TestLambdaFunction(unittest.TestCase):
         expected_executions = generate_metrics(value=len(executions_list))
         self.assertEqual(expected_executions, total_executions_running)
 
-        for (ss, executions) in zip(self.expected_source_systems, (1, 1, 0, 0, 2)):
+        for (ss, executions) in zip(self.expected_source_systems, (1, 1, 0, 0, 3)):
             expected_metric = generate_metrics(value=executions, source_system=ss)
             self.assertEqual(expected_metric, metrics.pop(0))
 
-        for (ss, count, total_bytes) in (("TDR", 1, 1000), ("COURTDOC", 2, 2000), ("DEFAULT", 3, 3000)):
+        for (ss, count) in (("TDR", 1), ("COURTDOC", 2), ("DEFAULT", 7)):
             count_expected_metric = generate_metrics(value=count, metric_name="AssetCount", source_system=ss)
             self.assertEqual(count_expected_metric, metrics.pop(0))
 
+        for (ss, total_bytes) in (("TDR", 1000), ("COURTDOC", 2000), ("DEFAULT", 7000)):
             bytes_expected_metric = generate_metrics(value=total_bytes, metric_name="Bytes", source_system=ss)
             self.assertEqual(bytes_expected_metric, metrics.pop(0))
 
@@ -240,7 +245,7 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2", SOURCE_SYSTEMS)
 
-        self.assertEqual(10, len(metrics))
+        self.assertEqual(20, len(metrics))
 
         for n, ss in enumerate(self.expected_source_systems):
             ingest_queued_metric = generate_metrics(metric_name="IngestsQueued", source_system=ss)
@@ -273,8 +278,8 @@ class TestLambdaFunction(unittest.TestCase):
                 {
                     "sourceSystem": {"S": "CRM"},
                     "queuedAt": {"S": (now - timedelta(seconds=60)).isoformat()},
-                    "queuedAssetCount": 1,
-                    "queuedBytes": 1000
+                    "queuedAssetCount": {"N": 1},
+                    "queuedBytes": {"N": 1000}
                 }
             ],
             "COURTDOC": [],
@@ -286,7 +291,7 @@ class TestLambdaFunction(unittest.TestCase):
         mock_boto_client.return_value = mock_dynamo
 
         metrics = ingest_metric_collector.get_flow_control_metrics("test-dr2", SOURCE_SYSTEMS)
-        self.assertEqual(12, len(metrics))
+        self.assertEqual(20, len(metrics))
 
         for ss, (count, seconds) in zip(self.expected_source_systems, ((1, 60), (0, 0), (0, 0), (0, 0), (0, 0))):
             ingest_queued_metric = generate_metrics(value=count, metric_name="IngestsQueued", source_system=ss)
@@ -304,13 +309,12 @@ class TestLambdaFunction(unittest.TestCase):
             age_metric["Value"] = round(age_metric["Value"], 2)
             self.assertEqual(queue_age_metric, age_metric)
 
-            if ss == "TDR":
-                queue_asset_count_metric = generate_metrics(value=expected_asset_count, metric_name="QueuedAssetCount",
-                                                            source_system=ss, unit="Count")
-                queue_asset_count_metric["Dimensions"] = queue_asset_count_metric["Dimensions"]
-                queue_bytes_metric["Dimensions"] = queue_bytes_metric["Dimensions"]
-                self.assertEqual(queue_asset_count_metric, metrics.pop(0))
-                self.assertEqual(queue_bytes_metric, metrics.pop(0))
+            queue_asset_count_metric = generate_metrics(value=expected_asset_count, metric_name="QueuedAssetCount",
+                                                        source_system=ss, unit="Count")
+            queue_asset_count_metric["Dimensions"] = queue_asset_count_metric["Dimensions"]
+            queue_bytes_metric["Dimensions"] = queue_bytes_metric["Dimensions"]
+            self.assertEqual(queue_asset_count_metric, metrics.pop(0))
+            self.assertEqual(queue_bytes_metric, metrics.pop(0))
 
     @patch("ingest_metric_collector.boto3.client")
     @patch("ingest_metric_collector.get_stepfunction_metrics", side_effect=Exception("sfn error"))
