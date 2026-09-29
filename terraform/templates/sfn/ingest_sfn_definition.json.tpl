@@ -68,7 +68,15 @@
         "States": {
           "Check if asset has already been ingested": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_find_existing_asset_name_lambda_name}:${alias_name}",
+            "Resource": "arn:aws:states:::sqs:sendMessage.waitForTaskToken",
+            "HeartbeatSeconds": 1200,
+            "Parameters": {
+              "QueueUrl": "${ingest_find_existing_asset_name_queue_url}",
+              "MessageBody": {
+                "taskToken.$": "$$.Task.Token",
+                "Items.$": "$.Items"
+              }
+            },
             "Retry": ${retry_statement},
             "Next": "Create Asset OPEX"
           },
