@@ -33,6 +33,7 @@ class Test(TestCase):
         self.assertEqual(False, args.dry_run)
         self.assertEqual("intg", args.environment)
         self.assertEqual("Born Digital", args.asset_source)
+        self.assertEqual("ADHOC", args.source_system)
 
     def test_should_treat_dry_run_param_as_true_when_no_option_is_provided(self):
         args = self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d"])
@@ -63,11 +64,28 @@ class Test(TestCase):
 
 
     @patch("sys.stderr", new_callable=StringIO)
+    def test_should_throw_error_when_source_system_is_not_one_of_the_allowed_values(self, captured_sys_exit):
+        with self.assertRaises(SystemExit):
+            self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "-ss", "some_other_source"])
+
+        error_message = captured_sys_exit.getvalue().strip().splitlines()[-1]
+        self.assertIn("argument -ss/--source-system: invalid choice:", error_message)
+
+
+    @patch("sys.stderr", new_callable=StringIO)
     def test_should_throw_error_when_asset_source_is_used_but_no_value_given(self, captured_sys_exit):
         with self.assertRaises(SystemExit):
             self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "-s"])
 
         self.assertIn("argument -s/--asset-source: expected one argument", captured_sys_exit.getvalue().strip().splitlines()[-1])
+
+
+    @patch("sys.stderr", new_callable=StringIO)
+    def test_should_throw_error_when_source_system_is_used_but_no_value_given(self, captured_sys_exit):
+        with self.assertRaises(SystemExit):
+            self.parser.parse_args(["-i", "some_file.csv", "-e", "not_prod", "-d", "-ss"])
+
+        self.assertIn("argument -ss/--source-system: expected one argument", captured_sys_exit.getvalue().strip().splitlines()[-1])
 
     def test_should_show_help_for_all_arguments_when_user_asks_for_help(self):
         output = StringIO()
@@ -80,9 +98,15 @@ class Test(TestCase):
         help_message = output.getvalue()
 
         self.assertIn("-h, --help            show this help message and exit", help_message)
-        self.assertIn("-i INPUT, --input INPUT", help_message)
-        self.assertIn("-e ENVIRONMENT, --environment ENVIRONMENT", help_message)
-        self.assertIn("-d [DRY_RUN], --dry-run [DRY_RUN]", help_message)
-        self.assertIn("-o OUTPUT, --output OUTPUT", help_message)
-        self.assertIn("-s {Born Digital,Surrogate,Digitised}, --asset-source {Born Digital,Surrogate,Digitised}", help_message)
+        self.assertIn("-i", help_message)
+        self.assertIn("--input", help_message)
+        self.assertIn("-e", help_message)
+        self.assertIn("--environment", help_message)
+        self.assertIn("-d", help_message)
+        self.assertIn("--dry-run", help_message)
+        self.assertIn("-o", help_message)
+        self.assertIn("--output", help_message)
+        self.assertIn("-s", help_message)
+        self.assertIn("--asset-source {Born Digital,Surrogate,Digitised}", help_message)
+        self.assertIn("{Born Digital,Surrogate,Digitised}", help_message)
 

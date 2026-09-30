@@ -16,6 +16,7 @@ import discovery_client
 import message_printer as mp
 import metadata_creator
 import version_check
+from ingest_config import aws_config
 
 
 def validate_arguments(args):
@@ -27,36 +28,52 @@ def validate_arguments(args):
     if not (output_metadata_folder.exists() and output_metadata_folder.is_dir()):
         raise Exception(f"Either the output metadata location [{output_metadata_folder}] does not exist or it is not a valid folder\n")
 
+def handle_error(client_error, attempt, message):
+    if attempt == 3:
+        mp.print_message(f"Exceeded number of attempts to recover from error; {message}")
+        raise Exception(f"Unable to proceed because: \n{client_error}. \nTerminating the process.")
+    else:
+        mp.print_message(f"An error occurred due to: {client_error}")
+        input("Fix the error and press 'Enter' to continue")
+        aws_interactions.refresh_session()
+
 def upload_files(output_file, account_number, args):
     environment = args.environment
+    config = aws_config(environment, args.source_system)
     region = aws_interactions.get_region()
-    bucket = f"{environment}-dr2-ingest-adhoc-cache"
-    queue_url = f"https://sqs.{region}.amazonaws.com/{account_number}/{environment}-dr2-preingest-adhoc-importer"
+    bucket = config.bucket_name
+    queue_url = f"https://sqs.{region}.amazonaws.com/{account_number}/{environment}-dr2-preingest-{args.source_system.lower()}-importer"
 
     upload_data_set = pd.read_csv(output_file, dtype=str, keep_default_na=False)
     total = len(upload_data_set)
+    grouped_data_set = upload_data_set.groupby("FileReference")
 
-    for counter, (index, row) in enumerate(upload_data_set.iterrows(), start=1):
-        asset_id = row["UUID"]
-        file_id = row["fileId"]
-        client_side_path = row["ClientSideOriginalFilepath"]
-        metadata = metadata_creator.create_metadata_for_upload(row)
+    for counter, (_, rows) in enumerate(grouped_data_set):
+        asset_id = rows.iloc[0]["UUID"]
+        metadata = metadata_creator.create_metadata_for_upload(rows.iterrows())
 
         for attempt in range(0,4):
+            upload_failed = False
+            for each_row in rows.iterrows():
+                row = each_row[1]
+                file_id = row["fileId"]
+                client_side_path = row["ClientSideOriginalFilepath"]
+                try:
+                    aws_interactions.upload_file(asset_id, bucket, file_id, metadata_creator.get_absolute_file_path(args.input, client_side_path))
+                except ClientError as client_error:
+                    message = f"terminating at file: '{file_id}' from location: '{client_side_path}'"
+                    handle_error(client_error, attempt, message)
+                    upload_failed = True
+                    break
+            if upload_failed:
+                continue
             try:
-                aws_interactions.upload_file(asset_id, bucket, file_id, metadata_creator.get_absolute_file_path(args.input, client_side_path))
                 aws_interactions.upload_metadata(asset_id, bucket, metadata)
                 aws_interactions.send_sqs_message(asset_id, bucket, queue_url)
                 break
             except ClientError as client_error:
-                if attempt == 3:
-                    mp.print_message(f"Exceeded number of attempts to recover from error; terminating at file: '{file_id}' from location: '{client_side_path}'")
-                    raise Exception(f"Unable to proceed because: \n{client_error}. \nTerminating the process.")
-                else:
-                    mp.print_message(f"An error occurred due to: {client_error}")
-                    input("Fix the error and press 'Enter' to continue")
-                    aws_interactions.refresh_session()
-
+                message = f"error for asset {asset_id}"
+                handle_error(client_error, attempt, message)
             mp.print_progress(f"Uploaded {counter} of {total}")
 
 def upload_files_to_ingest_bucket(data_set, args, is_upstream_valid, description_override):
@@ -171,7 +188,7 @@ def main():
     input_file_path = Path(args.input)
     data_set = get_input_dataset(input_file_path)
     try:
-        is_valid = dataset_validator.validate_dataset(data_set, str(input_file_path), args.dry_run)
+        is_valid = dataset_validator.validate_dataset(data_set, str(input_file_path), args.source_system, args.dry_run)
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 
@@ -198,4 +215,3 @@ if __name__ == "__main__":
     except Exception as e:
         mp.print_error(e)
         sys.exit(1)
-
