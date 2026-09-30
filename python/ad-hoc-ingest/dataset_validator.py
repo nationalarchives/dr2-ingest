@@ -1,37 +1,36 @@
 import os
-import sys
 from pathlib import Path
-
+from ingest_config import field_mapping
 import pandas
 
 import message_printer as mp
 
-REQUIRED_COLUMNS = ("catRef", "fileName", "checksum")
-UNIQUE_COLUMNS = ("catRef", "fileName")
-UNIQUE_COLUMNS_WARN_ONLY = ("checksum")
-NON_EMPTY_COLUMNS = ("catRef", "fileName")
+REQUIRED_COLUMNS = {"PA": ("axiell_ID", "catalogue_reference","file_name", "checksum"), "ADHOC": ("catRef", "fileName", "checksum")}
+UNIQUE_COLUMNS = {"PA": (), "ADHOC": ("catRef", "fileName")}
+UNIQUE_COLUMNS_WARN_ONLY = {"PA": (), "ADHOC": ("checksum")}
+NON_EMPTY_COLUMNS = {"PA":  ("axiell_ID", "catalogue_reference","file_name", "checksum"), "ADHOC": ("catRef", "fileName")}
 
 
-def validate_dataset(data_set, input_file_path, is_dry_run=False):
+def validate_dataset(data_set, input_file_path, source_system, is_dry_run=False):
     is_valid = True
     data_set: pandas.DataFrame
     columns = data_set.columns
 
-    if not set(REQUIRED_COLUMNS).issubset(columns):
+    if not set(REQUIRED_COLUMNS[source_system]).issubset(columns):
         is_valid = False
-        throw_or_report(f"Input file is missing one or more of the required columns: {REQUIRED_COLUMNS}", is_dry_run)
+        throw_or_report(f"Input file is missing one or more of the required columns: {REQUIRED_COLUMNS[source_system]}", is_dry_run)
 
     for col in columns:
-        if col in UNIQUE_COLUMNS:
+        if col in UNIQUE_COLUMNS[source_system]:
             if not data_set[col].is_unique:
                 is_valid = False
                 throw_or_report(f"The column '{col}' has duplicate entries", is_dry_run)
 
-        if col in UNIQUE_COLUMNS_WARN_ONLY:
+        if col in UNIQUE_COLUMNS_WARN_ONLY[source_system]:
             if not data_set[col].is_unique:
                 mp.print_message(f"The column '{col}' has duplicate entries")
 
-        if col in NON_EMPTY_COLUMNS:
+        if col in NON_EMPTY_COLUMNS[source_system]:
             if data_set[col].isnull().any():
                 is_valid = False
                 throw_or_report(f"The column '{col}' has empty entries", is_dry_run)
@@ -47,7 +46,7 @@ def validate_dataset(data_set, input_file_path, is_dry_run=False):
     total_rows = len(data_set)
     for counter, (index, row) in enumerate(data_set.iterrows(), start=1):
         mp.print_progress(f"Validating {counter} of {total_rows} rows")
-        file_path = get_absolute_file_path(input_file_path, row["fileName"].strip())
+        file_path = get_absolute_file_path(input_file_path, row[field_mapping(source_system).file_name_field].strip())
         if not os.path.exists(file_path):
             missing_files.append(file_path)
             all_files_exist = False

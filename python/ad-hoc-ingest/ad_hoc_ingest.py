@@ -16,6 +16,7 @@ import discovery_client
 import message_printer as mp
 import metadata_creator
 import version_check
+from ingest_config import aws_config
 
 
 def validate_arguments(args):
@@ -29,9 +30,11 @@ def validate_arguments(args):
 
 def upload_files(output_file, account_number, args):
     environment = args.environment
+    config = aws_config(environment, args.source_system)
     region = aws_interactions.get_region()
-    bucket = f"{environment}-dr2-ingest-adhoc-cache"
-    queue_url = f"https://sqs.{region}.amazonaws.com/{account_number}/{environment}-dr2-preingest-adhoc-importer"
+    metadata_bucket = config.metadata_bucket_name
+    files_bucket = config.files_bucket_name
+    queue_url = f"https://sqs.{region}.amazonaws.com/{account_number}/{environment}-dr2-preingest-{args.source_system.lower()}-importer"
 
     upload_data_set = pd.read_csv(output_file, dtype=str, keep_default_na=False)
     total = len(upload_data_set)
@@ -44,9 +47,9 @@ def upload_files(output_file, account_number, args):
 
         for attempt in range(0,4):
             try:
-                aws_interactions.upload_file(asset_id, bucket, file_id, metadata_creator.get_absolute_file_path(args.input, client_side_path))
-                aws_interactions.upload_metadata(asset_id, bucket, metadata)
-                aws_interactions.send_sqs_message(asset_id, bucket, queue_url)
+                aws_interactions.upload_file(asset_id, files_bucket, file_id, metadata_creator.get_absolute_file_path(args.input, client_side_path))
+                aws_interactions.upload_metadata(asset_id, metadata_bucket, metadata)
+                aws_interactions.send_sqs_message(asset_id, files_bucket, queue_url)
                 break
             except ClientError as client_error:
                 if attempt == 3:
@@ -171,7 +174,7 @@ def main():
     input_file_path = Path(args.input)
     data_set = get_input_dataset(input_file_path)
     try:
-        is_valid = dataset_validator.validate_dataset(data_set, str(input_file_path), args.dry_run)
+        is_valid = dataset_validator.validate_dataset(data_set, str(input_file_path), args.source_system, args.dry_run)
     except Exception as e:
         raise Exception(f"Inputs supplied to the process are invalid, please fix errors before continuing: {e}")
 

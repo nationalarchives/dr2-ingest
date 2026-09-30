@@ -4,11 +4,12 @@ import uuid
 from pathlib import Path, PureWindowsPath, PurePosixPath
 
 import discovery_client
-from discovery_client import CollectionInfo
+from ingest_config import field_mapping
 
 def create_intermediate_metadata_dict(description_override, row, args):
-    catalogue_ref = row["catRef"].strip()
-    file_path = row["fileName"].strip()
+    source_system = args.source_system
+    catalogue_ref = row[field_mapping(source_system).catalogue_reference_field].strip()
+    file_path = row[field_mapping(source_system).file_name_field].strip()
     if not description_override:
         collection_info = discovery_client.get_title_and_description(catalogue_ref)
         discovery_iaid = collection_info.iaid
@@ -26,7 +27,8 @@ def create_intermediate_metadata_dict(description_override, row, args):
         description_to_use = row["description"].strip()
         discovery_iaid = ""
     series = catalogue_ref.split("/")[0].strip()
-    metadata = {"Series": series, "UUID": str(uuid.uuid4()), "fileId": str(uuid.uuid4()),
+    metadata_uuid = row["axiell_ID"] if source_system == "PA" else str(uuid.uuid4())
+    metadata = {"Series": series, "UUID": metadata_uuid, "fileId": str(uuid.uuid4()),
                 "description": description_to_use, "Filename": get_filename_from_cross_platform_path(file_path),
                 "FileReference": catalogue_ref.removeprefix(series).strip().removeprefix("/").strip(),
                 "ClientSideOriginalFilepath": file_path, "IAID": discovery_iaid,

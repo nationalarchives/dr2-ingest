@@ -93,7 +93,7 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
         with open(tmp2, "w") as f:
             f.write(metadata_csv_data)
 
-        args = SimpleNamespace(environment="test", input="/home/users/input-file.csv")
+        args = SimpleNamespace(environment="test", input="/home/users/input-file.csv", source_system="ADHOC")
         ad_hoc_ingest.upload_files(tmp2, "123456789", args)
 
         expected_metadata = {
@@ -132,7 +132,7 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
         with open(tmp2, "w") as f:
             f.write(metadata_csv_data)
 
-        args = SimpleNamespace(environment="test", input=f"{tmp2}")
+        args = SimpleNamespace(environment="test", input=f"{tmp2}", source_system="ADHOC")
         ad_hoc_ingest.upload_files(tmp2, "123456789", args)
 
         expected_metadata = {
@@ -174,7 +174,7 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
         with open(tmp2, "w") as f:
             f.write(metadata_csv_data)
 
-        args = SimpleNamespace(environment="test", input=f"{tmp2}")
+        args = SimpleNamespace(environment="test", input=f"{tmp2}", source_system="ADHOC")
         ad_hoc_ingest.upload_files(tmp2, "123456789", args)
 
         expected_metadata = {
@@ -216,7 +216,7 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
         with open(tmp2, "w") as f:
             f.write(metadata_csv_data)
 
-        args = SimpleNamespace(environment="test", input=f"{tmp2}")
+        args = SimpleNamespace(environment="test", input=f"{tmp2}", source_system="ADHOC")
         ad_hoc_ingest.upload_files(tmp2, "123456789", args)
 
         expected_metadata = {

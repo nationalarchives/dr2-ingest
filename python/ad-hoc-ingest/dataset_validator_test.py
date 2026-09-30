@@ -15,27 +15,33 @@ import dataset_validator
 class Test(TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
-        tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
-        with open(tmp1, "w") as f:
+        self.tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
+        with open(self.tmp1, "w") as f:
             f.write("temporary file one")
-        tmp2 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file2.txt")
-        with open(tmp2, "w") as f:
+        self.tmp2 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file2.txt")
+        with open(self.tmp2, "w") as f:
             f.write("temporary file two")
-        tmp3 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file3.txt")
-        with open(tmp3, "w") as f:
+        self.tmp3 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file3.txt")
+        with open(self.tmp3, "w") as f:
             f.write("temporary file three")
 
         csv_data = f"""catRef,someOtherColumn,fileName,checksum,anotherColumn
-        JS 8/3,duplicate_value_allowed_here,{tmp1},9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc,another
-        JS 8/4,duplicate_value_allowed_here,{tmp2},checksum_1234567890,
-        JS 8/5,duplicate_value_allowed_here,{tmp3},c74daf9d9a4063bdfbf1fd234ac529d120203e04af7c4e60b3236c76f37fff90,something_else"""
+        JS 8/3,duplicate_value_allowed_here,{self.tmp1},9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc,another
+        JS 8/4,duplicate_value_allowed_here,{self.tmp2},checksum_1234567890,
+        JS 8/5,duplicate_value_allowed_here,{self.tmp3},c74daf9d9a4063bdfbf1fd234ac529d120203e04af7c4e60b3236c76f37fff90,something_else"""
         self.valid_data_set = pd.read_csv(StringIO(csv_data))
+
+        pa_csv_data = f"""axiell_ID,catalogue_reference,file_name,checksum
+        1,JS 8/3,{self.tmp1},9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc
+        2,JS 8/4,{self.tmp2},checksum_1234567890
+        3,JS 8/5,{self.tmp3},c74daf9d9a4063bdfbf1fd234ac529d120203e04af7c4e60b3236c76f37fff90"""
+        self.valid_pa_data_set = pd.read_csv(StringIO(pa_csv_data))
 
     def tearDown(self):
         shutil.rmtree(self.test_dir)
 
     def test_should_contain_required_columns(self):
-        is_valid = dataset_validator.validate_dataset(self.valid_data_set, "/some/dummy/file.csv")
+        is_valid = dataset_validator.validate_dataset(self.valid_data_set, "/some/dummy/file.csv", "ADHOC")
         self.assertEqual(True, is_valid)
 
     def test_should_throw_an_exception_when_one_of_the_required_columns_is_missing(self):
@@ -44,7 +50,7 @@ class Test(TestCase):
         JS 8/4,d:\\js\\3\\1\\evid0002.pdf"""
         data_set = pd.read_csv(StringIO(csv_data))
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "ADHOC")
 
         self.assertEqual("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')", str(e.exception))
 
@@ -53,7 +59,7 @@ class Test(TestCase):
         JS 8/4,d:\\js\\3\\1\\evid0002.pdf"""
         data_set = pd.read_csv(StringIO(csv_data))
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "ADHOC")
 
         self.assertEqual("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')",
                          str(e.exception))
@@ -63,7 +69,7 @@ class Test(TestCase):
         JS 8/4,d:\\js\\3\\1\\evid0002.pdf"""
         data_set = pd.read_csv(StringIO(csv_data))
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "ADHOC")
 
         self.assertEqual("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')",
                          str(e.exception))
@@ -75,7 +81,7 @@ class Test(TestCase):
         JS 8/5,d:\\js\\3\\1\\evid0001.pdf,c74daf9d9a4063bdfbf1fd234ac529d120203e04af7c4e60b3236c76f37fff90"""
         data_set = pd.read_csv(StringIO(csv_data))
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "ADHOC")
 
         self.assertEqual("The column 'fileName' has duplicate entries", str(e.exception))
 
@@ -85,7 +91,7 @@ class Test(TestCase):
         JS 8/5,d:\\js\\3\\1\\evid0003.pdf,c74daf9d9a4063bdfbf1fd234ac529d120203e04af7c4e60b3236c76f37fff90"""
         data_set = pd.read_csv(StringIO(csv_data))
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "ADHOC")
 
         self.assertEqual("The column 'catRef' has duplicate entries", str(e.exception))
 
@@ -96,7 +102,7 @@ class Test(TestCase):
         JS 8/5,d:\\js\\3\\1\\evid0003.pdf,checksum_three,same_value"""
         data_set = pd.read_csv(StringIO(csv_data))
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "ADHOC")
 
         self.assertEqual("The column 'fileName' has empty entries", str(e.exception))
 
@@ -107,7 +113,7 @@ class Test(TestCase):
 
         data_set = pd.DataFrame(data_list)
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "ADHOC")
 
         self.assertEqual("The column 'catRef' has empty entries", str(e.exception))
 
@@ -117,7 +123,7 @@ class Test(TestCase):
             {"catRef": "JS 8/7", "someOtherColumn": "","fileName": "/tmp/non-existent-file2.txt","checksum": "checksum_five","anotherColumn": "no_data"}])
         erroneous_dataset = pd.concat([self.valid_data_set, additional_row], ignore_index=True)
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv", "ADHOC")
 
         self.assertEqual("Failed to locate following files: /tmp/non-existent-file1.txt,/tmp/non-existent-file2.txt", str(e.exception))
 
@@ -127,7 +133,7 @@ class Test(TestCase):
             {"catRef": "JS 8/7", "someOtherColumn": "","fileName": "non-existent-file2.txt","checksum": "checksum_five","anotherColumn": "no_data"}])
         erroneous_dataset = pd.concat([self.valid_data_set, additional_row], ignore_index=True)
         with self.assertRaises(Exception) as e:
-            dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv")
+            dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv", "ADHOC")
 
         self.assertEqual("Failed to locate following files: /some/dummy/non-existent-file1.txt,/some/dummy/non-existent-file2.txt", str(e.exception))
 
@@ -139,7 +145,7 @@ class Test(TestCase):
 
         with self.assertRaises(Exception) as exc:
             with patch("sys.stdout", new=io.StringIO()) as mock_console:
-                dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", True)
+                dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "ADHOC", True)
 
         self.assertIn("Input file is missing one or more of the required columns: ('catRef', 'fileName', 'checksum')", mock_console.getvalue())
         self.assertEqual("Detected validation errors in the input CSV. Fix the errors before continuing further", str(exc.exception))
@@ -156,7 +162,7 @@ class Test(TestCase):
 
         console_out = io.StringIO()
         with redirect_stdout(console_out):
-            is_valid = dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv", True)
+            is_valid = dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv", "ADHOC", True)
 
         self.assertTrue(is_valid)
         self.assertIn("The column 'checksum' has duplicate entries", console_out.getvalue().strip())
@@ -172,7 +178,7 @@ class Test(TestCase):
 
         with self.assertRaises(Exception) as exc:
             with patch("sys.stdout", new=io.StringIO()) as mock_console:
-                dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", True)
+                dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "ADHOC", True)
 
         self.assertIn("The column 'fileName' has empty entries\nThe column 'checksum' has duplicate entries", mock_console.getvalue())
         self.assertEqual("Detected validation errors in the input CSV. Fix the errors before continuing further", str(exc.exception))
@@ -189,8 +195,84 @@ class Test(TestCase):
 
         console_out = io.StringIO()
         with redirect_stdout(console_out):
-            is_valid = dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv", True)
+            is_valid = dataset_validator.validate_dataset(erroneous_dataset, "/some/dummy/file.csv", "ADHOC", True)
 
         self.assertTrue(is_valid)
         self.assertIn(f"Following files are empty: {tmp4}", console_out.getvalue().strip())
 
+    def test_should_validate_a_pa_dataset_with_the_required_columns(self):
+        is_valid = dataset_validator.validate_dataset(
+            self.valid_pa_data_set, "/some/dummy/file.csv", "PA"
+        )
+
+        self.assertTrue(is_valid)
+
+    def test_should_throw_an_exception_when_a_required_pa_column_is_missing(self):
+        csv_data = f"""catalogue_reference,file_name,checksum
+        JS 8/3,{self.tmp1},checksum_one
+        JS 8/4,{self.tmp2},checksum_two"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        with self.assertRaises(Exception) as exc:
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "PA")
+
+        self.assertEqual(
+            "Input file is missing one or more of the required columns: "
+            "('axiell_ID', 'catalogue_reference', 'file_name', 'checksum')",
+            str(exc.exception),
+        )
+
+    def test_should_allow_duplicate_entries_in_pa_columns(self):
+        csv_data = f"""axiell_ID,catalogue_reference,file_name,checksum
+        1,JS 8/3,{self.tmp1},checksum_one
+        1,JS 8/3,{self.tmp1},checksum_one"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        console_out = io.StringIO()
+        with redirect_stdout(console_out):
+            is_valid = dataset_validator.validate_dataset(
+                data_set, "/some/dummy/file.csv", "PA"
+            )
+
+        self.assertTrue(is_valid)
+        self.assertNotIn("duplicate entries", console_out.getvalue())
+
+    def test_should_not_allow_empty_values_in_required_pa_columns(self):
+        columns = ("axiell_ID", "catalogue_reference", "file_name", "checksum")
+
+        for empty_column in columns:
+            with self.subTest(empty_column=empty_column):
+                values = {"axiell_ID": "1", "catalogue_reference": "JS 8/3", "file_name": self.tmp1,
+                          "checksum": "checksum_one", empty_column: ""}
+                csv_data = (
+                    "axiell_ID,catalogue_reference,file_name,checksum\n"
+                    f"{values['axiell_ID']},{values['catalogue_reference']},"
+                    f"{values['file_name']},{values['checksum']}"
+                )
+                data_set = pd.read_csv(StringIO(csv_data))
+
+                with self.assertRaises(Exception) as exc:
+                    dataset_validator.validate_dataset(
+                        data_set, "/some/dummy/file.csv", "PA"
+                    )
+
+                self.assertEqual(
+                    f"The column '{empty_column}' has empty entries",
+                    str(exc.exception),
+                )
+
+    def test_should_use_pa_file_name_column_when_reporting_missing_files(self):
+        csv_data = """axiell_ID,catalogue_reference,file_name,checksum
+        1,JS 8/3,non-existent-file1.txt,checksum_one
+        2,JS 8/4,non-existent-file2.txt,checksum_two"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        with self.assertRaises(Exception) as exc:
+            dataset_validator.validate_dataset(data_set, "/some/dummy/file.csv", "PA")
+
+        self.assertEqual(
+            "Failed to locate following files: "
+            "/some/dummy/non-existent-file1.txt,"
+            "/some/dummy/non-existent-file2.txt",
+            str(exc.exception),
+        )
