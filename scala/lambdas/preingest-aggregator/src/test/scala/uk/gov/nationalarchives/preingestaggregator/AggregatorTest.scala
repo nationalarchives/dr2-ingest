@@ -136,8 +136,6 @@ class AggregatorTest extends AnyFlatSpec with EitherValues:
         else IO.pure(StartExecutionResponse.builder.build)
       }
 
-    override def sendTaskFailure(taskToken: String, potentialError: Option[String]): IO[Unit] = IO.stub
-
   private def getAggregatorOutput(
       assetIds: List[UUID],
       groupMap: Map[String, Group] = Map(),
