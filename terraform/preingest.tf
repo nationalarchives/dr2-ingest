@@ -61,10 +61,6 @@ module "pa_preingest" {
   slack_api_destination_arn        = module.eventbridge_alarm_notifications_destination.api_destination_arn
   vpc_arn                          = module.vpc.vpc.arn
   vpc_id                           = module.vpc.vpc.id
-  importer_queue_policy = templatefile("${path.module}/templates/sqs/pa_importer_queue_policy.json.tpl", {
-    queue_arn   = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.environment}-dr2-preingest-pa-importer",
-    pa_role_arn = data.aws_ssm_parameter.archivist_pa_role.value
-  })
 }
 
 module "dri_preingest" {
