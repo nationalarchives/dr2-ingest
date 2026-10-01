@@ -520,7 +520,7 @@ module "dr2_ingest_step_function" {
     ingest_validate_generic_ingest_inputs_lambda_name = local.ingest_validate_generic_ingest_inputs_lambda_name
     ingest_mapper_lambda_name                         = local.ingest_mapper_lambda_name
     ingest_mapper_lambda_state_name                   = local.ingest_step_function_mapper_lambda_state_name
-    ingest_find_existing_asset_name_lambda_name       = local.ingest_find_existing_asset_name
+    ingest_find_existing_asset_name_queue_url         = module.ingest_find_existing_asset_queue.sqs_queue_url
     ingest_asset_opex_creator_lambda_name             = local.ingest_asset_opex_creator_lambda_name
     ingest_folder_opex_creator_lambda_name            = local.ingest_folder_opex_creator_lambda_name
     ingest_parent_folder_opex_creator_lambda_name     = local.ingest_parent_folder_opex_creator_lambda_name
@@ -620,6 +620,7 @@ module "dr2_ingest_step_function_policy" {
     preingest_court_document_step_function_arn        = module.court_document_preingest.preingest_sfn_arn
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
     postingest_table_name                             = module.postingest.postingest_table_name
+    ingest_find_existing_asset_queue_arn              = module.ingest_find_existing_asset_queue.sqs_queue.arn
   })
 }
 

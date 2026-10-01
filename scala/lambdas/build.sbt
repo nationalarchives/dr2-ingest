@@ -244,6 +244,7 @@ lazy val ingestFindExistingAsset = (project in file("ingest-find-existing-asset"
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
+      sfnClient,
       preservicaClient
     )
   )

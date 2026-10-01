@@ -17,6 +17,29 @@
       }
     },
     {
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:DeleteMessage"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "${queue_arn}"
+      ],
+      "Sid": "readFromInputQueue"
+    },
+    {
+      "Action": [
+        "states:SendTaskSuccess",
+        "states:SendTaskFailure"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "${ingest_sfn_arn}"
+      ],
+      "Sid": "sendTaskSuccessOrFailure"
+    },
+    {
       "Action": "secretsmanager:GetSecretValue",
       "Effect": "Allow",
       "Resource": "${secrets_manager_secret_arn}",
