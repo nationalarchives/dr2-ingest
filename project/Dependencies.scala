@@ -9,7 +9,7 @@ object Dependencies {
   private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
   private lazy val scalaTestVersion = "3.2.20"
-  private lazy val nettyVersion = "4.2.17.Final"
+  private lazy val nettyVersion = "4.2.18.Final"
   private lazy val jacksonVersion = "3.2.2"
   private lazy val httpcoreVersion = "5.4.3"
 
