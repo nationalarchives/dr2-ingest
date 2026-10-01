@@ -161,7 +161,7 @@ object Lambda:
 
   case class Message(id: UUID, location: String)
 
-  case class Config(outputBucketName: String, outputQueueUrl: String, roleToAssume: String, filesBucket: String) derives ConfigReader
+  case class Config(outputBucketName: String, outputQueueUrl: String) derives ConfigReader
 
   case class Dependencies(s3Client: DAS3Client[IO], sqsClient: DASQSClient[IO])
 

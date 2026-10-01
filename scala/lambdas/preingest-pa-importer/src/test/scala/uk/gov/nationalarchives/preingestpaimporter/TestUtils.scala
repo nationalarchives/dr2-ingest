@@ -98,7 +98,7 @@ object TestUtils {
     val s3Key = UUID.randomUUID
     sqsMessage.setBody(s"""{"metadataLocation":"s3://metadataBucket/$s3Key.metadata","bucket":"filesBucket","assetId":"$s3Key"}""")
     sqsEvent.setRecords(List(sqsMessage).asJava)
-    val config = Config("outputBucketName", "outputQueueUrl", "roleToAssume", "filesBucket")
+    val config = Config("outputBucketName", "outputQueueUrl")
     val keyToMetadata = Map(s"$s3Key.metadata" -> metadata)
     for
       metadataRef <- Ref.of[IO, Map[String, String]](keyToMetadata)
