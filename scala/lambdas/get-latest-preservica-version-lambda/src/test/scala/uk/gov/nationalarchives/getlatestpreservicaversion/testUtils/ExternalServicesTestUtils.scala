@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
+import uk.gov.nationalarchives.dp.client.Client.BitStreamInfo
 import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
@@ -54,8 +55,6 @@ object ExternalServicesTestUtils:
 
     override def getUrlsToIoRepresentations(ioEntityRef: UUID, representationType: Option[EntityClient.RepresentationType]): IO[Seq[String]] = notImplemented
 
-    override def streamAllEntityRefs(repTypeFilter: Option[EntityClient.RepresentationType]): fs2.Stream[IO, Entities.EntityRef] = fs2.Stream.empty[IO]
-
     override def getContentObjectsFromRepresentation(ioEntityRef: UUID, representationType: EntityClient.RepresentationType, repTypeIndex: Int): IO[Seq[Entities.Entity]] =
       notImplemented
 
@@ -76,6 +75,10 @@ object ExternalServicesTestUtils:
     override def addIdentifierForEntity(entityRef: UUID, entityType: EntityClient.EntityType, identifier: EntityClient.Identifier): IO[String] = notImplemented
 
     override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = errors.raise(_.preservicaError, "Error getting Preservica version") >> IO.pure(version)
+
+    override def bitstreamForAsset(entityRef: java.util.UUID): IO[Seq[BitStreamInfo]] = IO.stub
+
+    override def getAllAssetIds(maxConcurrency: Int): fs2.Stream[IO, UUID] = fs2.Stream.empty
   }
 
   def eventBridgeClient(ref: Ref[IO, List[String]], errors: Option[Errors]): DAEventBridgeClient[IO] = new DAEventBridgeClient[IO] {
