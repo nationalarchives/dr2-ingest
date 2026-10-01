@@ -1,9 +1,10 @@
 package uk.gov.nationalarchives.lib
 
 import aws.sdk.kotlin.services.cloudwatchlogs.CloudWatchLogsClient
-import aws.sdk.kotlin.services.cloudwatchlogs.model.LiveTailSessionLogEvent
-import aws.sdk.kotlin.services.cloudwatchlogs.model.StartLiveTailRequest
-import aws.sdk.kotlin.services.cloudwatchlogs.model.StartLiveTailResponseStream
+import aws.sdk.kotlin.services.cloudwatchlogs.model.DescribeLogStreamsRequest
+import aws.sdk.kotlin.services.cloudwatchlogs.model.GetLogEventsRequest
+import aws.sdk.kotlin.services.cloudwatchlogs.model.OrderBy
+import aws.sdk.kotlin.services.cloudwatchlogs.model.OutputLogEvent
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
 import aws.sdk.kotlin.services.dynamodb.batchGetItem
 import aws.sdk.kotlin.services.dynamodb.model.AttributeValue
@@ -25,7 +26,6 @@ import aws.smithy.kotlin.runtime.content.ByteStream
 import aws.smithy.kotlin.runtime.content.decodeToString
 import com.typesafe.config.Config
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.takeWhile
 import uk.gov.nationalarchives.lib.JsonUtils.ExternalNotificationMessage
 import uk.gov.nationalarchives.lib.JsonUtils.Parser
 import uk.gov.nationalarchives.lib.JsonUtils.Payload
@@ -64,6 +64,8 @@ class IngestUtils(
 ) {
     private val completeStatus = "Asset has been written to tape"
     private val failedStatus = "There has been an error ingesting the asset."
+    private val testStartTime = System.currentTimeMillis()
+    private val logPollInterval = 5.minutes
 
     suspend fun waitForEntriesInLockTable(timeout: Duration = 15.minutes): MutableSet<String> {
         val pollInterval = 30 * 1000
@@ -93,37 +95,33 @@ class IngestUtils(
     fun checkForValidationFailureMessages(sourceSystemName: String, timeout: Long) {
         val sourceSystem = SourceSystem.valueOf(sourceSystemName.uppercase())
         val logGroupArn = sourceSystem.getCopyFilesLogGroup(config)
-        streamLogs(timeout, logGroupArn) { logEvents: List<LiveTailSessionLogEvent>? ->
-            logEvents?.let { events ->
-                val assetIdsFromMessage = events
-                    .flatMap {
-                        try {
-                            listOf(jsonCodec.decodeFromString<ValidationErrorMessage>(it.message!!))
-                        } catch (_: Exception) {
-                            emptyList()
-                        }
+        streamLogs(timeout, logGroupArn) { logEvents: List<OutputLogEvent> ->
+            val assetIdsFromMessage = logEvents
+                .flatMap {
+                    try {
+                        listOf(jsonCodec.decodeFromString<ValidationErrorMessage>(it.message!!))
+                    } catch (_: Exception) {
+                        emptyList()
                     }
-                    .map {
-                        UUID.fromString(it.assetId ?:it.s3FolderName)
-                    }
-                assetIds.removeAll(assetIdsFromMessage)
-                assetIds.isEmpty()
-            } ?: false
+                }
+                .map {
+                    UUID.fromString(it.assetId ?:it.s3FolderName)
+                }
+            assetIds.removeAll(assetIdsFromMessage)
+            assetIds.isEmpty()
         }
     }
 
 
     fun checkForIngestStatusMessages(logGroupArn: String, timeout: Long, messageType: String) {
         val status = if (messageType == "update") failedStatus else completeStatus
-        streamLogs(timeout, logGroupArn) { logEvents: List<LiveTailSessionLogEvent>? ->
-            logEvents?.let { events ->
-                val assetIdsFromMessage = events
-                    .map { jsonCodec.decodeFromString<ExternalNotificationMessage>(it.message!!) }
-                    .filter { it.body.properties.messageType == "preserve.digital.asset.ingest.$messageType" && it.body.parameters.status == status }
-                    .map { it.body.parameters.assetId }
-                assetIds.removeAll(assetIdsFromMessage)
-                assetIds.isEmpty()
-            } ?: false
+        streamLogs(timeout, logGroupArn) { logEvents: List<OutputLogEvent> ->
+            val assetIdsFromMessage = logEvents
+                .map { jsonCodec.decodeFromString<ExternalNotificationMessage>(it.message!!) }
+                .filter { it.body.properties.messageType == "preserve.digital.asset.ingest.$messageType" && it.body.parameters.status == status }
+                .map { it.body.parameters.assetId }
+            assetIds.removeAll(assetIdsFromMessage)
+            assetIds.isEmpty()
         }
     }
 
@@ -399,33 +397,58 @@ class IngestUtils(
         return resp.responses?.get(tableName).orEmpty()
     }
 
-    private fun streamLogs(timeout: Long, logGroup: String, isComplete: (List<LiveTailSessionLogEvent>?) -> Boolean) =
+    private fun streamLogs(timeout: Long, logGroup: String, isComplete: (List<OutputLogEvent>) -> Boolean) =
         runBlocking {
-            val request = StartLiveTailRequest {
-                logGroupIdentifiers = listOf(logGroup)
-            }
-
-            cloudWatchLogsClient.startLiveTail(request) { response ->
-                response.responseStream?.let { stream ->
-                    try {
-                        withTimeout(timeout.milliseconds) {
-                            stream.takeWhile { value ->
-                                when (value) {
-                                    is StartLiveTailResponseStream.SessionUpdate -> {
-                                        !isComplete(value.asSessionUpdate().sessionResults!!)
-                                    }
-                                    else -> true
-                                }
-                            }.collect {
-                                it.asSessionUpdateOrNull()?.sessionResults
-                            }
-                        }
-                    } catch (_: TimeoutCancellationException) {
-                        throw TimeoutException("Timed out")
+            val nextTokens = mutableMapOf<String, String>()
+            try {
+                withTimeout(timeout.milliseconds) {
+                    while (!isComplete(getLogEvents(logGroup, nextTokens))) {
+                        delay(logPollInterval)
                     }
                 }
+            } catch (_: TimeoutCancellationException) {
+                throw TimeoutException("Timed out")
             }
         }
+
+    private suspend fun getLogEvents(logGroup: String, nextTokens: MutableMap<String, String>): List<OutputLogEvent> =
+        describeLogStreams(logGroup).flatMap { streamName ->
+            val events = mutableListOf<OutputLogEvent>()
+            var token = nextTokens[streamName]
+            while (true) {
+                val currentToken = token
+                val response = cloudWatchLogsClient.getLogEvents(GetLogEventsRequest {
+                    logGroupIdentifier = logGroup
+                    logStreamName = streamName
+                    startFromHead = true
+                    if (currentToken == null) startTime = testStartTime else nextToken = currentToken
+                })
+                events.addAll(response.events.orEmpty())
+                token = response.nextForwardToken ?: currentToken
+                if (response.events.isNullOrEmpty() || token == currentToken) break
+            }
+            token?.let { nextTokens[streamName] = it }
+            events
+        }
+
+    private suspend fun describeLogStreams(logGroup: String): List<String> {
+        val streamNames = mutableListOf<String>()
+        var token: String? = null
+        do {
+            val currentToken = token
+            val response = cloudWatchLogsClient.describeLogStreams(DescribeLogStreamsRequest {
+                logGroupIdentifier = logGroup
+                orderBy = OrderBy.LastEventTime
+                descending = true
+                nextToken = currentToken
+            })
+            val logStreams = response.logStreams.orEmpty()
+            val streamsSinceTestStart = logStreams.takeWhile { (it.lastEventTimestamp ?: Long.MAX_VALUE) >= testStartTime }
+            streamNames.addAll(streamsSinceTestStart.mapNotNull { it.logStreamName })
+            token = if (streamsSinceTestStart.size == logStreams.size) response.nextToken else null
+        } while (token != null)
+        return streamNames
+    }
 
     enum class SourceSystem {
         TDR {
