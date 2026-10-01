@@ -2,16 +2,16 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.26.1"
   lazy val pureConfigVersion = "0.17.10"
-  lazy val daAwsClientsVersion = "0.1.162"
-  private val fs2Version = "3.13.0"
-  private val sttpVersion = "4.0.26"
+  lazy val daAwsClientsVersion = "0.1.163"
+  private val fs2Version = "3.14.0"
+  private val sttpVersion = "4.0.27"
   private val circeVersion = "0.14.16"
   private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
   private lazy val scalaTestVersion = "3.2.20"
-  private lazy val nettyVersion = "4.2.17.Final"
-  private lazy val jacksonVersion = "3.2.2"
-  private lazy val httpcoreVersion = "5.4.3"
+  private lazy val nettyVersion = "4.2.18.Final"
+  private lazy val jacksonVersion = "3.2.3"
+  private lazy val httpcoreVersion = "5.4.4"
 
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.48.4"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
@@ -23,7 +23,7 @@ object Dependencies {
   lazy val commonsCodec = "commons-codec" % "commons-codec" % "1.22.1"
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.28.0"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.4.0"
-  lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.20.0"
+  lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.21.0"
   lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.42.23"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
@@ -35,7 +35,7 @@ object Dependencies {
   lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.6.0"
   lazy val jawnParser = "org.typelevel" %% "jawn-parser" % "1.7.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
-  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "3.0.7"
+  lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "3.0.8"
   lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.4.0"
   lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.16.1"
   lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion
@@ -44,18 +44,18 @@ object Dependencies {
   lazy val log4jSlf4j = "org.apache.logging.log4j" % "log4j-slf4j-impl" % logbackVersion
   lazy val log4jTemplateJson = "org.apache.logging.log4j" % "log4j-layout-template-json" % logbackVersion
   lazy val mockito = "org.scalatestplus" %% "mockito-5-12" % "3.2.19.0"
-  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.179"
+  lazy val preservicaClient = "uk.gov.nationalarchives" %% "preservica-client-fs2" % "0.0.182"
   lazy val pureConfigCats = "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion
   lazy val pureConfig = "com.github.pureconfig" %% "pureconfig-core" % pureConfigVersion
   lazy val reactorTest = "io.projectreactor" % "reactor-test" % "3.8.7"
   lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.20.0"
-  lazy val scalaCheckPlus = "org.scalatestplus" %% "scalacheck-1-17" % "3.2.18.0"
+  lazy val scalaCheckPlus = "org.scalatestplus" %% "scalacheck-1-18" % "3.2.19.0"
   lazy val scanamo = "org.scanamo" %% "scanamo" % "7.0.0"
   lazy val s3Client = "uk.gov.nationalarchives" %% "da-s3-client" % daAwsClientsVersion
   lazy val sqsClient = "uk.gov.nationalarchives" %% "da-sqs-client" % daAwsClientsVersion
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
-  lazy val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "2.4.0"
+  lazy val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "2.5.0"
   lazy val sfnClient = "uk.gov.nationalarchives" %% "da-sfn-client" % daAwsClientsVersion
   lazy val ssmClient = "uk.gov.nationalarchives" %% "da-ssm-client" % daAwsClientsVersion
   lazy val snsClient = "uk.gov.nationalarchives" %% "da-sns-client" % daAwsClientsVersion
