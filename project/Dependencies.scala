@@ -11,8 +11,8 @@ object Dependencies {
   private lazy val scalaTestVersion = "3.2.20"
   private lazy val nettyVersion = "4.2.17.Final"
   private lazy val jacksonVersion = "3.2.3"
-  private lazy val httpcoreVersion = "5.4.3"
-
+  private lazy val httpcoreVersion = "5.4.4"
+  
   lazy val awsCrt = "software.amazon.awssdk.crt" % "aws-crt" % "0.48.5"
   lazy val awsLambda = "com.amazonaws" % "aws-java-sdk-lambda" % awsLibraryVersion
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.7.1"
