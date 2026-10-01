@@ -23,7 +23,7 @@ object Dependencies {
   lazy val commonsCodec = "commons-codec" % "commons-codec" % "1.22.1"
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.28.0"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.4.0"
-  lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.20.0"
+  lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.21.0"
   lazy val awsDynamo = "software.amazon.awssdk" % "dynamodb" % "2.42.23"
   lazy val dynamoClient = "uk.gov.nationalarchives" %% "da-dynamodb-client" % daAwsClientsVersion
   lazy val eventBridgeClient = "uk.gov.nationalarchives" %% "da-eventbridge-client" % daAwsClientsVersion
