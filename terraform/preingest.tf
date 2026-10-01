@@ -1,5 +1,6 @@
 locals {
   object_store_bucket_name = "prod-daobjectstore"
+  pa_source_bucket = "pa-migration-files-bucket"
 }
 module "tdr_preingest" {
   source                              = "./preingest"
@@ -31,6 +32,34 @@ module "tdr_preingest" {
   code_deploy_bucket               = "mgmt-dp-code-deploy"
   general_notifications_channel_id = local.general_notifications_channel_id
   slack_api_destination_arn        = module.eventbridge_alarm_notifications_destination.api_destination_arn
+}
+
+// Subnets and security groups aren't specified as we don't want this lambda in the VPC
+// The PA bucket is in a different region which we can't access through the gateway endpoint.
+module "pa_preingest" {
+  source                              = "./preingest"
+  environment                         = local.environment
+  ingest_lock_dynamo_table_name       = local.ingest_lock_dynamo_table_name
+  ingest_lock_table_arn               = module.ingest_lock_table.table_arn
+  ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
+  ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
+  ingest_step_function_name           = local.ingest_step_function_name
+  source_name                         = "pa"
+  copy_source_bucket_arn              = "arn:aws:s3:::${local.pa_source_bucket}"
+  importer_lambda = {
+    visibility_timeout = 900
+    timeout            = 900
+    handler            = "uk.gov.nationalarchives.preingestpaimporter.Lambda::handleRequest"
+    runtime            = local.java_runtime
+    memory_size        = 2048
+  }
+  code_deploy_bucket               = "mgmt-dp-code-deploy"
+  general_notifications_channel_id             = local.general_notifications_channel_id
+  lambda_code_version              = var.lambda_code_version
+  notifications_topic_arn          = module.dr2_notifications_sns.sns_arn
+  slack_api_destination_arn        = module.eventbridge_alarm_notifications_destination.api_destination_arn
+  vpc_arn                          = module.vpc.vpc.arn
+  vpc_id                           = module.vpc.vpc.id
 }
 
 module "dri_preingest" {
