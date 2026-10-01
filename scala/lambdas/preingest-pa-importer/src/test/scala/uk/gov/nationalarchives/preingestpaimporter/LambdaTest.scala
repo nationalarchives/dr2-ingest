@@ -23,15 +23,12 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
         uuid,
         fileId,
         None,
-        "2025-07-03T19:29:00.000Z",
         "fileName",
         "ABCD/E/F",
-        "metadata",
+        "/a/file/path",
+        "iaid",
         "digitalAssetSource",
-        "clientSideOriginalFilepath",
-        "consignmentReference",
         "checksum",
-        "iaid"
       )
     )
 
@@ -43,12 +40,9 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     uploadedMetadata.uuid should equal(uuid)
     uploadedMetadata.fileId should equal(fileId)
     uploadedMetadata.description should equal(None)
-    uploadedMetadata.transferInitiatedDatetime should equal("2025-07-03T19:29:00.000Z")
     uploadedMetadata.fileName should equal("fileName")
-    uploadedMetadata.metadata should equal("metadata")
     uploadedMetadata.digitalAssetSource should equal("digitalAssetSource")
     uploadedMetadata.clientSideOriginalFilepath should equal("clientSideOriginalFilepath")
-    uploadedMetadata.consignmentReference should equal("consignmentReference")
     uploadedMetadata.checksum should equal("checksum")
     uploadedMetadata.iaid should equal("iaid")
 
@@ -75,15 +69,12 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
         UUID.randomUUID,
         UUID.randomUUID,
         None,
-        "2025-07-03T19:29:00.000Z",
         "fileName",
         "ABCD/E/F",
-        "metadata",
-        "digitalAssetSource",
         "clientSideOriginalFilepath",
-        "consignmentReference",
+        "iaid",
+        "digitalAssetSource",
         "checksum",
-        "iaid"
       )
     )
 

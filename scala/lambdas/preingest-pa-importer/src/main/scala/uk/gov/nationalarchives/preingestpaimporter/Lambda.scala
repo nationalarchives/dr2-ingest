@@ -97,13 +97,10 @@ object Lambda:
         "UUID" -> Json.fromString(data.uuid.toString),
         "fileId" -> Json.fromString(data.fileId.toString),
         "description" -> data.description.map(Json.fromString).getOrElse(Json.Null),
-        "TransferInitiatedDatetime" -> Json.fromString(data.transferInitiatedDatetime),
         "Filename" -> Json.fromString(data.fileName),
         "FileReference" -> Json.fromString(data.fileReference),
-        "metadata" -> Json.fromString(data.metadata),
         "digitalAssetSource" -> Json.fromString(data.digitalAssetSource),
         "ClientSideOriginalFilepath" -> Json.fromString(data.clientSideOriginalFilepath),
-        "ConsignmentReference" -> Json.fromString(data.consignmentReference),
         "IAID" -> Json.fromString(data.iaid),
         "checksum_sha1" -> Json.fromString(data.checksum)
       )
@@ -116,29 +113,24 @@ object Lambda:
       uuid <- c.downField("UUID").as[UUID]
       fileId <- c.downField("fileId").as[UUID]
       description <- c.downField("description").as[Option[String]]
-      transferInitiatedDatetime <- c.downField("TransferInitiatedDatetime").as[String]
       filename <- c.downField("Filename").as[String]
       fileReference <- c.downField("FileReference").as[String]
-      metadata <- c.downField("metadata").as[String]
-      digitalAssetSource <- c.downField("digitalAssetSource").as[String]
       clientSideOriginalFilepath <- c.downField("ClientSideOriginalFilepath").as[String]
-      consignmentReference <- c.downField("ConsignmentReference").as[String]
-      checksum <- c.downField("checksum_sha1").as[String]
       iaid <- c.downField("IAID").as[String]
+      digitalAssetSource <- c.downField("digitalAssetSource").as[String]
+      checksum <- c.downField("checksum_sha1").as[String]
+
     yield Data(
       series,
       uuid,
       fileId,
       description,
-      transferInitiatedDatetime,
       filename,
       fileReference,
-      metadata,
-      digitalAssetSource,
       clientSideOriginalFilepath,
-      consignmentReference,
-      checksum,
-      iaid
+      iaid,
+      digitalAssetSource,
+      checksum
     )
 
   case class Data(
@@ -146,15 +138,12 @@ object Lambda:
       uuid: UUID,
       fileId: UUID,
       description: Option[String],
-      transferInitiatedDatetime: String,
       fileName: String,
       fileReference: String,
-      metadata: String,
-      digitalAssetSource: String,
       clientSideOriginalFilepath: String,
-      consignmentReference: String,
-      checksum: String,
-      iaid: String
+      iaid: String,
+      digitalAssetSource: String,
+      checksum: String
   )
 
   case class Body(metadataLocation: URI, bucket: String, assetId: UUID)
