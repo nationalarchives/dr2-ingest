@@ -10,11 +10,12 @@ import software.amazon.awssdk.services.dynamodb.model.{BatchWriteItemResponse, R
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DADynamoDBClient
+import uk.gov.nationalarchives.dp.client.Client.BitStreamInfo
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntitiesUpdated, EntityType, Identifier, UpdateEntityRequest, Identifier as PreservicaIdentifier}
 import uk.gov.nationalarchives.dp.client.EntityClient.SecurityTag.*
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
-import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
+import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, EntityClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{AssetDynamoItem, digitalAssetSource, digitalAssetSubtype, transferringBody, upstreamSystem}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestfindexistingasset.Lambda
@@ -121,8 +122,6 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
 
       override def entityEventActions(entity: Entity, startEntry: Int, maxEntries: Int): IO[Seq[DataProcessor.EventAction]] = notImplemented
 
-      override def streamAllEntityRefs(repTypeFilter: Option[EntityClient.RepresentationType]): fs2.Stream[IO, Entities.EntityRef] = fs2.Stream.empty[IO]
-
       override def entitiesPerIdentifier(identifiers: Seq[PreservicaIdentifier]): IO[Map[PreservicaIdentifier, Seq[Entity]]] =
         IO.raiseWhen(apiError)(new Exception("API has encountered an error")) >>
           ref.get.map { existing =>
@@ -140,6 +139,10 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
 
       override def entitiesUpdatedSince(sinceDateTime: ZonedDateTime, startEntry: Int, maxEntries: Int, potentialEndDate: Option[ZonedDateTime]): IO[EntitiesUpdated] =
         notImplemented
+
+      override def bitstreamForAsset(entityRef: java.util.UUID): IO[Seq[BitStreamInfo]] = IO.stub
+
+      override def getAllAssetIds(maxConcurrency: Int): fs2.Stream[IO, UUID] = fs2.Stream.empty
     }
 
   def runLambda(
