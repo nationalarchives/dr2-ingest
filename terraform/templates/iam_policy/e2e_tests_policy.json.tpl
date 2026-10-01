@@ -43,7 +43,7 @@
     {
       "Effect": "Allow",
       "Action": [
-        "logs:StartLiveTail",
+        "logs:DescribeLogStreams",
         "logs:GetLogEvents"
       ],
       "Resource": [
@@ -51,7 +51,12 @@
         "${copy_files_from_tdr_log_group}",
         "${copy_files_from_adhoc_log_group}",
         "${copy_files_from_dri_log_group}",
-        "${copy_files_from_courtdoc_log_group}"
+        "${copy_files_from_courtdoc_log_group}",
+        "${external_notifications_log_group}:log-stream:*",
+        "${copy_files_from_tdr_log_group}:log-stream:*",
+        "${copy_files_from_adhoc_log_group}:log-stream:*",
+        "${copy_files_from_dri_log_group}:log-stream:*",
+        "${copy_files_from_courtdoc_log_group}:log-stream:*"
       ]
     },
     {
