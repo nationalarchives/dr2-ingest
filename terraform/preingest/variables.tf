@@ -115,3 +115,7 @@ variable "code_deploy_bucket" {}
 variable "slack_api_destination_arn" {}
 
 variable "general_notifications_channel_id" {}
+
+variable "importer_queue_policy" {
+  default = null
+}

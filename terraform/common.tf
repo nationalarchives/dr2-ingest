@@ -450,6 +450,10 @@ data "aws_ssm_parameter" "archivist_role" {
   name = "/${local.environment}/archivist_role"
 }
 
+data "aws_ssm_parameter" "archivist_pa_role" {
+  name = "/${local.environment}/archivist_pa_role"
+}
+
 module "ingest_raw_cache_bucket" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//s3"
   bucket_name = local.ingest_raw_cache_bucket_name

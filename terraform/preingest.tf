@@ -1,6 +1,6 @@
 locals {
   object_store_bucket_name = "prod-daobjectstore"
-  pa_source_bucket = "pa-migration-files-bucket"
+  pa_source_bucket         = "pa-migration-files-bucket"
 }
 module "tdr_preingest" {
   source                              = "./preingest"
@@ -52,14 +52,19 @@ module "pa_preingest" {
     handler            = "uk.gov.nationalarchives.preingestpaimporter.Lambda::handleRequest"
     runtime            = local.java_runtime
     memory_size        = 2048
+    architecture       = local.architecture_arm64
   }
   code_deploy_bucket               = "mgmt-dp-code-deploy"
-  general_notifications_channel_id             = local.general_notifications_channel_id
+  general_notifications_channel_id = local.general_notifications_channel_id
   lambda_code_version              = var.lambda_code_version
   notifications_topic_arn          = module.dr2_notifications_sns.sns_arn
   slack_api_destination_arn        = module.eventbridge_alarm_notifications_destination.api_destination_arn
   vpc_arn                          = module.vpc.vpc.arn
   vpc_id                           = module.vpc.vpc.id
+  importer_queue_policy = templatefile("${path.module}/templates/sqs/pa_importer_queue_policy.json.tpl", {
+    queue_arn   = "arn:aws:sqs:eu-west-2:${data.aws_caller_identity.current.account_id}:${local.environment}-dr2-preingest-pa-importer",
+    pa_role_arn = data.aws_ssm_parameter.archivist_pa_role.value
+  })
 }
 
 module "dri_preingest" {
