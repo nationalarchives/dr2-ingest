@@ -12,7 +12,8 @@
     },
     {
       "Action": [
-        "logs:GetLogEvents",
+        "logs:StartQuery",
+        "logs:GetQueryResults",
         "states:ListExecutions",
         "dynamodb:DescribeTable"
       ],
