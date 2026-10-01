@@ -206,12 +206,14 @@ data "aws_ssm_parameter" "slack_webhook_url" {
 data "aws_region" "current" {}
 
 module "vpc" {
-  source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
-  vpc_name                  = "${local.environment}-vpc"
-  az_count                  = local.az_count
-  elastic_ip_allocation_ids = data.aws_eip.eip.*.id
-  use_nat_gateway           = true
-  environment               = local.environment
+  source                         = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
+  vpc_name                       = "${local.environment}-vpc"
+  az_count                       = local.az_count
+  elastic_ip_allocation_ids      = data.aws_eip.eip.*.id
+  use_nat_gateway                = var.disable_networking == false
+  create_s3_gateway_endpoint     = var.disable_networking == false
+  create_dynamo_gateway_endpoint = var.disable_networking == false
+  environment                    = local.environment
   private_nacl_rules = concat([
     { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 443, to_port = 443, egress = true },
     { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = false },
@@ -232,7 +234,11 @@ module "vpc" {
     account_id = data.aws_caller_identity.current.account_id
   })
 
-  interface_endpoints = {
+<<<<<<< HEAD
+  interface_endpoints = var.disable_networking ? {
+=======
+  interface_endpoints = var.disable_networking ? {} : {
+>>>>>>> 631bca19a5e5af6bcfdeff28c76561daaa29cd00
     secretsmanager = {
       name = "com.amazonaws.${local.aws_region_name}.secretsmanager",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
@@ -278,7 +284,7 @@ module "vpc" {
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
-  }
+  } : {}
 }
 
 data "aws_eip" "eip" {

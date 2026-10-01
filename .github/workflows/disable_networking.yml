@@ -1,0 +1,68 @@
+name: Disable NAT gateways overnight
+on:
+  schedule:
+    - cron: 0 20 * * MON-FRI
+    - cron: 0 8 * * MON-FRI
+
+permissions: {}
+
+jobs:
+  pause-ingest:
+    strategy:
+      matrix:
+        environment: [intg, staging]
+    env:
+      DISABLED: ${{ github.event.schedule == '0 20 * * MON-FRI' }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: |
+          gh api --method POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2026-03-10" \
+          /repos/nationalarchives/dr2-runbooks/actions/workflows/pause_and_resume_ingest.yml/dispatches \
+          -f 'ref=main' \
+          -f 'inputs[environment]=${{ matrix.environment }}' \
+          -f 'inputs[pause]=${{ env.DISABLED }}'
+  apply:
+    needs: pause-ingest
+    environment: ${{ matrix.environment }}
+    strategy:
+      matrix:
+        environment: [intg, staging]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+        with:
+          submodules: recursive
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+          ref: ${{ matrix.environment }}
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+      - id: role-name
+        run: |
+          if [ "${{ matrix.environment }}" = "intg" ]; then
+            echo "role-name=IntgTerraformRole" >> $GITHUB_OUTPUT
+          else
+            echo "role-name=StagingTerraformRole" >> $GITHUB_OUTPUT
+          fi
+      - uses: aws-actions/configure-aws-credentials@6782cb1b6df5d32e9354c1e6d6da4f956c0d61c4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.ACCOUNT_NUMBER }}:role/${{ steps.role-name.outputs.role-name }}
+          aws-region: eu-west-2
+      - id: version_for_environment
+        run: echo lambda_version=$(git describe --tags --exact-match HEAD --match 'v[0-9]*') >> "$GITHUB_OUTPUT"
+      - uses: hashicorp/setup-terraform@b75000b53e9ce4de2b4712237bbdb711bdc92aba
+      - working-directory: terraform
+        run: |
+          terraform init
+          terraform workspace select ${{ matrix.environment }}
+          terraform apply -auto-approve
+        env:
+          TF_VAR_lambda_code_version: ${{ steps.version_for_environment.outputs.lambda_version }}
+          TF_VAR_disable_networking: ${{ env.DISABLED }}
