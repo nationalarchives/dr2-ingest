@@ -118,7 +118,7 @@ object Lambda:
       clientSideOriginalFilepath <- c.downField("ClientSideOriginalFilepath").as[String]
       iaid <- c.downField("IAID").as[String]
       digitalAssetSource <- c.downField("digitalAssetSource").as[String]
-      checksum <- c.downField("checksum_sha1").as[String]
+      checksum <- c.downField("checksum_sha256").as[String]
 
     yield Data(
       series,
