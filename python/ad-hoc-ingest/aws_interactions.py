@@ -20,10 +20,10 @@ def upload_file(asset_id, bucket, file_id, file_path):
     s3_client = session.client("s3")
     s3_client.upload_file(file_path, bucket, f"{asset_id}/{file_id}")
 
-def send_sqs_message(asset_id, files_bucket, metadata_bucket, queue_url):
+def send_sqs_message(asset_id, bucket, queue_url):
     local_config = Config(region_name=get_region())
     sqs_client = session.client("sqs", config=local_config)
-    sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps({"assetId": asset_id, "bucket": files_bucket, "metadataLocation": f"s3://{metadata_bucket}/{asset_id}.metadata"}))
+    sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps({"assetId": asset_id, "bucket": bucket, "metadataLocation": f"s3://{bucket}/{asset_id}.metadata"}))
 
 def refresh_session():
     global session
