@@ -1,11 +1,3 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "6.36.0"
-    }
-  }
-}
 locals {
   importer_key              = "preingest-${var.source_name}-importer"
   importer_name             = "${local.environment}-dr2-${local.importer_key}"
@@ -13,81 +5,8 @@ locals {
   sse_encryption            = "sse"
   visibility_timeout        = 180
   redrive_maximum_receives  = 5
-  source_bucket_permissions = var.delete_from_source ? ["s3:GetObject", "s3:GetObjectTagging", "s3:DeleteObject"] : ["s3:GetObject", "s3:GetObjectTagging"]
-  vpc_arns                  = length(var.private_subnet_ids) == 0 ? [] : [var.vpc_arn]
+  source_bucket_permissions = jsonencode(var.delete_from_source ? ["s3:GetObject", "s3:GetObjectTagging", "s3:DeleteObject"] : ["s3:GetObject", "s3:GetObjectTagging"])
 }
-data "aws_iam_policy_document" "importer_policy" {
-  dynamic "statement" {
-    for_each = var.bucket_kms_arn == null ? [] : [var.bucket_kms_arn]
-    content {
-      sid       = "DecryptWithKey"
-      effect    = "Allow"
-      actions   = ["kms:Decrypt"]
-      resources = [statement.value]
-    }
-  }
-
-  statement {
-    sid       = "readSqs"
-    effect    = "Allow"
-    actions   = ["sqs:ReceiveMessage", "sqs:GetQueueAttributes", "sqs:DeleteMessage"]
-    resources = [local.importer_queue_arn]
-  }
-
-  statement {
-    sid     = "readWriteIngestRawCache"
-    effect  = "Allow"
-    actions = ["s3:PutObject*", "s3:GetObject", "s3:DeleteObject"]
-    resources = [
-      "arn:aws:s3:::${var.ingest_raw_cache_bucket_name}",
-      "arn:aws:s3:::${var.ingest_raw_cache_bucket_name}/*"
-    ]
-    dynamic "condition" {
-      for_each = local.vpc_arns
-      content {
-        test     = "ArnEquals"
-        variable = "aws:SourceVpcArn"
-        values   = [condition.value]
-      }
-    }
-  }
-
-  statement {
-    sid     = "sourceBucketPermissions"
-    effect  = "Allow"
-    actions = local.source_bucket_permissions
-    resources = [
-      var.copy_source_bucket_arn,
-      "${var.copy_source_bucket_arn}/*"
-    ]
-    dynamic "condition" {
-      for_each = local.vpc_arns
-      content {
-        test     = "ArnEquals"
-        variable = "aws:SourceVpcArn"
-        values   = [condition.value]
-      }
-    }
-  }
-
-  statement {
-    sid       = "sendSqsMessage"
-    effect    = "Allow"
-    actions   = ["sqs:SendMessage"]
-    resources = [module.dr2_preingest_aggregator_queue.sqs_arn]
-  }
-
-  statement {
-    sid     = "readWriteLogs"
-    effect  = "Allow"
-    actions = ["logs:PutLogEvents", "logs:CreateLogStream", "logs:CreateLogGroup"]
-    resources = [
-      "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.importer_name}:*:*",
-      "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.importer_name}:*"
-    ]
-  }
-}
-
 module "dr2_importer_lambda" {
   source          = "git::https://github.com/nationalarchives/da-terraform-modules//lambda"
   description     = "A lambda to validate incoming metadata and copy the files to the DR2 S3 bucket for ${upper(var.source_name)}"
@@ -98,7 +17,26 @@ module "dr2_importer_lambda" {
     { sqs_queue_arn = local.importer_queue_arn, ignore_enabled_status = true }
   ]
   policies = merge({
-    "${local.importer_name}-policy" = data.aws_iam_policy_document.importer_policy.json
+    "${local.importer_name}-policy" = var.bucket_kms_arn == null ? templatefile("${path.module}/templates/copy_files_no_kms_policy.json.tpl", {
+      copy_files_queue_arn      = local.importer_queue_arn
+      raw_cache_bucket_name     = var.ingest_raw_cache_bucket_name
+      bucket_arn                = var.copy_source_bucket_arn
+      aggregator_queue_arn      = module.dr2_preingest_aggregator_queue.sqs_arn
+      account_id                = data.aws_caller_identity.current.account_id
+      lambda_name               = local.importer_name
+      vpc_arn                   = var.vpc_arn
+      source_bucket_permissions = local.source_bucket_permissions
+      }) : templatefile("${path.module}/templates/copy_files_with_kms_policy.json.tpl", {
+      copy_files_queue_arn      = local.importer_queue_arn
+      raw_cache_bucket_name     = var.ingest_raw_cache_bucket_name
+      bucket_arn                = var.copy_source_bucket_arn
+      aggregator_queue_arn      = module.dr2_preingest_aggregator_queue.sqs_arn
+      account_id                = data.aws_caller_identity.current.account_id
+      lambda_name               = local.importer_name
+      kms_arn                   = var.bucket_kms_arn
+      vpc_arn                   = var.vpc_arn
+      source_bucket_permissions = local.source_bucket_permissions
+    })
   }, var.additional_importer_lambda_policies)
   memory_size  = var.importer_lambda.memory_size
   runtime      = var.importer_lambda.runtime

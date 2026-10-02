@@ -34,8 +34,7 @@ module "tdr_preingest" {
   slack_api_destination_arn        = module.eventbridge_alarm_notifications_destination.api_destination_arn
 }
 
-// Subnets and security groups aren't specified as we don't want this lambda in the VPC
-// The PA bucket is in a different region which we can't access through the gateway endpoint.
+
 module "pa_preingest" {
   source                              = "./preingest"
   environment                         = local.environment
@@ -46,6 +45,11 @@ module "pa_preingest" {
   ingest_step_function_name           = local.ingest_step_function_name
   source_name                         = "pa"
   copy_source_bucket_arn              = "arn:aws:s3:::${local.pa_source_bucket}"
+  private_security_group_ids = [
+    module.outbound_https_access_for_s3.security_group_id,
+    module.https_to_vpc_endpoints_security_group.security_group_id,
+  ]
+  private_subnet_ids = module.vpc.private_subnets
   importer_lambda = {
     visibility_timeout = 900
     timeout            = 900
