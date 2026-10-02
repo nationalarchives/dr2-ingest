@@ -14,7 +14,7 @@ locals {
   visibility_timeout        = 180
   redrive_maximum_receives  = 5
   source_bucket_permissions = var.delete_from_source ? ["s3:GetObject", "s3:GetObjectTagging", "s3:DeleteObject"] : ["s3:GetObject", "s3:GetObjectTagging"]
-  vpc_arns                  = var.vpc_arn == null || var.vpc_arn == "" ? [] : [var.vpc_arn]
+  vpc_arns                  = length(var.private_subnet_ids) == 0 ? [] : [var.vpc_arn]
 }
 data "aws_iam_policy_document" "importer_policy" {
   dynamic "statement" {

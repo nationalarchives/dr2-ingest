@@ -1,7 +1,6 @@
 locals {
   object_store_bucket_name = "prod-daobjectstore"
-  pa_source_bucket         = "pa-migration-files-bucket"
-  pa_metadata_bucket       = "pa-migration-metadata-bucket"
+  pa_source_bucket         = "pa-transfer-bucket"
 }
 module "tdr_preingest" {
   source                              = "./preingest"
@@ -54,11 +53,6 @@ module "pa_preingest" {
     runtime            = local.java_runtime
     memory_size        = 2048
     architecture       = local.architecture_arm64
-  }
-  additional_importer_lambda_policies = {
-    "${local.environment}-copy-from-records-metadata" = templatefile("${path.module}/templates/iam_policy/preingest_pa_get_metadata.json.tpl", {
-      pa_metadata_bucket = local.pa_metadata_bucket
-    })
   }
   code_deploy_bucket               = "mgmt-dp-code-deploy"
   general_notifications_channel_id = local.general_notifications_channel_id
