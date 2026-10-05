@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives.ingestfindexistingasset
 
 import org.scalatest.matchers.should.Matchers.*
+import software.amazon.awssdk.services.sfn.model.TaskDoesNotExistException
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.ArchiveFolder
 import uk.gov.nationalarchives.ingestfindexistingasset.testUtils.ExternalServicesTestUtils
@@ -39,6 +40,13 @@ class LambdaTest extends ExternalServicesTestUtils {
     error.getMessage should equal("Failure sending task failure for task token taskToken")
   }
 
+  "handler" should "raise an error if an invalid task token is passed in the input" in {
+    val error = intercept[TaskDoesNotExistException] {
+      runLambda(List(generateAsset), Nil, sqsEvent = invalidSqsEvent)
+    }
+    error.getMessage should equal("sendTaskFailure failed. Task token invalidTaskToken does not exist")
+  }
+
   List(Some(ContentObject), Some(StructuralObject), None).foreach { unexpectedEntityType =>
     "handler" should s"return 'assetExists' value of 'false' if the SourceID lookup returned a non-IO type like $unexpectedEntityType" in {
       val asset = generateAsset
@@ -53,6 +61,8 @@ class LambdaTest extends ExternalServicesTestUtils {
   "handler" should "not update skipIngest and return an assetExists value of 'false' if the identifier is not found" in {
     val lambdaTestOutput = runLambda(List(generateAsset), Nil)
     lambdaTestOutput.stateOutput.head.items.head.assetExists should equal(false)
+    lambdaTestOutput.stateOutput.head.items.head.batchId should equal(input.Items.head.batchId)
+    lambdaTestOutput.stateOutput.head.items.head.id should equal(input.Items.head.id)
     lambdaTestOutput.dynamoItems.head.skipIngest should equal(false)
   }
 
@@ -61,6 +71,8 @@ class LambdaTest extends ExternalServicesTestUtils {
     val entity = generateEntity(asset.id.toString)
     val lambdaTestOutput = runLambda(List(asset), List(entity))
     lambdaTestOutput.stateOutput.head.items.head.assetExists should equal(true)
+    lambdaTestOutput.stateOutput.head.items.head.batchId should equal(input.Items.head.batchId)
+    lambdaTestOutput.stateOutput.head.items.head.id should equal(input.Items.head.id)
     lambdaTestOutput.dynamoItems.head.skipIngest should equal(true)
   }
 }

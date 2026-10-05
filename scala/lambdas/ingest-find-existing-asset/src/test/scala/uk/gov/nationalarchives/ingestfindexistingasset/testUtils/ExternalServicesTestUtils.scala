@@ -12,7 +12,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.{BatchWriteItemResponse, ResourceNotFoundException}
-import software.amazon.awssdk.services.sfn.model.StartExecutionResponse
+import software.amazon.awssdk.services.sfn.model.{StartExecutionResponse, TaskDoesNotExistException}
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
@@ -88,14 +88,16 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
       override def listStepFunctions(stepFunctionArn: String, status: DASFNClient.Status): IO[List[String]] = IO.stub
 
       override def sendTaskSuccess[T: Encoder](taskToken: String, potentialOutput: Option[T]): IO[Unit] =
-        if successError then IO.raiseError(new Exception(s"Failure sending task success for task token $taskToken"))
+        if taskToken != input.taskToken then IO.raiseError(TaskDoesNotExistException.builder.message(s"sendTaskSuccess failed. Task token $taskToken does not exist").build)
+        else if successError then IO.raiseError(new Exception(s"Failure sending task success for task token $taskToken"))
         else
           ref.update { sentOutputs =>
             potentialOutput.get.asInstanceOf[StateOutput] :: sentOutputs
           }
 
       override def sendTaskFailure(taskToken: String, potentialError: Option[String]): IO[Unit] = {
-        if failureError then IO.raiseError(new Exception(s"Failure sending task failure for task token $taskToken"))
+        if taskToken != input.taskToken then IO.raiseError(TaskDoesNotExistException.builder.message(s"sendTaskFailure failed. Task token $taskToken does not exist").build)
+        else if failureError then IO.raiseError(new Exception(s"Failure sending task failure for task token $taskToken"))
         else
           sfnSendFailureOutputRef.update { existing =>
             SfnSendFailureOutput(taskToken, potentialError.getOrElse("")) :: existing
@@ -184,6 +186,14 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
     sqsEvent
   }
 
+  val invalidSqsEvent: SQSEvent = {
+    val sqsEvent = new SQSEvent()
+    val sqsMessage = new SQSMessage()
+    sqsMessage.setBody(input.copy(taskToken = "invalidTaskToken").asJson.noSpaces)
+    sqsEvent.setRecords(List(sqsMessage).asJava)
+    sqsEvent
+  }
+
   case class LambdaTestOutput(
       entities: List[EntityWithIdentifiers],
       dynamoItems: List[AssetDynamoItem],
@@ -197,7 +207,8 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
       dynamoError: Boolean = false,
       apiError: Boolean = false,
       sfnSuccessError: Boolean = false,
-      sfnFailureError: Boolean = false
+      sfnFailureError: Boolean = false,
+      sqsEvent: SQSEvent = sqsEvent
   ): LambdaTestOutput = (for {
     itemsRef <- Ref.of[IO, List[AssetDynamoItem]](items)
     entitiesRef <- Ref.of[IO, List[EntityWithIdentifiers]](entities)
