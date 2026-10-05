@@ -59,11 +59,15 @@ class TestLambdaFunction(unittest.TestCase):
 
         metrics = ingest_metric_collector.get_stepfunction_metrics("TDR-", SOURCE_SYSTEMS,
                                                                    MAPPER_LAMBDA_STATE_NAME)
-        # Should return one metric with 0 executions
-        self.assertEqual(1, len(metrics))
+        # Should return one metric with 0 executions + 5 asset counts and 5 bytes count metrics with 0 values
+        self.assertEqual(11, len(metrics))
 
         expected_metric = generate_metrics("arn:some_arn", "unknown-ss-something", 0)
         self.assertEqual(expected_metric, metrics[0])
+
+        for n, ss in enumerate(self.expected_source_systems):
+            self.assertEqual(generate_metrics(metric_name="AssetCount", source_system=ss), metrics[n + 1])
+            self.assertEqual(generate_metrics(metric_name="Bytes", source_system=ss), metrics[n + 6])
 
     @patch("ingest_metric_collector.boto3.client")
     def test_get_stepfunction_metrics_should_return_metric_per_source_system_when_source_system_is_known(self,
@@ -78,13 +82,20 @@ class TestLambdaFunction(unittest.TestCase):
         metrics = ingest_metric_collector.get_stepfunction_metrics("test-dr2-", SOURCE_SYSTEMS,
                                                                    MAPPER_LAMBDA_STATE_NAME)
 
-        self.assertEqual(6, len(metrics))
+        self.assertEqual(16, len(metrics))
         expected_metric = generate_metrics()
         self.assertEqual(expected_metric, metrics[0])
 
         for n, ss in enumerate(self.expected_source_systems):
             expected_metric = generate_metrics(source_system=ss)
             self.assertEqual(expected_metric, metrics[n + 1])
+
+            expected_metric = generate_metrics(metric_name="AssetCount", source_system=ss)
+            self.assertEqual(expected_metric, metrics[n + 6])
+
+            expected_metric = generate_metrics(metric_name="Bytes", source_system=ss)
+            self.assertEqual(expected_metric, metrics[n + 11])
+
 
     @patch("ingest_metric_collector.boto3.client")
     def test_get_stepfunction_metrics_should_return_metrics_when_executions_and_source_system_exist(self,
@@ -146,8 +157,7 @@ class TestLambdaFunction(unittest.TestCase):
                                                                    MAPPER_LAMBDA_STATE_NAME)
         expected_executions_running = 1
         expected_executions_running_per_ss = len(self.expected_source_systems)
-        # tdr + courtdoc's count and bytes + (random2 + random3 become "default") count and bytes
-        expected_asset_count_and_bytes = 6
+        expected_asset_count_and_bytes = len(self.expected_source_systems) * 2 # every SS will have a value even if 0
 
         expected_metrics_length = expected_executions_running + expected_executions_running_per_ss + expected_asset_count_and_bytes
 
@@ -161,15 +171,15 @@ class TestLambdaFunction(unittest.TestCase):
             expected_metric = generate_metrics(value=executions, source_system=ss)
             self.assertEqual(expected_metric, metrics.pop(0))
 
-        for (ss, count) in (("TDR", 1), ("COURTDOC", 2), ("DEFAULT", 7)):
+        for (ss, count) in (("TDR", 1), ("COURTDOC", 2), ("ADHOC", 0), ("DRI", 0), ("DEFAULT", 7)):
             count_expected_metric = generate_metrics(value=count, metric_name="AssetCount", source_system=ss)
             self.assertEqual(count_expected_metric, metrics.pop(0))
 
-        for (ss, total_bytes) in (("TDR", 1000), ("COURTDOC", 2000), ("DEFAULT", 7000)):
+        for (ss, total_bytes) in (("TDR", 1000), ("COURTDOC", 2000), ("ADHOC", 0), ("DRI", 0), ("DEFAULT", 7000)):
             bytes_expected_metric = generate_metrics(value=total_bytes, metric_name="Bytes", source_system=ss)
             self.assertEqual(bytes_expected_metric, metrics.pop(0))
 
-        self.assertEqual(len(metrics), 0)
+        self.assertEqual(0, len(metrics))
 
     @patch("ingest_metric_collector.boto3.client")
     def test_get_stepfunction_metrics_should_throw_an_error_if(self, mock_boto_client):
