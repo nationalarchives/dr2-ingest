@@ -32,17 +32,17 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
       )
     )
 
-    val output = runLambda(input.asJson.noSpaces)
+    val output = runLambda(input.asJson.noSpaces, uuid)
 
     val uploadedMetadata = decode[List[Data]](output.metadataMap(s"$uuid.metadata")).value.head
-    uploadedMetadata.series should equal("YHLA/1")
-    uploadedMetadata.fileReference should equal("YABC/E/F")
+    uploadedMetadata.series should equal("HLAB/1")
+    uploadedMetadata.fileReference should equal("ABCD/E/F")
     uploadedMetadata.uuid should equal(uuid)
     uploadedMetadata.fileId should equal(fileId)
     uploadedMetadata.description should equal(None)
     uploadedMetadata.fileName should equal("fileName")
     uploadedMetadata.digitalAssetSource should equal("digitalAssetSource")
-    uploadedMetadata.clientSideOriginalFilepath should equal("clientSideOriginalFilepath")
+    uploadedMetadata.clientSideOriginalFilepath should equal("/a/file/path")
     uploadedMetadata.checksum should equal("checksum")
     uploadedMetadata.iaid should equal("iaid")
 
@@ -78,10 +78,10 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
       )
     )
 
-    val downloadError = runLambda(input.asJson.noSpaces, Errors(download = true).some)
-    val uploadError = runLambda(input.asJson.noSpaces, Errors(upload = true).some)
-    val copyError = runLambda(input.asJson.noSpaces, Errors(copy = true).some)
-    val sendMessageErrorError = runLambda(input.asJson.noSpaces, Errors(sendMessage = true).some)
+    val downloadError = runLambda(input.asJson.noSpaces, potentialErrors = Errors(download = true).some)
+    val uploadError = runLambda(input.asJson.noSpaces, potentialErrors = Errors(upload = true).some)
+    val copyError = runLambda(input.asJson.noSpaces, potentialErrors = Errors(copy = true).some)
+    val sendMessageErrorError = runLambda(input.asJson.noSpaces, potentialErrors = Errors(sendMessage = true).some)
 
     def errorMessage(output: Output) = output.handlerResponse.left.value.getMessage
 

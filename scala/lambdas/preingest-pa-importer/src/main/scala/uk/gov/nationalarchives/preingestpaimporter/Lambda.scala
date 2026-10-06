@@ -47,23 +47,12 @@ class Lambda extends LambdaRunner[SQSEvent, List[Unit], Config, Dependencies]:
           for
             _ <- validate(data)
             _ <- dependencies.s3Client.copy(body.bucket, s"${data.uuid}/${data.fileId}", config.outputBucketName, s"${data.uuid}/${data.fileId}")
-          yield modifySeriesAndFileReference(data)
+          yield data
         }
         _ <- uploadMetadata(modifiedMetadata)
         _ <- dependencies.sqsClient.sendMessage(config.outputQueueUrl)(Message(metadata.head.uuid, s"s3://${config.outputBucketName}/${metadata.head.uuid}.metadata"))
       yield ()
     }
-  }
-
-  private def modifySeriesAndFileReference(data: Data): Data = {
-    data.copy(series = modifyReference(data.series), fileReference = modifyReference(data.fileReference))
-  }
-
-  private def modifyReference(ref: String) = {
-    val fieldElements = if ref.contains(" ") then ref.split(" ") else ref.split("/")
-    val firstElement = fieldElements.head
-    val modifiedFirstElement = if firstElement.length == 4 then firstElement.dropRight(1) else firstElement
-    (s"Y$modifiedFirstElement" :: fieldElements.tail.toList).mkString("/")
   }
 
   private def validate(data: Data): IO[Unit] = {
@@ -102,7 +91,7 @@ object Lambda:
         "digitalAssetSource" -> Json.fromString(data.digitalAssetSource),
         "ClientSideOriginalFilepath" -> Json.fromString(data.clientSideOriginalFilepath),
         "IAID" -> Json.fromString(data.iaid),
-        "checksum_sha1" -> Json.fromString(data.checksum)
+        "checksum_sha256" -> Json.fromString(data.checksum)
       )
     )
   }

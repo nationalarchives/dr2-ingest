@@ -92,14 +92,13 @@ object TestUtils {
     override def getQueueAttributes(queueUrl: String, attributeNames: List[QueueAttributeName]): IO[GetQueueAttributesResponse] = IO.stub
   }
 
-  def runLambda(metadata: String, potentialErrors: Option[Errors] = None): Output = {
+  def runLambda(metadata: String, assetId: UUID = UUID.randomUUID, potentialErrors: Option[Errors] = None): Output = {
     val sqsEvent = new SQSEvent()
     val sqsMessage = new SQSMessage()
-    val s3Key = UUID.randomUUID
-    sqsMessage.setBody(s"""{"metadataLocation":"s3://metadataBucket/$s3Key.metadata","bucket":"filesBucket","assetId":"$s3Key"}""")
+    sqsMessage.setBody(s"""{"metadataLocation":"s3://metadataBucket/$assetId.metadata","bucket":"filesBucket","assetId":"$assetId"}""")
     sqsEvent.setRecords(List(sqsMessage).asJava)
     val config = Config("outputBucketName", "outputQueueUrl")
-    val keyToMetadata = Map(s"$s3Key.metadata" -> metadata)
+    val keyToMetadata = Map(s"$assetId.metadata" -> metadata)
     for
       metadataRef <- Ref.of[IO, Map[String, String]](keyToMetadata)
       copyRef <- Ref.of[IO, List[TestCopy]](Nil)
