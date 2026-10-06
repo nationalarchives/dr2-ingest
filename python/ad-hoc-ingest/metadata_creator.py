@@ -26,7 +26,8 @@ def create_intermediate_metadata_dict(description_override, row, args):
         former_ref_tna = ""
         description_to_use = row["description"].strip()
         discovery_iaid = ""
-    series = catalogue_ref.split("/")[0].strip()
+    series_end_index = 2 if source_system == "PA" else 1
+    series = "/".join(catalogue_ref.split("/")[0:series_end_index]).strip()
     metadata_uuid = row["axiell_ID"] if source_system == "PA" else str(uuid.uuid4())
     metadata = {"Series": series, "UUID": metadata_uuid, "fileId": str(uuid.uuid4()),
                 "description": description_to_use, "Filename": get_filename_from_cross_platform_path(file_path),

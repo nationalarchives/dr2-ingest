@@ -73,7 +73,7 @@ class Test(TestCase):
         )
         csv_data = textwrap.dedent("""\
         axiell_ID,catalogue_reference,file_name,checksum
-        axiell-123,JS 8 / 3,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc
+        axiell-123,JS8/3/2/1,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc
         """)
         data_set = pd.read_csv(StringIO(csv_data))
         pa_args = SimpleNamespace(
@@ -86,10 +86,10 @@ class Test(TestCase):
             False, data_set.iloc[0], pa_args
         )
 
-        self.assertEqual("JS 8", metadata["Series"])
+        self.assertEqual("JS8/3", metadata["Series"])
         self.assertEqual("axiell-123", metadata["UUID"])
         self.assertEqual("evid0001.pdf", metadata["Filename"])
-        self.assertEqual("3", metadata["FileReference"])
+        self.assertEqual("2/1", metadata["FileReference"])
         self.assertEqual(
             "d:\\js\\3\\1\\evid0001.pdf",
             metadata["ClientSideOriginalFilepath"],
@@ -99,7 +99,7 @@ class Test(TestCase):
             metadata["checksum_sha256"],
         )
         self.assertEqual("Some description from discovery", metadata["description"])
-        mock_description.assert_called_once_with("JS 8 / 3")
+        mock_description.assert_called_once_with("JS8/3/2/1")
 
     @patch("discovery_client.get_title_and_description")
     @patch("discovery_client.get_former_references")
