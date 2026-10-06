@@ -62,6 +62,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               s3FilesMap <- listS3Objects(fileLocation.getHost, potentialFilesPrefix.getOrElse(assetMetadata.id.toString))
               contentFolderKey <- config.sourceSystem match {
                 case SourceSystem.ADHOC => IO.pure(s"$series$defaultFolderName")
+                case SourceSystem.PA => IO.pure(s"$series${firstPackageMetadata.fileReference}")
                 case _                  =>
                   IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
                     new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
