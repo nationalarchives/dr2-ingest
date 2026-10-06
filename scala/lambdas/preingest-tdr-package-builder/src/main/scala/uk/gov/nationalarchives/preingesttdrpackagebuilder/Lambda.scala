@@ -221,6 +221,9 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
             packageMetadata.formerRefDept.map(frd => List(IdField(formerRefDeptIdKey, frd))).getOrElse(Nil) ++
             packageMetadata.formerRefTNA.map(frt => List(IdField(formerRefTnaIdKey, frt))).getOrElse(Nil) ++
             packageMetadata.IAID.map(iaid => IdField(discoveryIaidKey, iaid)).toList
+        case SourceSystem.PA =>
+            IdField(upstreamSystemRefIdKey, s"$series/${packageMetadata.fileReference}") ::
+              packageMetadata.IAID.map(iaid => IdField(discoveryIaidKey, iaid)).toList
         case _ => Nil
       }
       val digitalAssetSource = packageMetadata.digitalAssetSource.getOrElse("Born Digital")
