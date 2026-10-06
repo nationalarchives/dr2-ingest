@@ -28,11 +28,12 @@ def create_intermediate_metadata_dict(description_override, row, args):
         discovery_iaid = ""
     series_end_index = 2 if source_system == "PA" else 1
     series = "/".join(catalogue_ref.split("/")[0:series_end_index]).strip()
-    metadata_uuid = row["axiell_ID"] if source_system == "PA" else str(uuid.uuid4())
+    iaid = row["calm_ref"] if row.get("calm_ref", "").strip() != "" else discovery_iaid
+    metadata_uuid = str(uuid.uuid4())
     metadata = {"Series": series, "UUID": metadata_uuid, "fileId": str(uuid.uuid4()),
                 "description": description_to_use, "Filename": get_filename_from_cross_platform_path(file_path),
                 "FileReference": catalogue_ref.removeprefix(series).strip().removeprefix("/").strip(),
-                "ClientSideOriginalFilepath": file_path, "IAID": discovery_iaid,
+                "ClientSideOriginalFilepath": file_path, "IAID": iaid,
                 "formerRefDept": "" if former_ref_dept is None else former_ref_dept,
                 "formerRefTNA": "" if former_ref_tna is None else former_ref_tna}
 

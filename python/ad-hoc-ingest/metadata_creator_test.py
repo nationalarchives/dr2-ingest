@@ -72,8 +72,8 @@ class Test(TestCase):
             "some_id", None, "Some description from discovery"
         )
         csv_data = textwrap.dedent("""\
-        axiell_ID,catalogue_reference,file_name,checksum
-        axiell-123,JS8/3/2/1,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc
+        calm_ref,catalogue_reference,file_name,checksum
+        calm-123,JS8/3/2/1,d:\\js\\3\\1\\evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc
         """)
         data_set = pd.read_csv(StringIO(csv_data))
         pa_args = SimpleNamespace(
@@ -87,9 +87,9 @@ class Test(TestCase):
         )
 
         self.assertEqual("JS8/3", metadata["Series"])
-        self.assertEqual("axiell-123", metadata["UUID"])
         self.assertEqual("evid0001.pdf", metadata["Filename"])
         self.assertEqual("2/1", metadata["FileReference"])
+        self.assertEqual("calm-123", metadata["IAID"])
         self.assertEqual(
             "d:\\js\\3\\1\\evid0001.pdf",
             metadata["ClientSideOriginalFilepath"],
@@ -100,6 +100,29 @@ class Test(TestCase):
         )
         self.assertEqual("Some description from discovery", metadata["description"])
         mock_description.assert_called_once_with("JS8/3/2/1")
+
+    @patch("discovery_client.get_title_and_description")
+    @patch("discovery_client.get_former_references")
+    def test_iaid_should_come_from_discovery_if_iaid_is_not_set(
+            self, mock_former_references, mock_description
+    ):
+        mock_former_references.return_value = RecordDetails("Dept Ref", "TNA Ref")
+        mock_description.return_value = CollectionInfo(
+            "some_id", None, "Some description from discovery"
+        )
+
+        pa_args = SimpleNamespace(
+            environment="test",
+            input="/home/users/input-file.csv",
+            source_system="PA",
+        )
+        row = {"calm_ref": "", "catalogue_reference": "JS8/3/2/1", "file_name": "evid0001.pdf", "checksum": "9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc"}
+
+        metadata = metadata_creator.create_intermediate_metadata_dict(
+            False, row, pa_args
+        )
+        self.assertEqual("some_id", metadata["IAID"])
+
 
     @patch("discovery_client.get_title_and_description")
     @patch("discovery_client.get_former_references")
@@ -251,24 +274,6 @@ class Test(TestCase):
             mock_title_and_description.assert_not_called()
             self.assertEqual("Born Digital", metadata["digitalAssetSource"])
 
-
-    @patch("discovery_client.get_title_and_description")
-    @patch("discovery_client.get_former_references")
-    def test_create_metadata_should_use_the_id_from_the_csv_if_source_system_is_pa(self, mock_former_ref, mock_description):
-        mock_former_ref.return_value = RecordDetails("A", "B")
-        mock_description.return_value = CollectionInfo("some_id", "A title", "A description")
-
-        csv_data = """axiell_ID,catalogue_reference,file_name,checksum
-            id1,REF/1,evid0001.pdf,9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc""".replace(" ", "")
-        data_set = pd.read_csv(StringIO(csv_data))
-        for index, row in data_set.iterrows():
-            args = SimpleNamespace(
-                environment="test",
-                input="/home/users/input-file.csv",
-                source_system="PA"
-            )
-            metadata = metadata_creator.create_intermediate_metadata_dict(False, row, args)
-            self.assertEqual("id1", metadata["UUID"])
 
     def test_create_upload_metadata_should_create_correct_metadata_based_on_the_intermediate_metadata_row(self):
         intermediate_metadata = textwrap.dedent("""\

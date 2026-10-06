@@ -31,7 +31,7 @@ class Test(TestCase):
         JS 8/5,duplicate_value_allowed_here,{self.tmp3},c74daf9d9a4063bdfbf1fd234ac529d120203e04af7c4e60b3236c76f37fff90,something_else"""
         self.valid_data_set = pd.read_csv(StringIO(csv_data))
 
-        pa_csv_data = f"""axiell_ID,catalogue_reference,file_name,checksum
+        pa_csv_data = f"""calm_ref,catalogue_reference,file_name,checksum
         1,JS 8/3,{self.tmp1},9584816fad8b38a8057a4bb90d5998b8679e6f7652bbdc71fc6a9d07f73624fc
         2,JS 8/4,{self.tmp2},checksum_1234567890
         3,JS 8/5,{self.tmp3},c74daf9d9a4063bdfbf1fd234ac529d120203e04af7c4e60b3236c76f37fff90"""
@@ -218,12 +218,12 @@ class Test(TestCase):
 
         self.assertEqual(
             "Input file is missing one or more of the required columns: "
-            "('axiell_ID', 'catalogue_reference', 'file_name', 'checksum')",
+            "('calm_ref', 'catalogue_reference', 'file_name', 'checksum')",
             str(exc.exception),
         )
 
     def test_should_allow_duplicate_entries_in_pa_columns(self):
-        csv_data = f"""axiell_ID,catalogue_reference,file_name,checksum
+        csv_data = f"""calm_ref,catalogue_reference,file_name,checksum
         1,JS 8/3,{self.tmp1},checksum_one
         1,JS 8/3,{self.tmp1},checksum_one"""
         data_set = pd.read_csv(StringIO(csv_data))
@@ -238,15 +238,15 @@ class Test(TestCase):
         self.assertNotIn("duplicate entries", console_out.getvalue())
 
     def test_should_not_allow_empty_values_in_required_pa_columns(self):
-        columns = ("axiell_ID", "catalogue_reference", "file_name", "checksum")
+        columns = ("calm_ref", "catalogue_reference", "file_name", "checksum")
 
         for empty_column in columns:
             with self.subTest(empty_column=empty_column):
-                values = {"axiell_ID": "1", "catalogue_reference": "JS 8/3", "file_name": self.tmp1,
+                values = {"calm_ref": "1", "catalogue_reference": "JS 8/3", "file_name": self.tmp1,
                           "checksum": "checksum_one", empty_column: ""}
                 csv_data = (
-                    "axiell_ID,catalogue_reference,file_name,checksum\n"
-                    f"{values['axiell_ID']},{values['catalogue_reference']},"
+                    "calm_ref,catalogue_reference,file_name,checksum\n"
+                    f"{values['calm_ref']},{values['catalogue_reference']},"
                     f"{values['file_name']},{values['checksum']}"
                 )
                 data_set = pd.read_csv(StringIO(csv_data))
@@ -262,7 +262,7 @@ class Test(TestCase):
                 )
 
     def test_should_use_pa_file_name_column_when_reporting_missing_files(self):
-        csv_data = """axiell_ID,catalogue_reference,file_name,checksum
+        csv_data = """calm_ref,catalogue_reference,file_name,checksum
         1,JS 8/3,non-existent-file1.txt,checksum_one
         2,JS 8/4,non-existent-file2.txt,checksum_two"""
         data_set = pd.read_csv(StringIO(csv_data))
