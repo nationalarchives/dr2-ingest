@@ -24,7 +24,6 @@
         "arn:aws:events:eu-west-2:${account_id}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
         "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_asset_opex_creator_lambda_name}:*",
         "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_asset_reconciler_lambda_name}:*",
-        "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_find_existing_asset_lambda_name}:*",
         "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_flow_control_lambda_name}:*",
         "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_folder_opex_creator_lambda_name}:*",
         "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_mapper_lambda_name}:*",

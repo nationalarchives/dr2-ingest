@@ -26,7 +26,12 @@
       "Resource": [
         "${queue_arn}"
       ],
-      "Sid": "readFromInputQueue"
+      "Sid": "readFromInputQueue",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": [
@@ -37,7 +42,12 @@
       "Resource": [
         "${ingest_sfn_arn}"
       ],
-      "Sid": "sendTaskSuccessOrFailure"
+      "Sid": "sendTaskSuccessOrFailure",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
     },
     {
       "Action": "secretsmanager:GetSecretValue",

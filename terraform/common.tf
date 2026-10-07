@@ -33,8 +33,8 @@ locals {
   creator                                              = "dr2-terraform-environments"
   sse_encryption                                       = "sse"
   visibility_timeout                                   = 180
-  redrive_maximum_receives                             = 5
   tre_environment_name                                 = local.environment == "intg" ? "int" : local.environment
+  find_asset_heartbeat                                 = 1200
   nacl_inbound_from_subnet_https = [for idx, cidr in module.vpc.private_cidr_blocks : {
     rule_no    = 100 * (idx + 2)
     cidr_block = cidr
@@ -539,6 +539,7 @@ module "dr2_ingest_step_function" {
     retry_statement                                   = local.retry_statement
     postingest_table_name                             = module.postingest.postingest_table_name
     alias_name                                        = local.lambda_alias_name
+    find_asset_heartbeat                              = local.find_asset_heartbeat
   })
   step_function_name = local.ingest_step_function_name
   step_function_role_policy_attachments = {
@@ -596,7 +597,6 @@ module "dr2_ingest_step_function_policy" {
     ingest_validate_generic_ingest_inputs_lambda_name = local.ingest_validate_generic_ingest_inputs_lambda_name
     ingest_mapper_lambda_name                         = local.ingest_mapper_lambda_name
     ingest_upsert_archive_folders_lambda_name         = local.ingest_upsert_archive_folders_lambda_name
-    ingest_find_existing_asset_lambda_name            = local.ingest_find_existing_asset_name
     ingest_asset_opex_creator_lambda_name             = local.ingest_asset_opex_creator_lambda_name
     ingest_folder_opex_creator_lambda_name            = local.ingest_folder_opex_creator_lambda_name
     ingest_parent_folder_opex_creator_lambda_name     = local.ingest_parent_folder_opex_creator_lambda_name

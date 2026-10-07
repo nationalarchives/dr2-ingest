@@ -69,7 +69,7 @@
           "Check if asset has already been ingested": {
             "Type": "Task",
             "Resource": "arn:aws:states:::sqs:sendMessage.waitForTaskToken",
-            "HeartbeatSeconds": 1200,
+            "HeartbeatSeconds": ${find_asset_heartbeat},
             "Parameters": {
               "QueueUrl": "${ingest_find_existing_asset_name_queue_url}",
               "MessageBody": {

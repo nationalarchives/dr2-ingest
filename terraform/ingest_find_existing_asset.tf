@@ -54,8 +54,8 @@ module "ingest_find_existing_asset_queue" {
     account_id = data.aws_caller_identity.current.account_id,
     queue_name = local.ingest_find_existing_asset_name
   })
+  message_retention_seconds                         = local.find_asset_heartbeat
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
-  redrive_maximum_receives                          = local.redrive_maximum_receives
   visibility_timeout                                = 300
   encryption_type                                   = local.sse_encryption
   create_dlq                                        = false
