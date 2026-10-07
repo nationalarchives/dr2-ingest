@@ -13,6 +13,7 @@ jobs:
         environment: [intg, staging]
     env:
       DISABLED: ${{ github.event.schedule == '0 20 * * MON-FRI' }}
+      ENVIRONMENT: ${{ matrix.environment }}
     runs-on: ubuntu-latest
     steps:
       - env:
@@ -22,9 +23,9 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           -H "X-GitHub-Api-Version: 2026-03-10" \
           /repos/nationalarchives/dr2-runbooks/actions/workflows/pause_and_resume_ingest.yml/dispatches \
-          -f 'ref=main' \
-          -f 'inputs[environment]=${{ matrix.environment }}' \
-          -f 'inputs[pause]=${{ env.DISABLED }}'
+          -f "ref=main" \
+          -f "inputs[environment]=$ENVIRONMENT" \
+          -f "inputs[pause]=$DISABLED"
   apply:
     needs: pause-ingest
     environment: ${{ matrix.environment }}
