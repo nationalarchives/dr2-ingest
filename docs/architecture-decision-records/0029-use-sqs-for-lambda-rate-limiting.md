@@ -47,7 +47,7 @@ SQS Queue with the Lambda event and a Task Token. The Step Function will send on
 Run which will contain an array of Asset IDs, the length of this array is managed by the
 `ItemBatcher` within the Step Function definition. The Lambda Function will be modified to expect an
 SQS event containing this message, process the assets, and then use the Task Token to report back to
-the Step Function. For added protection, the Step Function State will be configured with a timeout
+the Step Function. For added protection, the Step Function State will be configured with a heartbeat
 to ensure it does not wait indefinitely for the Lambda to complete.
 
 This approach provides both rate limiting and buffering. The SQS Queue will absorb bursts of
@@ -59,7 +59,7 @@ be notified of failures/lost messages through our existing alerts for Step Funct
 This option will introduce latency and complexity, with a new architectural pattern involving SQS
 and Event Source Mappings for the Lambda Function. Although we will try to catch errors within the
 Lambda Function and SendTaskFailure back to the Step Function, some errors, like Lambda Function
-timeouts, will not report back to the Step Function, relying on the configured Step Function timeout
+timeouts, will not report back to the Step Function, relying on the configured Step Function heartbeat
 instead.
 
 
