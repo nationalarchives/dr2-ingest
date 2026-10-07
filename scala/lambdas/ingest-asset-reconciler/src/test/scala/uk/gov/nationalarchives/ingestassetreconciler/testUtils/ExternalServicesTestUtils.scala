@@ -14,8 +14,8 @@ import uk.gov.nationalarchives.dp.client.Client.{BitStreamInfo, Fixity}
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.InformationObject
 import uk.gov.nationalarchives.dp.client.EntityClient.GenerationType.Original
-import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntitiesUpdated, EntityType, UpdateEntityRequest, Identifier as PreservicaIdentifier}
-import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
+import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntitiesUpdated, EntityType, Generation, UpdateEntityRequest, Identifier as PreservicaIdentifier}
+import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, EntityClient}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{Identifier as DynamoIdentifier, *}
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.FileRepresentationType.*
@@ -77,8 +77,6 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
         existing.flatMap(_.contentObjects).filter(_.entity.ref == contentRef).flatMap(_.bitstreams)
       }
 
-      override def streamAllEntityRefs(repTypeFilter: Option[EntityClient.RepresentationType]): fs2.Stream[IO, Entities.EntityRef] = fs2.Stream.empty[IO]
-
       override def getEntity(entityRef: UUID, entityType: EntityType): IO[Entity] = notImplemented
 
       override def getEntityIdentifiers(entity: Entity): IO[Seq[IdentifierResponse]] = notImplemented
@@ -120,6 +118,10 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
       override def addIdentifierForEntity(entityRef: UUID, entityType: EntityType, identifier: PreservicaIdentifier): IO[String] = notImplemented
 
       override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = notImplemented
+
+      def bitstreamForAsset(entityRef: java.util.UUID): cats.effect.IO[Seq[uk.gov.nationalarchives.dp.client.Client.BitStreamInfo]] = IO.stub
+
+      def getAllAssetIds(maxConcurrency: Int): fs2.Stream[cats.effect.IO, java.util.UUID] = fs2.Stream.empty
     }
 
   def entity(title: Option[String] = None): Entity = Entity(
@@ -136,12 +138,12 @@ object ExternalServicesTestUtils extends AnyFlatSpec with TableDrivenPropertyChe
   def bitstreamInfo(checksum: Option[String], title: Option[String]): BitStreamInfo = BitStreamInfo(
     s"${UUID.randomUUID}.json",
     1235,
-    "http://localhost/api/entity/content-objects/4dee285b-64e4-49f8-942e-84ab460b5af6/generations/1/bitstreams/1/content",
+    Option("http://localhost/api/entity/content-objects/4dee285b-64e4-49f8-942e-84ab460b5af6/generations/1/bitstreams/1/content"),
     List(Fixity("SHA256", checksum.getOrElse("checksum")), Fixity("SHA1", checksum.getOrElse("checksum2"))),
-    1,
-    Original,
     title,
-    None
+    None,
+    Generation(ZonedDateTime.now, Original, 1),
+    UUID.randomUUID
   )
 
   def generateFullEntity(assetId: UUID, title: Option[String] = None, checksum: Option[String] = None): FullEntity = {

@@ -1,6 +1,7 @@
 package uk.gov.nationalarchives.ingestfindexistingasset
 
 import org.scalatest.matchers.should.Matchers.*
+import software.amazon.awssdk.services.sfn.model.TaskDoesNotExistException
 import uk.gov.nationalarchives.dp.client.EntityClient.EntityType.*
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.ArchiveFolder
 import uk.gov.nationalarchives.ingestfindexistingasset.testUtils.ExternalServicesTestUtils
@@ -8,46 +9,70 @@ import uk.gov.nationalarchives.ingestfindexistingasset.testUtils.ExternalService
 class LambdaTest extends ExternalServicesTestUtils {
 
   "handler" should "return an error if the asset is not found in dynamo" in {
-    val (_, _, results) = runLambda(Nil, Nil)
-    results.left.value.getMessage should equal(s"No asset found for $assetId from $batchId")
+    val lambdaTestOutput = runLambda(Nil, Nil)
+    lambdaTestOutput.sfnSendFailureOutput.head.error should equal(s"No asset found for $assetId from $batchId")
   }
 
   "handler" should "return an error if the dynamo entry does not have a type of 'asset'" in {
-    val (_, _, results) = runLambda(List(generateAsset.copy(`type` = ArchiveFolder)), Nil)
-    results.left.value.getMessage should equal(s"Object $assetId is of type ArchiveFolder and not 'Asset'")
+    val lambdaTestOutput = runLambda(List(generateAsset.copy(`type` = ArchiveFolder)), Nil)
+    lambdaTestOutput.sfnSendFailureOutput.head.error should equal(s"Object $assetId is of type ArchiveFolder and not 'Asset'")
   }
 
   "handler" should "return an error if the entity client returns an error" in {
-    val (_, _, results) = runLambda(List(generateAsset), Nil, apiError = true)
-    results.left.value.getMessage should equal("API has encountered an error")
+    val lambdaTestOutput = runLambda(List(generateAsset), Nil, apiError = true)
+    lambdaTestOutput.sfnSendFailureOutput.head.error should equal("API has encountered an error")
   }
 
   "handler" should "return an error if the update call to dynamo db returns an error" in {
-    val (_, _, results) = runLambda(List(generateAsset), Nil, dynamoError = true)
-    results.left.value.getMessage should equal(s"${config.dynamoTableName} not found")
+    val lambdaTestOutput = runLambda(List(generateAsset), Nil, dynamoError = true)
+    lambdaTestOutput.sfnSendFailureOutput.head.error should equal(s"${config.dynamoTableName} not found")
+  }
+
+  "handler" should "return an error if sendTaskSuccess returns an error" in {
+    val lambdaTestOutput = runLambda(List(generateAsset), Nil, sfnSuccessError = true)
+    lambdaTestOutput.sfnSendFailureOutput.head.error should equal("Failure sending task success for task token taskToken")
+  }
+
+  "handler" should "raise an error if sendTaskFailure returns an error" in {
+    val error = intercept[Exception] {
+      runLambda(Nil, Nil, sfnFailureError = true)
+    }
+    error.getMessage should equal("Failure sending task failure for task token taskToken")
+  }
+
+  "handler" should "raise an error if an invalid task token is passed in the input" in {
+    val error = intercept[TaskDoesNotExistException] {
+      runLambda(List(generateAsset), Nil, sqsEvent = invalidSqsEvent)
+    }
+    error.getMessage should equal("sendTaskFailure failed. Task token invalidTaskToken does not exist")
   }
 
   List(Some(ContentObject), Some(StructuralObject), None).foreach { unexpectedEntityType =>
     "handler" should s"return 'assetExists' value of 'false' if the SourceID lookup returned a non-IO type like $unexpectedEntityType" in {
       val asset = generateAsset
       val entity = generateEntity(asset.id.toString, unexpectedEntityType)
-      val (_, items, res) = runLambda(List(asset), List(entity))
-      res.value.items.head.assetExists should equal(false)
-      items.head.skipIngest should equal(false)
+      val lambdaTestOutput = runLambda(List(asset), List(entity))
+
+      lambdaTestOutput.stateOutput.head.items.head.assetExists should equal(false)
+      lambdaTestOutput.dynamoItems.head.skipIngest should equal(false)
     }
   }
 
   "handler" should "not update skipIngest and return an assetExists value of 'false' if the identifier is not found" in {
-    val (_, items, res) = runLambda(List(generateAsset), Nil)
-    res.value.items.head.assetExists should equal(false)
-    items.head.skipIngest should equal(false)
+    val lambdaTestOutput = runLambda(List(generateAsset), Nil)
+    lambdaTestOutput.stateOutput.head.items.head.assetExists should equal(false)
+    lambdaTestOutput.stateOutput.head.items.head.batchId should equal(input.Items.head.batchId)
+    lambdaTestOutput.stateOutput.head.items.head.id should equal(input.Items.head.id)
+    lambdaTestOutput.dynamoItems.head.skipIngest should equal(false)
   }
 
   "handler" should "update skipIngest and return an assetExists value of 'true' if the identifier is not found" in {
     val asset = generateAsset
     val entity = generateEntity(asset.id.toString)
-    val (_, items, res) = runLambda(List(asset), List(entity))
-    res.value.items.head.assetExists should equal(true)
-    items.head.skipIngest should equal(true)
+    val lambdaTestOutput = runLambda(List(asset), List(entity))
+    lambdaTestOutput.stateOutput.head.items.head.assetExists should equal(true)
+    lambdaTestOutput.stateOutput.head.items.head.batchId should equal(input.Items.head.batchId)
+    lambdaTestOutput.stateOutput.head.items.head.id should equal(input.Items.head.id)
+    lambdaTestOutput.dynamoItems.head.skipIngest should equal(true)
   }
 }

@@ -11,6 +11,7 @@ import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.sns.model.PublishBatchResponse
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
+import uk.gov.nationalarchives.dp.client.Client.BitStreamInfo
 import uk.gov.nationalarchives.{DADynamoDBClient, DASNSClient}
 import uk.gov.nationalarchives.dp.client.DataProcessor.EventAction
 import uk.gov.nationalarchives.dp.client.Entities.Entity
@@ -50,8 +51,6 @@ object ExternalServicesTestUtils {
 
       override def getEntityIdentifiers(entity: Entity): IO[Seq[Entities.IdentifierResponse]] = notImplemented
 
-      override def streamAllEntityRefs(repTypeFilter: Option[EntityClient.RepresentationType]): fs2.Stream[IO, Entities.EntityRef] = fs2.Stream.empty[IO]
-
       override def getUrlsToIoRepresentations(ioEntityRef: UUID, representationType: Option[EntityClient.RepresentationType]): IO[Seq[String]] = notImplemented
 
       override def getContentObjectsFromRepresentation(ioEntityRef: UUID, representationType: EntityClient.RepresentationType, repTypeIndex: Int): IO[Seq[Entity]] = notImplemented
@@ -77,6 +76,10 @@ object ExternalServicesTestUtils {
       override def addIdentifierForEntity(entityRef: UUID, entityType: EntityClient.EntityType, identifier: EntityClient.Identifier): IO[String] = notImplemented
 
       override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = notImplemented
+
+      override def bitstreamForAsset(entityRef: java.util.UUID): IO[Seq[BitStreamInfo]] = IO.stub
+
+      override def getAllAssetIds(maxConcurrency: Int): fs2.Stream[IO, UUID] = fs2.Stream.empty
 
   def dynamoClient(ref: Ref[IO, List[(String, Int)]], errors: Option[Errors]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
     override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
