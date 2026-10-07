@@ -26,12 +26,7 @@
       "Resource": [
         "${queue_arn}"
       ],
-      "Sid": "readFromInputQueue",
-      "Condition":  {
-        "StringEquals": {
-          "aws:SourceVpc": "${vpc_id}"
-        }
-      }
+      "Sid": "readFromInputQueue"
     },
     {
       "Action": [
