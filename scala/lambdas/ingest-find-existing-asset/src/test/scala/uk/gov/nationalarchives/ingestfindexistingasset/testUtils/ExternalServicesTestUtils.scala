@@ -2,14 +2,20 @@ package uk.gov.nationalarchives.ingestfindexistingasset.testUtils
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Ref}
+import io.circe.syntax.given
+import io.circe.generic.auto.*
+import com.amazonaws.services.lambda.runtime.events.SQSEvent
+import com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage
+import io.circe.Encoder
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.{BatchWriteItemResponse, ResourceNotFoundException}
+import software.amazon.awssdk.services.sfn.model.{StartExecutionResponse, TaskDoesNotExistException}
 import sttp.capabilities
 import sttp.capabilities.fs2.Fs2Streams
-import uk.gov.nationalarchives.DADynamoDBClient
+import uk.gov.nationalarchives.{DADynamoDBClient, DASFNClient}
 import uk.gov.nationalarchives.dp.client.Client.BitStreamInfo
 import uk.gov.nationalarchives.dp.client.Entities.{Entity, IdentifierResponse}
 import uk.gov.nationalarchives.dp.client.EntityClient.{AddEntityRequest, EntitiesUpdated, EntityType, Identifier, UpdateEntityRequest, Identifier as PreservicaIdentifier}
@@ -21,13 +27,14 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.Type.*
 import uk.gov.nationalarchives.ingestfindexistingasset.Lambda
 import uk.gov.nationalarchives.ingestfindexistingasset.Lambda.*
 
+import scala.jdk.CollectionConverters.*
 import java.time.{OffsetDateTime, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
 
-  val input: Input = Input(List(InputItems(UUID.randomUUID, "batchId")))
+  val input: Input = Input(List(InputItems(UUID.randomUUID, "batchId")), "taskToken")
   val firstItem: InputItems = input.Items.head
   val assetId: UUID = firstItem.id
   val batchId: String = firstItem.batchId
@@ -70,7 +77,33 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
 
   case class EntityWithIdentifiers(entity: Entity, identifiers: List[PreservicaIdentifier])
 
+  case class SfnSendFailureOutput(taskToken: String, error: String)
+
   def notImplemented[T]: IO[T] = IO.raiseError(new Exception("Not implemented"))
+
+  def sfnClient(ref: Ref[IO, List[StateOutput]], sfnSendFailureOutputRef: Ref[IO, List[SfnSendFailureOutput]], successError: Boolean, failureError: Boolean): DASFNClient[IO] =
+    new DASFNClient[IO] {
+      override def startExecution[T <: Product](stateMachineArn: String, input: T, name: Option[String])(using enc: Encoder[T]): IO[StartExecutionResponse] = IO.stub
+
+      override def listStepFunctions(stepFunctionArn: String, status: DASFNClient.Status): IO[List[String]] = IO.stub
+
+      override def sendTaskSuccess[T: Encoder](taskToken: String, potentialOutput: Option[T]): IO[Unit] =
+        if taskToken != input.taskToken then IO.raiseError(TaskDoesNotExistException.builder.message(s"sendTaskSuccess failed. Task token $taskToken does not exist").build)
+        else if successError then IO.raiseError(new Exception(s"Failure sending task success for task token $taskToken"))
+        else
+          ref.update { sentOutputs =>
+            potentialOutput.get.asInstanceOf[StateOutput] :: sentOutputs
+          }
+
+      override def sendTaskFailure(taskToken: String, potentialError: Option[String]): IO[Unit] = {
+        if taskToken != input.taskToken then IO.raiseError(TaskDoesNotExistException.builder.message(s"sendTaskFailure failed. Task token $taskToken does not exist").build)
+        else if failureError then IO.raiseError(new Exception(s"Failure sending task failure for task token $taskToken"))
+        else
+          sfnSendFailureOutputRef.update { existing =>
+            SfnSendFailureOutput(taskToken, potentialError.getOrElse("")) :: existing
+          }
+      }
+    }
 
   def dynamoClient(ref: Ref[IO, List[AssetDynamoItem]], dynamoError: Boolean): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
     override def deleteItems[T](tableName: String, primaryKeyAttributes: List[T])(using DynamoFormat[T]): IO[List[BatchWriteItemResponse]] = notImplemented
@@ -145,16 +178,49 @@ class ExternalServicesTestUtils extends AnyFlatSpec with EitherValues {
       override def getAllAssetIds(maxConcurrency: Int): fs2.Stream[IO, UUID] = fs2.Stream.empty
     }
 
+  val sqsEvent: SQSEvent = {
+    val sqsEvent = new SQSEvent()
+    val sqsMessage = new SQSMessage()
+    sqsMessage.setBody(input.asJson.noSpaces)
+    sqsEvent.setRecords(List(sqsMessage).asJava)
+    sqsEvent
+  }
+
+  val invalidSqsEvent: SQSEvent = {
+    val sqsEvent = new SQSEvent()
+    val sqsMessage = new SQSMessage()
+    sqsMessage.setBody(input.copy(taskToken = "invalidTaskToken").asJson.noSpaces)
+    sqsEvent.setRecords(List(sqsMessage).asJava)
+    sqsEvent
+  }
+
+  case class LambdaTestOutput(
+      entities: List[EntityWithIdentifiers],
+      dynamoItems: List[AssetDynamoItem],
+      stateOutput: List[StateOutput],
+      sfnSendFailureOutput: List[SfnSendFailureOutput]
+  )
+
   def runLambda(
       items: List[AssetDynamoItem],
       entities: List[EntityWithIdentifiers],
       dynamoError: Boolean = false,
-      apiError: Boolean = false
-  ): (List[EntityWithIdentifiers], List[AssetDynamoItem], Either[Throwable, StateOutput]) = (for {
+      apiError: Boolean = false,
+      sfnSuccessError: Boolean = false,
+      sfnFailureError: Boolean = false,
+      sqsEvent: SQSEvent = sqsEvent
+  ): LambdaTestOutput = (for {
     itemsRef <- Ref.of[IO, List[AssetDynamoItem]](items)
     entitiesRef <- Ref.of[IO, List[EntityWithIdentifiers]](entities)
-    res <- Lambda().handler(input, config, Dependencies(preservicaClient(entitiesRef, apiError), dynamoClient(itemsRef, dynamoError))).attempt
+    sfnOutputRef <- Ref.of[IO, List[StateOutput]](Nil)
+    sfnErrorsRef <- Ref.of[IO, List[SfnSendFailureOutput]](Nil)
+    dynamo = dynamoClient(itemsRef, dynamoError)
+    sfn = sfnClient(sfnOutputRef, sfnErrorsRef, sfnSuccessError, sfnFailureError)
+    dependencies = Dependencies(preservicaClient(entitiesRef, apiError), dynamo, sfn)
+    res <- Lambda().handler(sqsEvent, config, dependencies)
     entities <- entitiesRef.get
     items <- itemsRef.get
-  } yield (entities, items, res)).unsafeRunSync()
+    sfnOutput <- sfnOutputRef.get
+    sfnErrors <- sfnErrorsRef.get
+  } yield LambdaTestOutput(entities, items, sfnOutput, sfnErrors)).unsafeRunSync()
 }

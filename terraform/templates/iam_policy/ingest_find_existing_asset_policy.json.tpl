@@ -17,6 +17,34 @@
       }
     },
     {
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:DeleteMessage"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "${queue_arn}"
+      ],
+      "Sid": "readFromInputQueue"
+    },
+    {
+      "Action": [
+        "states:SendTaskSuccess",
+        "states:SendTaskFailure"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "${ingest_sfn_arn}"
+      ],
+      "Sid": "sendTaskSuccessOrFailure",
+      "Condition":  {
+        "StringEquals": {
+          "aws:SourceVpc": "${vpc_id}"
+        }
+      }
+    },
+    {
       "Action": "secretsmanager:GetSecretValue",
       "Effect": "Allow",
       "Resource": "${secrets_manager_secret_arn}",

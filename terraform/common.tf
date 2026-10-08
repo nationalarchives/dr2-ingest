@@ -33,8 +33,8 @@ locals {
   creator                                              = "dr2-terraform-environments"
   sse_encryption                                       = "sse"
   visibility_timeout                                   = 180
-  redrive_maximum_receives                             = 5
   tre_environment_name                                 = local.environment == "intg" ? "int" : local.environment
+  find_asset_heartbeat                                 = 1200
   nacl_inbound_from_subnet_https = [for idx, cidr in module.vpc.private_cidr_blocks : {
     rule_no    = 100 * (idx + 2)
     cidr_block = cidr
@@ -206,12 +206,14 @@ data "aws_ssm_parameter" "slack_webhook_url" {
 data "aws_region" "current" {}
 
 module "vpc" {
-  source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
-  vpc_name                  = "${local.environment}-vpc"
-  az_count                  = local.az_count
-  elastic_ip_allocation_ids = data.aws_eip.eip.*.id
-  use_nat_gateway           = true
-  environment               = local.environment
+  source                         = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
+  vpc_name                       = "${local.environment}-vpc"
+  az_count                       = local.az_count
+  elastic_ip_allocation_ids      = data.aws_eip.eip.*.id
+  use_nat_gateway                = var.disable_networking == false
+  create_s3_gateway_endpoint     = var.disable_networking == false
+  create_dynamo_gateway_endpoint = var.disable_networking == false
+  environment                    = local.environment
   private_nacl_rules = concat([
     { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 443, to_port = 443, egress = true },
     { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = false },
@@ -232,7 +234,7 @@ module "vpc" {
     account_id = data.aws_caller_identity.current.account_id
   })
 
-  interface_endpoints = {
+  interface_endpoints = var.disable_networking ? {} : {
     secretsmanager = {
       name = "com.amazonaws.${local.aws_region_name}.secretsmanager",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
@@ -520,7 +522,7 @@ module "dr2_ingest_step_function" {
     ingest_validate_generic_ingest_inputs_lambda_name = local.ingest_validate_generic_ingest_inputs_lambda_name
     ingest_mapper_lambda_name                         = local.ingest_mapper_lambda_name
     ingest_mapper_lambda_state_name                   = local.ingest_step_function_mapper_lambda_state_name
-    ingest_find_existing_asset_name_lambda_name       = local.ingest_find_existing_asset_name
+    ingest_find_existing_asset_name_queue_url         = module.ingest_find_existing_asset_queue.sqs_queue_url
     ingest_asset_opex_creator_lambda_name             = local.ingest_asset_opex_creator_lambda_name
     ingest_folder_opex_creator_lambda_name            = local.ingest_folder_opex_creator_lambda_name
     ingest_parent_folder_opex_creator_lambda_name     = local.ingest_parent_folder_opex_creator_lambda_name
@@ -539,6 +541,7 @@ module "dr2_ingest_step_function" {
     retry_statement                                   = local.retry_statement
     postingest_table_name                             = module.postingest.postingest_table_name
     alias_name                                        = local.lambda_alias_name
+    find_asset_heartbeat                              = local.find_asset_heartbeat
   })
   step_function_name = local.ingest_step_function_name
   step_function_role_policy_attachments = {
@@ -596,7 +599,6 @@ module "dr2_ingest_step_function_policy" {
     ingest_validate_generic_ingest_inputs_lambda_name = local.ingest_validate_generic_ingest_inputs_lambda_name
     ingest_mapper_lambda_name                         = local.ingest_mapper_lambda_name
     ingest_upsert_archive_folders_lambda_name         = local.ingest_upsert_archive_folders_lambda_name
-    ingest_find_existing_asset_lambda_name            = local.ingest_find_existing_asset_name
     ingest_asset_opex_creator_lambda_name             = local.ingest_asset_opex_creator_lambda_name
     ingest_folder_opex_creator_lambda_name            = local.ingest_folder_opex_creator_lambda_name
     ingest_parent_folder_opex_creator_lambda_name     = local.ingest_parent_folder_opex_creator_lambda_name
@@ -620,6 +622,7 @@ module "dr2_ingest_step_function_policy" {
     preingest_court_document_step_function_arn        = module.court_document_preingest.preingest_sfn_arn
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
     postingest_table_name                             = module.postingest.postingest_table_name
+    ingest_find_existing_asset_queue_arn              = module.ingest_find_existing_asset_queue.sqs_queue.arn
   })
 }
 
