@@ -5,14 +5,14 @@ on:
     - cron: 0 8 * * MON-FRI
 
 permissions: {}
-
+env:
+  DISABLED: ${{ github.event.schedule == '0 20 * * MON-FRI' }}
 jobs:
   pause-ingest:
     strategy:
       matrix:
         environment: [intg, staging]
     env:
-      DISABLED: ${{ github.event.schedule == '0 20 * * MON-FRI' }}
       ENVIRONMENT: ${{ matrix.environment }}
     runs-on: ubuntu-latest
     steps:
