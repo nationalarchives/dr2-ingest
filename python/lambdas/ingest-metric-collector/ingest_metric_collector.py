@@ -1,7 +1,6 @@
 import collections
 import logging
 import os
-from collections import defaultdict
 from datetime import datetime, timezone
 import json
 
@@ -72,8 +71,8 @@ def get_stepfunction_metrics(resources_prefix, source_systems, sfn_state_with_ou
             ingest_executions = [execution for execution in executions
                                  if execution["stateMachineArn"].endswith(f":stateMachine:{resources_prefix}")]
 
-            total_assets_count_per_ss = defaultdict(int)
-            total_bytes_per_ss = defaultdict(int)
+            total_assets_count_per_ss = dict.fromkeys(source_systems, 0)
+            total_bytes_per_ss = dict.fromkeys(source_systems, 0)
             for execution in ingest_executions:
                 history_paginator = sfn_client.get_paginator("get_execution_history")
                 execution_arn = execution["executionArn"]
