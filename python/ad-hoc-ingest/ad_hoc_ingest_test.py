@@ -80,7 +80,7 @@ class Test(TestCase):
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
     @patch("aws_interactions.get_region")
-    def test_should_send_the_files_to_the_s3_bucket_and_send_a_message_to_the_queue(self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+    def test_should_upload_the_file_metadata_and_send_a_queue_message(self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
         mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
@@ -112,14 +112,18 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
         }
 
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  tmp1)
-        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", [expected_metadata])
+        mock_send_message.assert_called_once_with(
+            "someRecordId",
+            "test-dr2-ingest-adhoc-cache",
+            "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer",
+        )
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
     @patch("aws_interactions.get_region")
-    def test_should_send_the_files_to_the_s3_bucket_when_the_data_path_is_relative_to_the_csv_file_and_send_a_message_to_the_queue(self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+    def test_should_upload_a_file_with_a_relative_path_and_send_a_queue_message(self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
         mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
         with open(tmp1, "w") as f:
@@ -152,8 +156,12 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,ad_hoc_ingest_test_fil
 
         resolved_path = str(Path(tmp1).resolve())
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId",  resolved_path)
-        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", [expected_metadata])
+        mock_send_message.assert_called_once_with(
+            "someRecordId",
+            "test-dr2-ingest-adhoc-cache",
+            "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer",
+        )
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
@@ -194,9 +202,12 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,folder1\\folder2/folde
 
         resolved_path = str(Path(tmp1).resolve())
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", resolved_path)
-        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache",
-                                                  "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", [expected_metadata])
+        mock_send_message.assert_called_once_with(
+            "someRecordId",
+            "test-dr2-ingest-adhoc-cache",
+            "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer",
+        )
 
     @patch("aws_interactions.send_sqs_message")
     @patch("aws_interactions.upload_metadata")
@@ -235,10 +246,121 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
 
         resolved_path = str(Path(tmp1).resolve())
         mock_upload_file.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", "someFileId", resolved_path)
-        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", expected_metadata)
-        mock_send_message.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache",
-                                                  "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer")
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-dr2-ingest-adhoc-cache", [expected_metadata])
+        mock_send_message.assert_called_once_with(
+            "someRecordId",
+            "test-dr2-ingest-adhoc-cache",
+            "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer",
+        )
 
+    @patch("aws_interactions.send_sqs_message")
+    @patch("aws_interactions.upload_metadata")
+    @patch("aws_interactions.upload_file")
+    @patch("aws_interactions.get_region")
+    def test_should_upload_all_files_with_the_same_file_reference_as_one_asset(
+        self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message
+    ):
+        mock_region.return_value = "london-town"
+        file_one = os.path.join(self.test_dir, "one.pdf")
+        file_two = os.path.join(self.test_dir, "two.pdf")
+        with open(file_one, "w") as f:
+            f.write("file one")
+        with open(file_two, "w") as f:
+            f.write("file two")
+
+        metadata_csv = (
+            "Series,UUID,fileId,description,Filename,FileReference,"
+            "ClientSideOriginalFilepath,formerRefDept,formerRefTNA,"
+            "checksum_md5,checksum_sha256,IAID,digitalAssetSource\n"
+            f"JS 8,asset-one,file-one,Description,one.pdf,3,{file_one},"
+            "dept_ref,tna_ref,,checksum-one,iaid,Surrogate\n"
+            f"JS 8,asset-two,file-two,Description,two.pdf,4,{file_two},"
+            "dept_ref,tna_ref,,checksum-two,iaid,Surrogate\n"
+            f"JS 8,asset-one,file-three,Description,three.pdf,3,{file_two},"
+            "dept_ref,tna_ref,,checksum-three,iaid,Surrogate\n"
+        )
+        metadata_file = os.path.join(self.test_dir, "metadata_to_ingest.csv")
+        with open(metadata_file, "w") as f:
+            f.write(metadata_csv)
+
+        args = SimpleNamespace(
+            environment="test", input=metadata_file, source_system="ADHOC"
+        )
+        ad_hoc_ingest.upload_files(metadata_file, "123456789", args)
+
+        self.assertEqual(
+            [
+                ("asset-one", "test-dr2-ingest-adhoc-cache", "file-one", str(Path(file_one).resolve())),
+                ("asset-one", "test-dr2-ingest-adhoc-cache", "file-three", str(Path(file_two).resolve())),
+                ("asset-two", "test-dr2-ingest-adhoc-cache", "file-two", str(Path(file_two).resolve())),
+            ],
+            [call.args for call in mock_upload_file.call_args_list],
+        )
+        metadata_by_asset = {
+            call.args[0]: call.args[2] for call in mock_upload_metadata.call_args_list
+        }
+        self.assertEqual(["file-one", "file-three"], [item["fileId"] for item in metadata_by_asset["asset-one"]])
+        self.assertEqual(["file-two"], [item["fileId"] for item in metadata_by_asset["asset-two"]])
+        self.assertEqual(2, mock_upload_metadata.call_count)
+        self.assertEqual(
+            [
+                (
+                    "asset-one",
+                    "test-dr2-ingest-adhoc-cache",
+                    "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer",
+                ),
+                (
+                    "asset-two",
+                    "test-dr2-ingest-adhoc-cache",
+                    "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer",
+                ),
+            ],
+            [call.args for call in mock_send_message.call_args_list],
+        )
+
+    @patch("aws_interactions.send_sqs_message")
+    @patch("aws_interactions.refresh_session")
+    @patch("builtins.input", return_value="")
+    @patch("aws_interactions.upload_metadata")
+    @patch("aws_interactions.upload_file")
+    @patch("aws_interactions.get_region", return_value="london-town")
+    def test_should_retry_file_upload_after_refreshing_the_aws_session(
+        self, _, mock_upload_file, mock_upload_metadata, mock_input, mock_refresh_session,
+        mock_send_message
+    ):
+        file_path = os.path.join(self.test_dir, "retry.pdf")
+        with open(file_path, "w") as f:
+            f.write("file data")
+        metadata_file = os.path.join(self.test_dir, "metadata_to_ingest.csv")
+        with open(metadata_file, "w") as f:
+            f.write(
+                "Series,UUID,fileId,description,Filename,FileReference,"
+                "ClientSideOriginalFilepath,formerRefDept,formerRefTNA,"
+                "checksum_md5,checksum_sha256,IAID,digitalAssetSource\n"
+                f"JS 8,asset-one,file-one,Description,retry.pdf,3,{file_path},"
+                "dept_ref,tna_ref,,checksum,iaid,Surrogate\n"
+            )
+
+        error = ClientError(
+            {"Error": {"Code": "ExpiredToken", "Message": "Token expired"}},
+            "UploadFile",
+        )
+        mock_upload_file.side_effect = [error, None]
+        args = SimpleNamespace(
+            environment="test", input=metadata_file, source_system="ADHOC"
+        )
+
+        ad_hoc_ingest.upload_files(metadata_file, "123456789", args)
+
+        self.assertEqual(2, mock_upload_file.call_count)
+        mock_input.assert_called_once_with("Fix the error and press 'Enter' to continue")
+        mock_refresh_session.assert_called_once_with()
+        mock_upload_metadata.assert_called_once()
+        mock_send_message.assert_called_once_with(
+            "asset-one",
+            "test-dr2-ingest-adhoc-cache",
+            "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-adhoc-importer",
+        )
 
     @patch("aws_interactions.get_account_number")
     @patch("aws_interactions.refresh_session")
@@ -498,4 +620,3 @@ JS 8,someRecordId,someFileId,"Description of Kew, Richmond, London",JS-8-3.pdf,3
         call_main_method_with_predefined_args()
 
         mock_validate_aws_connectivity.assert_called_once()
-

@@ -5,10 +5,10 @@ import pandas
 
 import message_printer as mp
 
-REQUIRED_COLUMNS = {"PA": ("calm_ref", "catalogue_reference","file_name", "checksum"), "ADHOC": ("catRef", "fileName", "checksum")}
+REQUIRED_COLUMNS = {"PA": ("catalogue_reference","file_name", "checksum"), "ADHOC": ("catRef", "fileName", "checksum")}
 UNIQUE_COLUMNS = {"PA": (), "ADHOC": ("catRef", "fileName")}
-UNIQUE_COLUMNS_WARN_ONLY = {"PA": (), "ADHOC": ("checksum")}
-NON_EMPTY_COLUMNS = {"PA":  ("calm_ref", "catalogue_reference","file_name", "checksum"), "ADHOC": ("catRef", "fileName")}
+UNIQUE_COLUMNS_WARN_ONLY = {"PA": (), "ADHOC": "checksum"}
+NON_EMPTY_COLUMNS = {"PA":  ("catalogue_reference","file_name", "checksum"), "ADHOC": ("catRef", "fileName")}
 
 
 def validate_dataset(data_set, input_file_path, source_system, is_dry_run=False):

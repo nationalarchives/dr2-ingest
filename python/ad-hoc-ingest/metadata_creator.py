@@ -53,29 +53,33 @@ def create_intermediate_metadata_dict(description_override, row, args):
 
     return metadata
 
-def create_metadata_for_upload(row):
-    metadata = {
-        "Series": row["Series"],
-        "UUID": row["UUID"],
-        "fileId": row["fileId"],
-        "description": row["description"],
-        "Filename": row["Filename"],
-        "FileReference": row["FileReference"],
-        "ClientSideOriginalFilepath": row["ClientSideOriginalFilepath"],
-    }
-    if row["IAID"] != "":
-        metadata["IAID"] = row["IAID"]
-    if row["digitalAssetSource"] != "":
-        metadata["digitalAssetSource"] = row["digitalAssetSource"]
-    if row["formerRefDept"] != "":
-        metadata["formerRefDept"] = row["formerRefDept"]
-    if row["formerRefTNA"] != "":
-        metadata["formerRefTNA"] = row["formerRefTNA"]
-    if row["checksum_sha256"] == "":
-        metadata["checksum_md5"] = row["checksum_md5"]
-    else:
-        metadata["checksum_sha256"] = row["checksum_sha256"]
-    return metadata
+def create_metadata_for_upload(rows):
+    all_metadata = []
+    for each_row in rows:
+        row = each_row[1]
+        metadata = {
+            "Series": row["Series"],
+            "UUID": row["UUID"],
+            "fileId": row["fileId"],
+            "description": row["description"],
+            "Filename": row["Filename"],
+            "FileReference": row["FileReference"],
+            "ClientSideOriginalFilepath": row["ClientSideOriginalFilepath"],
+        }
+        if row["IAID"] != "":
+            metadata["IAID"] = row["IAID"]
+        if row["digitalAssetSource"] != "":
+            metadata["digitalAssetSource"] = row["digitalAssetSource"]
+        if row["formerRefDept"] != "":
+            metadata["formerRefDept"] = row["formerRefDept"]
+        if row["formerRefTNA"] != "":
+            metadata["formerRefTNA"] = row["formerRefTNA"]
+        if row["checksum_sha256"] == "":
+            metadata["checksum_md5"] = row["checksum_md5"]
+        else:
+            metadata["checksum_sha256"] = row["checksum_sha256"]
+        all_metadata.append(metadata)
+    return all_metadata
 
 field_names = ["Series", "UUID", "fileId", "description", "Filename", "FileReference",
                   "ClientSideOriginalFilepath", "formerRefDept", "formerRefTNA", "checksum_md5", "checksum_sha256", "IAID", "digitalAssetSource"]

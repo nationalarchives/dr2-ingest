@@ -208,9 +208,9 @@ class Test(TestCase):
         self.assertTrue(is_valid)
 
     def test_should_throw_an_exception_when_a_required_pa_column_is_missing(self):
-        csv_data = f"""catalogue_reference,file_name,checksum
-        JS 8/3,{self.tmp1},checksum_one
-        JS 8/4,{self.tmp2},checksum_two"""
+        csv_data = f"""catalogue_reference,file_name
+        JS 8/3,{self.tmp1}
+        JS 8/4,{self.tmp2}"""
         data_set = pd.read_csv(StringIO(csv_data))
 
         with self.assertRaises(Exception) as exc:
@@ -218,14 +218,14 @@ class Test(TestCase):
 
         self.assertEqual(
             "Input file is missing one or more of the required columns: "
-            "('calm_ref', 'catalogue_reference', 'file_name', 'checksum')",
+            "('catalogue_reference', 'file_name', 'checksum')",
             str(exc.exception),
         )
 
     def test_should_allow_duplicate_entries_in_pa_columns(self):
-        csv_data = f"""calm_ref,catalogue_reference,file_name,checksum
-        1,JS 8/3,{self.tmp1},checksum_one
-        1,JS 8/3,{self.tmp1},checksum_one"""
+        csv_data = f"""catalogue_reference,file_name,checksum
+        JS 8/3,{self.tmp1},checksum_one
+        JS 8/3,{self.tmp1},checksum_one"""
         data_set = pd.read_csv(StringIO(csv_data))
 
         console_out = io.StringIO()
@@ -238,15 +238,15 @@ class Test(TestCase):
         self.assertNotIn("duplicate entries", console_out.getvalue())
 
     def test_should_not_allow_empty_values_in_required_pa_columns(self):
-        columns = ("calm_ref", "catalogue_reference", "file_name", "checksum")
+        columns = ("catalogue_reference", "file_name", "checksum")
 
         for empty_column in columns:
             with self.subTest(empty_column=empty_column):
-                values = {"calm_ref": "1", "catalogue_reference": "JS 8/3", "file_name": self.tmp1,
+                values = {"catalogue_reference": "JS 8/3", "file_name": self.tmp1,
                           "checksum": "checksum_one", empty_column: ""}
                 csv_data = (
-                    "calm_ref,catalogue_reference,file_name,checksum\n"
-                    f"{values['calm_ref']},{values['catalogue_reference']},"
+                    "catalogue_reference,file_name,checksum\n"
+                    f"{values['catalogue_reference']},"
                     f"{values['file_name']},{values['checksum']}"
                 )
                 data_set = pd.read_csv(StringIO(csv_data))
@@ -260,6 +260,17 @@ class Test(TestCase):
                     f"The column '{empty_column}' has empty entries",
                     str(exc.exception),
                 )
+
+    def test_should_allow_pa_dataset_without_calm_ref(self):
+        csv_data = f"""catalogue_reference,file_name,checksum
+        JS 8/3,{self.tmp1},checksum_one"""
+        data_set = pd.read_csv(StringIO(csv_data))
+
+        self.assertTrue(
+            dataset_validator.validate_dataset(
+                data_set, "/some/dummy/file.csv", "PA"
+            )
+        )
 
     def test_should_use_pa_file_name_column_when_reporting_missing_files(self):
         csv_data = """calm_ref,catalogue_reference,file_name,checksum

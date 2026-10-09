@@ -18,7 +18,12 @@ class Test(TestCase):
     def test_aws_config_should_return_pa_buckets(self):
         config = aws_config("test", "PA")
 
-        self.assertEqual("pa-transfer-bucket", config.bucket_name)
+        self.assertEqual("test-pa-transfer", config.bucket_name)
+
+    def test_aws_config_should_use_the_environment_for_pa_buckets(self):
+        config = aws_config("prod", "PA")
+
+        self.assertEqual("prod-pa-transfer", config.bucket_name)
 
     def test_aws_config_should_use_environment_for_adhoc_buckets(self):
         config = aws_config("test", "ADHOC")

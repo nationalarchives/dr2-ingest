@@ -18,6 +18,6 @@ def field_mapping(source_system):
 
 def aws_config(environment, source_system):
     return {
-        "PA": AWSConfig("pa-transfer-bucket"),
+        "PA": AWSConfig(f"{environment}-pa-transfer"),
         "ADHOC": AWSConfig(f"{environment}-dr2-ingest-adhoc-cache")
     }[source_system]
