@@ -96,7 +96,8 @@ lazy val commonSettings = Seq(
     httpcore5H2,
     httpClient,
     jawnParser,
-    jacksonCore
+    jacksonCore,
+    jacksonDatabind
   ),
   assembly / assemblyOutputPath := file(s"target/outputs/${name.value}"),
   (assembly / assemblyMergeStrategy) := {
@@ -332,8 +333,7 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
       sttpCirce,
       upickle,
       reactorTest % Test
-    ),
-    dependencyOverrides ++= Seq(jawnParser, jacksonDatabind)
+    )
   )
 
 lazy val postIngestStateChangeHandler = (project in file("postingest-state-change-handler"))
