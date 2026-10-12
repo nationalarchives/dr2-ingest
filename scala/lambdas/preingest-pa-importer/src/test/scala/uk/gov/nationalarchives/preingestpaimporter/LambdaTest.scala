@@ -28,7 +28,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
         "/a/file/path",
         "iaid",
         "digitalAssetSource",
-        "checksum",
+        "checksum"
       )
     )
 
@@ -74,7 +74,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
         "clientSideOriginalFilepath",
         "iaid",
         "digitalAssetSource",
-        "checksum",
+        "checksum"
       )
     )
 
