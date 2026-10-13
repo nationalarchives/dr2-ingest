@@ -958,3 +958,13 @@ module "archivist_sso_policy" {
     environment = local.environment
   })
 }
+
+module "archivist_pa_sso_policy" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
+  name   = "AWSSSO_DAPAArchivist"
+  policy_string = templatefile("${path.module}/templates/iam_policy/archivist_pa_sso_policy.json.tpl", {
+    pa_bucket_name   = local.pa_source_bucket
+    pa_importer_role = module.pa_preingest.importer_lambda_role_arn
+  })
+}
+
