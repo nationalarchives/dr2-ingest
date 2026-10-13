@@ -61,8 +61,8 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
               assetMetadata <- createAsset(firstPackageMetadata, fileName, originalFilePath, metadataId, potentialMessageId)
               s3FilesMap <- listS3Objects(fileLocation.getHost, potentialFilesPrefix.getOrElse(assetMetadata.id.toString))
               contentFolderKey <- config.sourceSystem match {
-                case SourceSystem.ADHOC => IO.pure(s"$series$defaultFolderName")
-                case _                  =>
+                case SourceSystem.ADHOC | SourceSystem.PA => IO.pure(s"$series$defaultFolderName")
+                case _                                    =>
                   IO.fromOption[String](firstPackageMetadata.consignmentReference.orElse(firstPackageMetadata.driBatchReference))(
                     new Exception(s"We need either a consignment reference or DRI batch reference for ${assetMetadata.id}")
                   ).map(reference => s"$series$reference")
@@ -219,6 +219,9 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
           List(IdField(upstreamSystemRefIdKey, s"$series/${packageMetadata.fileReference}")) ++
             packageMetadata.formerRefDept.map(frd => List(IdField(formerRefDeptIdKey, frd))).getOrElse(Nil) ++
             packageMetadata.formerRefTNA.map(frt => List(IdField(formerRefTnaIdKey, frt))).getOrElse(Nil) ++
+            packageMetadata.IAID.map(iaid => IdField(discoveryIaidKey, iaid)).toList
+        case SourceSystem.PA =>
+          IdField(upstreamSystemRefIdKey, s"$series/${packageMetadata.fileReference}") ::
             packageMetadata.IAID.map(iaid => IdField(discoveryIaidKey, iaid)).toList
         case _ => Nil
       }

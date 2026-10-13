@@ -16,7 +16,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues {
     val (_, eventBridgeMessages) = runLambda(2.0)
 
     eventBridgeMessages.length should equal(1)
-    eventBridgeMessages.head should equal("Preservica has upgraded to version 2.0; we are using 7.7 in the EntityClient")
+    eventBridgeMessages.head should equal("Preservica has upgraded to version 2.0; we are using 9.3 in the EntityClient")
   }
 
   "handler" should "not send an SNS message if there is not an update to the version" in {
