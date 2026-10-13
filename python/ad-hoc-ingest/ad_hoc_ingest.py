@@ -39,10 +39,11 @@ def handle_error(client_error, attempt, message):
 
 def upload_files(output_file, account_number, args):
     environment = args.environment
-    config = aws_config(environment, args.source_system)
+    config = aws_config(environment)[args.source_system]
     region = aws_interactions.get_region()
     bucket = config.bucket_name
-    queue_url = f"https://sqs.{region}.amazonaws.com/{account_number}/{environment}-dr2-preingest-{args.source_system.lower()}-importer"
+    queue_name = config.queue_name
+    queue_url = f"https://sqs.{region}.amazonaws.com/{account_number}/{queue_name}"
 
     upload_data_set = pd.read_csv(output_file, dtype=str, keep_default_na=False)
     total = len(upload_data_set)
@@ -51,11 +52,9 @@ def upload_files(output_file, account_number, args):
     for counter, (_, rows) in enumerate(grouped_data_set):
         asset_id = rows.iloc[0]["UUID"]
         metadata = metadata_creator.create_metadata_for_upload(rows.iterrows())
-
         for attempt in range(0,4):
             upload_failed = False
-            for each_row in rows.iterrows():
-                row = each_row[1]
+            for _, row in rows.iterrows():
                 file_id = row["fileId"]
                 client_side_path = row["ClientSideOriginalFilepath"]
                 try:

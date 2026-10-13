@@ -123,6 +123,49 @@ JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_re
     @patch("aws_interactions.upload_metadata")
     @patch("aws_interactions.upload_file")
     @patch("aws_interactions.get_region")
+    def test_should_upload_the_file_metadata_and_send_a_queue_message_for_a_parliament_transfer(self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
+        mock_region.return_value = "london-town"
+        tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")
+        with open(tmp1, "w") as f:
+            f.write("temporary file one")
+
+        metadata_csv_data = f"""Series,UUID,fileId,description,Filename,FileReference,ClientSideOriginalFilepath,formerRefDept,formerRefTNA,checksum_md5,checksum_sha256,IAID,digitalAssetSource
+JS 8,someRecordId,someFileId,SomeDescription,JS-8-3.pdf,3,{tmp1},dept_ref,tna_ref,,some_checksum,some_iaid,Surrogate""".strip()
+
+        tmp2 = os.path.join(self.test_dir, "metadata_to_ingest.csv")
+        with open(tmp2, "w") as f:
+            f.write(metadata_csv_data)
+
+        args = SimpleNamespace(environment="test", input="/home/users/input-file.csv", source_system="PA")
+        ad_hoc_ingest.upload_files(tmp2, "123456789", args)
+
+        expected_metadata = {
+            "Series": "JS 8",
+            "UUID": "someRecordId",
+            "fileId": "someFileId",
+            "description": "SomeDescription",
+            "Filename": "JS-8-3.pdf",
+            "FileReference": "3",
+            "ClientSideOriginalFilepath": tmp1,
+            "formerRefDept": "dept_ref",
+            "IAID": "some_iaid",
+            "digitalAssetSource": "Surrogate",
+            "formerRefTNA": "tna_ref",
+            "checksum_sha256": "some_checksum"
+        }
+
+        mock_upload_file.assert_called_once_with("someRecordId", "test-pa-transfer", "someFileId",  tmp1)
+        mock_upload_metadata.assert_called_once_with("someRecordId", "test-pa-transfer", [expected_metadata])
+        mock_send_message.assert_called_once_with(
+            "someRecordId",
+            "test-pa-transfer",
+            "https://sqs.london-town.amazonaws.com/123456789/test-dr2-preingest-pa-importer",
+        )
+
+    @patch("aws_interactions.send_sqs_message")
+    @patch("aws_interactions.upload_metadata")
+    @patch("aws_interactions.upload_file")
+    @patch("aws_interactions.get_region")
     def test_should_upload_a_file_with_a_relative_path_and_send_a_queue_message(self, mock_region, mock_upload_file, mock_upload_metadata, mock_send_message):
         mock_region.return_value = "london-town"
         tmp1 = os.path.join(self.test_dir, "ad_hoc_ingest_test_file1.txt")

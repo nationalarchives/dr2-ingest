@@ -7,7 +7,7 @@ import message_printer as mp
 
 REQUIRED_COLUMNS = {"PA": ("catalogue_reference","file_name", "checksum"), "ADHOC": ("catRef", "fileName", "checksum")}
 UNIQUE_COLUMNS = {"PA": (), "ADHOC": ("catRef", "fileName")}
-UNIQUE_COLUMNS_WARN_ONLY = {"PA": (), "ADHOC": "checksum"}
+UNIQUE_COLUMNS_WARN_ONLY = {"PA": (), "ADHOC": ("checksum",)}
 NON_EMPTY_COLUMNS = {"PA":  ("catalogue_reference","file_name", "checksum"), "ADHOC": ("catRef", "fileName")}
 
 

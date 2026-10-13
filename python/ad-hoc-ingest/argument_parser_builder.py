@@ -40,7 +40,7 @@ def build():
     parser.add_argument(
         "-ss", "--source-system",
         choices=["PA", "ADHOC"],
-        help="The source system. One of 'PA' for Parliament transfers or 'ADHOC' for everything else. The default is 'ADHOC'",
+        help="The source system. 'PA' for Parliament transfers or 'ADHOC' for everything else. The default is 'ADHOC'",
         default="ADHOC"
     )
     return parser

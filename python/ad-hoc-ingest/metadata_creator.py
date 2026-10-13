@@ -55,8 +55,7 @@ def create_intermediate_metadata_dict(description_override, row, args):
 
 def create_metadata_for_upload(rows):
     all_metadata = []
-    for each_row in rows:
-        row = each_row[1]
+    for _, row in rows:
         metadata = {
             "Series": row["Series"],
             "UUID": row["UUID"],

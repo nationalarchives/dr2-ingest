@@ -108,5 +108,4 @@ class Test(TestCase):
         self.assertIn("--output", help_message)
         self.assertIn("-s", help_message)
         self.assertIn("--asset-source {Born Digital,Surrogate,Digitised}", help_message)
-        self.assertIn("{Born Digital,Surrogate,Digitised}", help_message)
 

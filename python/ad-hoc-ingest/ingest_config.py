@@ -5,8 +5,9 @@ class FieldMapping:
 
 
 class AWSConfig:
-    def __init__(self, bucket_name: str):
+    def __init__(self, bucket_name: str, queue_name):
         self.bucket_name = bucket_name
+        self.queue_name = queue_name
 
 
 def field_mapping(source_system):
@@ -16,8 +17,8 @@ def field_mapping(source_system):
     }[source_system]
 
 
-def aws_config(environment, source_system):
+def aws_config(environment):
     return {
-        "PA": AWSConfig(f"{environment}-pa-transfer"),
-        "ADHOC": AWSConfig(f"{environment}-dr2-ingest-adhoc-cache")
-    }[source_system]
+        "PA": AWSConfig(f"{environment}-pa-transfer", f"{environment}-dr2-preingest-pa-importer"),
+        "ADHOC": AWSConfig(f"{environment}-dr2-ingest-adhoc-cache", f"{environment}-dr2-preingest-adhoc-importer")
+    }
