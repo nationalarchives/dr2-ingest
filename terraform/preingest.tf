@@ -1,6 +1,6 @@
 locals {
   object_store_bucket_name = "prod-daobjectstore"
-  pa_source_bucket         = "pa-transfer-bucket"
+  pa_source_bucket         = local.environment == "intg" ? "dev-pa-transfer" : "${local.environment}-pa-transfer"
 }
 module "tdr_preingest" {
   source                              = "./preingest"
