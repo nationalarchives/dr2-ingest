@@ -35,7 +35,7 @@ class Test(TestCase):
         fileobj.seek(0)
         uploaded_bytes = fileobj.read()
 
-        expected_bytes = json.dumps([some_metadata]).encode("utf-8")
+        expected_bytes = json.dumps(some_metadata).encode("utf-8")
         self.assertEqual(uploaded_bytes, expected_bytes)
         self.assertEqual("some_bucket", args[1])
         self.assertEqual("some_asset.metadata", args[2])
