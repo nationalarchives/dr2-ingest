@@ -10,7 +10,7 @@
       ],
       "Resource": [
         "arn:aws:s3:::${pa_bucket_name}/*",
-        "{pa_importer_role}"
+        "${pa_importer_queue}"
       ]
     }
   ]
