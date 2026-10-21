@@ -18,7 +18,8 @@ def field_mapping(source_system):
 
 
 def aws_config(environment):
+    pa_bucket_environment = "dev" if environment == "intg" else environment
     return {
-        "PA": AWSConfig(f"{environment}-pa-transfer", f"{environment}-dr2-preingest-pa-importer"),
+        "PA": AWSConfig(f"{pa_bucket_environment}-pa-transfer", f"{environment}-dr2-preingest-pa-importer"),
         "ADHOC": AWSConfig(f"{environment}-dr2-ingest-adhoc-cache", f"{environment}-dr2-preingest-adhoc-importer")
     }
