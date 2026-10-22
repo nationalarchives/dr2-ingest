@@ -18,8 +18,9 @@ def upload_file(file):
         client.put_object(Bucket=bucket, Key=f"{version}/{file}", Body=f, ChecksumSHA256=sha256)
         print(f"Uploaded {file} to {bucket}")
 
-with Pool(5) as p:
-    p.map(upload_file, files)
+def run():
+    with Pool(5) as p:
+        p.map(upload_file, files)
 
-
-
+if __name__ == "__main__":
+    run()
