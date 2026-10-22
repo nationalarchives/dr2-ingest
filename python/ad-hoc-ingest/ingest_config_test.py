@@ -36,3 +36,8 @@ class Test(TestCase):
         config = aws_config("test")["ADHOC"]
 
         self.assertEqual("test-dr2-ingest-adhoc-cache", config.bucket_name)
+
+    def test_aws_config_should_use_dev_for_pa_intg_environments(self):
+        config = aws_config("intg")["PA"]
+
+        self.assertEqual("dev-pa-transfer", config.bucket_name)
