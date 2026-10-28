@@ -322,7 +322,6 @@ lazy val ingestValidateGenericIngestInputs = (project in file("ingest-validate-g
     libraryDependencies ++= Seq(
       awsCrt,
       catsEffect,
-      circeFs2,
       fs2IO,
       fs2Reactive,
       jawnFs2,
@@ -343,7 +342,6 @@ lazy val postIngestStateChangeHandler = (project in file("postingest-state-chang
   .settings(
     libraryDependencies ++= Seq(
       catsEffect,
-      circeFs2,
       dynamoClient,
       fs2Reactive,
       jsonSchemaValidator % Test,
@@ -358,7 +356,6 @@ lazy val postIngestStateChangeHandler = (project in file("postingest-state-chang
 
 lazy val packageBuilderSettings = Seq(
   libraryDependencies ++= Seq(
-    circeFs2,
     dynamoClient,
     fs2Reactive,
     jsonSchemaValidator % Test,
