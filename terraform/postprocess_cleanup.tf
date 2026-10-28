@@ -54,6 +54,7 @@ module "cleanup_handler_lambda" {
   lambda_sqs_queue_mappings = [{
     sqs_queue_arn = local.sqs_queue_arn
   }]
+  sqs_queue_mapping_batch_size = 50
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
     security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
