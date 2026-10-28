@@ -62,7 +62,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
             updateLastQueued(item, queue, dateTimeNow, semaphore)
         }
       _ <- IO.whenA(expiredItems.nonEmpty) {
-        val msg = s":warning: Resent ${expiredItems.size} items to '${queue.queueAlias}' queue"
+        val msg = s":warning: ${expiredItems.size} expired items found in post ingest state table; resent items to '${queue.queueAlias}' queue"
         dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, DR2DevMessage, Detail(msg)).void
       }
     } yield ()
