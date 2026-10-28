@@ -101,7 +101,6 @@ class Lambda extends LambdaRunner[SQSEvent, SQSBatchResponse, Config, Dependenci
       }
     yield new SQSBatchResponse(batchFailures.asJava)
 
-
   def getParentPathForChildren(assetItem: DynamoItem): String =
     s"${assetItem.potentialParentPath.map(path => s"$path/").getOrElse("")}${assetItem.id}"
 
