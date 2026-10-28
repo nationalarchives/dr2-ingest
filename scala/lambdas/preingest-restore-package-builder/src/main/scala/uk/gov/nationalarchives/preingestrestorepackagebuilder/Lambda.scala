@@ -3,6 +3,7 @@ package uk.gov.nationalarchives.preingestrestorepackagebuilder
 import cats.effect.IO
 import cats.syntax.all.*
 import io.circe
+import io.circe.parser.decode
 import io.circe.Decoder
 import io.circe.generic.auto.*
 import io.circe.syntax.*
@@ -19,7 +20,6 @@ import java.net.URI
 import java.util.UUID
 import fs2.Stream
 import fs2.interop.reactivestreams.*
-import io.circe.fs2.{decoder as fs2Decoder, *}
 import org.reactivestreams.FlowAdapters
 
 import scala.xml.{Elem, Node, NodeSeq, XML}
@@ -117,8 +117,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
       Stream
         .emits(lockTableItems)
         .map(_.message)
-        .through(stringStreamParser[IO])
-        .through(fs2Decoder[IO, NotificationMessage])
+        .flatMap(msg => Stream.fromEither[IO](decode[NotificationMessage](msg)))
         .flatMap(generateMetadata)
         .compile
         .toList

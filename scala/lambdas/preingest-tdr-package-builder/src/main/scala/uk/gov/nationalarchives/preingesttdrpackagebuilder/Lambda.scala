@@ -7,7 +7,6 @@ import fs2.Stream
 import fs2.hashing.{HashAlgorithm, Hashing}
 import fs2.interop.reactivestreams.*
 import io.circe
-import io.circe.fs2.{decoder as fs2Decoder, *}
 import io.circe.generic.auto.*
 import io.circe.parser.decode
 import io.circe.syntax.*
@@ -169,8 +168,7 @@ class Lambda extends LambdaRunner[Input, Output, Config, Dependencies]:
         Stream
           .emits(lockTableItems)
           .map(_.message)
-          .through(stringStreamParser[IO])
-          .through(fs2Decoder[IO, LockTableMessage])
+          .flatMap(msg => Stream.fromEither[IO](decode[LockTableMessage](msg)))
           .parEvalMap[IO, List[MetadataObject]](config.concurrency)(lockTableMessage => downloadMetadataFile(lockTableMessage, contentFolderCell))
           .compile
           .toList
