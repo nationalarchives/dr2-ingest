@@ -28,6 +28,20 @@ class TestCopyMetadataToLive(unittest.TestCase):
             Prefix="working/ABC/",
         )
 
+
+    def test_iter_s3_keys_returns_nothing_if_contents_missing(self):
+        s3_client = MagicMock()
+        s3_client.get_paginator.return_value.paginate.return_value = [{}]
+
+        result = list(copy_metadata_to_live.iter_s3_keys(s3_client, "bucket", "working/ABC/"))
+
+        self.assertEqual([], result)
+        s3_client.get_paginator.assert_called_once_with("list_objects_v2")
+        s3_client.get_paginator.return_value.paginate.assert_called_once_with(
+            Bucket="bucket",
+            Prefix="working/ABC/",
+        )
+
     def test_copy_to_destination_prefix_uses_source_filename(self):
         s3_client = MagicMock()
 
@@ -43,6 +57,7 @@ class TestCopyMetadataToLive(unittest.TestCase):
             CopySource={"Bucket": "bucket", "Key": "working/ABC/nested/file.json"},
             Key="live/file.json",
         )
+
 
     @patch("migrate.copy_metadata_to_live.print")
     @patch("builtins.open", new_callable=mock_open)
@@ -85,8 +100,8 @@ class TestCopyMetadataToLive(unittest.TestCase):
         )
         self.assertEqual(
             [
-                call(copy_metadata_to_live.copy_worker, "prod-dr2-records-metadata", source_keys[0], "live/"),
-                call(copy_metadata_to_live.copy_worker, "prod-dr2-records-metadata", source_keys[1], "live/"),
+                call(copy_metadata_to_live.copy_to_destination_prefix, s3_client, "prod-dr2-records-metadata", source_keys[0], "live/"),
+                call(copy_metadata_to_live.copy_to_destination_prefix, s3_client, "prod-dr2-records-metadata", source_keys[1], "live/"),
             ],
             executor.submit.call_args_list,
         )
@@ -96,6 +111,7 @@ class TestCopyMetadataToLive(unittest.TestCase):
         mock_open_file().writelines.assert_called_once_with([source_keys[1]])
         mock_print.assert_any_call("\nDone. Copied 1 objects, 1 failed.")
         mock_print.assert_any_call("Failed keys have been written to /working/failed.txt")
+        mock_print.assert_any_call("Failed to copy working/ABC/file2.json: An error occurred (AccessDenied) when calling the CopyObject operation: Access denied")
 
     @patch("migrate.copy_metadata_to_live.ThreadPoolExecutor")
     @patch("migrate.copy_metadata_to_live.iter_s3_keys")

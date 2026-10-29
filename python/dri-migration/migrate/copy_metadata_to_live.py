@@ -32,16 +32,6 @@ def copy_to_destination_prefix(s3_client, bucket, source_key, destination_prefix
     )
 
 
-def copy_worker(bucket, source_key, destination_prefix):
-    s3_client = boto3.client("s3")
-    copy_to_destination_prefix(
-        s3_client,
-        bucket,
-        source_key,
-        destination_prefix,
-    )
-
-
 def main(series_list):
     s3 = boto3.client("s3")
 
@@ -49,12 +39,12 @@ def main(series_list):
     failed = []
     for series in series_list:
         bucket = "prod-dr2-records-metadata"
-        source_prefix = f"working/{series}/"
+        source_prefix = f"working/{series.strip()}/"
         destination_prefix = "live/"
         try:
             with ThreadPoolExecutor(max_workers=MAX_CONCURRENCY) as executor:
                 futures = {
-                    executor.submit(copy_worker, bucket, source_key, destination_prefix): source_key
+                    executor.submit(copy_to_destination_prefix, s3, bucket, source_key, destination_prefix): source_key
                     for source_key in iter_s3_keys(s3, bucket, source_prefix)
                 }
 
@@ -63,6 +53,8 @@ def main(series_list):
                     try:
                         future.result()
                         copied += 1
+                        if copied % 1000 == 0:
+                            print(f"Copied {copied}")
                     except ClientError as e:
                         print(f"Failed to copy {source_key}: {e}")
                         failed.append(source_key)
