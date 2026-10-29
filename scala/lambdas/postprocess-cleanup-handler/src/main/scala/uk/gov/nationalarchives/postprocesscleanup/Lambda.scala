@@ -1,8 +1,10 @@
 package uk.gov.nationalarchives.postprocesscleanup
 
-import cats.effect.IO
+import cats.effect.{IO, Outcome}
+import cats.syntax.all.*
 import cats.syntax.traverse.*
-import com.amazonaws.services.lambda.runtime.events.SQSEvent
+import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFailure
+import com.amazonaws.services.lambda.runtime.events.{SQSBatchResponse, SQSEvent}
 import io.circe.Decoder
 import org.scanamo.syntax.*
 import pureconfig.ConfigReader
@@ -18,12 +20,12 @@ import scala.jdk.CollectionConverters.*
 import io.circe.parser.decode
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
-class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
+class Lambda extends LambdaRunner[SQSEvent, SQSBatchResponse, Config, Dependencies] {
   private val deletionTagMap = Map("TO_BE_DELETED" -> "true")
 
   private lazy val dependencies = Dependencies(DADynamoDBClient[IO](), DAS3Client[IO]())
 
-  override def handler: (SQSEvent, Config, Dependencies) => IO[Unit] = (sqsEvent, config, dependencies) =>
+  override def handler: (SQSEvent, Config, Dependencies) => IO[SQSBatchResponse] = (sqsEvent, config, dependencies) =>
     val ttlAfter1Day = System.currentTimeMillis() / 1000 + 24 * 3600
 
     def updateTtl(itemId: String): IO[Unit] = logger.info(s"Updating TTL for item with id=$itemId to $ttlAfter1Day") >>
@@ -41,8 +43,8 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
       if parentPath.isEmpty then IO.unit
       else parentPath.split('/').toList.reverse.traverse(ancestorId => updateTtl(ancestorId)).void
 
-    sqsEvent.getRecords.asScala.toList.traverse { record =>
-      for {
+    val fibers = sqsEvent.getRecords.asScala.toList.parTraverse { record =>
+      val processRecord = for {
         _ <- logger.info(s"Cleanup operation started for processing SQS message")
         sqsMessageBody <- IO.fromEither(decode[SqsMessageBody](record.getBody).left.map(err => new RuntimeException(s"Failed to decode SQS message body: ${err.getMessage}")))
         assetId = sqsMessageBody.parameters.assetId
@@ -82,7 +84,23 @@ class Lambda extends LambdaRunner[SQSEvent, Unit, Config, Dependencies] {
         _ <- logger.info(s"Updating TTL for ancestors of assetId $assetId with parentPath $potentialParentPath")
         _ <- updateAllAncestorsTtl(potentialParentPath)
       } yield ()
-    }.void
+      processRecord.adaptError { err =>
+        CleanupException(record.getMessageId, err)
+      }.start
+    }
+
+    for
+      results <- fibers
+      responses <- results.parTraverse(_.join)
+      batchFailures <- responses.traverseFilter {
+        case Outcome.Errored(e) =>
+          e match {
+            case CleanupException(messageId, err) =>
+              logger.error(err)(err.getMessage) >> IO.pure(Some(BatchItemFailure(messageId)))
+          }
+        case _ => IO.none
+      }
+    yield new SQSBatchResponse(batchFailures.asJava)
 
   def getParentPathForChildren(assetItem: DynamoItem): String =
     s"${assetItem.potentialParentPath.map(path => s"$path/").getOrElse("")}${assetItem.id}"
@@ -116,4 +134,6 @@ object Lambda {
   case class SqsMessageParams(assetId: String, status: String)
   case class SqsMessageProps(executionId: String, messageType: String)
   case class SqsMessageBody(parameters: SqsMessageParams, properties: SqsMessageProps)
+
+  private case class CleanupException(messageId: String, cause: Throwable) extends Throwable
 }
