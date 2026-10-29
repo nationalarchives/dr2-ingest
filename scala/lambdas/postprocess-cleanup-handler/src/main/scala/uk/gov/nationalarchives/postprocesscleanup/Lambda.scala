@@ -85,7 +85,7 @@ class Lambda extends LambdaRunner[SQSEvent, SQSBatchResponse, Config, Dependenci
         _ <- updateAllAncestorsTtl(potentialParentPath)
       } yield ()
       processRecord.adaptError { err =>
-        CleanupException(record.getMessageId)
+        CleanupException(record.getMessageId, err)
       }.start
     }
 
@@ -95,7 +95,8 @@ class Lambda extends LambdaRunner[SQSEvent, SQSBatchResponse, Config, Dependenci
       batchFailures <- responses.traverseFilter {
         case Outcome.Errored(e) =>
           e match {
-            case CleanupException(messageId) => IO.pure(Some(BatchItemFailure(messageId)))
+            case CleanupException(messageId, err) =>
+              logger.error(err)(err.getMessage) >> IO.pure(Some(BatchItemFailure(messageId)))
           }
         case _ => IO.none
       }
@@ -134,5 +135,5 @@ object Lambda {
   case class SqsMessageProps(executionId: String, messageType: String)
   case class SqsMessageBody(parameters: SqsMessageParams, properties: SqsMessageProps)
 
-  case class CleanupException(messageId: String) extends Throwable
+  private case class CleanupException(messageId: String, cause: Throwable) extends Throwable
 }
