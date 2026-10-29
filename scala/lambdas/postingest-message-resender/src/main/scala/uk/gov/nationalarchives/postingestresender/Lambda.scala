@@ -19,9 +19,12 @@ import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{postIngestStatePkFormat, *}
 import uk.gov.nationalarchives.postingestresender.Lambda.{Config, Dependencies, QueueMessage}
 import uk.gov.nationalarchives.utils.EventCodecs.given
+import uk.gov.nationalarchives.utils.ExternalUtils.Detail
+import uk.gov.nationalarchives.utils.ExternalUtils.given
+import uk.gov.nationalarchives.utils.ExternalUtils.DetailType.DR2DevMessage
 import uk.gov.nationalarchives.utils.PostingestUtils.Queue
 import uk.gov.nationalarchives.utils.{Generators, LambdaRunner}
-import uk.gov.nationalarchives.{DADynamoDBClient, DASQSClient}
+import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient, DASQSClient}
 
 import java.time.Instant
 import java.util.UUID
@@ -31,7 +34,7 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
   given Encoder[QueueMessage] = deriveEncoder[QueueMessage]
 
   override def dependencies(config: Config): IO[Dependencies] = IO(
-    Dependencies(DADynamoDBClient[IO](), DASQSClient[IO](), () => Generators().generateInstant)
+    Dependencies(DADynamoDBClient[IO](), DASQSClient[IO](), DAEventBridgeClient[IO](), () => Generators().generateInstant)
   )
 
   override def handler: (ScheduledEvent, Config, Dependencies) => IO[Unit] = { (triggerEvent, config, dependencies) =>
@@ -58,6 +61,10 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
           sendToQueue(item, queue, semaphore) >>
             updateLastQueued(item, queue, dateTimeNow, semaphore)
         }
+      _ <- IO.whenA(expiredItems.nonEmpty) {
+        val msg = s":warning: ${expiredItems.size} expired items found in post ingest state table; resent items to '${queue.queueAlias}' queue"
+        dependencies.eventBridgeClient.publishEventToEventBridge(getClass.getName, DR2DevMessage, Detail(msg)).void
+      }
     } yield ()
 
     def sendToQueue(item: PostIngestStateTableItem, queue: Queue, semaphore: Semaphore[IO]): IO[Unit] = {
@@ -108,6 +115,6 @@ class Lambda extends LambdaRunner[ScheduledEvent, Unit, Config, Dependencies] {
 
 object Lambda {
   case class Config(stateTableName: String, stateGsiName: String, queues: String) derives ConfigReader
-  case class Dependencies(dynamoClient: DADynamoDBClient[IO], sqsClient: DASQSClient[IO], instantGenerator: () => Instant)
+  case class Dependencies(dynamoClient: DADynamoDBClient[IO], sqsClient: DASQSClient[IO], eventBridgeClient: DAEventBridgeClient[IO], instantGenerator: () => Instant)
   case class QueueMessage(assetId: UUID, batchId: String, resultAttributeName: String, payload: Json)
 }
