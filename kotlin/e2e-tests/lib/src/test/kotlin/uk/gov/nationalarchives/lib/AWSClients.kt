@@ -33,8 +33,6 @@ import aws.smithy.kotlin.runtime.content.decodeToString
 import aws.smithy.kotlin.runtime.content.toByteArray
 import aws.smithy.kotlin.runtime.time.Instant
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import uk.gov.nationalarchives.lib.JsonUtils.jsonCodec
 import java.net.URI
@@ -46,45 +44,26 @@ object AWSClients {
         private val messageJsonList: List<String>,
         delegate: CloudWatchLogsClient = CloudWatchLogsClient.builder().build()
     ) : CloudWatchLogsClient by delegate {
-        override suspend fun <T> startLiveTail(
-            input: StartLiveTailRequest,
-            block: suspend (StartLiveTailResponse) -> T
-        ): T {
-            val startLiveTailResponse =
-                if (messageJsonList.isEmpty()) {
-                    val liveTailSessionUpdate = LiveTailSessionUpdate {
-                        sessionResults = emptyList()
-                    }
-                    val sessionUpdate = StartLiveTailResponseStream.SessionUpdate(liveTailSessionUpdate)
-                    StartLiveTailResponse {
-                        responseStream = flow {
-                            while (true) {
-                                delay(10)
-                                emit(sessionUpdate)
-                            }
-                        }
-                    }
-                } else {
-                    val liveTailSessionLogEvents = messageJsonList.map { LiveTailSessionLogEvent { message = it } }
-                    val emptyUpdate = LiveTailSessionUpdate { sessionResults = emptyList() }
-                    val liveTailSessionUpdate = LiveTailSessionUpdate {
-                        sessionResults = liveTailSessionLogEvents
-                    }
-                    val sessionUpdate = StartLiveTailResponseStream.SessionUpdate(liveTailSessionUpdate)
-                    val emptySessionUpdate = StartLiveTailResponseStream.SessionUpdate(emptyUpdate)
-                    StartLiveTailResponse {
-                        responseStream = flow {
-                            emit(emptySessionUpdate)
-                            while (true) {
-                                delay(10)
-                                emit(sessionUpdate)
-                            }
-                        }
+        override suspend fun describeLogStreams(input: DescribeLogStreamsRequest): DescribeLogStreamsResponse =
+            DescribeLogStreamsResponse {
+                logStreams = listOf(LogStream {
+                    logStreamName = "test-log-stream"
+                    lastEventTimestamp = System.currentTimeMillis()
+                })
+            }
 
-                    }
+        override suspend fun getLogEvents(input: GetLogEventsRequest): GetLogEventsResponse =
+            if (input.nextToken == null) {
+                GetLogEventsResponse {
+                    events = messageJsonList.map { OutputLogEvent { message = it } }
+                    nextForwardToken = "next-forward-token"
                 }
-            return block.invoke(startLiveTailResponse)
-        }
+            } else {
+                GetLogEventsResponse {
+                    events = emptyList()
+                    nextForwardToken = input.nextToken
+                }
+            }
     }
 
     class TestTdrSqsClient(private val messageList: MutableList<JsonUtils.SqsInputMessage>, delegate: SqsClient = SqsClient.builder().build()) : SqsClient by delegate {
