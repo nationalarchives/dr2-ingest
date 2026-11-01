@@ -19,7 +19,7 @@ object Dependencies {
   lazy val circeCore = "io.circe" %% "circe-core" % circeVersion
   lazy val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   lazy val circeParser = "io.circe" %% "circe-parser" % circeVersion
-  lazy val commonsCodec = "commons-codec" % "commons-codec" % "1.22.1"
+  lazy val commonsCodec = "commons-codec" % "commons-codec" % "1.23.0"
   lazy val commonsCompress = "org.apache.commons" % "commons-compress" % "1.28.0"
   lazy val commonsLogging = "commons-logging" % "commons-logging" % "1.4.0"
   lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.21.0"
