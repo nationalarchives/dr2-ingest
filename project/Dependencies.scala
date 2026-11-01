@@ -2,7 +2,7 @@ import sbt._
 object Dependencies {
   lazy val logbackVersion = "2.26.1"
   lazy val pureConfigVersion = "0.17.10"
-  lazy val daAwsClientsVersion = "0.1.163"
+  lazy val daAwsClientsVersion = "0.1.166"
   private val fs2Version = "3.14.0"
   private val sttpVersion = "4.0.27"
   private val circeVersion = "0.14.16"
