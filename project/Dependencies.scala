@@ -35,7 +35,7 @@ object Dependencies {
   lazy val jawnParser = "org.typelevel" %% "jawn-parser" % "1.7.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
   lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "3.0.8"
-  lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.4.0"
+  lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.4.1"
   lazy val lambdaJavaEvents = "com.amazonaws" % "aws-lambda-java-events" % "3.16.1"
   lazy val log4CatsCore = "org.typelevel" %% "log4cats-core" % log4CatsVersion
   lazy val log4CatsSlf4j = "org.typelevel" %% "log4cats-slf4j" % log4CatsVersion
