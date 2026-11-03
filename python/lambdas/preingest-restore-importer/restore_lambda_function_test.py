@@ -3,7 +3,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-import lambda_function
+import restore_lambda_function
 
 
 @patch.dict('os.environ', {'OUTPUT_BUCKET_NAME': 'destination-bucket'})
@@ -21,10 +21,10 @@ class TestLambdaFunction(unittest.TestCase):
             }]
         }
 
-    @patch('lambda_function.sqs_client.send_message')
-    @patch('lambda_function.s3_client.delete_objects')
-    @patch('lambda_function.copy_objects')
-    @patch('lambda_function.s3_client.get_object')
+    @patch('restore_lambda_function.sqs_client.send_message')
+    @patch('restore_lambda_function.s3_client.delete_objects')
+    @patch('restore_lambda_function.copy_objects')
+    @patch('restore_lambda_function.s3_client.get_object')
     def test_lambda_handler_copies_deletes_and_sends_message(
             self, mock_get_object, mock_copy_objects, mock_delete_objects, mock_send_message):
         mock_get_object.return_value = {
@@ -36,7 +36,7 @@ class TestLambdaFunction(unittest.TestCase):
             )
         }
 
-        lambda_function.lambda_handler(self.event(), {})
+        restore_lambda_function.lambda_handler(self.event(), {})
 
         mock_get_object.assert_called_once_with(Bucket='source-bucket', Key='path/asset.metadata')
         mock_copy_objects.assert_called_once_with(
@@ -61,10 +61,10 @@ class TestLambdaFunction(unittest.TestCase):
             })
         )
 
-    @patch('lambda_function.sqs_client.send_message')
-    @patch('lambda_function.s3_client.delete_objects')
-    @patch('lambda_function.copy_objects')
-    @patch('lambda_function.s3_client.get_object')
+    @patch('restore_lambda_function.sqs_client.send_message')
+    @patch('restore_lambda_function.s3_client.delete_objects')
+    @patch('restore_lambda_function.copy_objects')
+    @patch('restore_lambda_function.s3_client.get_object')
     def test_lambda_handler_deletes_objects_in_batches_of_1000(
             self, mock_get_object, _mock_copy_objects, mock_delete_objects, _mock_send_message):
         content_objects = ''.join(
@@ -77,7 +77,7 @@ class TestLambdaFunction(unittest.TestCase):
             )
         }
 
-        lambda_function.lambda_handler(self.event(), {})
+        restore_lambda_function.lambda_handler(self.event(), {})
 
         self.assertEqual(2, mock_delete_objects.call_count)
         first_batch = mock_delete_objects.call_args_list[0].kwargs['Delete']['Objects']
@@ -86,10 +86,10 @@ class TestLambdaFunction(unittest.TestCase):
         self.assertEqual(1, len(second_batch))
         self.assertEqual({'Key': 'path/asset.metadata'}, second_batch[0])
 
-    @patch('lambda_function.sqs_client.send_message')
-    @patch('lambda_function.s3_client.delete_objects')
-    @patch('lambda_function.copy_objects')
-    @patch('lambda_function.s3_client.get_object')
+    @patch('restore_lambda_function.sqs_client.send_message')
+    @patch('restore_lambda_function.s3_client.delete_objects')
+    @patch('restore_lambda_function.copy_objects')
+    @patch('restore_lambda_function.s3_client.get_object')
     def test_copy_failure_does_not_delete_or_send_message(
             self, mock_get_object, mock_copy_objects, mock_delete_objects, mock_send_message):
         mock_get_object.return_value = {
@@ -102,15 +102,15 @@ class TestLambdaFunction(unittest.TestCase):
         mock_copy_objects.side_effect = Exception('S3 copy failed')
 
         with self.assertRaises(Exception) as context:
-            lambda_function.lambda_handler(self.event(), {})
+            restore_lambda_function.lambda_handler(self.event(), {})
 
         self.assertEqual('S3 copy failed', str(context.exception))
         mock_delete_objects.assert_not_called()
         mock_send_message.assert_not_called()
 
-    @patch('lambda_function.s3_client.copy')
+    @patch('restore_lambda_function.s3_client.copy')
     def test_copy_objects_passes_expected_arguments_to_s3(self, mock_s3_copy):
-        lambda_function.copy_objects('destination-bucket', ['file-key'], 'source-bucket')
+        restore_lambda_function.copy_objects('destination-bucket', ['file-key'], 'source-bucket')
 
         mock_s3_copy.assert_called_once_with(
             {'Bucket': 'source-bucket', 'Key': 'file-key'},

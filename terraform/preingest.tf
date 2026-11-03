@@ -175,6 +175,9 @@ module "cc_restore_preingest" {
   package_builder_lambda = {
     handler = "uk.gov.nationalarchives.preingestrestorepackagebuilder.Lambda::handleRequest"
   }
+  importer_lambda = {
+    handler = "restore_lambda_function.lambda_handler"
+  }
   vpc_id                           = module.vpc.vpc.id
   vpc_arn                          = module.vpc.vpc.arn
   lambda_code_version              = var.lambda_code_version
