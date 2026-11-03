@@ -802,6 +802,8 @@ module "failed_ingest_step_function_event_bridge_rule" {
       module.ad_hoc_preingest.preingest_sfn_arn,
       module.dr2_ingest_run_workflow_step_function.step_function_arn
     ])
+    account_id  = data.aws_caller_identity.current.account_id
+    environment = local.environment
   })
   name                = "${local.environment}-dr2-eventbridge-ingest-step-function-failure"
   api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
