@@ -59,22 +59,14 @@ variable "aggregator_lambda" {
 
 variable "importer_lambda" {
   type = object({
-    timeout            = number
-    visibility_timeout = number
-    handler            = string
-    runtime            = string
-    architecture       = string
-    memory_size        = number
+    timeout            = optional(number, 180)
+    visibility_timeout = optional(number, 300)
+    handler            = optional(string, "lambda_function.lambda_handler")
+    runtime            = optional(string, "python3.12")
+    architecture       = optional(string, "arm64")
+    memory_size        = optional(number, 128)
   })
-  default = {
-    timeout            = 180
-    visibility_timeout = 300
-    handler            = "lambda_function.lambda_handler"
-    runtime            = "python3.12"
-    architecture       = "arm64"
-    memory_size        = 128
-
-  }
+  default = {}
 }
 
 variable "package_builder_lambda" {
