@@ -61,7 +61,6 @@ module "dr2_importer_lambda" {
   }
 }
 
-
 module "dr2_importer_sqs" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   queue_name = local.importer_name
