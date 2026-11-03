@@ -9,12 +9,14 @@ import io.circe.{Decoder, Encoder}
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
+import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse
 import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityResponse, DeleteMessageResponse, GetQueueAttributesResponse, QueueAttributeName, SendMessageResponse}
 import uk.gov.nationalarchives.DADynamoDBClient.{DADynamoDbRequest, DADynamoDbWriteItemRequest}
 import uk.gov.nationalarchives.DASQSClient.FifoQueueConfiguration
 import uk.gov.nationalarchives.dynamoformatters.DynamoFormatters.{PostIngestStateTableItem, assetId, lastQueued}
 import uk.gov.nationalarchives.postingestresender.Lambda.{Config, Dependencies}
-import uk.gov.nationalarchives.{DADynamoDBClient, DASQSClient}
+import uk.gov.nationalarchives.utils.ExternalUtils.Detail
+import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient, DASQSClient}
 
 import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.UUID
@@ -47,24 +49,27 @@ object Helpers {
       itemsInTableRef <- Ref[IO].of(initialItemsInTable)
       updateTableReqsRef <- Ref[IO].of[List[DADynamoDbRequest]](Nil)
       sqsMessagesRef <- Ref[IO].of[Map[String, List[SQSMessage]]](Map(testQueueUrl -> Nil))
+      slackMessagesRef <- Ref[IO].of[List[String]](Nil)
       result <- new Lambda()
         .handler(
           event,
           config,
-          Dependencies(dynamoClient(itemsInTableRef, runtimeErrors), sqsClient(sqsMessagesRef, runtimeErrors), instantGenerator)
+          Dependencies(dynamoClient(itemsInTableRef, runtimeErrors), sqsClient(sqsMessagesRef, runtimeErrors), eventbridgeClient(slackMessagesRef), instantGenerator)
         )
         .attempt
       itemsRemainingInTable <- itemsInTableRef.get
       updateTableReqs <- updateTableReqsRef.get
       sqsMessages <- sqsMessagesRef.get
-    } yield LambdaRunResults(result, itemsRemainingInTable, updateTableReqs, sqsMessages)
+      slackMessages <- slackMessagesRef.get
+    } yield LambdaRunResults(result, itemsRemainingInTable, updateTableReqs, sqsMessages, slackMessages)
   }.unsafeRunSync()
 
   case class LambdaRunResults(
       result: Either[Throwable, Unit],
       finalItemsInTable: List[PostIngestStateTableItem],
       updateTableReqs: List[DADynamoDbRequest],
-      sentSqsMessages: Map[String, List[SQSMessage]]
+      sentSqsMessages: Map[String, List[SQSMessage]],
+      slackMessages: List[String]
   )
 
   def sqsClient(sqsMessageRef: Ref[IO, Map[String, List[SQSEvent.SQSMessage]]], errors: Option[Errors]): DASQSClient[IO] = new DASQSClient[IO]:
@@ -125,5 +130,15 @@ object Helpers {
                 i.potentialQueue.contains(queryConditionsMap("conditionAttributeValue0"))
             .map(_.asInstanceOf[U]))
             .getOrElse(Nil)
+
+  def eventbridgeClient(ref: Ref[IO, List[String]]): DAEventBridgeClient[IO] = new DAEventBridgeClient[IO] {
+    override def publishEventToEventBridge[T, U](sourceId: String, detailType: U, detail: T)(using enc: Encoder[T]): IO[PutEventsResponse] =
+      ref
+        .update { existing =>
+          detail.asInstanceOf[Detail].slackMessage :: existing
+        }
+        .map(_ => PutEventsResponse.builder.build)
+
+  }
 
 }

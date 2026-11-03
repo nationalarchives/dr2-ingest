@@ -513,6 +513,7 @@ lazy val postingestMessageResender = (project in file("postingest-message-resend
   .settings(
     libraryDependencies ++= Seq(
       dynamoClient,
+      eventBridgeClient,
       sqsClient
     )
   )

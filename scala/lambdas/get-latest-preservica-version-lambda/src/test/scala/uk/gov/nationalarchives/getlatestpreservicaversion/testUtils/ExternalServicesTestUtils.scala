@@ -16,7 +16,8 @@ import uk.gov.nationalarchives.{DADynamoDBClient, DAEventBridgeClient}
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
 import uk.gov.nationalarchives.dp.client.EntityClient.{EntitiesUpdated, Identifier}
 import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda
-import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.{Config, Dependencies, Detail, GetDr2PreservicaVersionResponse}
+import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.{Config, Dependencies, GetDr2PreservicaVersionResponse}
+import uk.gov.nationalarchives.utils.ExternalUtils.Detail
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter

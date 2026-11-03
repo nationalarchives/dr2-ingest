@@ -4,7 +4,7 @@ import cats.effect.*
 import cats.effect.unsafe.implicits.global
 import org.scanamo.DynamoFormat
 import org.scanamo.request.RequestCondition
-import com.amazonaws.services.lambda.runtime.events.SQSEvent
+import com.amazonaws.services.lambda.runtime.events.{SQSBatchResponse, SQSEvent}
 import org.reactivestreams.Publisher
 import software.amazon.awssdk.core.async.SdkPublisher
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
@@ -169,7 +169,7 @@ object Helper {
     } yield LambdaRunResults(result, dynamoResult, s3Result)
   }.unsafeRunSync()
 
-  case class LambdaRunResults(result: Either[Throwable, Unit], finalItemsInTable: List[DynamoItem], finalsObjectsInS3: Map[String, Map[String, String]])
+  case class LambdaRunResults(result: Either[Throwable, SQSBatchResponse], finalItemsInTable: List[DynamoItem], finalsObjectsInS3: Map[String, Map[String, String]])
 
   def dynamoClient(ref: Ref[IO, List[DynamoItem]]): DADynamoDBClient[IO] = new DADynamoDBClient[IO]:
     private def normaliseConditions(conditions: Map[String, String]): Map[String, String] =

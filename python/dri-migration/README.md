@@ -5,10 +5,10 @@ This directory contains a SQL query used to extract basic provenance metadata ou
 There is also a Python script to run the query and write the results to a JSON file in S3 which adheres to the format
 needed by the package builder lambda.
 
-We aren't sending real files into the DR2 ingest at the moment so the script takes the skeleton test file from DROID
-which corresponds to the PUID of the file we're migrating.
+The prod DRI migration requires metadata files which are stored in the `prod-dr2-records-metadata` bucket under a `work/` prefix
+to be moved to a `live/` prefix in the same bucket. The `copy_metadata_to_live.py` script does this.
 
-## Running the script.
+## Running the migrate files script.
 
 This needs to be run on a Web domain machine.
 
@@ -95,3 +95,30 @@ WHERE du.CATALOGUEREFERENCE LIKE 'TEST/123%'
    - Send an SQS message to the <env>-dr2-preingest-dri-importer queue to trigger the copy lambda.
    - Return the asset metadata.
 3. Write the asset metadata (file ID, file path and asset ID) to a database for the purpose of Intelligent Caching.
+
+
+## Running the copy metadata script.
+
+### Set up Python script environment
+* Set up a Python environment. You can install Pycharm or
+  use [a virtual environment](https://docs.python.org/3/library/venv.html). There are other methods as well.
+
+* Once you have an environment, install boto3 from pip.
+
+* Add AWS credentials to the environment, either through environment variables or the $HOME/.aws/credentials file
+
+### Environment variables
+
+| Name            | Description                                                                 |
+|-----------------|-----------------------------------------------------------------------------|
+| MAX_CONCURRENCY | The maximum number of threads to run concurrently. Optional, defaults to 20 |
+
+### Run the script
+
+This assumes you are in the same directory as the script and want to migrate two series, `ABC 123` and `DEF 456`
+
+```bash
+python copy_metadata_to_live.py "ABC 123,DEF 456"
+```
+
+The script will print out a count of successful and failed copies. If there are failed copies, it will write the failed keys to a `failed.txt` file.

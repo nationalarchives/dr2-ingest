@@ -387,4 +387,8 @@ object ExternalUtils {
   case class TREMetadataParameters(PARSER: Parser, TRE: TREParams, TDR: TDRParams)
 
   case class TREMetadata(parameters: TREMetadataParameters)
+  
+  given Encoder[Detail] = (detail: Detail) => Json.obj("slackMessage" -> Json.fromString(detail.slackMessage))
+
+  case class Detail(slackMessage: String)
 }
