@@ -32,7 +32,7 @@ object Dependencies {
   lazy val jacksonCore = "tools.jackson.core" % "jackson-core" % jacksonVersion
   lazy val jacksonDatabind = "tools.jackson.core" % "jackson-databind" % jacksonVersion
   lazy val jawnFs2 = "org.typelevel" %% "jawn-fs2" % "2.6.0"
-  lazy val jawnParser = "org.typelevel" %% "jawn-parser" % "1.7.0"
+  lazy val jawnParser = "org.typelevel" %% "jawn-parser" % "1.8.0"
   lazy val jaxb = "javax.xml.bind" % "jaxb-api" % "2.3.1"
   lazy val jsonSchemaValidator = "com.networknt" % "json-schema-validator" % "3.0.8"
   lazy val lambdaCore = "com.amazonaws" % "aws-lambda-java-core" % "1.4.0"
