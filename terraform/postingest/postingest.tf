@@ -71,10 +71,7 @@ module "dr2_confirmer_queues" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   for_each   = { for queue in local.postingest_queue_config : queue.queueAlias => queue }
   queue_name = each.value.queue_name
-  sqs_policy = templatefile("./templates/sqs/sqs_access_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-    queue_name = each.value.queue_name
-  })
+  sqs_policy = ""
   create_dlq                                        = false
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = 600
