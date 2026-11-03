@@ -4,7 +4,7 @@ object Dependencies {
   lazy val pureConfigVersion = "0.17.11"
   lazy val daAwsClientsVersion = "0.1.166"
   private val fs2Version = "3.14.0"
-  private val sttpVersion = "4.0.27"
+  private val sttpVersion = "4.1.0"
   private val circeVersion = "0.14.17"
   private val log4CatsVersion = "2.8.0"
   private val awsLibraryVersion = "1.12.797"
