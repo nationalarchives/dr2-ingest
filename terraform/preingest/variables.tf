@@ -62,7 +62,7 @@ variable "importer_lambda" {
     timeout            = optional(number, 180)
     visibility_timeout = optional(number, 300)
     handler            = optional(string, "lambda_function.lambda_handler")
-    runtime            = optional(string, "python3.12")
+    runtime            = optional(string, "python3.14")
     architecture       = optional(string, "arm64")
     memory_size        = optional(number, 128)
   })

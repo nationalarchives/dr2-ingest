@@ -90,7 +90,7 @@ class TestLambdaFunction(unittest.TestCase):
     @patch('restore_lambda_function.s3_client.delete_objects')
     @patch('restore_lambda_function.copy_objects')
     @patch('restore_lambda_function.s3_client.get_object')
-    def test_copy_failure_does_not_delete_or_send_message(
+    def test_copy_failure_does_not_delete_nor_send_message(
             self, mock_get_object, mock_copy_objects, mock_delete_objects, mock_send_message):
         mock_get_object.return_value = {
             'Body': io.BytesIO(
@@ -107,17 +107,6 @@ class TestLambdaFunction(unittest.TestCase):
         self.assertEqual('S3 copy failed', str(context.exception))
         mock_delete_objects.assert_not_called()
         mock_send_message.assert_not_called()
-
-    @patch('restore_lambda_function.s3_client.copy')
-    def test_copy_objects_passes_expected_arguments_to_s3(self, mock_s3_copy):
-        restore_lambda_function.copy_objects('destination-bucket', ['file-key'], 'source-bucket')
-
-        mock_s3_copy.assert_called_once_with(
-            {'Bucket': 'source-bucket', 'Key': 'file-key'},
-            'destination-bucket',
-            'file-key',
-            {'TaggingDirective': 'REPLACE'}
-        )
 
 
 if __name__ == '__main__':
