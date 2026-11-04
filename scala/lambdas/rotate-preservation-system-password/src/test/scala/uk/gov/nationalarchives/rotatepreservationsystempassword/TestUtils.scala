@@ -88,7 +88,7 @@ object TestUtils:
       }
       .map(_ => UpdateSecretVersionStageResponse.builder.build)
 
-    override def awaitRotationCompletion(pollingInterval: Int, maxAttempts: Int): IO[Unit] = errors.raise(_.awaitRotation, "Rotation completion did not happen") >> 
+    override def awaitRotationCompletion(pollingInterval: Int, maxAttempts: Int): IO[Unit] = errors.raise(_.awaitRotation, "Rotation completion did not happen") >>
       ref.update(existing => existing.copy(rotationCompletionCalls = existing.rotationCompletionCalls + 1))
 
   def userClient(ref: Ref[IO, Credentials]): UserClient[IO] = new UserClient[IO]:
