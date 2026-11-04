@@ -26,9 +26,9 @@ locals {
 }
 
 module "dr2_preingest_aggregator_queue" {
-  source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  queue_name = local.aggregator_name
-  sqs_policy = ""
+  source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
+  queue_name                                        = local.aggregator_name
+  sqs_policy                                        = ""
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = local.aggregator_queue_visibility_timeout
   encryption_type                                   = "sse"
