@@ -413,6 +413,7 @@ class IngestUtils(
 
     private suspend fun getLogEvents(logGroup: String, nextTokens: MutableMap<String, String>): List<OutputLogEvent> =
         describeLogStreams(logGroup).flatMap { streamName ->
+            println("Checking $streamName for log group $logGroup")
             val events = mutableListOf<OutputLogEvent>()
             var token = nextTokens[streamName]
             while (true) {
@@ -424,6 +425,8 @@ class IngestUtils(
                     if (currentToken == null) startTime = timeNow else nextToken = currentToken
                 })
                 events.addAll(response.events.orEmpty())
+                println("Time now $timeNow current: $currentToken")
+                println(response.events.orEmpty())
                 token = response.nextForwardToken ?: currentToken
                 if (response.events.isNullOrEmpty() || token == currentToken) break
             }
