@@ -14,11 +14,11 @@ import scala.jdk.CollectionConverters.*
 
 object TestUtils:
   case class SecretStage(value: Option[AuthDetails], stage: Stage)
-  case class Secret(versionToStage: Map[String, List[SecretStage]], rotationEnabled: Boolean = true)
+  case class Secret(versionToStage: Map[String, List[SecretStage]], rotationEnabled: Boolean = true, rotationCompletionCalls: Int = 0)
 
   case class Credentials(oldPassword: String, newPassword: String, testSuccess: Boolean = true, resetSuccess: Boolean = true)
 
-  case class Errors(getSecret: Boolean = false)
+  case class Errors(getSecret: Boolean = false, awaitRotation: Boolean = false)
 
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
@@ -87,6 +87,9 @@ object TestUtils:
         existing.copy(versionToStage = existing.versionToStage ++ updatedMap)
       }
       .map(_ => UpdateSecretVersionStageResponse.builder.build)
+
+    override def awaitRotationCompletion(pollingInterval: Int, maxAttempts: Int): IO[Unit] = errors.raise(_.awaitRotation, "Rotation completion did not happen") >>
+      ref.update(existing => existing.copy(rotationCompletionCalls = existing.rotationCompletionCalls + 1))
 
   def userClient(ref: Ref[IO, Credentials]): UserClient[IO] = new UserClient[IO]:
     override def resetPassword(changePasswordRequest: UserClient.ResetPasswordRequest): IO[Unit] = {
