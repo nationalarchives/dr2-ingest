@@ -125,9 +125,20 @@ class LambdaTest extends AnyFlatSpec with EitherValues with TableDrivenPropertyC
     val secret = Secret(versionToStage)
 
     val (secretResult, _, res) = runLambda(rotationEvent, secret, Credentials("", ""))
-    val expectedResult = Secret(Map("token" -> (currentStages ++ pendingStages), "anotherToken" -> Nil))
+    val expectedResult = Secret(Map("token" -> (currentStages ++ pendingStages), "anotherToken" -> Nil), rotationCompletionCalls = 1)
 
     secretResult should equal(expectedResult)
+  }
+
+  "handler finishSecret" should "return an error if awaitRotation returns an error" in {
+    val rotationEvent = RotationEvent(FinishSecret, "id", "token")
+    val pendingStages = List(SecretStage(Option(AuthDetails("user", "pendingSecret", "")), Pending))
+    val currentStages = List(SecretStage(Option(AuthDetails("user", "currentSecret", "")), Current))
+    val versionToStage = Map("token" -> pendingStages, "anotherToken" -> currentStages)
+
+    val (_, _, res) = runLambda(rotationEvent, Secret(versionToStage), Credentials("", ""), errors = Errors(awaitRotation = true).some)
+
+    res.left.value.getMessage should equal("Rotation completion did not happen")
   }
 
   val passwords: TableFor2[String, Boolean] = Table(
