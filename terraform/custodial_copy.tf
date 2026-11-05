@@ -78,13 +78,10 @@ module "dr2_custodial_copy_db_builder_queue" {
 }
 
 module "dr2_custodial_copy_queue" {
-  source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  queue_name = local.custodial_copy_name
-  fifo_queue = true
-  sqs_policy = templatefile("./templates/sqs/sqs_access_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.custodial_copy_name
-  })
+  source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
+  queue_name                                        = local.custodial_copy_name
+  fifo_queue                                        = true
+  sqs_policy                                        = ""
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   encryption_type                                   = local.sse_encryption
   visibility_timeout                                = 3600
