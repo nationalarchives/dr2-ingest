@@ -172,11 +172,11 @@ module "cc_restore_preingest" {
   private_security_group_ids          = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
   private_subnet_ids                  = module.vpc.private_subnets
   delete_from_source                  = true
-  additional_importer_lambda_env_vars = {
-    SKIP_VALIDATION = "true"
-  }
   package_builder_lambda = {
     handler = "uk.gov.nationalarchives.preingestrestorepackagebuilder.Lambda::handleRequest"
+  }
+  importer_lambda = {
+    handler = "restore_lambda_function.lambda_handler"
   }
   vpc_id                           = module.vpc.vpc.id
   vpc_arn                          = module.vpc.vpc.arn
