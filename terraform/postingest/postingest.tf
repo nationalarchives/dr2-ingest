@@ -31,7 +31,7 @@ locals {
       "queueUrl" : module.dr2_confirmer_queues[queue.queueAlias].sqs_queue.url
     }
   ]
-  empty_policy = jsondecode({
+  empty_policy = jsonencode({
     Verion    = "2012-10-17"
     Statement = []
   })

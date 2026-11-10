@@ -23,7 +23,7 @@ locals {
   alias_name                                   = replace(var.lambda_code_version, ".", "-")
   keep_aggregator_warm_name                    = "${local.environment}-aggregator-keep-warm"
   keep_aggregator_warm_count                   = var.aggregator_secondary_grouping_window_seconds > 900 ? 1 : 0
-  empty_policy = jsondecode({
+  empty_policy = jsonencode({
     Verion    = "2012-10-17"
     Statement = []
   })

@@ -150,7 +150,7 @@ locals {
     }
   }
   selected_flow_control_config = local.flow_control_configs[local.environment]
-  empty_policy = jsondecode({
+  empty_policy = jsonencode({
     Verion    = "2012-10-17"
     Statement = []
   })
