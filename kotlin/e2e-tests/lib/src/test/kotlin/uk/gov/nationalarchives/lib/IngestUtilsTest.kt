@@ -1,12 +1,9 @@
 package uk.gov.nationalarchives.lib
 
 import aws.sdk.kotlin.services.cloudwatchlogs.CloudWatchLogsClient
-import aws.sdk.kotlin.services.cloudwatchlogs.model.DescribeLogStreamsRequest
-import aws.sdk.kotlin.services.cloudwatchlogs.model.DescribeLogStreamsResponse
-import aws.sdk.kotlin.services.cloudwatchlogs.model.GetLogEventsRequest
-import aws.sdk.kotlin.services.cloudwatchlogs.model.GetLogEventsResponse
-import aws.sdk.kotlin.services.cloudwatchlogs.model.LogStream
-import aws.sdk.kotlin.services.cloudwatchlogs.model.OutputLogEvent
+import aws.sdk.kotlin.services.cloudwatchlogs.model.FilterLogEventsRequest
+import aws.sdk.kotlin.services.cloudwatchlogs.model.FilterLogEventsResponse
+import aws.sdk.kotlin.services.cloudwatchlogs.model.FilteredLogEvent
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
 import aws.sdk.kotlin.services.s3.S3Client
 import aws.sdk.kotlin.services.s3.model.Tag
@@ -84,27 +81,18 @@ class IngestUtilsTest {
     }
 
     @Test
-    fun testIngestStatusSearchesStreamsWithStaleTimestampsAcrossPages() {
+    fun testIngestStatusSearchesLogGroupAcrossPages() {
         val assetId = UUID.randomUUID()
         val files = mutableListOf(assetId)
-        val requestedStreams = mutableListOf<String?>()
+        val requests = mutableListOf<FilterLogEventsRequest>()
         val client = object : CloudWatchLogsClient by AWSClients.TestCloudwatchLogsClient(emptyList()) {
-            override suspend fun describeLogStreams(input: DescribeLogStreamsRequest) =
-                DescribeLogStreamsResponse {
-                    logStreams = listOf(LogStream {
-                        logStreamName = if (input.nextToken == null) "old-stream" else "target-stream"
-                        lastEventTimestamp = 0
-                    })
-                    nextToken = if (input.nextToken == null) "next-stream-page" else null
-                }
-
-            override suspend fun getLogEvents(input: GetLogEventsRequest): GetLogEventsResponse {
-                requestedStreams.add(input.logStreamName)
-                return GetLogEventsResponse {
-                    events = if (input.logStreamName == "target-stream" && input.nextToken == null) {
-                        listOf(OutputLogEvent { message = completeMessage(assetId) })
+            override suspend fun filterLogEvents(input: FilterLogEventsRequest): FilterLogEventsResponse {
+                requests.add(input)
+                return FilterLogEventsResponse {
+                    events = if (input.nextToken == "next-page") {
+                        listOf(FilteredLogEvent { message = completeMessage(assetId) })
                     } else emptyList()
-                    nextForwardToken = "end"
+                    nextToken = if (input.nextToken == null) "next-page" else "end"
                 }
             }
         }
@@ -113,22 +101,24 @@ class IngestUtilsTest {
             .checkForIngestStatusMessages("", 1000, "complete")
 
         assertTrue(files.isEmpty())
-        assertTrue(requestedStreams.containsAll(listOf("old-stream", "target-stream")))
+        assertEquals(listOf(null, "next-page", "end"), requests.map { it.nextToken })
+        assertTrue(requests.all { it.logGroupIdentifier == "" })
+        assertTrue(requests.all { it.filterPattern == "assetId" })
     }
 
     @Test
-    fun testIngestStatusContinuesPastEmptyPagesUntilForwardTokenIsUnchanged() {
+    fun testIngestStatusContinuesPastEmptyPagesUntilTokenIsUnchanged() {
         val assetId = UUID.randomUUID()
         val files = mutableListOf(assetId)
-        val requests = mutableListOf<GetLogEventsRequest>()
+        val requests = mutableListOf<FilterLogEventsRequest>()
         val client = object : CloudWatchLogsClient by AWSClients.TestCloudwatchLogsClient(emptyList()) {
-            override suspend fun getLogEvents(input: GetLogEventsRequest): GetLogEventsResponse {
+            override suspend fun filterLogEvents(input: FilterLogEventsRequest): FilterLogEventsResponse {
                 requests.add(input)
-                return GetLogEventsResponse {
+                return FilterLogEventsResponse {
                     events = if (input.nextToken == "empty-page") {
-                        listOf(OutputLogEvent { message = completeMessage(assetId) })
+                        listOf(FilteredLogEvent { message = completeMessage(assetId) })
                     } else emptyList()
-                    nextForwardToken = if (input.nextToken == null) "empty-page" else "end"
+                    nextToken = if (input.nextToken == null) "empty-page" else "end"
                 }
             }
         }
@@ -138,7 +128,7 @@ class IngestUtilsTest {
 
         assertTrue(files.isEmpty())
         assertEquals(listOf(null, "empty-page", "end"), requests.map { it.nextToken })
-        assertTrue(requests.all { it.startFromHead == true && it.startTime == requests.first().startTime })
+        assertTrue(requests.all { it.startTime == requests.first().startTime })
     }
 
     @Test
@@ -147,15 +137,15 @@ class IngestUtilsTest {
         val files = mutableListOf(assetId)
         val eventTime = System.currentTimeMillis() - 60_000
         val client = object : CloudWatchLogsClient by AWSClients.TestCloudwatchLogsClient(emptyList()) {
-            override suspend fun getLogEvents(input: GetLogEventsRequest) =
-                GetLogEventsResponse {
+            override suspend fun filterLogEvents(input: FilterLogEventsRequest) =
+                FilterLogEventsResponse {
                     events = if (input.nextToken == null && eventTime >= (input.startTime ?: 0)) {
-                        listOf(OutputLogEvent {
+                        listOf(FilteredLogEvent {
                             message = completeMessage(assetId)
                             timestamp = eventTime
                         })
                     } else emptyList()
-                    nextForwardToken = "end"
+                    nextToken = "end"
                 }
         }
 
