@@ -8,7 +8,7 @@ module "dr2_archivists_key" {
     ci_roles = [local.terraform_role_arn],
     user_roles = concat([
       data.aws_ssm_parameter.archivist_role.value,
-      module.ad_hoc_preingest.importer_lambda.role,
+      module.preingest["ad_hoc"].importer_lambda.role,
     ], local.e2e_test_roles)
   }
 }
