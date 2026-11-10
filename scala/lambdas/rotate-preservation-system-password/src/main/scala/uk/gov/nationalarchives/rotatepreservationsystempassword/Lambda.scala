@@ -47,7 +47,6 @@ class Lambda extends LambdaRunner[RotationEvent, Unit, Config, Dependencies] {
     def finishSecret(token: String) = for {
       currentVersions <- getSecretVersions(Current)
       _ <- secretsClient.updateSecretVersionStage(token.some, currentVersions.headOption)
-      _ <- secretsClient.awaitRotationCompletion(2000, 3)
     } yield ()
 
     def createSecret(token: String) = for {

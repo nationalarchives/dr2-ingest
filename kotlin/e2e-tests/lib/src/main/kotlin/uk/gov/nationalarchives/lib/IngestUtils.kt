@@ -3,7 +3,6 @@ package uk.gov.nationalarchives.lib
 import aws.sdk.kotlin.services.cloudwatchlogs.CloudWatchLogsClient
 import aws.sdk.kotlin.services.cloudwatchlogs.model.DescribeLogStreamsRequest
 import aws.sdk.kotlin.services.cloudwatchlogs.model.GetLogEventsRequest
-import aws.sdk.kotlin.services.cloudwatchlogs.model.OrderBy
 import aws.sdk.kotlin.services.cloudwatchlogs.model.OutputLogEvent
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
 import aws.sdk.kotlin.services.dynamodb.batchGetItem
@@ -64,7 +63,7 @@ class IngestUtils(
 ) {
     private val completeStatus = "Asset has been written to tape"
     private val failedStatus = "There has been an error ingesting the asset."
-    private val timeNow = System.currentTimeMillis()
+    private val logStartTime = System.currentTimeMillis() - 5.minutes.inWholeMilliseconds
     private val logPollInterval = 5.minutes
 
     suspend fun waitForEntriesInLockTable(timeout: Duration = 15.minutes): MutableSet<String> {
@@ -421,11 +420,12 @@ class IngestUtils(
                     logGroupIdentifier = logGroup
                     logStreamName = streamName
                     startFromHead = true
-                    if (currentToken == null) startTime = timeNow else nextToken = currentToken
+                    startTime = logStartTime
+                    nextToken = currentToken
                 })
                 events.addAll(response.events.orEmpty())
                 token = response.nextForwardToken ?: currentToken
-                if (response.events.isNullOrEmpty() || token == currentToken) break
+                if (token == currentToken) break
             }
             token?.let { nextTokens[streamName] = it }
             events
@@ -438,14 +438,11 @@ class IngestUtils(
             val currentToken = token
             val response = cloudWatchLogsClient.describeLogStreams(DescribeLogStreamsRequest {
                 logGroupIdentifier = logGroup
-                orderBy = OrderBy.LastEventTime
-                descending = true
                 nextToken = currentToken
             })
             val logStreams = response.logStreams.orEmpty()
-            val streamsSinceTestStart = logStreams.takeWhile { (it.lastEventTimestamp ?: Long.MAX_VALUE) >= timeNow }
-            streamNames.addAll(streamsSinceTestStart.mapNotNull { it.logStreamName })
-            token = if (streamsSinceTestStart.size == logStreams.size) response.nextToken else null
+            streamNames.addAll(logStreams.mapNotNull { it.logStreamName })
+            token = response.nextToken
         } while (token != null)
         return streamNames
     }
