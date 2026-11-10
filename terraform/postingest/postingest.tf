@@ -31,6 +31,10 @@ locals {
       "queueUrl" : module.dr2_confirmer_queues[queue.queueAlias].sqs_queue.url
     }
   ]
+  empty_policy = jsondecode({
+    Verion = "2012-10-17"
+    Statement = []
+  })
 }
 
 data "aws_caller_identity" "current" {}
@@ -71,7 +75,7 @@ module "dr2_confirmer_queues" {
   source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   for_each                                          = { for queue in local.postingest_queue_config : queue.queueAlias => queue }
   queue_name                                        = each.value.queue_name
-  sqs_policy                                        = ""
+  sqs_policy                                        = local.empty_policy
   create_dlq                                        = false
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = 600
@@ -99,7 +103,7 @@ module "confirmer_message_older_than_one_week_alarm" {
 module "dr2_state_change_ddb_queue" {
   source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   queue_name                                        = local.state_change_ddb_queue_name
-  sqs_policy                                        = ""
+  sqs_policy                                        = local.empty_policy
   create_dlq                                        = true
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = 180

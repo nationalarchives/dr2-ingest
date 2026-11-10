@@ -64,7 +64,7 @@ module "dr2_importer_lambda" {
 module "dr2_importer_sqs" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   queue_name = local.importer_name
-  sqs_policy = var.sns_topic_subscription == null ? "" : templatefile("${path.module}/templates/sns_send_message_policy.json.tpl", {
+  sqs_policy = var.sns_topic_subscription == null ? local.empty_policy : templatefile("${path.module}/templates/sns_send_message_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
     queue_name = local.importer_name
     topic_arn  = var.sns_topic_subscription.topic_arn

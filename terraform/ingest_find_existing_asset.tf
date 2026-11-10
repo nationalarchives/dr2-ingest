@@ -50,7 +50,7 @@ module "ingest_find_existing_asset" {
 module "ingest_find_existing_asset_queue" {
   source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   queue_name                                        = local.ingest_find_existing_asset_name
-  sqs_policy                                        = ""
+  sqs_policy                                        = local.empty_policy
   message_retention_seconds                         = local.find_asset_heartbeat
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = 300

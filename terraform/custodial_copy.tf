@@ -81,7 +81,7 @@ module "dr2_custodial_copy_queue" {
   source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   queue_name                                        = local.custodial_copy_name
   fifo_queue                                        = true
-  sqs_policy                                        = ""
+  sqs_policy                                        = local.empty_policy
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   encryption_type                                   = local.sse_encryption
   visibility_timeout                                = 3600
