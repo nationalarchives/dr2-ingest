@@ -24,7 +24,7 @@ locals {
   keep_aggregator_warm_name                    = "${local.environment}-aggregator-keep-warm"
   keep_aggregator_warm_count                   = var.aggregator_secondary_grouping_window_seconds > 900 ? 1 : 0
   empty_policy = jsondecode({
-    Verion = "2012-10-17"
+    Verion    = "2012-10-17"
     Statement = []
   })
 }
