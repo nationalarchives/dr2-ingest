@@ -1,6 +1,12 @@
 package uk.gov.nationalarchives.lib
 
 import aws.sdk.kotlin.services.cloudwatchlogs.CloudWatchLogsClient
+import aws.sdk.kotlin.services.cloudwatchlogs.model.DescribeLogStreamsRequest
+import aws.sdk.kotlin.services.cloudwatchlogs.model.DescribeLogStreamsResponse
+import aws.sdk.kotlin.services.cloudwatchlogs.model.GetLogEventsRequest
+import aws.sdk.kotlin.services.cloudwatchlogs.model.GetLogEventsResponse
+import aws.sdk.kotlin.services.cloudwatchlogs.model.LogStream
+import aws.sdk.kotlin.services.cloudwatchlogs.model.OutputLogEvent
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
 import aws.sdk.kotlin.services.s3.S3Client
 import aws.sdk.kotlin.services.s3.model.Tag
@@ -75,6 +81,88 @@ class IngestUtilsTest {
             |"parameters": {"assetId": "$assetId", "status": "Asset has been written to tape"}}}""".trimMargin()
         messageIngestUtils(listOf(body), mutableListOf(assetId))
             .checkForIngestStatusMessages("", 1000, "complete")
+    }
+
+    @Test
+    fun testIngestStatusSearchesStreamsWithStaleTimestampsAcrossPages() {
+        val assetId = UUID.randomUUID()
+        val files = mutableListOf(assetId)
+        val requestedStreams = mutableListOf<String?>()
+        val client = object : CloudWatchLogsClient by AWSClients.TestCloudwatchLogsClient(emptyList()) {
+            override suspend fun describeLogStreams(input: DescribeLogStreamsRequest) =
+                DescribeLogStreamsResponse {
+                    logStreams = listOf(LogStream {
+                        logStreamName = if (input.nextToken == null) "old-stream" else "target-stream"
+                        lastEventTimestamp = 0
+                    })
+                    nextToken = if (input.nextToken == null) "next-stream-page" else null
+                }
+
+            override suspend fun getLogEvents(input: GetLogEventsRequest): GetLogEventsResponse {
+                requestedStreams.add(input.logStreamName)
+                return GetLogEventsResponse {
+                    events = if (input.logStreamName == "target-stream" && input.nextToken == null) {
+                        listOf(OutputLogEvent { message = completeMessage(assetId) })
+                    } else emptyList()
+                    nextForwardToken = "end"
+                }
+            }
+        }
+
+        messageIngestUtils(emptyList(), files, client)
+            .checkForIngestStatusMessages("", 1000, "complete")
+
+        assertTrue(files.isEmpty())
+        assertTrue(requestedStreams.containsAll(listOf("old-stream", "target-stream")))
+    }
+
+    @Test
+    fun testIngestStatusContinuesPastEmptyPagesUntilForwardTokenIsUnchanged() {
+        val assetId = UUID.randomUUID()
+        val files = mutableListOf(assetId)
+        val requests = mutableListOf<GetLogEventsRequest>()
+        val client = object : CloudWatchLogsClient by AWSClients.TestCloudwatchLogsClient(emptyList()) {
+            override suspend fun getLogEvents(input: GetLogEventsRequest): GetLogEventsResponse {
+                requests.add(input)
+                return GetLogEventsResponse {
+                    events = if (input.nextToken == "empty-page") {
+                        listOf(OutputLogEvent { message = completeMessage(assetId) })
+                    } else emptyList()
+                    nextForwardToken = if (input.nextToken == null) "empty-page" else "end"
+                }
+            }
+        }
+
+        messageIngestUtils(emptyList(), files, client)
+            .checkForIngestStatusMessages("", 1000, "complete")
+
+        assertTrue(files.isEmpty())
+        assertEquals(listOf(null, "empty-page", "end"), requests.map { it.nextToken })
+        assertTrue(requests.all { it.startFromHead == true && it.startTime == requests.first().startTime })
+    }
+
+    @Test
+    fun testIngestStatusIncludesMessagesTimestampedShortlyBeforeTestStart() {
+        val assetId = UUID.randomUUID()
+        val files = mutableListOf(assetId)
+        val eventTime = System.currentTimeMillis() - 60_000
+        val client = object : CloudWatchLogsClient by AWSClients.TestCloudwatchLogsClient(emptyList()) {
+            override suspend fun getLogEvents(input: GetLogEventsRequest) =
+                GetLogEventsResponse {
+                    events = if (input.nextToken == null && eventTime >= (input.startTime ?: 0)) {
+                        listOf(OutputLogEvent {
+                            message = completeMessage(assetId)
+                            timestamp = eventTime
+                        })
+                    } else emptyList()
+                    nextForwardToken = "end"
+                }
+        }
+
+        messageIngestUtils(emptyList(), files, client)
+            .checkForIngestStatusMessages("", 1000, "complete")
+
+        assertTrue(files.isEmpty())
     }
 
     @Test
@@ -512,11 +600,19 @@ class IngestUtilsTest {
         )
     }
 
-    private fun messageIngestUtils(messageJson: List<String>, files: MutableList<UUID>): IngestUtils {
+    private fun completeMessage(assetId: UUID) = """{"body":
+        |{"properties": {"executionId": "", "messageType": "preserve.digital.asset.ingest.complete"},
+        |"parameters": {"assetId": "$assetId", "status": "Asset has been written to tape"}}}""".trimMargin()
+
+    private fun messageIngestUtils(
+        messageJson: List<String>,
+        files: MutableList<UUID>,
+        cloudWatchLogsClient: CloudWatchLogsClient = AWSClients.TestCloudwatchLogsClient(messageJson)
+    ): IngestUtils {
         return IngestUtils(
             SqsClient.builder().build(),
             S3Client.builder().build(),
-            AWSClients.TestCloudwatchLogsClient(messageJson),
+            cloudWatchLogsClient,
             DynamoDbClient.builder().build(),
             SfnClient.builder().build(),
             ConfigFactory.load(),
