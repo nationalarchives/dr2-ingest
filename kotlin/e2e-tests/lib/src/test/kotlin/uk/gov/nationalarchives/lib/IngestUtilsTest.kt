@@ -103,7 +103,7 @@ class IngestUtilsTest {
         assertTrue(files.isEmpty())
         assertEquals(listOf(null, "next-page", "end"), requests.map { it.nextToken })
         assertTrue(requests.all { it.logGroupIdentifier == "" })
-        assertTrue(requests.all { it.filterPattern == "assetId" })
+        assertTrue(requests.all { it.filterPattern == "%assetId|s3FolderName%" })
     }
 
     @Test
