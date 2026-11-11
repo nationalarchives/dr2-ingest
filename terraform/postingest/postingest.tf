@@ -138,6 +138,10 @@ module "dr2_send_to_state_change_ddb_queue_lambda" {
   }
 
   tags = {}
+  vpc_config = {
+    subnet_ids = var.private_subnet_ids
+    security_group_ids = var.private_security_group_ids
+  }
 }
 
 module "dr2_state_change_lambda" {

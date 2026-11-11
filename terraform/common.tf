@@ -281,6 +281,42 @@ module "vpc" {
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
+    ssm = {
+      name = "com.amazonaws.${local.aws_region_name}.ssm",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "ssm"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
+    events = {
+      name = "com.amazonaws.${local.aws_region_name}.events",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "events"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
+    lambda = {
+      name = "com.amazonaws.${local.aws_region_name}.lambda",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "lambda"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
+    monitoring = {
+      name = "com.amazonaws.${local.aws_region_name}.monitoring",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "cloudwatch"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    }
   }
 }
 
