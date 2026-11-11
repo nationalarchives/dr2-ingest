@@ -35,7 +35,7 @@ module "dr2_ingest_flow_control_lambda" {
     SfnFunction = "true"
   }
   vpc_config = {
-    subnet_ids = module.vpc.private_subnets
+    subnet_ids         = module.vpc.private_subnets
     security_group_ids = [module.outbound_https_access_for_dynamo_db]
   }
 }

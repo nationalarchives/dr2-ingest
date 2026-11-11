@@ -81,7 +81,7 @@ module "dr2_preingest_aggregator_lambda" {
     Name = local.aggregator_name
   }
   vpc_config = {
-    subnet_ids = var.private_subnet_ids
+    subnet_ids         = var.private_subnet_ids
     security_group_ids = var.private_security_group_ids
   }
 }

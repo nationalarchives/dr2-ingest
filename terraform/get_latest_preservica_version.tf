@@ -45,7 +45,7 @@ module "dr2_get_latest_preservica_version_lambda" {
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.demo_preservica_secret.name
   }
   vpc_config = {
-    subnet_ids = module.vpc.private_subnets
+    subnet_ids         = module.vpc.private_subnets
     security_group_ids = local.clouflare_and_vpc_endpoints_security_groups
   }
 }
