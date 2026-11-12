@@ -23,19 +23,16 @@ locals {
   alias_name                                   = replace(var.lambda_code_version, ".", "-")
   keep_aggregator_warm_name                    = "${local.environment}-aggregator-keep-warm"
   keep_aggregator_warm_count                   = var.aggregator_secondary_grouping_window_seconds > 900 ? 1 : 0
+  empty_policy = jsonencode({
+    Verion    = "2012-10-17"
+    Statement = []
+  })
 }
 
 module "dr2_preingest_aggregator_queue" {
-  source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  queue_name = local.aggregator_name
-  sqs_policy = var.sns_topic_subscription == null ? templatefile("${path.module}/templates/sqs_access_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.aggregator_name
-    }) : templatefile("${path.module}/templates/sns_send_message_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.aggregator_name
-    topic_arn  = var.sns_topic_subscription.topic_arn
-  })
+  source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
+  queue_name                                        = local.aggregator_name
+  sqs_policy                                        = local.empty_policy
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = local.aggregator_queue_visibility_timeout
   encryption_type                                   = "sse"

@@ -150,6 +150,10 @@ locals {
     }
   }
   selected_flow_control_config = local.flow_control_configs[local.environment]
+  empty_policy = jsonencode({
+    Verion    = "2012-10-17"
+    Statement = []
+  })
 }
 
 data "aws_iam_role" "org_wiz_access_role" {
