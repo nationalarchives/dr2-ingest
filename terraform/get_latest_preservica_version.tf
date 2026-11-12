@@ -44,6 +44,10 @@ module "dr2_get_latest_preservica_version_lambda" {
     OUTPUT_TOPIC_ARN       = local.latest_preservica_version_event_topic_arn
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.demo_preservica_secret.name
   }
+  vpc_config = {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = local.clouflare_and_vpc_endpoints_security_groups
+  }
 }
 
 module "get_latest_preservica_version_lambda_dr2_preservica_version_table" {
