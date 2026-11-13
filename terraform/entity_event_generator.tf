@@ -93,7 +93,7 @@ resource "awscc_cloudwatch_log_alarm" "entity_event" {
     aggregation_expression = "COUNT(*)"
 
     log_group_identifiers = [
-      "/aws/lambda/${local.environment}-dr2-entity-event-generator-lambda"
+      "/aws/lambda/${local.entity_event_lambda_name}"
     ]
 
     scheduled_query_role_arn = module.entity_event_failure_alarm_execution_role.role_arn

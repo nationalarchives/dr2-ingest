@@ -731,7 +731,8 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_ingest_queues" {
     cloudwatch_alarms = jsonencode(
       flatten([
         [for queue in local.ingest_queues : queue.event_alarms],
-        module.postingest.postingest_queue_oldest_message_alarm_arns
+        module.postingest.postingest_queue_oldest_message_alarm_arns,
+        [awscc_cloudwatch_log_alarm.entity_event.arn]
       ])
     ),
     state_value = "ALARM"
