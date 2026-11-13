@@ -44,24 +44,16 @@ object AWSClients {
         private val messageJsonList: List<String>,
         delegate: CloudWatchLogsClient = CloudWatchLogsClient.builder().build()
     ) : CloudWatchLogsClient by delegate {
-        override suspend fun describeLogStreams(input: DescribeLogStreamsRequest): DescribeLogStreamsResponse =
-            DescribeLogStreamsResponse {
-                logStreams = listOf(LogStream {
-                    logStreamName = "test-log-stream"
-                    lastEventTimestamp = System.currentTimeMillis()
-                })
-            }
-
-        override suspend fun getLogEvents(input: GetLogEventsRequest): GetLogEventsResponse =
+        override suspend fun filterLogEvents(input: FilterLogEventsRequest): FilterLogEventsResponse =
             if (input.nextToken == null) {
-                GetLogEventsResponse {
-                    events = messageJsonList.map { OutputLogEvent { message = it } }
-                    nextForwardToken = "next-forward-token"
+                FilterLogEventsResponse {
+                    events = messageJsonList.map { FilteredLogEvent { message = it } }
+                    nextToken = "next-forward-token"
                 }
             } else {
-                GetLogEventsResponse {
+                FilterLogEventsResponse {
                     events = emptyList()
-                    nextForwardToken = input.nextToken
+                    nextToken = input.nextToken
                 }
             }
     }
