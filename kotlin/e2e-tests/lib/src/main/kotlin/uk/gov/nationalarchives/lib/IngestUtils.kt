@@ -120,6 +120,11 @@ class IngestUtils(
                 .filter { it.body.properties.messageType == "preserve.digital.asset.ingest.$messageType" && it.body.parameters.status == status }
                 .map { it.body.parameters.assetId }
             assetIds.removeAll(assetIdsFromMessage)
+            if (messageType == "update") {
+                println(logEvents)
+                println(assetIdsFromMessage)
+                println(assetIds)
+            }
             assetIds.isEmpty()
         }
     }
