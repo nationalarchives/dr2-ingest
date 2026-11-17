@@ -43,8 +43,7 @@
     {
       "Effect": "Allow",
       "Action": [
-        "logs:DescribeLogStreams",
-        "logs:GetLogEvents"
+        "logs:FilterLogEvents"
       ],
       "Resource": [
         "${external_notifications_log_group}",

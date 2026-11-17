@@ -1,9 +1,8 @@
 package uk.gov.nationalarchives.lib
 
 import aws.sdk.kotlin.services.cloudwatchlogs.CloudWatchLogsClient
-import aws.sdk.kotlin.services.cloudwatchlogs.model.DescribeLogStreamsRequest
-import aws.sdk.kotlin.services.cloudwatchlogs.model.GetLogEventsRequest
-import aws.sdk.kotlin.services.cloudwatchlogs.model.OutputLogEvent
+import aws.sdk.kotlin.services.cloudwatchlogs.model.FilteredLogEvent
+import aws.sdk.kotlin.services.cloudwatchlogs.model.FilterLogEventsRequest
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
 import aws.sdk.kotlin.services.dynamodb.batchGetItem
 import aws.sdk.kotlin.services.dynamodb.model.AttributeValue
@@ -64,7 +63,7 @@ class IngestUtils(
     private val completeStatus = "Asset has been written to tape"
     private val failedStatus = "There has been an error ingesting the asset."
     private val logStartTime = System.currentTimeMillis() - 5.minutes.inWholeMilliseconds
-    private val logPollInterval = 5.minutes
+    private val logPollInterval = 1.minutes
 
     suspend fun waitForEntriesInLockTable(timeout: Duration = 15.minutes): MutableSet<String> {
         val pollInterval = 30 * 1000
@@ -94,7 +93,7 @@ class IngestUtils(
     fun checkForValidationFailureMessages(sourceSystemName: String, timeout: Long) {
         val sourceSystem = SourceSystem.valueOf(sourceSystemName.uppercase())
         val logGroupArn = sourceSystem.getCopyFilesLogGroup(config)
-        streamLogs(timeout, logGroupArn) { logEvents: List<OutputLogEvent> ->
+        streamLogs(timeout, logGroupArn) { logEvents: List<FilteredLogEvent> ->
             val assetIdsFromMessage = logEvents
                 .flatMap {
                     try {
@@ -114,7 +113,7 @@ class IngestUtils(
 
     fun checkForIngestStatusMessages(logGroupArn: String, timeout: Long, messageType: String) {
         val status = if (messageType == "update") failedStatus else completeStatus
-        streamLogs(timeout, logGroupArn) { logEvents: List<OutputLogEvent> ->
+        streamLogs(timeout, logGroupArn) { logEvents: List<FilteredLogEvent> ->
             val assetIdsFromMessage = logEvents
                 .map { jsonCodec.decodeFromString<ExternalNotificationMessage>(it.message!!) }
                 .filter { it.body.properties.messageType == "preserve.digital.asset.ingest.$messageType" && it.body.parameters.status == status }
@@ -396,12 +395,15 @@ class IngestUtils(
         return resp.responses?.get(tableName).orEmpty()
     }
 
-    private fun streamLogs(timeout: Long, logGroup: String, isComplete: (List<OutputLogEvent>) -> Boolean) =
+    private fun streamLogs(timeout: Long, logGroup: String, isComplete: (List<FilteredLogEvent>) -> Boolean) =
         runBlocking {
-            val nextTokens = mutableMapOf<String, String>()
+            var nextToken: String? = null
             try {
                 withTimeout(timeout.milliseconds) {
-                    while (!isComplete(getLogEvents(logGroup, nextTokens))) {
+                    while (true) {
+                        val (events, updatedNextToken) = getLogEvents(logGroup, nextToken)
+                        nextToken = updatedNextToken
+                        if (isComplete(events)) break
                         delay(logPollInterval)
                     }
                 }
@@ -410,41 +412,22 @@ class IngestUtils(
             }
         }
 
-    private suspend fun getLogEvents(logGroup: String, nextTokens: MutableMap<String, String>): List<OutputLogEvent> =
-        describeLogStreams(logGroup).flatMap { streamName ->
-            val events = mutableListOf<OutputLogEvent>()
-            var token = nextTokens[streamName]
-            while (true) {
-                val currentToken = token
-                val response = cloudWatchLogsClient.getLogEvents(GetLogEventsRequest {
-                    logGroupIdentifier = logGroup
-                    logStreamName = streamName
-                    startFromHead = true
-                    startTime = logStartTime
-                    nextToken = currentToken
-                })
-                events.addAll(response.events.orEmpty())
-                token = response.nextForwardToken ?: currentToken
-                if (token == currentToken) break
-            }
-            token?.let { nextTokens[streamName] = it }
-            events
-        }
-
-    private suspend fun describeLogStreams(logGroup: String): List<String> {
-        val streamNames = mutableListOf<String>()
-        var token: String? = null
-        do {
+    private suspend fun getLogEvents(logGroup: String, nextToken: String?): Pair<List<FilteredLogEvent>, String?> {
+        val events = mutableListOf<FilteredLogEvent>()
+        var token = nextToken
+        while (true) {
             val currentToken = token
-            val response = cloudWatchLogsClient.describeLogStreams(DescribeLogStreamsRequest {
+            val response = cloudWatchLogsClient.filterLogEvents(FilterLogEventsRequest {
                 logGroupIdentifier = logGroup
-                nextToken = currentToken
+                startTime = logStartTime
+                filterPattern = "%assetId|s3FolderName%"
+                this.nextToken = currentToken
             })
-            val logStreams = response.logStreams.orEmpty()
-            streamNames.addAll(logStreams.mapNotNull { it.logStreamName })
-            token = response.nextToken
-        } while (token != null)
-        return streamNames
+            events.addAll(response.events.orEmpty())
+            token = response.nextToken ?: currentToken
+            if (token == currentToken) break
+        }
+        return events to token
     }
 
     enum class SourceSystem {
