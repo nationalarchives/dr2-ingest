@@ -55,7 +55,7 @@ locals {
         topic_arn     = module.tre_config.terraform_config[local.tre_environment_name]["da_eventbus"],
         filter_policy = templatefile("${path.module}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})
       } : null
-      source_name            = "courtdoc"
+      source_name            = lower(local.courtdoc)
       bucket_kms_arn         = module.tre_config.terraform_config["${local.tre_environment_name}_s3_common_kms_arn"]
       copy_source_bucket_arn = module.tre_config.terraform_config[local.tre_environment_name]["s3_common_bucket_arn"]
       importer_lambda = {
