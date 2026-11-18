@@ -13,6 +13,10 @@ resource "aws_route53_resolver_firewall_domain_list" "allow_domains" {
     "ssm.${data.aws_region.current.region}.amazonaws.com.",
     "sqs.${data.aws_region.current.region}.amazonaws.com.",
     "sns.${data.aws_region.current.region}.amazonaws.com.",
+    "cloudwatch.${data.aws_region.current.region}.amazonaws.com.",
+    "ssm.${data.aws_region.current.region}.amazonaws.com.",
+    "events.${data.aws_region.current.region}.amazonaws.com.",
+    "lambda.${data.aws_region.current.region}.amazonaws.com.",
     # Other services used by DR2
     "discovery.nationalarchives.gov.uk.",
     "tna.preservica.com.",

@@ -281,42 +281,6 @@ module "vpc" {
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
-    ssm = {
-      name = "com.amazonaws.${local.aws_region_name}.ssm",
-      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "ssm"
-        org_id       = data.aws_organizations_organization.org.id
-      })
-      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
-      enable_private_dns = true
-    },
-    events = {
-      name = "com.amazonaws.${local.aws_region_name}.events",
-      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "events"
-        org_id       = data.aws_organizations_organization.org.id
-      })
-      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
-      enable_private_dns = true
-    },
-    lambda = {
-      name = "com.amazonaws.${local.aws_region_name}.lambda",
-      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "lambda"
-        org_id       = data.aws_organizations_organization.org.id
-      })
-      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
-      enable_private_dns = true
-    },
-    monitoring = {
-      name = "com.amazonaws.${local.aws_region_name}.monitoring",
-      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "cloudwatch"
-        org_id       = data.aws_organizations_organization.org.id
-      })
-      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
-      enable_private_dns = true
-    }
   }
 }
 
@@ -334,6 +298,24 @@ data "aws_ec2_managed_prefix_list" "s3_prefix_list" {
 
 data "aws_ec2_managed_prefix_list" "dynamo_db_prefix_list" {
   name = "com.amazonaws.eu-west-2.dynamodb"
+}
+
+module "outbound_https_access" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A  security group to allow outbound HTTPS only to any IP"
+  name        = "${local.environment}-outbound-https"
+  vpc_id      = module.vpc.vpc.id
+  rules = {
+    egress = [
+      {
+        port        = 443
+        description = "Outbound https any IP"
+        cidr_ip_v4  = "0.0.0.0/0"
+        protocol    = "tcp"
+      }
+    ]
+  }
 }
 
 module "outbound_https_access_for_s3" {

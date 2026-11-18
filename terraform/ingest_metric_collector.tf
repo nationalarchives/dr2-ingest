@@ -27,6 +27,10 @@ module "dr2_ingest_metric_collector_lambda" {
     SOURCE_SYSTEMS           = jsonencode(local.source_systems)
     MAPPER_LAMBDA_STATE_NAME = local.ingest_step_function_mapper_lambda_state_name
   }
+  vpc_config = {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = [module.outbound_https_access]
+  }
   tags = {
     Name = local.ingest_metric_collector_lambda_name
   }

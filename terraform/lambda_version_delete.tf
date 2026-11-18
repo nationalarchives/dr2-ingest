@@ -51,6 +51,6 @@ module "dr2_delete_lambda_version_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.https_to_vpc_endpoints_security_group.security_group_id]
+    security_group_ids = [module.outbound_https_access]
   }
 }

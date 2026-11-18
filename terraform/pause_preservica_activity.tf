@@ -36,6 +36,10 @@ module "pause_preservica_activity_lambda" {
       }
     ])
   }
+  vpc_config = {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = [module.outbound_https_access]
+  }
 }
 
 module "pause_preservica_activity_checker_cloudwatch_event" {
