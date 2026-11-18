@@ -84,5 +84,6 @@ module "dr2_custodial_copy_queue" {
   sqs_policy                                        = local.empty_policy
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   encryption_type                                   = local.sse_encryption
-  visibility_timeout                                = 3600
+  visibility_timeout                                = local.environment == "prod" ? 3600 : 600
+  redrive_maximum_receives                          = 15
 }
