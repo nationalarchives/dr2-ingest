@@ -50,33 +50,15 @@ locals {
       delete_from_source                           = true
     }
 
-    court_document = {
-      sns_topic_subscription = local.environment == "prod" ? {
-        topic_arn     = module.tre_config.terraform_config[local.tre_environment_name]["da_eventbus"],
-        filter_policy = templatefile("${path.module}/templates/sns/tre_live_stream_filter_policy.json.tpl", {})
-      } : null
-      source_name            = lower(local.courtdoc)
-      bucket_kms_arn         = module.tre_config.terraform_config["${local.tre_environment_name}_s3_common_kms_arn"]
-      copy_source_bucket_arn = module.tre_config.terraform_config[local.tre_environment_name]["s3_common_bucket_arn"]
-      importer_lambda = {
-        visibility_timeout = 900
-        timeout            = 900
-        handler            = "uk.gov.nationalarchives.preingestcourtdocimporter.Lambda::handleRequest"
-        runtime            = local.java_runtime
-        architecture       = local.architecture_arm64
-        memory_size        = 512
-      }
-      package_builder_lambda = {
-        handler = "uk.gov.nationalarchives.preingestcourtdocpackagebuilder.Lambda::handleRequest"
-      }
-    }
-
     cc_restore = {
       source_name            = "restore"
       copy_source_bucket_arn = "arn:aws:s3:::${local.cc_restore_bucket_name}"
       delete_from_source     = true
       additional_importer_lambda_env_vars = {
         SKIP_VALIDATION = "true"
+      }
+      importer_lambda = {
+        handler = "restore_lambda_function.lambda_handler"
       }
       package_builder_lambda = {
         handler = "uk.gov.nationalarchives.preingestrestorepackagebuilder.Lambda::handleRequest"
@@ -100,18 +82,6 @@ locals {
       }
       package_builder_lambda = {
         handler = "uk.gov.nationalarchives.preingestcourtdocpackagebuilder.Lambda::handleRequest"
-      }
-    }
-
-    cc_restore = {
-      source_name            = "restore"
-      copy_source_bucket_arn = "arn:aws:s3:::${local.cc_restore_bucket_name}"
-      delete_from_source     = true
-      additional_importer_lambda_env_vars = {
-        SKIP_VALIDATION = "true"
-      }
-      package_builder_lambda = {
-        handler = "uk.gov.nationalarchives.preingestrestorepackagebuilder.Lambda::handleRequest"
       }
     }
   }
