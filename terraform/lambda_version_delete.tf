@@ -40,11 +40,11 @@ module "dr2_delete_lambda_version_lambda" {
           module.dr2_ingest_upsert_archive_folders_lambda.lambda_function,
           module.dr2_ingest_start_workflow_lambda.lambda_function,
           module.dr2_ingest_workflow_monitor_lambda.lambda_function,
-          module.cc_restore_preingest.package_builder_lambda,
-          module.dri_preingest.package_builder_lambda,
-          module.tdr_preingest.package_builder_lambda,
-          module.ad_hoc_preingest.package_builder_lambda,
-          module.court_document_preingest.package_builder_lambda
+          module.preingest["cc_restore"].package_builder_lambda,
+          module.preingest["dri"].package_builder_lambda,
+          module.preingest["tdr"].package_builder_lambda,
+          module.preingest["ad_hoc"].package_builder_lambda,
+          module.preingest["court_document"].package_builder_lambda
         ] : ["${l.arn}:*", l.arn]
       ]))
     })

@@ -70,15 +70,15 @@ locals {
     local.ingest_workflow_monitor_lambda_name,
     local.ip_lock_checker_lambda_name,
     local.rotate_preservation_system_password_name,
-    module.tdr_preingest.aggregator_lambda.function_name,
-    module.tdr_preingest.package_builder_lambda.function_name,
-    module.tdr_preingest.importer_lambda.function_name,
-    module.dri_preingest.aggregator_lambda.function_name,
-    module.dri_preingest.package_builder_lambda.function_name,
-    module.dri_preingest.importer_lambda.function_name,
-    module.ad_hoc_preingest.aggregator_lambda.function_name,
-    module.ad_hoc_preingest.package_builder_lambda.function_name,
-    module.ad_hoc_preingest.importer_lambda.function_name
+    module.preingest["tdr"].aggregator_lambda.function_name,
+    module.preingest["tdr"].package_builder_lambda.function_name,
+    module.preingest["tdr"].importer_lambda.function_name,
+    module.preingest["dri"].aggregator_lambda.function_name,
+    module.preingest["dri"].package_builder_lambda.function_name,
+    module.preingest["dri"].importer_lambda.function_name,
+    module.preingest["ad_hoc"].aggregator_lambda.function_name,
+    module.preingest["ad_hoc"].package_builder_lambda.function_name,
+    module.preingest["ad_hoc"].importer_lambda.function_name
   ])
   custodial_copy_queues = [
     module.dr2_custodial_copy_queue,
@@ -107,6 +107,7 @@ locals {
   default        = local.source_systems[index(local.source_systems, "DEFAULT")]
   tdr            = local.source_systems[index(local.source_systems, "TDR")]
   adhoc          = local.source_systems[index(local.source_systems, "ADHOC")]
+  courtdoc       = local.source_systems[index(local.source_systems, "COURTDOC")]
   dri            = local.source_systems[index(local.source_systems, "DRI")]
 
   flow_control_configs = {
@@ -398,24 +399,24 @@ module "dr2_kms_key" {
       module.dr2_ingest_parent_folder_opex_creator_lambda.lambda_role_arn,
       module.dr2_ingest_asset_reconciler_lambda.lambda_role_arn,
       module.dr2_ingest_step_function.step_function_role_arn,
-      module.pa_preingest.aggregator_lambda.role,
-      module.pa_preingest.package_builder_lambda.role,
-      module.pa_preingest.importer_lambda.role,
-      module.tdr_preingest.aggregator_lambda.role,
-      module.tdr_preingest.package_builder_lambda.role,
-      module.tdr_preingest.importer_lambda.role,
-      module.dri_preingest.aggregator_lambda.role,
-      module.dri_preingest.package_builder_lambda.role,
-      module.dri_preingest.importer_lambda.role,
-      module.ad_hoc_preingest.aggregator_lambda.role,
-      module.ad_hoc_preingest.package_builder_lambda.role,
-      module.ad_hoc_preingest.importer_lambda.role,
-      module.cc_restore_preingest.aggregator_lambda.role,
-      module.cc_restore_preingest.package_builder_lambda.role,
-      module.cc_restore_preingest.importer_lambda.role,
-      module.court_document_preingest.aggregator_lambda.role,
-      module.court_document_preingest.package_builder_lambda.role,
-      module.court_document_preingest.importer_lambda.role,
+      module.preingest["pa"].aggregator_lambda.role,
+      module.preingest["pa"].package_builder_lambda.role,
+      module.preingest["pa"].importer_lambda.role,
+      module.preingest["tdr"].aggregator_lambda.role,
+      module.preingest["tdr"].package_builder_lambda.role,
+      module.preingest["tdr"].importer_lambda.role,
+      module.preingest["dri"].aggregator_lambda.role,
+      module.preingest["dri"].package_builder_lambda.role,
+      module.preingest["dri"].importer_lambda.role,
+      module.preingest["ad_hoc"].aggregator_lambda.role,
+      module.preingest["ad_hoc"].package_builder_lambda.role,
+      module.preingest["ad_hoc"].importer_lambda.role,
+      module.preingest["cc_restore"].aggregator_lambda.role,
+      module.preingest["cc_restore"].package_builder_lambda.role,
+      module.preingest["cc_restore"].importer_lambda.role,
+      module.preingest["court_document"].aggregator_lambda.role,
+      module.preingest["court_document"].package_builder_lambda.role,
+      module.preingest["court_document"].importer_lambda.role,
       module.cleanup_handler_lambda.lambda_role_arn,
       local.tna_to_preservica_role_arn,
     ], local.additional_user_roles, local.e2e_test_roles)
@@ -619,11 +620,11 @@ module "dr2_ingest_step_function_policy" {
     ingest_sfn_name                                   = local.ingest_step_function_name
     ingest_run_workflow_sfn_name                      = local.ingest_run_workflow_step_function_name
     tna_to_preservica_role_arn                        = local.tna_to_preservica_role_arn
-    preingest_tdr_step_function_arn                   = module.tdr_preingest.preingest_sfn_arn
-    preingest_dri_step_function_arn                   = module.dri_preingest.preingest_sfn_arn
-    preingest_adhoc_step_function_arn                 = module.ad_hoc_preingest.preingest_sfn_arn
-    preingest_restore_step_function_arn               = module.cc_restore_preingest.preingest_sfn_arn
-    preingest_court_document_step_function_arn        = module.court_document_preingest.preingest_sfn_arn
+    preingest_tdr_step_function_arn                   = module.preingest["tdr"].preingest_sfn_arn
+    preingest_dri_step_function_arn                   = module.preingest["dri"].preingest_sfn_arn
+    preingest_adhoc_step_function_arn                 = module.preingest["ad_hoc"].preingest_sfn_arn
+    preingest_restore_step_function_arn               = module.preingest["cc_restore"].preingest_sfn_arn
+    preingest_court_document_step_function_arn        = module.preingest["court_document"].preingest_sfn_arn
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
     postingest_table_name                             = module.postingest.postingest_table_name
     ingest_find_existing_asset_queue_arn              = module.ingest_find_existing_asset_queue.sqs_queue.arn
@@ -797,9 +798,9 @@ module "failed_ingest_step_function_event_bridge_rule" {
   event_pattern = templatefile("${path.module}/templates/eventbridge/step_function_failed_event_pattern.json.tpl", {
     step_function_arns = jsonencode([
       module.dr2_ingest_step_function.step_function_arn,
-      module.tdr_preingest.preingest_sfn_arn,
-      module.dri_preingest.preingest_sfn_arn,
-      module.ad_hoc_preingest.preingest_sfn_arn,
+      module.preingest["tdr"].preingest_sfn_arn,
+      module.preingest["dri"].preingest_sfn_arn,
+      module.preingest["ad_hoc"].preingest_sfn_arn,
       module.dr2_ingest_run_workflow_step_function.step_function_arn
     ])
   })
@@ -964,7 +965,7 @@ module "archivist_pa_sso_policy" {
   name   = "AWSSSO_DAPAArchivist"
   policy_string = templatefile("${path.module}/templates/iam_policy/archivist_pa_sso_policy.json.tpl", {
     pa_bucket_name    = local.pa_source_bucket
-    pa_importer_queue = module.pa_preingest.importer_sqs.sqs_arn
+    pa_importer_queue = module.preingest["pa"].importer_sqs.sqs_arn
   })
 }
 
