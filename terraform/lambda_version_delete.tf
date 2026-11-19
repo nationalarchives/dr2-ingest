@@ -19,7 +19,7 @@ module "dr2_delete_lambda_version_lambda" {
   function_name   = local.delete_lambda_version_name
   handler         = "delete_lambda_versions.lambda_handler"
   filename        = data.archive_file.delete_lambda_version_code.output_path
-  timeout_seconds = 60
+  timeout_seconds = 900
   memory_size     = local.python_lambda_memory_size
   runtime         = local.python_runtime
   tags            = {}
@@ -44,13 +44,24 @@ module "dr2_delete_lambda_version_lambda" {
           module.dri_preingest.package_builder_lambda,
           module.tdr_preingest.package_builder_lambda,
           module.ad_hoc_preingest.package_builder_lambda,
-          module.court_document_preingest.package_builder_lambda
+          module.court_document_preingest.package_builder_lambda,
+          module.pa_preingest.package_builder_lambda
         ] : ["${l.arn}:*", l.arn]
       ]))
     })
   }
+  lambda_invoke_permissions = {
+    "events.amazonaws.com" = module.dr2_delete_lambda_version_cloudwatch_event.event_arn
+  }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access]
+    security_group_ids = [module.outbound_https_access.security_group_id]
   }
+}
+
+module "dr2_delete_lambda_version_cloudwatch_event" {
+  source                  = "git::https://github.com/nationalarchives/da-terraform-modules//cloudwatch_events"
+  rule_name               = "${local.environment}-dr2-lambda-version-delete"
+  schedule                = "rate(30 days)"
+  lambda_event_target_arn = "arn:aws:lambda:eu-west-2:${data.aws_caller_identity.current.account_id}:function:${local.delete_lambda_version_name}"
 }
