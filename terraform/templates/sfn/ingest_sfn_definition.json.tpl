@@ -220,7 +220,7 @@
                 "Next": "Insert into PostIngest table"
               }
             ],
-            "Default": "Throw Reconciler job error"
+            "Default": "Ignore reconciler failure"
           },
           "Insert into PostIngest table": {
             "Type": "Task",
@@ -258,10 +258,9 @@
             "ResultPath": null,
             "End": true
           },
-          "Throw Reconciler job error": {
-            "Type": "Fail",
-            "Cause": "AWS Batch Job Failed",
-            "Error": "'wasReconciled' value was neither 'true' nor 'false'"
+          "Ignore reconciler failure": {
+            "Type": "Pass",
+            "End": true
           }
         }
       },

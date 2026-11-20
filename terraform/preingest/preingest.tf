@@ -80,6 +80,10 @@ module "dr2_preingest_aggregator_lambda" {
   tags = {
     Name = local.aggregator_name
   }
+  vpc_config = {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = var.private_security_group_ids # Needs: DynamoDB, Step Functions and SNS.
+  }
 }
 
 module "create_lambda_alias" {
@@ -145,7 +149,7 @@ module "dr2_preingest_package_builder_lambda" {
   }
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
-    security_group_ids = var.private_security_group_ids
+    security_group_ids = var.private_security_group_ids # Needs: S3 and DynamoDB (for all configured package-builder handlers).
   }
   tags = {
     Name        = local.package_builder_lambda_name
