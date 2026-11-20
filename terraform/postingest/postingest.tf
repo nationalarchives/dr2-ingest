@@ -140,7 +140,7 @@ module "dr2_send_to_state_change_ddb_queue_lambda" {
   tags = {}
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
-    security_group_ids = var.private_security_group_ids
+    security_group_ids = var.private_security_group_ids # Needs: SQS.
   }
 }
 
@@ -175,7 +175,7 @@ module "dr2_state_change_lambda" {
 
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
-    security_group_ids = var.private_security_group_ids
+    security_group_ids = var.private_security_group_ids # Needs: DynamoDB, SNS and SQS.
   }
   plaintext_env_vars = {
     POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
@@ -219,7 +219,7 @@ module "dr2_message_resender_lambda" {
   }
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
-    security_group_ids = var.private_security_group_ids
+    security_group_ids = var.private_security_group_ids # Needs: DynamoDB, SQS and EventBridge.
   }
   tags = {
     Name = local.resender_lambda_name

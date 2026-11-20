@@ -55,13 +55,13 @@ module "dr2_delete_lambda_version_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access.security_group_id]
+    security_group_ids = [module.outbound_https_to_any_ip.security_group_id] # Needs: AWS Lambda API.
   }
 }
 
 module "dr2_delete_lambda_version_cloudwatch_event" {
   source                  = "git::https://github.com/nationalarchives/da-terraform-modules//cloudwatch_events"
-  rule_name               = "${local.environment}-dr2-lambda-version-delete"
+  rule_name               = local.delete_lambda_version_name
   schedule                = "rate(30 days)"
   lambda_event_target_arn = "arn:aws:lambda:eu-west-2:${data.aws_caller_identity.current.account_id}:function:${local.delete_lambda_version_name}"
 }

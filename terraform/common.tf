@@ -236,19 +236,19 @@ module "vpc" {
   })
 
   interface_endpoints = var.disable_networking ? {} : {
-    secretsmanager = {
-      name = "com.amazonaws.${local.aws_region_name}.secretsmanager",
+    events = {
+      name = "com.amazonaws.${local.aws_region_name}.events",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "secretsmanager"
+        service_name = "events"
         org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
-    stepfunctions = {
-      name = "com.amazonaws.${local.aws_region_name}.states",
+    secretsmanager = {
+      name = "com.amazonaws.${local.aws_region_name}.secretsmanager",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "states"
+        service_name = "secretsmanager"
         org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
@@ -272,10 +272,10 @@ module "vpc" {
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
-    events = {
-      name = "com.amazonaws.${local.aws_region_name}.events",
+    stepfunctions = {
+      name = "com.amazonaws.${local.aws_region_name}.states",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "events"
+        service_name = "states"
         org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
@@ -289,7 +289,7 @@ module "vpc" {
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
-    },
+    }
   }
 }
 
@@ -309,7 +309,7 @@ data "aws_ec2_managed_prefix_list" "dynamo_db_prefix_list" {
   name = "com.amazonaws.eu-west-2.dynamodb"
 }
 
-module "outbound_https_access" {
+module "outbound_https_to_any_ip" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
   common_tags = {}
   description = "A  security group to allow outbound HTTPS only to any IP"

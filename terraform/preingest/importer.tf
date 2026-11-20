@@ -57,7 +57,7 @@ module "dr2_importer_lambda" {
   }
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
-    security_group_ids = var.private_security_group_ids
+    security_group_ids = var.private_security_group_ids # Needs: S3 and SQS (for all configured importer handlers).
   }
 }
 
