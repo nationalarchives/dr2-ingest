@@ -35,7 +35,7 @@ module "pause_ingest_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_to_any_ip.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id] # Needs: EventBridge, AWS Lambda API and SSM Parameter Store.
+    security_group_ids = [module.outbound_https_to_any_ip_sg.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id] # Needs: EventBridge, AWS Lambda API and SSM Parameter Store.
   }
 }
 

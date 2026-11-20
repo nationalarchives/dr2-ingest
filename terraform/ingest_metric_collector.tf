@@ -29,7 +29,7 @@ module "dr2_ingest_metric_collector_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_to_any_ip.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id] # Needs: Step Functions, DynamoDB and CloudWatch Metrics.
+    security_group_ids = [module.outbound_https_to_any_ip_sg.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id] # Needs: Step Functions, DynamoDB and CloudWatch Metrics.
   }
   tags = {
     Name = local.ingest_metric_collector_lambda_name

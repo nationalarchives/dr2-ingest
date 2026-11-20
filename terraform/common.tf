@@ -309,7 +309,7 @@ data "aws_ec2_managed_prefix_list" "dynamo_db_prefix_list" {
   name = "com.amazonaws.eu-west-2.dynamodb"
 }
 
-module "outbound_https_to_any_ip" {
+module "outbound_https_to_any_ip_sg" {
   source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
   common_tags = {}
   description = "A  security group to allow outbound HTTPS only to any IP"

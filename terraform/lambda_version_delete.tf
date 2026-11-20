@@ -55,7 +55,7 @@ module "dr2_delete_lambda_version_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_to_any_ip.security_group_id] # Needs: AWS Lambda API.
+    security_group_ids = [module.outbound_https_to_any_ip_sg.security_group_id] # Needs: AWS Lambda API.
   }
 }
 
