@@ -35,7 +35,7 @@ module "ingest_find_existing_asset" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]])
+    security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]]) # Needs: Preservica (via Cloudflare), Secrets Manager, DynamoDB and Step Functions.
   }
   lambda_sqs_queue_mappings = [{
     sqs_queue_arn         = local.ingest_find_existing_asset_queue_arn
