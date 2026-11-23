@@ -132,7 +132,7 @@ locals {
         },
         {
           systemName       = local.default
-          reservedChannels = 3
+          reservedChannels = 1
           probability      = 99
         }
       ]
