@@ -36,6 +36,10 @@ module "pause_preservica_activity_lambda" {
       }
     ])
   }
+  vpc_config = {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = [module.outbound_https_to_any_ip_sg.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id] # Needs: EventBridge and Secrets Manager.
+  }
 }
 
 module "pause_preservica_activity_checker_cloudwatch_event" {

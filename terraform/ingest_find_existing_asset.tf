@@ -35,7 +35,7 @@ module "ingest_find_existing_asset" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]])
+    security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]]) # Needs: Preservica (via Cloudflare), Secrets Manager, DynamoDB and Step Functions.
   }
   lambda_sqs_queue_mappings = [{
     sqs_queue_arn         = local.ingest_find_existing_asset_queue_arn
@@ -48,12 +48,9 @@ module "ingest_find_existing_asset" {
 }
 
 module "ingest_find_existing_asset_queue" {
-  source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  queue_name = local.ingest_find_existing_asset_name
-  sqs_policy = templatefile("./templates/sqs/sqs_access_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.ingest_find_existing_asset_name
-  })
+  source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
+  queue_name                                        = local.ingest_find_existing_asset_name
+  sqs_policy                                        = null
   message_retention_seconds                         = local.find_asset_heartbeat
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = 300
