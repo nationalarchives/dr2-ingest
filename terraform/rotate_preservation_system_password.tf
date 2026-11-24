@@ -28,7 +28,7 @@ module "dr2_rotate_preservation_system_password_lambda" {
   architecture = local.architecture_arm64
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = local.clouflare_and_vpc_endpoints_security_groups
+    security_group_ids = local.clouflare_and_vpc_endpoints_security_groups # Needs: Preservica (via Cloudflare) and Secrets Manager.
   }
   tags = {
     Name = local.rotate_preservation_system_password_name

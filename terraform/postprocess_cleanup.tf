@@ -58,7 +58,7 @@ module "cleanup_handler_lambda" {
   sqs_queue_batching_window    = 30
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
+    security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id] # Needs: S3 and DynamoDB.
   }
   plaintext_env_vars = {
     FILES_DDB_TABLE                      = local.files_dynamo_table_name

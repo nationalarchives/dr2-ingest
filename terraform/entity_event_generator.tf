@@ -40,7 +40,7 @@ module "dr2_entity_event_generator_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]])
+    security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]]) # Needs: Preservica (via Cloudflare), Secrets Manager, DynamoDB and SNS.
   }
   plaintext_env_vars = {
     LAMBDA_STATE_DDB_TABLE = local.last_polled_table_name
