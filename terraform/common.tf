@@ -618,8 +618,12 @@ module "ingest_state_bucket" {
     lambda_role_arns = jsonencode([module.dr2_ingest_mapper_lambda.lambda_role_arn]),
     bucket_name      = local.ingest_state_bucket_name
   })
-  kms_key_arn     = module.dr2_developer_key.kms_key_arn
-  lifecycle_rules = local.lifecycle_rules
+  kms_key_arn = module.dr2_developer_key.kms_key_arn
+  lifecycle_rules = jsonencode([
+    { id = "delete-noncurrent-versions", status = "Enabled", noncurrent_version_expiration = { noncurrent_days = 1 }, filter = { prefix = "reconcilerOutput" } },
+    { id = "expire-current-versions", status = "Enabled", expiration = { days = 1 }, filter = { prefix = "reconcilerOutput" } },
+    { id = "expire-object-delete-marker", status = "Enabled", expiration = { expired_object_delete_marker = true }, filter = { prefix = "reconcilerOutput" } }
+  ])
 }
 
 module "dr2_ingest_step_function_policy" {
