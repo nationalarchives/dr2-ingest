@@ -619,11 +619,11 @@ module "ingest_state_bucket" {
     bucket_name      = local.ingest_state_bucket_name
   })
   kms_key_arn = module.dr2_developer_key.kms_key_arn
-  lifecycle_rules = jsonencode([
+  lifecycle_rules = [
     { id = "delete-noncurrent-versions", status = "Enabled", noncurrent_version_expiration = { noncurrent_days = 1 }, filter = { prefix = "reconcilerOutput" } },
     { id = "expire-current-versions", status = "Enabled", expiration = { days = 1 }, filter = { prefix = "reconcilerOutput" } },
     { id = "expire-object-delete-marker", status = "Enabled", expiration = { expired_object_delete_marker = true }, filter = { prefix = "reconcilerOutput" } }
-  ])
+  ]
 }
 
 module "dr2_ingest_step_function_policy" {
