@@ -314,6 +314,7 @@ object ExternalUtils {
 
   enum SourceSystem(val display: String):
     case TDR extends SourceSystem("TDR")
+    case PA extends SourceSystem("Parliament")
     case DRI extends SourceSystem("DRI")
     case `TRE: FCL Parser workflow` extends SourceSystem("TRE: FCL Parser workflow")
     case ADHOC extends SourceSystem("Ad hoc ingest")
@@ -386,4 +387,8 @@ object ExternalUtils {
   case class TREMetadataParameters(PARSER: Parser, TRE: TREParams, TDR: TDRParams)
 
   case class TREMetadata(parameters: TREMetadataParameters)
+  
+  given Encoder[Detail] = (detail: Detail) => Json.obj("slackMessage" -> Json.fromString(detail.slackMessage))
+
+  case class Detail(slackMessage: String)
 }

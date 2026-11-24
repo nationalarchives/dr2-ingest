@@ -125,6 +125,8 @@ object Helpers {
           }
     }
 
+    override def sendTaskFailure(taskToken: String, potentialError: Option[String]): IO[Unit] = IO.stub
+
   extension (errors: Option[Errors]) def raise(fn: Errors => Boolean, errorMessage: String): IO[Unit] = IO.raiseWhen(errors.exists(fn))(new Exception(errorMessage))
 
   extension (errors: Option[Errors]) def raiseSpecificException(fn: Errors => Boolean, exception: Exception): IO[Unit] = IO.raiseWhen(errors.exists(fn))(exception)

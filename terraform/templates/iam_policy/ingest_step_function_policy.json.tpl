@@ -12,7 +12,8 @@
         "events:PutRule",
         "events:PutTargets",
         "dynamodb:Query",
-        "dynamodb:DeleteItem"
+        "dynamodb:DeleteItem",
+        "sqs:SendMessage"
       ],
       "Resource": [
         "${tna_to_preservica_role_arn}",
@@ -23,7 +24,6 @@
         "arn:aws:events:eu-west-2:${account_id}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
         "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_asset_opex_creator_lambda_name}:*",
         "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_asset_reconciler_lambda_name}:*",
-        "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_find_existing_asset_lambda_name}:*",
         "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_flow_control_lambda_name}:*",
         "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_folder_opex_creator_lambda_name}:*",
         "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_mapper_lambda_name}:*",
@@ -37,7 +37,8 @@
         "arn:aws:states:eu-west-2:${account_id}:execution:${ingest_sfn_name}:*",
         "arn:aws:states:eu-west-2:${account_id}:execution:${ingest_sfn_name}/*",
         "arn:aws:states:eu-west-2:${account_id}:stateMachine:${ingest_run_workflow_sfn_name}",
-        "arn:aws:states:eu-west-2:${account_id}:stateMachine:${ingest_sfn_name}"
+        "arn:aws:states:eu-west-2:${account_id}:stateMachine:${ingest_sfn_name}",
+        "${ingest_find_existing_asset_queue_arn}"
       ]
     },
     {

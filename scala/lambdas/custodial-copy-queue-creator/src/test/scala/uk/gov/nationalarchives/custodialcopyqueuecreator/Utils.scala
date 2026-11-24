@@ -15,6 +15,7 @@ import uk.gov.nationalarchives.dp.client.Entities.Entity
 import uk.gov.nationalarchives.dp.client.EntityClient.{EntitiesUpdated, Identifier, StandardEntityMetadata}
 import uk.gov.nationalarchives.dp.client.{Client, DataProcessor, Entities, EntityClient}
 import uk.gov.nationalarchives.custodialcopyqueuecreator.Lambda.*
+import uk.gov.nationalarchives.dp.client.Client.BitStreamInfo
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -87,8 +88,6 @@ object Utils:
     override def getContentObjectsFromRepresentation(ioEntityRef: UUID, representationType: EntityClient.RepresentationType, repTypeIndex: Int): IO[Seq[Entities.Entity]] =
       IO.pure(Nil)
 
-    override def streamAllEntityRefs(repTypeFilter: Option[EntityClient.RepresentationType]): fs2.Stream[IO, Entities.EntityRef] = fs2.Stream.empty[IO]
-
     override def addEntity(addEntityRequest: EntityClient.AddEntityRequest): IO[UUID] = IO.pure(UUID.randomUUID)
 
     override def updateEntity(updateEntityRequest: EntityClient.UpdateEntityRequest): IO[String] = IO.pure("")
@@ -106,3 +105,7 @@ object Utils:
     override def addIdentifierForEntity(entityRef: UUID, entityType: EntityClient.EntityType, identifier: EntityClient.Identifier): IO[String] = IO.pure("")
 
     override def getPreservicaNamespaceVersion(endpoint: String): IO[Float] = IO(1.0f)
+
+    override def bitstreamForAsset(entityRef: java.util.UUID): IO[Seq[BitStreamInfo]] = IO.stub
+
+    override def getAllAssetIds(maxConcurrency: Int): fs2.Stream[IO, UUID] = fs2.Stream.empty

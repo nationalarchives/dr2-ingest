@@ -30,7 +30,9 @@
         "${tre_export_bucket_arn}",
         "${tre_export_bucket_arn}/*",
         "arn:aws:s3:::${object_store_bucket_name}",
-        "arn:aws:s3:::${object_store_bucket_name}/*"
+        "arn:aws:s3:::${object_store_bucket_name}/*",
+        "arn:aws:s3:::${pa_transfer_bucket_name}",
+        "arn:aws:s3:::${pa_transfer_bucket_name}/*"
       ]
     }
   ]

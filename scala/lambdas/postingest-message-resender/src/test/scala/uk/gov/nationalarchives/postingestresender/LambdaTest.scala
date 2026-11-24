@@ -20,7 +20,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
   given Decoder[QueueMessage] = deriveDecoder[QueueMessage]
 
-  "handler" should "not send message and not update dynamo table when the message is within retention period" in {
+  "handler" should "not send message, update dynamo table nor send a slack message when the message is within retention period" in {
     val lastQueuedTime = Instant
       .now()
       .minus(java.time.Duration.ofDays(3))
@@ -48,6 +48,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
 
     lambdaRunResults.finalItemsInTable.size should be(1)
     lambdaRunResults.finalItemsInTable.head.potentialLastQueued.get should be(lastQueuedTime)
+    lambdaRunResults.slackMessages.size should equal(0)
   }
 
   "handler" should "update the 'lastQueued' datetime for all items older than the message retention period" in {
@@ -143,6 +144,28 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     }
     messages.size should be(1)
     messages.find(_.assetId == uuidForUpdate).get.payload.findAllByKey("this_message").head.asString.get should be("to_be_resent")
+  }
+
+  "handler" should "send a message to Slack if there were messages resent to queue" in {
+    val sixDaysOld = Instant.now().minus(java.time.Duration.ofDays(6)).toString
+
+    val initialDynamo = List.fill(5)(UUID.randomUUID).map { id =>
+      PostIngestStateTableItem(
+        id,
+        "batchId",
+        """{"this_message":"to_be_resent"}""",
+        Some("correlationId"),
+        Some("CC"),
+        Some(sixDaysOld),
+        Some(sixDaysOld),
+        Some("result_queue1"),
+        None
+      )
+    }
+
+    val lambdaRunResults = runLambda(initialDynamo, new ScheduledEvent(), defaultConfig, predictableStartOfTheDay)
+    lambdaRunResults.slackMessages.size should equal(1)
+    lambdaRunResults.slackMessages.head should equal(":warning: 5 expired items found in post ingest state table; resent items to 'CC' queue")
   }
 
   "handler" should "report error when it cannot fetch queue attributes" in {

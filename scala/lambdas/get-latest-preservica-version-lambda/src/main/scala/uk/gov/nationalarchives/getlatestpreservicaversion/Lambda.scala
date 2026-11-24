@@ -2,7 +2,6 @@ package uk.gov.nationalarchives.getlatestpreservicaversion
 
 import cats.effect.IO
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent
-import io.circe.generic.auto.*
 import pureconfig.ConfigReader
 import sttp.capabilities.fs2.Fs2Streams
 import uk.gov.nationalarchives.DAEventBridgeClient
@@ -10,6 +9,7 @@ import uk.gov.nationalarchives.dp.client.EntityClient
 import uk.gov.nationalarchives.dp.client.fs2.Fs2Client
 import uk.gov.nationalarchives.getlatestpreservicaversion.Lambda.*
 import uk.gov.nationalarchives.utils.EventCodecs.given
+import uk.gov.nationalarchives.utils.ExternalUtils.Detail
 import uk.gov.nationalarchives.utils.ExternalUtils.DetailType.DR2DevMessage
 import uk.gov.nationalarchives.utils.LambdaRunner
 
@@ -42,8 +42,6 @@ object Lambda {
       snsArn: String,
       currentPreservicaVersionTableName: String
   ) derives ConfigReader
-
-  case class Detail(slackMessage: String)
 
   case class PartitionKey(id: String)
 

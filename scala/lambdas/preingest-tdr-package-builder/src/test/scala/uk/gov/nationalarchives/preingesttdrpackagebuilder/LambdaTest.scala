@@ -233,8 +233,8 @@ class LambdaTest extends AnyFlatSpec with ScalaCheckDrivenPropertyChecks:
       case (a, b) => (a.head, b)
     }
     val expectedContentFolderName = testData.upstreamSystem match {
-      case SourceSystem.ADHOC => "Records"
-      case _                  => testData.tdrRef.getOrElse(testData.driBatchRef.get)
+      case SourceSystem.ADHOC | SourceSystem.PA => "Records"
+      case _                                    => testData.tdrRef.getOrElse(testData.driBatchRef.get)
     }
     val expectedTitle =
       if allTestData.length > 1 then

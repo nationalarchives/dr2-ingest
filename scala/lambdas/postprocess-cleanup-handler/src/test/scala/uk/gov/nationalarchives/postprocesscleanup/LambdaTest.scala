@@ -23,6 +23,7 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     message.setBody(
       s"""{"parameters": {"assetId": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
+    message.setMessageId("messageId")
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
     val result = runLambda(sqsEvent, List(initialAssetItem), Map.empty)
@@ -77,37 +78,37 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     result.finalsObjectsInS3.values.forall(!_.contains("TO_BE_DELETED")) shouldBe true
   }
 
-  "lambda handler" should "throw an exception when it cannot decode the sqs message" in {
+  "lambda handler" should "send the failing message in the batch item response when it cannot decode the sqs message" in {
     val id = UUID.randomUUID
     val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
     val message = new SQSMessage()
     message.setBody(
       s"""{"parameters": {"asset_Id": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
+    message.setMessageId("FailingMessage")
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
     val result = runLambda(sqsEvent, List(initialFileItem), Map.empty)
-    result.result.isLeft should equal(true)
-    result.result.left.value.getMessage should equal(
-      "Failed to decode SQS message body: DecodingFailure at .parameters.assetId: Missing required field"
-    )
+    result.result.isRight should equal(true)
+    result.result.value.getBatchItemFailures.asScala.head.getItemIdentifier should equal("FailingMessage")
   }
 
-  "lambda handler" should "throw an exception when asset does not exist in the table" in {
+  "lambda handler" should "send the failing message in the batch item response when asset does not exist in the table" in {
     val id = UUID.randomUUID
     val initialFileItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
     val message = new SQSMessage()
     message.setBody(
       s"""{"parameters": {"assetId": "non-existent", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
+    message.setMessageId("FailingMessage")
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
     val result = runLambda(sqsEvent, List(initialFileItem), Map.empty)
-    result.result.isLeft should equal(true)
-    result.result.left.value.getMessage should equal("No item found for assetId=non-existent")
+    result.result.isRight should equal(true)
+    result.result.value.getBatchItemFailures.asScala.head.getItemIdentifier should equal("FailingMessage")
   }
 
-  "lambda handler" should "throw an exception when more than one item exists in the table" in {
+  "lambda handler" should "send the failing message in the batch item response when more than one item exists in the table" in {
     val id = UUID.randomUUID
     val initialItem = createDynamoItem(id, "file1.txt", "s3://some-bucket/some-key", "parent1/parent2", DynamoFormatters.Type.Asset)
     val anotherItem = createDynamoItem(id, "file2.txt", "s3://some-bucket/another-key", "parent1/parent2/parent3", DynamoFormatters.Type.Asset)
@@ -115,11 +116,12 @@ class LambdaTest extends AnyFlatSpec with EitherValues:
     message.setBody(
       s"""{"parameters": {"assetId": "$id", "status": "Asset has been written to custodial copy disk."}, "properties": {"executionId": "some_batchId", "messageType": "preserve.digital.asset.ingest.complete"}}"""
     )
+    message.setMessageId("FailingMessage")
     val sqsEvent = new SQSEvent()
     sqsEvent.setRecords(List(message).asJava)
     val result = runLambda(sqsEvent, List(initialItem, anotherItem), Map.empty)
-    result.result.isLeft should equal(true)
-    result.result.left.value.getMessage should equal(s"""More than one item found for assetId=$id""")
+    result.result.isRight should equal(true)
+    result.result.value.getBatchItemFailures.asScala.head.getItemIdentifier should equal("FailingMessage")
   }
 
   "Lambda" should "correctly construct the parent path for querying child file items" in {

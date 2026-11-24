@@ -15,7 +15,10 @@
       }
     },
     {
-      "Action": "secretsmanager:GetSecretValue",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ],
       "Effect": "Allow",
       "Resource": "${secrets_manager_secret_arn}",
       "Sid": "readSecretsManager",

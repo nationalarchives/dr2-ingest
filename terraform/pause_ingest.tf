@@ -28,9 +28,14 @@ module "pause_ingest_lambda" {
       module.tdr_preingest.aggregator_sqs.sqs_arn,
       module.dri_preingest.aggregator_sqs.sqs_arn,
       module.ad_hoc_preingest.aggregator_sqs.sqs_arn,
-      module.court_document_preingest.aggregator_sqs.sqs_arn
+      module.court_document_preingest.aggregator_sqs.sqs_arn,
+      module.ingest_find_existing_asset_queue.sqs_arn
     ])
     ENVIRONMENT = local.environment
+  }
+  vpc_config = {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = [module.outbound_https_to_any_ip_sg.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id] # Needs: EventBridge, AWS Lambda API and SSM Parameter Store.
   }
 }
 

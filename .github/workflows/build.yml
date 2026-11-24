@@ -15,13 +15,13 @@ jobs:
       next-version: ${{ steps.next-tag.outputs.next-version }}
     steps:
       - name: Provision runner
-        uses: nationalarchives/org-actions-provision-runner@5657f48ecd0fd31bfe857919149f1fdc690d53ed # v1.0.1
+        uses: nationalarchives/org-actions-provision-runner@8a7931f25ad0176bd4e4872ee83d21af94a48125 # v1.0.2
         with:
           wiz-sensor-token: ${{ secrets.WIZ_SENSOR_TOKEN }}
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: sbt/setup-sbt@c7d2d6258b4bd0d3ec5129e6b3453199d3c79729 # v1.5.8
+      - uses: sbt/setup-sbt@b113b960ba361e87e08ce02a390d51871b7ee459 # v1.5.13
       - name: Configure AWS credentials from management account
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: arn:aws:iam::${{ secrets.MANAGEMENT_ACCOUNT }}:role/MgmtDPGithubCodeDeploy
           aws-region: eu-west-2
@@ -37,12 +37,13 @@ jobs:
           cp preingest-importer target/outputs/preingest-tdr-importer
           cp preingest-importer target/outputs/preingest-dri-importer
           cp preingest-importer target/outputs/preingest-adhoc-importer
-          cp preingest-importer target/outputs/preingest-restore-importer
+          zip -jA preingest-restore-importer python/lambdas/preingest-restore-importer/restore_lambda_function.py
           zip -jA ingest-metric-collector python/lambdas/ingest-metric-collector/ingest_metric_collector.py
           zip -jA pause-ingest python/lambdas/pause-ingest/pause_ingest.py
           zip -jA pause-preservica-activity python/lambdas/pause-preservica-activity/pause_preservica_activity.py
           zip -jA postingest-state-change-queue-sender python/lambdas/postingest-state-change-queue-sender/state_change_queue_sender.py
           zip -jA ip-lock-checker python/lambdas/ip-lock-checker/ip_lock_checker.py
+          cp preingest-restore-importer target/outputs
           cp ingest-metric-collector target/outputs
           cp pause-ingest target/outputs
           cp pause-preservica-activity target/outputs
@@ -59,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Provision runner
-        uses: nationalarchives/org-actions-provision-runner@5657f48ecd0fd31bfe857919149f1fdc690d53ed # v1.0.1
+        uses: nationalarchives/org-actions-provision-runner@8a7931f25ad0176bd4e4872ee83d21af94a48125 # v1.0.2
         with:
           wiz-sensor-token: ${{ secrets.WIZ_SENSOR_TOKEN }}
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

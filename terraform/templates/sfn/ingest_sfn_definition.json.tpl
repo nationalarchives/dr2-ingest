@@ -68,7 +68,15 @@
         "States": {
           "Check if asset has already been ingested": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:eu-west-2:${account_id}:function:${ingest_find_existing_asset_name_lambda_name}:${alias_name}",
+            "Resource": "arn:aws:states:::sqs:sendMessage.waitForTaskToken",
+            "HeartbeatSeconds": ${find_asset_heartbeat},
+            "Parameters": {
+              "QueueUrl": "${ingest_find_existing_asset_name_queue_url}",
+              "MessageBody": {
+                "taskToken.$": "$$.Task.Token",
+                "Items.$": "$.Items"
+              }
+            },
             "Retry": ${retry_statement},
             "Next": "Create Asset OPEX"
           },
@@ -212,7 +220,7 @@
                 "Next": "Insert into PostIngest table"
               }
             ],
-            "Default": "Throw Reconciler job error"
+            "Default": "Ignore reconciler failure"
           },
           "Insert into PostIngest table": {
             "Type": "Task",
@@ -250,21 +258,13 @@
             "ResultPath": null,
             "End": true
           },
-          "Throw Reconciler job error": {
-            "Type": "Fail",
-            "Cause": "AWS Batch Job Failed",
-            "Error": "'wasReconciled' value was neither 'true' nor 'false'"
+          "Ignore reconciler failure": {
+            "Type": "Pass",
+            "End": true
           }
         }
       },
-      "Next": "Get number of items in lock table that have this groupId",
-      "ResultWriter": {
-        "Resource": "arn:aws:states:::s3:putObject",
-        "Parameters": {
-          "Bucket.$": "$.assets.bucket",
-          "Prefix": "reconcilerOutput"
-        }
-      }
+      "Next": "Get number of items in lock table that have this groupId"
     },
     "Get number of items in lock table that have this groupId": {
       "Type": "Task",

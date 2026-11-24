@@ -33,8 +33,8 @@ locals {
   creator                                              = "dr2-terraform-environments"
   sse_encryption                                       = "sse"
   visibility_timeout                                   = 180
-  redrive_maximum_receives                             = 5
   tre_environment_name                                 = local.environment == "intg" ? "int" : local.environment
+  find_asset_heartbeat                                 = 1200
   nacl_inbound_from_subnet_https = [for idx, cidr in module.vpc.private_cidr_blocks : {
     rule_no    = 100 * (idx + 2)
     cidr_block = cidr
@@ -206,12 +206,14 @@ data "aws_ssm_parameter" "slack_webhook_url" {
 data "aws_region" "current" {}
 
 module "vpc" {
-  source                    = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
-  vpc_name                  = "${local.environment}-vpc"
-  az_count                  = local.az_count
-  elastic_ip_allocation_ids = data.aws_eip.eip.*.id
-  use_nat_gateway           = true
-  environment               = local.environment
+  source                         = "git::https://github.com/nationalarchives/da-terraform-modules//vpc"
+  vpc_name                       = "${local.environment}-vpc"
+  az_count                       = local.az_count
+  elastic_ip_allocation_ids      = data.aws_eip.eip.*.id
+  use_nat_gateway                = var.disable_networking == false
+  create_s3_gateway_endpoint     = var.disable_networking == false
+  create_dynamo_gateway_endpoint = var.disable_networking == false
+  environment                    = local.environment
   private_nacl_rules = concat([
     { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 443, to_port = 443, egress = true },
     { rule_no = 100, cidr_block = "0.0.0.0/0", action = "allow", from_port = 1024, to_port = 65535, egress = false },
@@ -227,25 +229,26 @@ module "vpc" {
     tdr_export_bucket        = local.tdr_export_bucket
     tre_export_bucket_arn    = module.tre_config.terraform_config[local.tre_environment_name]["s3_common_bucket_arn"]
     object_store_bucket_name = local.object_store_bucket_name
+    pa_transfer_bucket_name  = local.pa_source_bucket
   })
   dynamo_gateway_endpoint_policy = templatefile("${path.module}/templates/vpc/dynamo_endpoint_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id
   })
 
-  interface_endpoints = {
-    secretsmanager = {
-      name = "com.amazonaws.${local.aws_region_name}.secretsmanager",
+  interface_endpoints = var.disable_networking ? {} : {
+    events = {
+      name = "com.amazonaws.${local.aws_region_name}.events",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "secretsmanager"
+        service_name = "events"
         org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
-    stepfunctions = {
-      name = "com.amazonaws.${local.aws_region_name}.states",
+    secretsmanager = {
+      name = "com.amazonaws.${local.aws_region_name}.secretsmanager",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "states"
+        service_name = "secretsmanager"
         org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
@@ -269,6 +272,15 @@ module "vpc" {
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
+    stepfunctions = {
+      name = "com.amazonaws.${local.aws_region_name}.states",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "states"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
     sts = {
       name = "com.amazonaws.${local.aws_region_name}.sts",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
@@ -277,7 +289,7 @@ module "vpc" {
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
-    },
+    }
   }
 }
 
@@ -295,6 +307,24 @@ data "aws_ec2_managed_prefix_list" "s3_prefix_list" {
 
 data "aws_ec2_managed_prefix_list" "dynamo_db_prefix_list" {
   name = "com.amazonaws.eu-west-2.dynamodb"
+}
+
+module "outbound_https_to_any_ip_sg" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A  security group to allow outbound HTTPS only to any IP"
+  name        = "${local.environment}-outbound-https"
+  vpc_id      = module.vpc.vpc.id
+  rules = {
+    egress = [
+      {
+        port        = 443
+        description = "Outbound https any IP"
+        cidr_ip_v4  = "0.0.0.0/0"
+        protocol    = "tcp"
+      }
+    ]
+  }
 }
 
 module "outbound_https_access_for_s3" {
@@ -395,6 +425,9 @@ module "dr2_kms_key" {
       module.dr2_ingest_parent_folder_opex_creator_lambda.lambda_role_arn,
       module.dr2_ingest_asset_reconciler_lambda.lambda_role_arn,
       module.dr2_ingest_step_function.step_function_role_arn,
+      module.pa_preingest.aggregator_lambda.role,
+      module.pa_preingest.package_builder_lambda.role,
+      module.pa_preingest.importer_lambda.role,
       module.tdr_preingest.aggregator_lambda.role,
       module.tdr_preingest.package_builder_lambda.role,
       module.tdr_preingest.importer_lambda.role,
@@ -520,7 +553,7 @@ module "dr2_ingest_step_function" {
     ingest_validate_generic_ingest_inputs_lambda_name = local.ingest_validate_generic_ingest_inputs_lambda_name
     ingest_mapper_lambda_name                         = local.ingest_mapper_lambda_name
     ingest_mapper_lambda_state_name                   = local.ingest_step_function_mapper_lambda_state_name
-    ingest_find_existing_asset_name_lambda_name       = local.ingest_find_existing_asset_name
+    ingest_find_existing_asset_name_queue_url         = module.ingest_find_existing_asset_queue.sqs_queue_url
     ingest_asset_opex_creator_lambda_name             = local.ingest_asset_opex_creator_lambda_name
     ingest_folder_opex_creator_lambda_name            = local.ingest_folder_opex_creator_lambda_name
     ingest_parent_folder_opex_creator_lambda_name     = local.ingest_parent_folder_opex_creator_lambda_name
@@ -539,6 +572,7 @@ module "dr2_ingest_step_function" {
     retry_statement                                   = local.retry_statement
     postingest_table_name                             = module.postingest.postingest_table_name
     alias_name                                        = local.lambda_alias_name
+    find_asset_heartbeat                              = local.find_asset_heartbeat
   })
   step_function_name = local.ingest_step_function_name
   step_function_role_policy_attachments = {
@@ -596,7 +630,6 @@ module "dr2_ingest_step_function_policy" {
     ingest_validate_generic_ingest_inputs_lambda_name = local.ingest_validate_generic_ingest_inputs_lambda_name
     ingest_mapper_lambda_name                         = local.ingest_mapper_lambda_name
     ingest_upsert_archive_folders_lambda_name         = local.ingest_upsert_archive_folders_lambda_name
-    ingest_find_existing_asset_lambda_name            = local.ingest_find_existing_asset_name
     ingest_asset_opex_creator_lambda_name             = local.ingest_asset_opex_creator_lambda_name
     ingest_folder_opex_creator_lambda_name            = local.ingest_folder_opex_creator_lambda_name
     ingest_parent_folder_opex_creator_lambda_name     = local.ingest_parent_folder_opex_creator_lambda_name
@@ -620,6 +653,7 @@ module "dr2_ingest_step_function_policy" {
     preingest_court_document_step_function_arn        = module.court_document_preingest.preingest_sfn_arn
     ingest_run_workflow_sfn_arn                       = local.ingest_run_workflow_sfn_arn
     postingest_table_name                             = module.postingest.postingest_table_name
+    ingest_find_existing_asset_queue_arn              = module.ingest_find_existing_asset_queue.sqs_queue.arn
   })
 }
 
@@ -951,3 +985,13 @@ module "archivist_sso_policy" {
     environment = local.environment
   })
 }
+
+module "archivist_pa_sso_policy" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
+  name   = "AWSSSO_DAPAArchivist"
+  policy_string = templatefile("${path.module}/templates/iam_policy/archivist_pa_sso_policy.json.tpl", {
+    pa_bucket_name    = local.pa_source_bucket
+    pa_importer_queue = module.pa_preingest.importer_sqs.sqs_arn
+  })
+}
+

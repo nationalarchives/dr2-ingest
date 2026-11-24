@@ -40,7 +40,7 @@ module "dr2_custodial_copy_queue_creator_lambda" {
   }]
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = local.clouflare_and_vpc_endpoints_security_groups
+    security_group_ids = local.clouflare_and_vpc_endpoints_security_groups # Needs: Preservica (via Cloudflare), Secrets Manager and SQS.
   }
   plaintext_env_vars = {
     PRESERVICA_SECRET_NAME = aws_secretsmanager_secret.preservica_read_metadata.name

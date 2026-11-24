@@ -13,7 +13,7 @@ def get_account_number():
 
 def upload_metadata(asset_id, bucket, metadata):
     s3_client = session.client("s3")
-    json_bytes = io.BytesIO(json.dumps([metadata]).encode("utf-8"))
+    json_bytes = io.BytesIO(json.dumps(metadata).encode("utf-8"))
     s3_client.upload_fileobj(json_bytes, bucket, f"{asset_id}.metadata")
 
 def upload_file(asset_id, bucket, file_id, file_path):

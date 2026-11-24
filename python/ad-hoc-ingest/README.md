@@ -7,6 +7,9 @@ which meets the following criteria:
 - The data is NOT ingested into the existing preservation system
 - The data has been already available to the public on Discovery.
 
+This script will ingest data from either TNA or Parliament sources. 
+The difference between the two is the names of the columns in the csv, the upload bucket name and the queue url we send messages to.
+
 ## The process:
 ![ad-hoc-ingest-flow.png](images/ad-hoc-ingest-flow.png)
 
@@ -20,33 +23,33 @@ as shown in the diagram.
 1. Check that the script is at the latest version by getting and md5 checksum of the remote and local files and comparing them. 
 2. If the script has been updated, the user is asked whether they want to proceed. 
 3. Read the input CSV file, where each row in the CSV has a Catalogue Reference, Filename and a Checksum corresponding to each file to be ingested. It may also have a column called `description` in the file.
-4. Read the files to be ingested from the file system based on the `Filename` in the input CSV file. 
+4. Read the files to be ingested from the file system based on the field containing the file name in the input CSV file. The name of the field depends on the source system. 
 5. Validate the input CSV and the intended assets to be ingested.
    - The validations depend on Series to be ingested. 
 For each row in the input CSV file,
 6. If the 'description' is supplied in the input file, it is used. Otherwise, use Discovery API to get hold of the Title, Description and Former References.
 7. Generate metadata and add it as a row to intermediate metadata CSV file.
    - The advantage of having metadata in CSV is, the user can examine the potential final metadata before ingesting. 
-For each row in the Metadata CSV file,
-8. Generate a Metadata JSON file and get absolute path of the file to be ingested. 
-9. Upload the Metadata JSON and the file to `dr2-ingest-adhoc-cache` bucket. 
-10. Send a message to `dr2-preingest-adhoc-importer` to trigger the downstream preingest process.
+The rows are grouped based on the catalogue reference. For each group,
+8. For each row in the group, get the absolute path of the file to be ingested and upload the file to the bucket defined in `ingest_config.py` for the provided source system. 
+9. Generate a Metadata JSON file which is an array with one object per row in the group and upload.
+10. Send a message to the queue defined in `ingest_config.py` for the provided source system to trigger the downstream preingest process.
 
 An example of an input CSV file is shown below:
 
-|catRef|description|fileName|checksum|
-|------|-----------|--------|--------|
-|S 31/2/1, f 0v | Page f 0v of the book | Y:/domesday/book pages/10_half.png | 4a3b2311c781f19b4642baeae66503ac57b0d0d9ce0b91694b588f7ae269675d |
-|S 31/2/1, f 0r | Page f 0r of the book | Y:/domesday/book pages/11_half.png | d5e9e908640ebced69ce8c4d9059362cec5eafa9a4e7190f364d42ba44cfb3c6 |
+| catRef         | description           | fileName                           | checksum                                                         |
+|----------------|-----------------------|------------------------------------|------------------------------------------------------------------|
+| S 31/2/1, f 0v | Page f 0v of the book | Y:/domesday/book pages/10_half.png | 4a3b2311c781f19b4642baeae66503ac57b0d0d9ce0b91694b588f7ae269675d |
+| S 31/2/1, f 0r | Page f 0r of the book | Y:/domesday/book pages/11_half.png | d5e9e908640ebced69ce8c4d9059362cec5eafa9a4e7190f364d42ba44cfb3c6 |
 
 
 ## How to run the script:
 If the description is not supplied in the input CSV, the script needs to connect to Discovery API to get some metadata, which 
 includes the description for the records. It also needs to connect to AWS services to upload each file and its metadata into 
-an S3 bucket and send a message to `dr2-preingest-adhoc-importer` queue to trigger the downstream process. As a result, 
+an S3 bucket and send a message to the queue defined in `ingest_config.py` for the provided source system to trigger the downstream process. As a result, 
 the script has following pre-requisites: 
 - It needs to be run from a machine which has access to the internet 
-- It needs to be run by a user who has relevant permissions to add data to the `dr2-ingest-adhoc-cache` bucket
+- It needs to be run by a user who has relevant permissions to add data to the bucket defined in `ingest_config.py` for the provided source system.
 - It needs to be run by a user who has permissions to access the relevant AWS services. 
 
 ### Script Arguments 
@@ -65,5 +68,8 @@ the script has following pre-requisites:
 
 `-s   --asset-source` 
     Optional digital asset source, one of:('Born Digital', 'Surrogate' or 'Digitised'). The default value is 'Born Digital'
+
+`-ss   --source-system`
+    The source system. 'PA' for Parliament transfers or 'ADHOC' for everything else. The default is 'ADHOC'
 
 

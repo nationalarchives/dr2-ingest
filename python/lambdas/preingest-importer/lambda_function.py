@@ -17,7 +17,6 @@ def lambda_handler(event, context):
     destination_bucket = os.environ["OUTPUT_BUCKET_NAME"]
     destination_queue = os.environ["OUTPUT_QUEUE_URL"]
     delete_from_source = os.getenv("DELETE_FROM_SOURCE", "false") == "true"
-    skip_validation = os.getenv("SKIP_VALIDATION", "false") == "true"
     records_metadata_bucket = os.getenv("RECORDS_METADATA_BUCKET")
     for record in event["Records"]:
         body: dict[str, str] = json.loads(record["body"])
@@ -30,10 +29,9 @@ def lambda_handler(event, context):
         response = s3_client.get_object(Bucket=metadata_source_bucket, Key=metadata_file_id)
         json_metadata = json.loads(response['Body'].read().decode('utf-8'))
         try:
-            if not skip_validation:
-                validate_metadata(json_metadata)
-                if records_metadata_bucket:
-                    copy_records_metadata(metadata_source_bucket, records_metadata_bucket, json_metadata, metadata_file_id)
+            validate_metadata(json_metadata)
+            if records_metadata_bucket:
+                copy_records_metadata(metadata_source_bucket, records_metadata_bucket, json_metadata, metadata_file_id)
             transfer_files = [f"{files_prefix}/{m['fileId']}" for m in json_metadata]
             copy_objects(destination_bucket, transfer_files, files_source_bucket)
             copy_objects(destination_bucket, [metadata_file_id], metadata_source_bucket)

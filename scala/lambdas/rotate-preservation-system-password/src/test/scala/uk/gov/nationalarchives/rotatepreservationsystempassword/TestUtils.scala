@@ -88,6 +88,8 @@ object TestUtils:
       }
       .map(_ => UpdateSecretVersionStageResponse.builder.build)
 
+    override def awaitRotationCompletion(pollingInterval: Int, maxAttempts: Int): IO[Unit] = IO.stub
+
   def userClient(ref: Ref[IO, Credentials]): UserClient[IO] = new UserClient[IO]:
     override def resetPassword(changePasswordRequest: UserClient.ResetPasswordRequest): IO[Unit] = {
       ref.get.flatMap(existing => IO.raiseWhen(!existing.resetSuccess)(new Exception("Error resetting password"))) >>

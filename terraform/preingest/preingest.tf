@@ -26,16 +26,9 @@ locals {
 }
 
 module "dr2_preingest_aggregator_queue" {
-  source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  queue_name = local.aggregator_name
-  sqs_policy = var.sns_topic_subscription == null ? templatefile("${path.module}/templates/sqs_access_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.aggregator_name
-    }) : templatefile("${path.module}/templates/sns_send_message_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.aggregator_name
-    topic_arn  = var.sns_topic_subscription.topic_arn
-  })
+  source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
+  queue_name                                        = local.aggregator_name
+  sqs_policy                                        = null
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = local.aggregator_queue_visibility_timeout
   encryption_type                                   = "sse"
@@ -79,6 +72,10 @@ module "dr2_preingest_aggregator_lambda" {
   }
   tags = {
     Name = local.aggregator_name
+  }
+  vpc_config = {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = var.private_security_group_ids # Needs: DynamoDB, Step Functions and SNS.
   }
 }
 
@@ -145,7 +142,7 @@ module "dr2_preingest_package_builder_lambda" {
   }
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
-    security_group_ids = var.private_security_group_ids
+    security_group_ids = var.private_security_group_ids # Needs: S3 and DynamoDB (for all configured package-builder handlers).
   }
   tags = {
     Name        = local.package_builder_lambda_name

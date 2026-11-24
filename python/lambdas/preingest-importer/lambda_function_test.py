@@ -75,30 +75,6 @@ class TestLambdaFunction(unittest.TestCase):
             mock_copy,
             should_delete=True)
 
-    @patch('lambda_function.copy_objects')
-    @patch('lambda_function.sqs_client.send_message')
-    @patch('lambda_function.s3_client.get_object')
-    @patch('lambda_function.s3_client.delete_objects')
-    @patch('lambda_function.validate_mandatory_fields_exist')
-    @patch('lambda_function.validate_formats')
-    @patch.dict(os.environ, {'SKIP_VALIDATION': 'true'})
-    def test_copy_with_skip_validation(
-            self,
-            mock_validate_formats,
-            mock_validate_mandatory_fields_exist,
-            mock_delete_object,
-            mock_get_object,
-            mock_send_message,
-            mock_copy):
-        copy_helper(
-            self,
-            mock_validate_formats,
-            mock_validate_mandatory_fields_exist,
-            mock_get_object,
-            mock_delete_object,
-            mock_send_message,
-            mock_copy,
-            skip_validation=True)
 
     @patch('lambda_function.copy_objects')
     @patch('lambda_function.sqs_client.send_message')
