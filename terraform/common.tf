@@ -22,6 +22,7 @@ locals {
   java_lambda_memory_size                              = 512
   java_timeout_seconds                                 = 180
   python_runtime                                       = "python3.14"
+  reconciler_output_prefix                             = "reconcilerOutput"
   python_lambda_memory_size                            = 128
   python_timeout_seconds                               = 30
   step_function_failure_log_group                      = "step-function-failures"
@@ -573,6 +574,7 @@ module "dr2_ingest_step_function" {
     postingest_table_name                             = module.postingest.postingest_table_name
     alias_name                                        = local.lambda_alias_name
     find_asset_heartbeat                              = local.find_asset_heartbeat
+    reconciler_output_prefix                          = local.reconciler_output_prefix
   })
   step_function_name = local.ingest_step_function_name
   step_function_role_policy_attachments = {
@@ -620,9 +622,9 @@ module "ingest_state_bucket" {
   })
   kms_key_arn = module.dr2_developer_key.kms_key_arn
   lifecycle_rules = [
-    { id = "delete-noncurrent-versions", status = "Enabled", noncurrent_version_expiration = { noncurrent_days = 1 }, filter = { prefix = "reconcilerOutput" } },
-    { id = "expire-current-versions", status = "Enabled", expiration = { days = 1 }, filter = { prefix = "reconcilerOutput" } },
-    { id = "expire-object-delete-marker", status = "Enabled", expiration = { expired_object_delete_marker = true }, filter = { prefix = "reconcilerOutput" } }
+    { id = "delete-noncurrent-versions", status = "Enabled", noncurrent_version_expiration = { noncurrent_days = 1 }, filter = { prefix = local.reconciler_output_prefix } },
+    { id = "expire-current-versions", status = "Enabled", expiration = { days = 1 }, filter = { prefix = local.reconciler_output_prefix } },
+    { id = "expire-object-delete-marker", status = "Enabled", expiration = { expired_object_delete_marker = true }, filter = { prefix = local.reconciler_output_prefix } }
   ]
 }
 

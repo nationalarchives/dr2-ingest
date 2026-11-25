@@ -269,7 +269,7 @@
         "Resource": "arn:aws:states:::s3:putObject",
         "Parameters": {
           "Bucket.$": "$.assets.bucket",
-          "Prefix": "reconcilerOutput"
+          "Prefix": "${reconciler_output_prefix}"
         }
       }
     },
