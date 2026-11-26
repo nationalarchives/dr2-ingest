@@ -264,7 +264,14 @@
           }
         }
       },
-      "Next": "Get number of items in lock table that have this groupId"
+      "Next": "Get number of items in lock table that have this groupId",
+      "ResultWriter": {
+        "Resource": "arn:aws:states:::s3:putObject",
+        "Parameters": {
+          "Bucket.$": "$.assets.bucket",
+          "Prefix": "${reconciler_output_prefix}"
+        }
+      }
     },
     "Get number of items in lock table that have this groupId": {
       "Type": "Task",
