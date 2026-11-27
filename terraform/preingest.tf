@@ -9,13 +9,11 @@ locals {
           bucket = local.tdr_export_bucket
         })
       }
-      source_name            = lower(local.tdr)
       bucket_kms_arn         = module.tdr_config.terraform_config["${local.environment}_s3_export_bucket_kms_key_arn"]
       copy_source_bucket_arn = "arn:aws:s3:::${local.tdr_export_bucket}"
     }
 
     pa = {
-      source_name            = "pa"
       copy_source_bucket_arn = "arn:aws:s3:::${local.pa_source_bucket}"
       importer_lambda = {
         visibility_timeout = 900
@@ -28,7 +26,6 @@ locals {
     }
 
     dri = {
-      source_name            = lower(local.dri)
       copy_source_bucket_arn = "arn:aws:s3:::${local.dri_migration_bucket_name}"
       delete_from_source     = true
       additional_importer_lambda_policies = local.environment == "prod" ? {
@@ -125,7 +122,7 @@ module "preingest" {
   private_subnet_ids        = module.vpc.private_subnets
   slack_api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   sns_topic_subscription    = try(each.value.sns_topic_subscription, null)
-  source_name               = each.value.source_name
+  source_name               = coalesce(each.value.source_name, each.key)
   vpc_arn                   = module.vpc.vpc.arn
   vpc_id                    = module.vpc.vpc.id
 }
