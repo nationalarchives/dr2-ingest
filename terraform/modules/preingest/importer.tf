@@ -24,7 +24,7 @@ module "dr2_importer_lambda" {
       aggregator_queue_arn      = module.dr2_preingest_aggregator_queue.sqs_arn
       account_id                = data.aws_caller_identity.current.account_id
       lambda_name               = local.importer_name
-      vpc_arn                   = var.vpc_arn
+      vpc_arn                   = var.vpc.arn
       source_bucket_permissions = local.source_bucket_permissions
       }) : templatefile("${path.module}/templates/copy_files_with_kms_policy.json.tpl", {
       copy_files_queue_arn      = local.importer_queue_arn
@@ -34,10 +34,10 @@ module "dr2_importer_lambda" {
       account_id                = data.aws_caller_identity.current.account_id
       lambda_name               = local.importer_name
       kms_arn                   = var.bucket_kms_arn
-      vpc_arn                   = var.vpc_arn
+      vpc_arn                   = var.vpc.arn
       source_bucket_permissions = local.source_bucket_permissions
     })
-  }, var.additional_importer_lambda_policies)
+  }, var.importer_lambda.additional_lambda_policies)
   memory_size  = var.importer_lambda.memory_size
   runtime      = var.importer_lambda.runtime
   architecture = var.importer_lambda.architecture
@@ -49,7 +49,7 @@ module "dr2_importer_lambda" {
       OUTPUT_QUEUE_URL   = module.dr2_preingest_aggregator_queue.sqs_queue_url
       SOURCE_SYSTEM      = var.source_name
     },
-    var.additional_importer_lambda_env_vars,
+    var.importer_lambda.additional_lambda_env_vars,
     var.delete_from_source ? { "DELETE_FROM_SOURCE" = "true" } : {}
   )
   tags = {

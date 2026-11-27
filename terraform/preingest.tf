@@ -87,8 +87,6 @@ module "preingest" {
   source   = "./modules/preingest"
   for_each = local.preingest_sources
 
-  additional_importer_lambda_policies          = try(each.value.additional_importer_lambda_policies, {})
-  additional_importer_lambda_env_vars          = try(each.value.additional_importer_lambda_env_vars, {})
   aggregator_secondary_grouping_window_seconds = try(each.value.aggregator_secondary_grouping_window_seconds, 180)
   bucket_kms_arn                               = try(each.value.bucket_kms_arn, null)
   code_deploy_bucket                           = "mgmt-dp-code-deploy"
@@ -96,21 +94,22 @@ module "preingest" {
   delete_from_source                           = try(each.value.delete_from_source, false)
   environment                                  = local.environment
   general_notifications_channel_id             = local.general_notifications_channel_id
-  importer_lambda = try(each.value.importer_lambda, {
-    timeout            = 180
-    visibility_timeout = 300
-    handler            = "lambda_function.lambda_handler"
-    runtime            = "python3.12"
-    architecture       = "arm64"
-    memory_size        = 128
-  })
-  ingest_lock_dynamo_table_name       = local.ingest_lock_dynamo_table_name
-  ingest_lock_table_arn               = module.ingest_lock_table.table_arn
-  ingest_lock_table_group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
-  ingest_raw_cache_bucket_name        = local.ingest_raw_cache_bucket_name
-  ingest_step_function_name           = local.ingest_step_function_name
-  lambda_code_version                 = var.lambda_code_version
-  notifications_topic_arn             = module.dr2_notifications_sns.sns_arn
+  importer_lambda = merge(
+    try(each.value.importer_lambda, {}),
+    { additional_lambda_policies = try(each.value.additional_importer_lambda_policies, {}) },
+    { additional_lambda_env_vars = try(each.value.additional_importer_lambda_env_vars, {}) },
+  )
+
+  ingest_lock = {
+    group_id_gsi_name = local.ingest_lock_table_group_id_gsi_name
+    table_arn         = module.ingest_lock_table.table_arn
+    table_name        = local.ingest_lock_dynamo_table_name
+  }
+
+  ingest_raw_cache_bucket_name = local.ingest_raw_cache_bucket_name
+  ingest_step_function_name    = local.ingest_step_function_name
+  lambda_code_version          = var.lambda_code_version
+  notifications_topic_arn      = module.dr2_notifications_sns.sns_arn
   package_builder_lambda = try(each.value.package_builder_lambda, {
     handler = "uk.gov.nationalarchives.preingesttdrpackagebuilder.Lambda::handleRequest"
   })
@@ -123,6 +122,8 @@ module "preingest" {
   slack_api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   sns_topic_subscription    = try(each.value.sns_topic_subscription, null)
   source_name               = coalesce(each.value.source_name, each.key)
-  vpc_arn                   = module.vpc.vpc.arn
-  vpc_id                    = module.vpc.vpc.id
+  vpc = {
+    arn = module.vpc.vpc.arn
+    id  = module.vpc.vpc.id
+  }
 }
