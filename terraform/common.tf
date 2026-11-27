@@ -504,7 +504,7 @@ module "sample_files_bucket" {
 }
 
 module "create_ingest_sfn_lambda_alias" {
-  source     = "./create_lambda_alias"
+  source     = "./modules/create_lambda_alias"
   alias_name = local.lambda_alias_name
   lambdas = {
     (local.ingest_mapper_lambda_name)                         = module.dr2_ingest_mapper_lambda.lambda_function.version
@@ -556,7 +556,7 @@ module "dr2_ingest_step_function" {
 }
 
 module "create_run_workflow_sfn_lambda_alias" {
-  source = "./create_lambda_alias"
+  source = "./modules/create_lambda_alias"
   lambdas = {
     (local.ingest_upsert_archive_folders_lambda_name) = module.dr2_ingest_upsert_archive_folders_lambda.lambda_function.version
     (local.ingest_start_workflow_lambda_name)         = module.dr2_ingest_start_workflow_lambda.lambda_function.version

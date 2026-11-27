@@ -14,7 +14,6 @@ locals {
       copy_source_bucket_arn = "arn:aws:s3:::${local.tdr_export_bucket}"
     }
 
-
     pa = {
       source_name            = "pa"
       copy_source_bucket_arn = "arn:aws:s3:::${local.pa_source_bucket}"
@@ -88,7 +87,7 @@ locals {
 }
 
 module "preingest" {
-  source   = "./preingest"
+  source   = "./modules/preingest"
   for_each = local.preingest_sources
 
   additional_importer_lambda_policies          = try(each.value.additional_importer_lambda_policies, {})
@@ -130,34 +129,3 @@ module "preingest" {
   vpc_arn                   = module.vpc.vpc.arn
   vpc_id                    = module.vpc.vpc.id
 }
-
-moved {
-  from = module.tdr_preingest
-  to   = module.preingest["tdr"]
-}
-
-moved {
-  from = module.pa_preingest
-  to   = module.preingest["pa"]
-}
-
-moved {
-  from = module.dri_preingest
-  to   = module.preingest["dri"]
-}
-
-moved {
-  from = module.ad_hoc_preingest
-  to   = module.preingest["ad_hoc"]
-}
-
-moved {
-  from = module.court_document_preingest
-  to   = module.preingest["court_document"]
-}
-
-moved {
-  from = module.cc_restore_preingest
-  to   = module.preingest["cc_restore"]
-}
-
