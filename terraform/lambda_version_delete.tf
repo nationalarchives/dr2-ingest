@@ -44,7 +44,7 @@ module "dr2_delete_lambda_version_lambda" {
           module.preingest["dri"].package_builder_lambda,
           module.preingest["tdr"].package_builder_lambda,
           module.preingest["ad_hoc"].package_builder_lambda,
-          module.preingest["court_document"].package_builder_lambda
+          module.preingest["court_document"].package_builder_lambda,
           module.preingest["pa"].package_builder_lambda
         ] : ["${l.arn}:*", l.arn]
       ]))
