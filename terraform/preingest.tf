@@ -121,7 +121,7 @@ module "preingest" {
   private_subnet_ids        = module.vpc.private_subnets
   slack_api_destination_arn = module.eventbridge_alarm_notifications_destination.api_destination_arn
   sns_topic_subscription    = try(each.value.sns_topic_subscription, null)
-  source_name               = coalesce(each.value.source_name, each.key)
+  source_name               = coalesce(try(each.value.source_name, null), each.key)
   vpc = {
     arn = module.vpc.vpc.arn
     id  = module.vpc.vpc.id
