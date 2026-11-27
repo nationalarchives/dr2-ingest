@@ -23,6 +23,10 @@ terraform {
     archive = {
       source = "hashicorp/archive"
     }
+    awscc = {
+      source  = "hashicorp/awscc"
+      version = "1.110.0"
+    }
   }
   backend "s3" {
     bucket       = "mgmt-dp-terraform-state"
@@ -40,4 +44,8 @@ provider "aws" {
       CreatedBy   = local.creator
     }
   }
+}
+
+provider "awscc" {
+  region = "eu-west-2"
 }

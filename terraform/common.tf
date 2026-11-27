@@ -22,6 +22,7 @@ locals {
   java_lambda_memory_size                              = 512
   java_timeout_seconds                                 = 180
   python_runtime                                       = "python3.14"
+  reconciler_output_prefix                             = "reconcilerOutput"
   python_lambda_memory_size                            = 128
   python_timeout_seconds                               = 30
   step_function_failure_log_group                      = "step-function-failures"
@@ -237,19 +238,19 @@ module "vpc" {
   })
 
   interface_endpoints = var.disable_networking ? {} : {
-    secretsmanager = {
-      name = "com.amazonaws.${local.aws_region_name}.secretsmanager",
+    events = {
+      name = "com.amazonaws.${local.aws_region_name}.events",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "secretsmanager"
+        service_name = "events"
         org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
-    stepfunctions = {
-      name = "com.amazonaws.${local.aws_region_name}.states",
+    secretsmanager = {
+      name = "com.amazonaws.${local.aws_region_name}.secretsmanager",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
-        service_name = "states"
+        service_name = "secretsmanager"
         org_id       = data.aws_organizations_organization.org.id
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
@@ -273,6 +274,15 @@ module "vpc" {
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
     },
+    stepfunctions = {
+      name = "com.amazonaws.${local.aws_region_name}.states",
+      policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
+        service_name = "states"
+        org_id       = data.aws_organizations_organization.org.id
+      })
+      security_group_ids = [module.interface_endpoints_security_group.security_group_id]
+      enable_private_dns = true
+    },
     sts = {
       name = "com.amazonaws.${local.aws_region_name}.sts",
       policy = templatefile("${path.module}/templates/vpc/default_endpoint_policy.json.tpl", {
@@ -281,7 +291,7 @@ module "vpc" {
       })
       security_group_ids = [module.interface_endpoints_security_group.security_group_id]
       enable_private_dns = true
-    },
+    }
   }
 }
 
@@ -299,6 +309,24 @@ data "aws_ec2_managed_prefix_list" "s3_prefix_list" {
 
 data "aws_ec2_managed_prefix_list" "dynamo_db_prefix_list" {
   name = "com.amazonaws.eu-west-2.dynamodb"
+}
+
+module "outbound_https_to_any_ip_sg" {
+  source      = "git::https://github.com/nationalarchives/da-terraform-modules//security_group"
+  common_tags = {}
+  description = "A  security group to allow outbound HTTPS only to any IP"
+  name        = "${local.environment}-outbound-https"
+  vpc_id      = module.vpc.vpc.id
+  rules = {
+    egress = [
+      {
+        port        = 443
+        description = "Outbound https any IP"
+        cidr_ip_v4  = "0.0.0.0/0"
+        protocol    = "tcp"
+      }
+    ]
+  }
 }
 
 module "outbound_https_access_for_s3" {
@@ -547,6 +575,7 @@ module "dr2_ingest_step_function" {
     postingest_table_name                             = module.postingest.postingest_table_name
     alias_name                                        = local.lambda_alias_name
     find_asset_heartbeat                              = local.find_asset_heartbeat
+    reconciler_output_prefix                          = local.reconciler_output_prefix
   })
   step_function_name = local.ingest_step_function_name
   step_function_role_policy_attachments = {
@@ -592,8 +621,12 @@ module "ingest_state_bucket" {
     lambda_role_arns = jsonencode([module.dr2_ingest_mapper_lambda.lambda_role_arn]),
     bucket_name      = local.ingest_state_bucket_name
   })
-  kms_key_arn     = module.dr2_developer_key.kms_key_arn
-  lifecycle_rules = local.lifecycle_rules
+  kms_key_arn = module.dr2_developer_key.kms_key_arn
+  lifecycle_rules = [
+    { id = "delete-noncurrent-versions", status = "Enabled", noncurrent_version_expiration = { noncurrent_days = 1 }, filter = { prefix = local.reconciler_output_prefix } },
+    { id = "expire-current-versions", status = "Enabled", expiration = { days = 1 }, filter = { prefix = local.reconciler_output_prefix } },
+    { id = "expire-object-delete-marker", status = "Enabled", expiration = { expired_object_delete_marker = true }, filter = { prefix = local.reconciler_output_prefix } }
+  ]
 }
 
 module "dr2_ingest_step_function_policy" {
@@ -732,7 +765,8 @@ module "cloudwatch_event_alarm_event_bridge_rule_alarm_only_for_ingest_queues" {
     cloudwatch_alarms = jsonencode(
       flatten([
         [for queue in local.ingest_queues : queue.event_alarms],
-        module.postingest.postingest_queue_oldest_message_alarm_arns
+        module.postingest.postingest_queue_oldest_message_alarm_arns,
+        [awscc_cloudwatch_log_alarm.entity_event.arn]
       ])
     ),
     state_value = "ALARM"

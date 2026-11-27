@@ -25,7 +25,7 @@ module "dr2_ingest_validate_generic_ingest_inputs_lambda" {
   architecture    = local.architecture_arm64
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_for_s3.security_group_id]
+    security_group_ids = [module.outbound_https_access_for_s3.security_group_id] # Needs: S3.
   }
   tags = {
     Name        = local.ingest_validate_generic_ingest_inputs_lambda_name

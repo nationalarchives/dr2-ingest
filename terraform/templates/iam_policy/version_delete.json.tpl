@@ -3,7 +3,8 @@
     {
       "Action": [
         "lambda:ListVersionsByFunction",
-        "lambda:DeleteFunction"
+        "lambda:DeleteFunction",
+        "lambda:DeleteAlias"
       ],
       "Effect": "Allow",
       "Resource": ${lambdas_to_delete},
@@ -11,7 +12,8 @@
     },
     {
       "Action": [
-        "lambda:ListFunctions"
+        "lambda:ListFunctions",
+        "lambda:ListTags"
       ],
       "Effect": "Allow",
       "Resource": "*",
