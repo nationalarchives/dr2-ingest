@@ -53,7 +53,7 @@ module "dr2_preingest_aggregator_lambda" {
     "${local.aggregator_name}-policy" = templatefile("${path.module}/templates/preingest_aggregator_policy.json.tpl", {
       account_id                 = data.aws_caller_identity.current.account_id
       lambda_name                = local.aggregator_name
-      dynamo_db_lock_table_arn   = var.ingest_lock_table_arn
+      dynamo_db_lock_table_arn   = var.ingest_lock.table_arn
       preingest_sfn_arn          = local.preingest_sfn_arn
       preingest_aggregator_queue = local.aggregator_queue_arn
       sns_topic                  = var.notifications_topic_arn
@@ -63,7 +63,7 @@ module "dr2_preingest_aggregator_lambda" {
   runtime      = local.java_runtime
   architecture = local.architecture_arm64
   plaintext_env_vars = {
-    LOCK_DDB_TABLE                = var.ingest_lock_dynamo_table_name
+    LOCK_DDB_TABLE                = var.ingest_lock.table_name
     MAX_BATCH_SIZE                = local.aggregator_group_size
     MAX_SECONDARY_BATCHING_WINDOW = local.aggregator_secondary_grouping_window_seconds
     PREINGEST_SFN_ARN             = local.preingest_sfn_arn
@@ -120,11 +120,11 @@ module "dr2_preingest_package_builder_lambda" {
     "${local.package_builder_lambda_name}-policy" = templatefile("${path.module}/templates/preingest_package_builder_policy.json.tpl", {
       account_id               = data.aws_caller_identity.current.account_id
       lambda_name              = local.package_builder_lambda_name
-      dynamo_db_lock_table_arn = var.ingest_lock_table_arn
-      gsi_name                 = var.ingest_lock_table_group_id_gsi_name
+      dynamo_db_lock_table_arn = var.ingest_lock.table_arn
+      gsi_name                 = var.ingest_lock.group_id_gsi_name
       raw_cache_bucket_name    = var.ingest_raw_cache_bucket_name
-      vpc_id                   = var.vpc_id
-      vpc_arn                  = var.vpc_arn
+      vpc_id                   = var.vpc.id
+      vpc_arn                  = var.vpc.arn
     })
   }
   publish_version = true
@@ -135,8 +135,8 @@ module "dr2_preingest_package_builder_lambda" {
   runtime         = local.java_runtime
   architecture    = local.architecture_arm64
   plaintext_env_vars = {
-    LOCK_DDB_TABLE                  = var.ingest_lock_dynamo_table_name
-    LOCK_DDB_TABLE_GROUPID_GSI_NAME = var.ingest_lock_table_group_id_gsi_name
+    LOCK_DDB_TABLE                  = var.ingest_lock.table_name
+    LOCK_DDB_TABLE_GROUPID_GSI_NAME = var.ingest_lock.group_id_gsi_name
     OUTPUT_BUCKET_NAME              = var.ingest_raw_cache_bucket_name
     SOURCE_SYSTEM                   = upper(var.source_name)
   }

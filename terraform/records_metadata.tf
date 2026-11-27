@@ -11,7 +11,7 @@ module "dr2_records_metadata_key" {
     user_roles = [
       data.aws_iam_role.org_wiz_access_role.arn,
       data.aws_ssm_parameter.dev_admin_role.value,
-      module.dri_preingest.importer_lambda.role,
+      module.preingest["dri"].importer_lambda.role,
       local.ayr_worker_role,
       local.ayr_coordinator_role
     ]

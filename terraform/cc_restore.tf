@@ -11,7 +11,7 @@ module "dr2_cc_restore_key" {
     ci_roles = [local.terraform_role_arn],
     user_roles = [
       module.dr2_cc_restore_role.role_arn,
-      module.cc_restore_preingest.importer_lambda.role,
+      module.preingest["cc_restore"].importer_lambda.role,
     ]
   }
 }

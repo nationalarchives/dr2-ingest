@@ -17,11 +17,13 @@ variable "sns_topic_subscription" {
   default = null
 }
 
-variable "ingest_lock_table_arn" {}
-
-variable "ingest_lock_dynamo_table_name" {}
-
-variable "ingest_lock_table_group_id_gsi_name" {}
+variable "ingest_lock" {
+  type = object({
+    group_id_gsi_name = string
+    table_arn         = string
+    table_name        = string
+  })
+}
 
 variable "ingest_raw_cache_bucket_name" {}
 
@@ -30,14 +32,6 @@ variable "bucket_kms_arn" {
 }
 
 variable "copy_source_bucket_arn" {}
-
-variable "additional_importer_lambda_policies" {
-  default = {}
-}
-
-variable "additional_importer_lambda_env_vars" {
-  default = {}
-}
 
 variable "private_security_group_ids" {
   default = []
@@ -59,12 +53,14 @@ variable "aggregator_lambda" {
 
 variable "importer_lambda" {
   type = object({
-    timeout            = optional(number, 180)
-    visibility_timeout = optional(number, 300)
-    handler            = optional(string, "lambda_function.lambda_handler")
-    runtime            = optional(string, "python3.14")
-    architecture       = optional(string, "arm64")
-    memory_size        = optional(number, 128)
+    timeout                    = optional(number, 180)
+    visibility_timeout         = optional(number, 300)
+    handler                    = optional(string, "lambda_function.lambda_handler")
+    runtime                    = optional(string, "python3.14")
+    architecture               = optional(string, "arm64")
+    memory_size                = optional(number, 128)
+    additional_lambda_policies = optional(map(string), {})
+    additional_lambda_env_vars = optional(map(string), {})
   })
   default = {}
 }
@@ -82,15 +78,17 @@ variable "aggregator_primary_grouping_window_seconds" {
   default = 300
 }
 
-
 variable "aggregator_secondary_grouping_window_seconds" {
   default     = 180
   description = "Additional time we wait before starting preingest to allow multiple invocations to form a single group, this is added to the aggregator_lambda_timeout_seconds when we start a group."
 }
 
-variable "vpc_id" {}
-
-variable "vpc_arn" {}
+variable "vpc" {
+  type = object({
+    id  = string
+    arn = string
+  })
+}
 
 variable "delete_from_source" {
   type        = bool

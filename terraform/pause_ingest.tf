@@ -25,10 +25,10 @@ module "pause_ingest_lambda" {
   }
   plaintext_env_vars = {
     TRIGGER_ARNS = jsonencode([
-      module.tdr_preingest.aggregator_sqs.sqs_arn,
-      module.dri_preingest.aggregator_sqs.sqs_arn,
-      module.ad_hoc_preingest.aggregator_sqs.sqs_arn,
-      module.court_document_preingest.aggregator_sqs.sqs_arn,
+      module.preingest["tdr"].aggregator_sqs.sqs_arn,
+      module.preingest["dri"].aggregator_sqs.sqs_arn,
+      module.preingest["ad_hoc"].aggregator_sqs.sqs_arn,
+      module.preingest["court_document"].aggregator_sqs.sqs_arn,
       module.ingest_find_existing_asset_queue.sqs_arn
     ])
     ENVIRONMENT = local.environment
