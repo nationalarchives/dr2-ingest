@@ -57,18 +57,14 @@ module "dr2_importer_lambda" {
   }
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
-    security_group_ids = var.private_security_group_ids
+    security_group_ids = var.private_security_group_ids # Needs: S3 and SQS (for all configured importer handlers).
   }
 }
-
 
 module "dr2_importer_sqs" {
   source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   queue_name = local.importer_name
-  sqs_policy = var.sns_topic_subscription == null ? templatefile("${path.module}/templates/sqs_access_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-    queue_name = local.importer_name
-    }) : templatefile("${path.module}/templates/sns_send_message_policy.json.tpl", {
+  sqs_policy = var.sns_topic_subscription == null ? null : templatefile("${path.module}/templates/sns_send_message_policy.json.tpl", {
     account_id = data.aws_caller_identity.current.account_id,
     queue_name = local.importer_name
     topic_arn  = var.sns_topic_subscription.topic_arn

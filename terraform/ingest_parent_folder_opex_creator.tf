@@ -29,7 +29,7 @@ module "dr2_ingest_parent_folder_opex_creator_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id]
+    security_group_ids = [module.outbound_https_access_for_s3.security_group_id, module.https_to_vpc_endpoints_security_group.security_group_id] # Needs: S3 and STS (to assume the cross-account S3 role).
   }
   tags = {
     Name        = local.ingest_parent_folder_opex_creator_lambda_name

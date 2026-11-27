@@ -68,13 +68,10 @@ module "postingest_state_table" {
 }
 
 module "dr2_confirmer_queues" {
-  source     = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
-  for_each   = { for queue in local.postingest_queue_config : queue.queueAlias => queue }
-  queue_name = each.value.queue_name
-  sqs_policy = templatefile("./templates/sqs/sqs_access_policy.json.tpl", {
-    account_id = data.aws_caller_identity.current.account_id,
-    queue_name = each.value.queue_name
-  })
+  source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
+  for_each                                          = { for queue in local.postingest_queue_config : queue.queueAlias => queue }
+  queue_name                                        = each.value.queue_name
+  sqs_policy                                        = null
   create_dlq                                        = false
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = 600
@@ -102,7 +99,7 @@ module "confirmer_message_older_than_one_week_alarm" {
 module "dr2_state_change_ddb_queue" {
   source                                            = "git::https://github.com/nationalarchives/da-terraform-modules//sqs"
   queue_name                                        = local.state_change_ddb_queue_name
-  sqs_policy                                        = ""
+  sqs_policy                                        = null
   create_dlq                                        = true
   queue_cloudwatch_alarm_visible_messages_threshold = local.messages_visible_threshold
   visibility_timeout                                = 180
@@ -138,6 +135,10 @@ module "dr2_send_to_state_change_ddb_queue_lambda" {
   }
 
   tags = {}
+  vpc_config = {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = var.private_security_group_ids # Needs: SQS.
+  }
 }
 
 module "dr2_state_change_lambda" {
@@ -171,7 +172,7 @@ module "dr2_state_change_lambda" {
 
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
-    security_group_ids = var.private_security_group_ids
+    security_group_ids = var.private_security_group_ids # Needs: DynamoDB, SNS and SQS.
   }
   plaintext_env_vars = {
     POSTINGEST_STATE_DDB_TABLE                = local.postingest_state_table_name
@@ -215,7 +216,7 @@ module "dr2_message_resender_lambda" {
   }
   vpc_config = {
     subnet_ids         = var.private_subnet_ids
-    security_group_ids = var.private_security_group_ids
+    security_group_ids = var.private_security_group_ids # Needs: DynamoDB, SQS and EventBridge.
   }
   tags = {
     Name = local.resender_lambda_name

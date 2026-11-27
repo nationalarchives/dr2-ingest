@@ -40,7 +40,7 @@ module "dr2_entity_event_generator_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]])
+    security_group_ids = flatten([local.clouflare_and_vpc_endpoints_security_groups, [module.outbound_https_access_for_dynamo_db.security_group_id]]) # Needs: Preservica (via Cloudflare), Secrets Manager, DynamoDB and SNS.
   }
   plaintext_env_vars = {
     LAMBDA_STATE_DDB_TABLE = local.last_polled_table_name
@@ -76,3 +76,54 @@ module "dr2_entity_event_generator_topic" {
     custodial_copy_queue_creator_queue = module.dr2_custodial_copy_queue_creator_queue.sqs_arn
   }
 }
+
+resource "awscc_cloudwatch_log_alarm" "entity_event" {
+  alarm_name      = "${local.environment}-entity-event-failure-alarm"
+  tags            = []
+  actions_enabled = true
+
+  threshold                 = 0
+  comparison_operator       = "GreaterThanThreshold"
+  query_results_to_evaluate = 1
+  query_results_to_alarm    = 1
+  treat_missing_data        = "notBreaching"
+
+  scheduled_query_configuration = {
+    query_string           = "filter log.level == \"ERROR\""
+    aggregation_expression = "COUNT(*)"
+
+    log_group_identifiers = [
+      "/aws/lambda/${local.entity_event_lambda_name}"
+    ]
+
+    scheduled_query_role_arn = module.entity_event_failure_alarm_execution_role.role_arn
+
+    schedule_configuration = {
+      schedule_expression = "rate(15 minutes)"
+      start_time_offset   = 900
+      end_time_offset     = 0
+    }
+  }
+}
+
+module "entity_event_failure_alarm_execution_role" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_role"
+  assume_role_policy = templatefile("${path.module}/templates/iam_role/service_assume_role.json.tpl", {
+    service        = "logs"
+    account_number = data.aws_caller_identity.current.account_id
+  })
+  name = "${local.environment}-dr2-entity-event-failure-alarm"
+  policy_attachments = {
+    entity_event_failure = module.entity_event_failure_alarm_execution_policy.policy_arn
+  }
+  tags = {}
+}
+
+module "entity_event_failure_alarm_execution_policy" {
+  source = "git::https://github.com/nationalarchives/da-terraform-modules//iam_policy"
+  name   = "${local.environment}-dr2-entity-event-failure-alarm"
+  policy_string = templatefile("${path.module}/templates/iam_policy/scheduled_log_alarm_policy.json.tpl", {
+    log_group_arn = "arn:aws:logs:eu-west-2:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.entity_event_lambda_name}"
+  })
+}
+

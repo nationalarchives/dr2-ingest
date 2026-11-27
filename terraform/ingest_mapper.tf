@@ -33,7 +33,7 @@ module "dr2_ingest_mapper_lambda" {
   }
   vpc_config = {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [module.outbound_https_to_discovery.security_group_id, module.outbound_https_access_for_s3.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id]
+    security_group_ids = [module.outbound_https_to_discovery.security_group_id, module.outbound_https_access_for_s3.security_group_id, module.outbound_https_access_for_dynamo_db.security_group_id] # Needs: Discovery API, S3 and DynamoDB.
   }
   tags = {
     Name        = local.ingest_mapper_lambda_name

@@ -39,7 +39,14 @@ def lambda_handler(event, context):
                     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
                     if lmd < cutoff:
                         try:
-                            client.delete_function(FunctionName=function_name, Qualifier=version_to_delete['Version'])
+                            version_id = version_to_delete['Version']
+                            aliases = client.list_aliases(
+                                FunctionName=function_name,
+                                FunctionVersion=version_id
+                            ).get("Aliases", [])
+                            for alias in aliases:
+                                client.delete_alias(FunctionName=function_name, Name=alias["Name"])
+                            client.delete_function(FunctionName=function_name, Qualifier=version_id)
                         except ClientError as e:
                             print(e)
                             continue

@@ -220,7 +220,7 @@
                 "Next": "Insert into PostIngest table"
               }
             ],
-            "Default": "Throw Reconciler job error"
+            "Default": "Ignore reconciler failure"
           },
           "Insert into PostIngest table": {
             "Type": "Task",
@@ -258,14 +258,20 @@
             "ResultPath": null,
             "End": true
           },
-          "Throw Reconciler job error": {
-            "Type": "Fail",
-            "Cause": "AWS Batch Job Failed",
-            "Error": "'wasReconciled' value was neither 'true' nor 'false'"
+          "Ignore reconciler failure": {
+            "Type": "Pass",
+            "End": true
           }
         }
       },
-      "Next": "Get number of items in lock table that have this groupId"
+      "Next": "Get number of items in lock table that have this groupId",
+      "ResultWriter": {
+        "Resource": "arn:aws:states:::s3:putObject",
+        "Parameters": {
+          "Bucket.$": "$.assets.bucket",
+          "Prefix": "${reconciler_output_prefix}"
+        }
+      }
     },
     "Get number of items in lock table that have this groupId": {
       "Type": "Task",
